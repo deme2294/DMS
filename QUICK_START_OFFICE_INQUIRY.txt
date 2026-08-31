@@ -1,0 +1,283 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║        📧 OFFICE INQUIRY EMAIL FEATURE - QUICK START GUIDE            ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+✅ FEATURE IMPLEMENTED
+
+When tenants submit inquiries at /tenant/corporate-office:
+1. Inquiry saved to database ✅
+2. Email sent automatically to office owner ✅
+3. Inquiry visible in admin feedback dashboard ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 TO START USING:
+
+STEP 1: RESTART BACKEND SERVER
+   ❯ Stop backend (Ctrl + C)
+   ❯ cd c:\Users\ITPC\Desktop\DMS\DMS\backend
+   ❯ npm start
+   
+   ✅ Look for: [MIGRATION] Created/verified office_feedback table
+
+STEP 2: CONFIGURE EMAIL (Optional)
+   ❯ Edit backend/.env file
+   ❯ Add SMTP settings:
+   
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=your-email@example.com
+   SMTP_PASS=your-app-password
+   EMAIL_FROM="Help Desk <noreply@example.com>"
+   
+   ⚠️ Without SMTP: Emails will be logged to console (still works!)
+
+STEP 3: TEST THE FEATURE
+   ❯ Go to http://localhost:5173/tenant/corporate-office
+   ❯ Click "Contact Office" button
+   ❯ Fill inquiry form
+   ❯ Click "Send Inquiry"
+   ❯ ✅ Green success message should appear
+
+STEP 4: VERIFY EMAIL SENT
+   ❯ Check backend terminal logs:
+   
+   📧 Office inquiry email sent to owner@example.com ✅
+   
+   ❯ OR if no SMTP:
+   
+   [EMAIL STUB] To: owner@example.com | Subject: ...
+
+STEP 5: VIEW IN ADMIN DASHBOARD
+   ❯ Login as admin or CEO user
+   ❯ Go to http://localhost:5173/admin/feedback
+   ❯ See inquiry with "[Office Inquiry]" prefix ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 FILES MODIFIED:
+
+Backend:
+  ✅ backend/services/emailService.js
+     - Added sendOfficeInquiryEmail() function
+  
+  ✅ backend/services/officeFeedbackService.js
+     - Added email sending on inquiry creation
+     - Added listAllOfficeFeedback() for admin view
+  
+  ✅ backend/controllers/feedbackController.js
+     - Modified to include office inquiries in admin view
+  
+  ✅ backend/services/migrationService.js
+     - Added office_feedback table creation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 HOW IT WORKS:
+
+1. TENANT SUBMITS INQUIRY
+   ↓
+2. SAVED TO DATABASE (office_feedback table)
+   ↓
+3. EMAIL SENT TO OFFICE OWNER AUTOMATICALLY
+   ↓
+4. ADMIN/CEO SEES IN FEEDBACK DASHBOARD
+   ↓
+5. OFFICE OWNER CAN REPLY VIA EMAIL OR PORTAL
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📧 EMAIL FEATURES:
+
+✅ Professional HTML template
+✅ Company branding
+✅ Office location details (building, floor, office number)
+✅ Tenant contact information
+✅ Formatted inquiry message with questions
+✅ Mailto link for quick reply
+✅ Matches existing helpdesk email style
+
+Subject: [Corporate Office] New Inquiry – [Building Name]
+To: office.owner@example.com (from office_locations.email)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🖥️ ADMIN DASHBOARD VIEW:
+
+Endpoint: /admin/feedback or /ceo/feedback
+
+Office inquiries appear with "[Office Inquiry]" prefix:
+
+┌────────────────────────────────────────────────────────────┐
+│ Subject: [Office Inquiry] Office Access Hours - BPO        │
+│ Tenant:  Acme Corporation                                  │
+│ Status:  🟡 Pending                                         │
+│ Created: 2024-03-10                                        │
+│ Actions: [View] [Reply] [Delete]                           │
+└────────────────────────────────────────────────────────────┘
+
+Features:
+✅ Search by tenant name, subject, building
+✅ Filter by status (pending/read/resolved)
+✅ View full inquiry details
+✅ Reply to tenant
+✅ Delete inquiry
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🗄️ DATABASE TABLE:
+
+Table: office_feedback
+
+Columns:
+  • id                    - UUID primary key
+  • office_location_id    - Which office
+  • tenant_id             - Which tenant organization
+  • user_id               - Which user sent inquiry
+  • subject               - Inquiry subject
+  • message               - Full inquiry message
+  • rating                - Optional rating
+  • status                - pending/read/resolved
+  • created_at           - Timestamp
+  • updated_at           - Last update
+
+Indexes:
+  ✅ office_location_id (find inquiries by office)
+  ✅ tenant_id (find inquiries by tenant)
+  ✅ user_id (find inquiries by user)
+  ✅ status (filter by status)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 TESTING CHECKLIST:
+
+Before Testing:
+  [ ] Backend server restarted
+  [ ] office_feedback table created
+  [ ] SMTP configured (optional)
+  [ ] Logged in as tenant user
+
+Test Inquiry Submission:
+  [ ] Go to /tenant/corporate-office
+  [ ] Click "Contact Office" button
+  [ ] Modal opens with inquiry form
+  [ ] Check some questions
+  [ ] Add additional information
+  [ ] Click "Send Inquiry"
+  [ ] Green success message appears
+  [ ] Modal closes automatically
+  [ ] No console errors
+
+Test Email Sent:
+  [ ] Check backend terminal logs
+  [ ] See "📧 Office inquiry email sent to [email]"
+  [ ] OR see "[EMAIL STUB]" if no SMTP
+  [ ] Office owner receives email (if SMTP configured)
+
+Test Admin View:
+  [ ] Login as admin or CEO user
+  [ ] Go to /admin/feedback
+  [ ] See inquiry with "[Office Inquiry]" prefix
+  [ ] Can search for inquiry
+  [ ] Can filter by status
+  [ ] Can view full inquiry details
+  [ ] Can reply to inquiry
+  [ ] Can delete inquiry
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🐛 TROUBLESHOOTING:
+
+ERROR: Table 'office_feedback' doesn't exist
+FIX: Restart backend server to run migration
+
+ERROR: Email not sent
+FIX: Check SMTP settings in .env, or ignore if using stub mode
+
+ERROR: Inquiry not in admin dashboard
+FIX: Make sure logged in as admin/CEO, refresh page
+
+ERROR: 401 Unauthorized
+FIX: Clear browser storage, re-login
+
+ERROR: 500 Internal Server Error
+FIX: Check backend logs for specific error
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ EXPECTED BACKEND LOGS:
+
+On Startup:
+  database connected successfully
+  [MIGRATION] Checking database schema...
+  [MIGRATION] Created/verified office_bookings table
+  [MIGRATION] Created/verified office_feedback table ✅
+  [MIGRATION] Schema verification completed successfully.
+  🚀  Server listening on port 5000  (development)
+
+On Inquiry Submission:
+  [Timestamp] POST /api/office/offices/[office-id]/feedback
+  📧 Office inquiry email sent to owner@example.com ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION:
+
+Detailed Guide:
+  📄 OFFICE_INQUIRY_EMAIL_FEATURE.md
+     - Complete feature documentation
+     - Technical implementation details
+     - Email template structure
+     - Database schema
+     - API endpoints
+     - Future enhancements
+
+Quick Reference:
+  📄 QUICK_START_OFFICE_INQUIRY.txt (this file)
+     - Quick setup guide
+     - Testing checklist
+     - Troubleshooting tips
+
+Previous Fixes:
+  📄 DATABASE_TABLE_FIX.txt
+     - office_feedback table creation
+  
+  📄 QUICK_FIX_401_ERROR.md
+     - Authentication troubleshooting
+  
+  📄 ERROR_FIX_SUMMARY.txt
+     - Previous error fixes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ FEATURE BENEFITS:
+
+For Tenants:
+  ✅ Easy inquiry submission
+  ✅ Immediate confirmation
+  ✅ No external email client needed
+  ✅ Structured question format
+
+For Office Owners:
+  ✅ Instant email notification
+  ✅ All inquiry details included
+  ✅ Easy reply via email
+  ✅ Professional communication
+
+For Admins:
+  ✅ Centralized inquiry tracking
+  ✅ Search and filter capabilities
+  ✅ Reply management
+  ✅ Historical data for reporting
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 FEATURE COMPLETE!
+
+Just restart your backend server and test!
+
+Questions? Check the detailed documentation:
+📄 OFFICE_INQUIRY_EMAIL_FEATURE.md
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

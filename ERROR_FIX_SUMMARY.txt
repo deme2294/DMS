@@ -1,0 +1,173 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║                  🔧 401/500 ERROR FIX - QUICK GUIDE                    ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+❌ ERRORS ENCOUNTERED:
+   1. POST /api/office/offices/:id/feedback → 401 (Unauthorized)
+   2. POST /api/office/offices/:id/feedback → 500 (Internal Server Error)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ FIX APPLIED:
+
+FILE: backend/controllers/officeFeedbackController.js
+
+BEFORE:
+```javascript
+export const createOfficeFeedback = async (req, res, next) => {
+  try {
+    const feedback = await officeFeedbackService.createOfficeFeedback(
+      req.body,  // ❌ Missing officeLocationId
+      req.user
+    );
+    res.status(HTTP.CREATED).json({ success: true, message: 'Feedback submitted', data: feedback });
+  } catch (err) {
+    next(err);
+  }
+};
+```
+
+AFTER:
+```javascript
+export const createOfficeFeedback = async (req, res, next) => {
+  try {
+    const payload = {
+      ...req.body,
+      officeLocationId: req.params.id, // ✅ Added from route parameter
+    };
+    const feedback = await officeFeedbackService.createOfficeFeedback(
+      payload,
+      req.user
+    );
+    res.status(HTTP.CREATED).json({ success: true, message: 'Feedback submitted', data: feedback });
+  } catch (err) {
+    next(err);
+  }
+};
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 TO FIX THE ERRORS:
+
+STEP 1: RESTART BACKEND SERVER
+   ❯ Stop backend (Ctrl + C in terminal)
+   ❯ cd c:\Users\ITPC\Desktop\DMS\DMS\backend
+   ❯ npm start
+
+STEP 2: CLEAR BROWSER STORAGE & RE-LOGIN
+   ❯ Open Browser DevTools (F12)
+   ❯ Go to Application tab
+   ❯ Clear Local Storage
+   ❯ Clear Session Storage
+   ❯ Refresh page (F5)
+   ❯ Login again as tenant user
+
+STEP 3: TEST AGAIN
+   ❯ Go to /tenant/corporate-office
+   ❯ Click "Contact Office" button
+   ❯ Fill inquiry form
+   ❯ Click "Send Inquiry"
+   ❯ Should work now! ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 WHY THIS HAPPENED:
+
+ERROR 500 (Internal Server Error):
+  • Service expected officeLocationId in data object
+  • Route parameter (:id) wasn't being passed to service
+  • Fixed by adding officeLocationId from req.params.id
+
+ERROR 401 (Unauthorized):
+  • Possible token expiration
+  • Token refresh mechanism should handle this
+  • Re-login will provide fresh token
+  • Clearing storage ensures clean state
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ EXPECTED RESULT AFTER FIX:
+
+REQUEST:
+  POST /api/office/offices/[office-id]/feedback
+  Status: 201 Created ✅
+
+RESPONSE:
+  {
+    "success": true,
+    "message": "Feedback submitted",
+    "data": { /* feedback object */ }
+  }
+
+IN UI:
+  • Green success message appears
+  • "Your inquiry has been sent successfully!"
+  • Modal closes after 2 seconds
+  • No console errors
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️ TROUBLESHOOTING:
+
+IF STILL 401 ERROR:
+
+1. CHECK TOKEN EXISTS:
+   • Console: localStorage.getItem('accessToken')
+   • Should show JWT token
+   • If null, login again
+
+2. CHECK USER ROLE:
+   • This endpoint requires 'tenant' role
+   • Console: Check decoded JWT for role
+   • If not tenant, use tenant account
+
+3. CHECK BACKEND LOGS:
+   • Look at backend terminal
+   • Should show POST request
+   • Check for error messages
+
+4. HARD REFRESH:
+   • Ctrl + Shift + R (Windows)
+   • Cmd + Shift + R (Mac)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTATION:
+
+Created Files:
+  ✅ QUICK_FIX_401_ERROR.md
+     - Detailed troubleshooting guide
+     - Authentication flow explanation
+     - Verification checklist
+
+  ✅ ERROR_FIX_SUMMARY.txt
+     - This file - Quick reference
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✨ QUICK CHECKLIST:
+
+Before Testing:
+  [ ] Backend controller updated (officeFeedbackController.js)
+  [ ] Backend server restarted
+  [ ] Browser storage cleared
+  [ ] Re-logged in as tenant
+  [ ] On /tenant/corporate-office page
+
+Test Steps:
+  [ ] Click "Contact Office" button
+  [ ] Modal opens
+  [ ] Check some questions
+  [ ] Add additional info
+  [ ] Click "Send Inquiry"
+  [ ] Green success message appears
+  [ ] Modal closes automatically
+  [ ] NO 401 error in console
+  [ ] NO 500 error in console
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 STATUS: FIX APPLIED & READY TO TEST
+
+Just restart backend and re-login!

@@ -1,0 +1,739 @@
+import * as notificationRepo from '../repository/notificationRepository.js';
+import pool from '../config/db.js';
+import {
+  sendTicketReplyEmail,
+  sendTicketResolvedEmail,
+  sendTicketClosedEmail,
+  sendTicketAssignedEmail,
+  sendTicketStatusEmail,
+  sendNoticePublishedEmail,
+  sendNoticeExpiryWarningEmail,
+} from './emailService.js';
+import { emitToUser, emitToTicket, broadcastTicketEvent } from './socketService.js';
+import * as ticketRepo from '../repository/ticketRepository.js';
+
+export const getUserUnreadCount = async (userId) => {
+  return notificationRepo.getUnreadCount(userId);
+};
+
+export const getUserNotifications = async (userId, { limit = 20, offset = 0 } = {}) => {
+  return notificationRepo.getNotifications(userId, { limit, offset });
+};
+
+export const markNotificationAsRead = async (id, userId) => {
+  await notificationRepo.markAsRead(id, userId);
+};
+
+export const markAllNotificationsRead = async (userId) => {
+  await notificationRepo.markAllAsRead(userId);
+};
+
+export const deleteNotification = async (id, userId) => {
+  await notificationRepo.deleteNotification(id, userId);
+};
+
+export const notifyNewChatMessage = async (message, room, senderName) => {
+  const [participants] = await pool.query(
+    `SELECT user_id FROM chat_participants WHERE room_id = :roomId AND user_id != :senderId AND is_active = TRUE`,
+    { roomId: message.room_id, senderId: message.sender_id }
+  );
+  for (const p of participants) {
+    await notificationRepo.createNotification(
+      p.user_id,
+      'New Chat Message',
+      `${senderName} sent you a message in "${room.name}".`,
+      'chat',
+      null,
+      null,
+      message.room_id
+    );
+    emitToUser(p.user_id, 'notification', {
+      title: 'New Chat Message',
+      message: `${senderName} sent you a message in "${room.name}".`,
+      type: 'chat',
+      roomId: message.room_id,
+    });
+  }
+};
+
+export const notifyTicketCreated = async (ticket, createdByUserId) => {
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  for (const admin of admins) {
+    if (admin.id === createdByUserId) continue;
+    await notificationRepo.createNotification(
+      admin.id,
+      'New Ticket Created',
+      `Ticket ${ticket.reference_number} "${truncate(ticket.title, 60)}" has been submitted.`,
+      'ticket',
+      ticket.id
+    );
+    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ticket.reference_number} has been submitted.`, type: 'ticket', ticketId: ticket.id });
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:created', { ticketId: ticket.id, referenceNumber: ticket.reference_number, title: ticket.title });
+};
+
+export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUserId) => {
+  if (assignedUserId === assignedByUserId) return;
+  await notificationRepo.createNotification(
+    assignedUserId,
+    'Ticket Assigned to You',
+    `You have been assigned ticket ${ticket.reference_number} "${truncate(ticket.title, 60)}".`,
+    'assignment',
+    ticket.id
+  );
+  emitToUser(assignedUserId, 'notification', {
+    title: 'Ticket Assigned to You',
+    message: `Ticket ${ticket.reference_number} has been assigned to you.`,
+    type: 'assignment',
+    ticketId: ticket.id,
+  });
+
+  const [userRows] = await pool.query(
+    'SELECT email, first_name FROM users WHERE id = :id LIMIT 1',
+    { id: assignedUserId }
+  );
+  if (userRows.length) {
+    sendTicketAssignedEmail({
+      email: userRows[0].email,
+      firstName: userRows[0].first_name,
+      ticket: {
+        reference_number: ticket.reference_number || ticket.referenceNumber,
+        title: ticket.title,
+        priority: ticket.priority,
+        category: ticket.category,
+      },
+    }).catch(() => { });
+  }
+};
+
+export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => {
+  const [managers] = await pool.query(
+    `SELECT u.id, u.email, u.first_name FROM users u
+     JOIN user_departments ud ON ud.user_id = u.id
+     JOIN roles r ON r.id = u.role_id
+     WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+    { departmentId }
+  );
+  for (const mgr of managers) {
+    await notificationRepo.createNotification(
+      mgr.id,
+      'Ticket Assigned to Department',
+      `Ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been assigned to your department.`,
+      'assignment',
+      ticket.id
+    );
+    emitToUser(mgr.id, 'notification', {
+      title: 'Ticket Assigned to Department',
+      message: `Ticket ${ticket.reference_number || ticket.referenceNumber} has been assigned to your department.`,
+      type: 'assignment',
+      ticketId: ticket.id,
+    });
+    sendTicketAssignedEmail({
+      email: mgr.email,
+      firstName: mgr.first_name,
+      ticket: {
+        reference_number: ticket.reference_number || ticket.referenceNumber,
+        title: ticket.title,
+        priority: ticket.priority,
+        category: ticket.category,
+      },
+    }).catch(() => { });
+  }
+};
+
+export const notifyTicketReply = async (ticket, replyUserId, isInternal = false) => {
+  const recipients = new Set();
+  const [creator] = await pool.query('SELECT id FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  if (creator.length && creator[0].id !== replyUserId && !isInternal) {
+    recipients.add(creator[0].id);
+  }
+
+  if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
+    recipients.add(ticket.assigned_to);
+  }
+
+  const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
+  for (const userId of accessibleUserIds) {
+    if (userId !== replyUserId) recipients.add(userId);
+  }
+
+  for (const userId of recipients) {
+    await notificationRepo.createNotification(
+      userId,
+      'New Reply on Ticket',
+      `A new reply has been added to ticket ${ticket.reference_number}.`,
+      'reply',
+      ticket.id
+    );
+  }
+};
+
+export const notifyTicketStatusChanged = async (ticket, toStatus, changedByUserId) => {
+  const recipients = new Set();
+  if (ticket.created_by && ticket.created_by !== changedByUserId) recipients.add(ticket.created_by);
+  if (ticket.assigned_to && ticket.assigned_to !== changedByUserId) recipients.add(ticket.assigned_to);
+
+  for (const userId of recipients) {
+    await notificationRepo.createNotification(
+      userId,
+      'Ticket Status Updated',
+      `Ticket ${ticket.reference_number} status changed to ${toStatus}.`,
+      'status',
+      ticket.id
+    );
+  }
+
+  const creatorName = await getUserName(ticket.created_by);
+  sendTicketStatusEmail({
+    email: (await pool.query('SELECT email FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by }))[0][0]?.email,
+    firstName: creatorName,
+    ticket,
+    fromStatus: ticket.status,
+    toStatus,
+  }).catch(() => { });
+};
+
+export const notifyTicketResolved = async (ticket) => {
+  if (!ticket.created_by) return;
+  const creatorName = await getUserName(ticket.created_by);
+  sendTicketResolvedEmail({
+    email: (await pool.query('SELECT email FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by }))[0][0]?.email,
+    firstName: creatorName,
+    ticket,
+  }).catch(() => { });
+};
+
+export const notifyTicketApproved = async (ticket, adminResolutionNote = '') => {
+  if (!ticket.created_by) return;
+
+  const [tenantRows] = await pool.query(
+    'SELECT email, first_name FROM users WHERE id = :id LIMIT 1',
+    { id: ticket.created_by }
+  );
+  if (!tenantRows.length) return;
+
+  const message = adminResolutionNote
+    ? `Your ticket ${ticket.reference_number || ticket.referenceNumber} has been approved and resolved. Note: ${truncate(adminResolutionNote, 120)}`
+    : `Your ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been approved and resolved.`;
+
+  await notificationRepo.createNotification(
+    ticket.created_by,
+    'Ticket Approved & Resolved',
+    message,
+    'status',
+    ticket.id
+  );
+
+  emitToUser(ticket.created_by, 'notification', {
+    title: 'Ticket Approved & Resolved',
+    message,
+    type: 'status',
+    ticketId: ticket.id,
+  });
+
+  sendTicketResolvedEmail({
+    email: tenantRows[0].email,
+    firstName: tenantRows[0].first_name,
+    ticket: {
+      reference_number: ticket.reference_number || ticket.referenceNumber,
+      title: ticket.title,
+      notes: adminResolutionNote,
+    },
+  }).catch(() => { });
+};
+
+export const notifyTicketClosed = async (ticket) => {
+  if (!ticket.created_by) return;
+  const creatorName = await getUserName(ticket.created_by);
+  sendTicketClosedEmail({
+    email: (await pool.query('SELECT email FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by }))[0][0]?.email,
+    firstName: creatorName,
+    ticket,
+  }).catch(() => { });
+};
+
+export const notifyNoticePublished = async (notice, recipients = []) => {
+  for (const user of recipients) {
+    const message = `${truncate(notice.title, 80)} — ${truncate(notice.description, 120)}`;
+    await notificationRepo.createNotification(
+      user.id,
+      'New Notice Published',
+      message,
+      'notice',
+      null,
+      notice.id
+    );
+    emitToUser(user.id, 'notification', {
+      title: 'New Notice Published',
+      message,
+      type: 'notice',
+      noticeId: notice.id,
+    });
+    sendNoticePublishedEmail({
+      email: user.email,
+      firstName: user.first_name,
+      notice,
+    }).catch(() => { });
+  }
+};
+
+export const notifyNoticeExpiryWarning = async (notice, recipients = []) => {
+  for (const user of recipients) {
+    const message = `Notice "${truncate(notice.title, 80)}" has expired without acknowledgement.`;
+    await notificationRepo.createNotification(
+      user.id,
+      'Notice Expired – Action Required',
+      message,
+      'notice',
+      null,
+      notice.id
+    );
+    emitToUser(user.id, 'notification', {
+      title: 'Notice Expired – Action Required',
+      message,
+      type: 'notice',
+      noticeId: notice.id,
+    });
+    sendNoticeExpiryWarningEmail({
+      email: user.email,
+      firstName: user.first_name,
+      notice,
+    }).catch(() => { });
+  }
+};
+
+export const notifyTicketEscalated = async (ticket, escalatedBy, notes) => {
+  if (!ticket.created_by) return;
+  await notificationRepo.createNotification(
+    ticket.created_by, 'Ticket Escalated', `Ticket ${ticket.referenceNumber || ticket.reference_number} has been escalated.`, 'escalation', ticket.id
+  );
+
+  const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
+  for (const userId of accessibleUserIds) {
+    if (userId === escalatedBy) continue;
+    await notificationRepo.createNotification(
+      userId, 'Ticket Escalated', `Ticket ${ticket.referenceNumber || ticket.reference_number} was escalated by a ${ticket.role || 'user'}.`, 'escalation', ticket.id
+    );
+  }
+};
+
+export const notifyTicketCompleted = async (ticket, completedBy, slaAchieved = false, resolutionMinutes = null) => {
+  if (!ticket.created_by) return;
+
+  const slaText = slaAchieved
+    ? 'The ticket was completed within the SLA deadline.'
+    : 'The ticket was completed after the SLA deadline.';
+  const durationText = resolutionMinutes
+    ? ` Total resolution time: ${Math.floor(resolutionMinutes / 60)}h ${resolutionMinutes % 60}m.`
+    : '';
+
+  await notificationRepo.createNotification(
+    ticket.created_by, 'Ticket Completed',
+    `Ticket ${ticket.referenceNumber || ticket.reference_number} has been marked completed and is awaiting approval. ${slaText}${durationText}`,
+    'completion', ticket.id
+  );
+
+  const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
+  for (const userId of accessibleUserIds) {
+    if (userId === completedBy) continue;
+    const isManager = userId !== ticket.created_by && ticket.department_id;
+    await notificationRepo.createNotification(
+      userId,
+      isManager ? 'Ticket Completed' : 'Completion Awaiting Approval',
+      isManager
+        ? `Ticket ${ticket.referenceNumber || ticket.reference_number} has been marked completed. ${slaText}${durationText}`
+        : `Ticket ${ticket.referenceNumber || ticket.reference_number} is awaiting your approval. ${slaText}${durationText}`,
+      'completion',
+      ticket.id
+    );
+  }
+};
+
+export const notifyTicketAccepted = async (ticket, acceptedBy) => {
+  const recipients = new Set([ticket.created_by, ticket.assigned_to]);
+  const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
+  for (const userId of accessibleUserIds) {
+    if (userId !== acceptedBy) recipients.add(userId);
+  }
+  for (const userId of recipients) {
+    if (!userId || userId === acceptedBy) continue;
+    await notificationRepo.createNotification(
+      userId, 'Assignment Accepted',
+      `Ticket ${ticket.referenceNumber || ticket.reference_number} assignment has been accepted.`,
+      'assignment', ticket.id
+    );
+  }
+};
+
+export const notifyTicketRejected = async (ticket, rejectedBy, reason) => {
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  const recipients = new Set([ticket.created_by, ...admins.map(a => a.id)]);
+  const reasonText = reason ? ` Reason: ${truncate(reason, 120)}.` : '';
+  for (const userId of recipients) {
+    if (!userId || userId === rejectedBy) continue;
+    await notificationRepo.createNotification(
+      userId, 'Assignment Rejected',
+      `Ticket ${ticket.referenceNumber || ticket.reference_number} assignment was rejected.${reasonText}`,
+      'assignment', ticket.id
+    );
+  }
+};
+
+export const notifyTicketReopened = async (ticket, reopenedBy, notes) => {
+  if (!ticket.created_by) return;
+  await notificationRepo.createNotification(
+    ticket.created_by, 'Ticket Reopened', `Ticket ${ticket.referenceNumber || ticket.reference_number} has been reopened.`, 'reopen', ticket.id
+  );
+};
+
+export const notifyTicketMerged = async (ticket, count, notes) => {
+  if (!ticket.created_by) return;
+  await notificationRepo.createNotification(
+    ticket.created_by, 'Tickets Merged', `${count} duplicate ticket(s) were merged into ${ticket.referenceNumber || ticket.reference_number}.`, 'merge', ticket.id
+  );
+};
+
+export const notifyInternalNote = async (ticket, authorId) => {
+  const recipients = new Set();
+  const [creator] = await pool.query('SELECT id FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  if (creator.length && creator[0].id !== authorId) recipients.add(creator[0].id);
+
+  if (ticket.assigned_to && ticket.assigned_to !== authorId) {
+    recipients.add(ticket.assigned_to);
+  }
+
+  const authorUser = await pool.query('SELECT role FROM users WHERE id = :id LIMIT 1', { id: authorId });
+  const authorRole = authorUser[0]?.role;
+
+  if (authorRole === 'admin' || authorRole === 'ceo') {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name IN ('manager', 'staff') AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const m of managers) recipients.add(m.id);
+
+    const [allStaff] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE r.name IN ('manager', 'staff') AND u.status = 'active' AND u.id != :authorId`,
+      { authorId }
+    );
+    for (const s of allStaff) recipients.add(s.id);
+  } else if (authorRole === 'manager') {
+    const authorDeptIds = await ticketRepo.getUserDepartmentIds(authorId);
+    if (authorDeptIds.length > 0) {
+      const placeholders = authorDeptIds.map(() => '?').join(',');
+      const [staff] = await pool.query(
+        `SELECT u.id FROM users u
+         JOIN user_departments ud ON ud.user_id = u.id
+         JOIN roles r ON r.id = u.role_id
+         WHERE ud.department_id IN (${placeholders}) AND r.name = 'staff' AND u.status = 'active' AND u.id != ?`,
+        [...authorDeptIds, authorId]
+      );
+      for (const s of staff) recipients.add(s.id);
+
+      const [managers] = await pool.query(
+        `SELECT u.id FROM users u
+         JOIN user_departments ud ON ud.user_id = u.id
+         JOIN roles r ON r.id = u.role_id
+         WHERE ud.department_id IN (${placeholders}) AND r.name = 'manager' AND u.status = 'active' AND u.id != ?`,
+        [...authorDeptIds, authorId]
+      );
+      for (const m of managers) recipients.add(m.id);
+    }
+  } else if (authorRole === 'staff') {
+    const staffDeptIds = await ticketRepo.getUserDepartmentIds(authorId);
+    if (staffDeptIds.length > 0) {
+      const placeholders = staffDeptIds.map(() => '?').join(',');
+      const [staff] = await pool.query(
+        `SELECT u.id FROM users u
+         JOIN user_departments ud ON ud.user_id = u.id
+         JOIN roles r ON r.id = u.role_id
+         WHERE ud.department_id IN (${placeholders}) AND r.name = 'staff' AND u.status = 'active' AND u.id != ?`,
+        [...staffDeptIds, authorId]
+      );
+      for (const s of staff) recipients.add(s.id);
+
+      const [managers] = await pool.query(
+        `SELECT u.id FROM users u
+         JOIN user_departments ud ON ud.user_id = u.id
+         JOIN roles r ON r.id = u.role_id
+         WHERE ud.department_id IN (${placeholders}) AND r.name = 'manager' AND u.status = 'active' AND u.id != ?`,
+        [...staffDeptIds, authorId]
+      );
+      for (const m of managers) recipients.add(m.id);
+    }
+  }
+
+  for (const userId of recipients) {
+    await notificationRepo.createNotification(
+      userId, 'New Internal Note', `An internal note was added to ticket ${ticket.referenceNumber || ticket.reference_number}.`, 'internal', ticket.id
+    );
+  }
+};
+
+export const notifyTicketReassigned = async (ticket, toRole, reason) => {
+  if (!ticket.created_by) return;
+  await notificationRepo.createNotification(
+    ticket.created_by, 'Ticket Reassigned', `Ticket ${ticket.referenceNumber || ticket.reference_number} was returned to ${toRole}.`, 'assignment', ticket.id
+  );
+};
+
+export const notifySLABreached = async (ticket, breachType) => {
+  const titleMap = {
+    response: 'Response SLA Breached',
+    escalation: 'Escalation SLA Triggered',
+    resolution: 'Resolution SLA Overdue',
+  };
+  const messageMap = {
+    response: `Response SLA for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been breached.`,
+    escalation: `Escalation SLA triggered for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}". Ticket escalated.`,
+    resolution: `Resolution SLA for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" is overdue.`,
+  };
+  const title = titleMap[breachType] || 'SLA Breached';
+  const message = messageMap[breachType] || 'SLA deadline breached.';
+
+  const userIds = new Set();
+
+  if (breachType === 'escalation') {
+    const [admins] = await pool.query(
+      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+    );
+    for (const a of admins) userIds.add(a.id);
+    if (ticket.created_by) userIds.add(ticket.created_by);
+  } else {
+    if (ticket.assigned_to) userIds.add(ticket.assigned_to);
+    if (ticket.created_by) userIds.add(ticket.created_by);
+  }
+
+  if (ticket.department_id) {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const mgr of managers) userIds.add(mgr.id);
+  }
+
+  for (const userId of userIds) {
+    await notificationRepo.createNotification(userId, title, message, 'sla', ticket.id);
+    emitToUser(userId, 'notification', { title, message, type: 'sla', ticketId: ticket.id });
+  }
+
+  emitToTicket(ticket.id, 'sla:breached', { ticketId: ticket.id, breachType, title, message });
+};
+
+export const notifySLANearDeadline = async (ticket, breachType, remainingHours) => {
+  const titleMap = {
+    response: 'Response SLA Approaching',
+    escalation: 'Escalation SLA Approaching',
+    resolution: 'Resolution SLA Approaching',
+  };
+  const messageMap = {
+    response: `Response SLA for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" will breach in approximately ${remainingHours} hour(s).`,
+    escalation: `Escalation SLA for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" will breach in approximately ${remainingHours} hour(s).`,
+    resolution: `Resolution SLA for ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" will breach in approximately ${remainingHours} hour(s).`,
+  };
+  const title = titleMap[breachType] || 'SLA Approaching';
+  const message = messageMap[breachType] || 'SLA deadline approaching.';
+
+  const userIds = new Set();
+  if (ticket.assigned_to) userIds.add(ticket.assigned_to);
+  if (ticket.created_by) userIds.add(ticket.created_by);
+
+  if (ticket.department_id) {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const mgr of managers) userIds.add(mgr.id);
+  }
+
+  for (const userId of userIds) {
+    await notificationRepo.createNotification(userId, title, message, 'sla', ticket.id);
+    emitToUser(userId, 'notification', { title, message, type: 'sla', ticketId: ticket.id, remainingHours });
+  }
+
+  emitToTicket(ticket.id, 'sla:near-deadline', { ticketId: ticket.id, breachType, remainingHours, title, message });
+};
+
+async function getUserName(userId) {
+  if (!userId) return 'User';
+  const [rows] = await pool.query('SELECT first_name FROM users WHERE id = :id LIMIT 1', { id: userId });
+  return rows[0]?.first_name || 'User';
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '...' : str;
+}
+
+const getTicketAccessibleUserIds = async (ticket) => {
+  const userIds = new Set();
+
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  admins.forEach((a) => userIds.add(a.id));
+
+  if (ticket.tenant_id) {
+    const [tenantUsers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.tenant_id = :tenantId AND r.name = 'tenant' AND u.status = 'active'`,
+      { tenantId: ticket.tenant_id }
+    );
+    tenantUsers.forEach((u) => userIds.add(u.id));
+  }
+
+  if (ticket.assigned_to) {
+    userIds.add(ticket.assigned_to);
+  }
+
+  if (ticket.department_id) {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    managers.forEach((m) => userIds.add(m.id));
+  }
+
+  return userIds;
+};
+
+export const notifyKnowledgeSubmitted = async (article, submittedByUser) => {
+  const [admins] = await pool.query(
+    `SELECT u.id, u.email, u.first_name FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin','manager') AND u.status = 'active' AND u.id != :submittedBy`,
+    { submittedBy: submittedByUser.id }
+  );
+  for (const admin of admins) {
+    await notificationRepo.createNotification(
+      admin.id,
+      'Article Submitted for Review',
+      `Article "${truncate(article.title, 80)}" (${article.article_reference}) has been submitted for review.`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(admin.id, 'notification', {
+      title: 'Article Submitted for Review',
+      message: `"${truncate(article.title, 60)}" needs review.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};
+
+export const notifyKnowledgeApproved = async (article, approvedByUser) => {
+  if (article.author_id && article.author_id !== approvedByUser.id) {
+    await notificationRepo.createNotification(
+      article.author_id,
+      'Article Approved',
+      `Your article "${truncate(article.title, 80)}" (${article.article_reference}) has been approved.`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(article.author_id, 'notification', {
+      title: 'Article Approved',
+      message: `"${truncate(article.title, 60)}" was approved.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};
+
+export const notifyKnowledgeRejected = async (article, rejectedByUser, reason) => {
+  if (article.author_id && article.author_id !== rejectedByUser.id) {
+    await notificationRepo.createNotification(
+      article.author_id,
+      'Article Rejected',
+      `Your article "${truncate(article.title, 80)}" was rejected. Reason: ${truncate(reason || 'No reason provided', 120)}`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(article.author_id, 'notification', {
+      title: 'Article Rejected',
+      message: `"${truncate(article.title, 60)}" was rejected.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};
+
+export const notifyKnowledgeRevisionRequested = async (article, requestedByUser, reason) => {
+  if (article.author_id && article.author_id !== requestedByUser.id) {
+    await notificationRepo.createNotification(
+      article.author_id,
+      'Article Revision Requested',
+      `Your article "${truncate(article.title, 80)}" needs revision. ${truncate(reason || '', 120)}`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(article.author_id, 'notification', {
+      title: 'Article Revision Requested',
+      message: `"${truncate(article.title, 60)}" needs revision.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};
+
+export const notifyKnowledgePublished = async (article, publishedByUser) => {
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin','manager','staff') AND u.status = 'active' AND u.id != :publishedBy`,
+    { publishedBy: publishedByUser.id }
+  );
+  for (const admin of admins) {
+    await notificationRepo.createNotification(
+      admin.id,
+      'New Knowledge Article Published',
+      `Article "${truncate(article.title, 80)}" (${article.article_reference}) has been published.`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(admin.id, 'notification', {
+      title: 'New Knowledge Article Published',
+      message: `"${truncate(article.title, 60)}" is now live.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};
+
+export const notifyKnowledgeUnpublished = async (article, unpublishedByUser) => {
+  if (article.author_id && article.author_id !== unpublishedByUser.id) {
+    await notificationRepo.createNotification(
+      article.author_id,
+      'Article Unpublished',
+      `Your article "${truncate(article.title, 80)}" has been unpublished.`,
+      'knowledge',
+      null,
+      article.id
+    );
+    emitToUser(article.author_id, 'notification', {
+      title: 'Article Unpublished',
+      message: `"${truncate(article.title, 60)}" was unpublished.`,
+      type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+};

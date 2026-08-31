@@ -1,0 +1,73 @@
+.page {
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.card {
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  border-top: 4px solid #3b82f6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.cardValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.cardLabel {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.section {
+  margin-top: 24px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+}
+
+.feedbackGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.deptList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deptItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+.deptName {
+  font-weight: 500;
+}
+
+.deptCount {
+  color: #64748b;
+  font-weight: 600;
+}

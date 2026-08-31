@@ -1,0 +1,162 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+  padding: 20px;
+}
+
+.modal {
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
+  display: flex;
+  flex-direction: column;
+  animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 28px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e2e8f0;
+  border-left: 5px solid #2563eb;
+  flex-shrink: 0;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header button {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 1.25rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.header button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.body {
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 18px 28px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .header {
+    padding: 18px 20px;
+  }
+
+  .body {
+    padding: 20px;
+  }
+
+  .footer {
+    padding: 14px 20px;
+  }
+}
+
+/* ── Dark Theme Overrides for Modal ─────────────────────────────────────── */
+:global([data-theme="dark"]) .modal {
+  background: #181c24 !important;
+  border-color: #252b38 !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7) !important;
+}
+
+:global([data-theme="dark"]) .header {
+  background: linear-gradient(135deg, #181c24 0%, #1e2330 100%) !important;
+  border-bottom-color: #252b38 !important;
+  border-left-color: #3b82f6 !important;
+}
+
+:global([data-theme="dark"]) .header h2 {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .header button {
+  background: #1e2330 !important;
+  border-color: #2e3547 !important;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .header button:hover {
+  background: #252b38 !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .footer {
+  background: #13161f !important;
+  border-top-color: #252b38 !important;
+}
+
+

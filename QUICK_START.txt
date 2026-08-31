@@ -1,0 +1,56 @@
+╔════════════════════════════════════════════════════════════════╗
+║                   🚀 QUICK FIX - RESTART BACKEND                ║
+╚════════════════════════════════════════════════════════════════╝
+
+❌ CURRENT ERROR:
+   GET http://localhost:5173/api/office/offices/tenant/view 404 (Not Found)
+
+✅ SOLUTION:
+   Restart the backend server to load the new route
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 STEP-BY-STEP INSTRUCTIONS:
+
+1. STOP BACKEND SERVER
+   ➜ Go to terminal where backend is running
+   ➜ Press: Ctrl + C
+   ➜ Wait for process to stop
+
+2. START BACKEND SERVER
+   ➜ Run: npm start
+   ➜ Wait for: "🚀 Server listening on port 5000"
+
+3. TEST THE FIX
+   ➜ Open: http://localhost:5173/tenant/corporate-office
+   ➜ Should work now! ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 COMMANDS:
+
+cd c:\Users\ITPC\Desktop\DMS\DMS\backend
+npm start
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ EXPECTED RESULT:
+
+Console shows:
+  ✓ database connected successfully
+  ✓ 🚀 Server listening on port 5000
+
+Browser shows:
+  ✓ Corporate office directory loads
+  ✓ All offices display
+  ✓ No 404 error
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 WHY?
+   Node.js doesn't automatically reload code changes.
+   You must restart the server to apply the new route.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔥 That's it! Just restart and you're done! 🔥
