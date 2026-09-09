@@ -3,17 +3,16 @@ import api from './axios';
 export interface AdminStats {
   totalUsers: number;
   activeUsers: number;
-  inactiveUsers: number;
   totalTenants: number;
   activeTenants: number;
-  inactiveTenants: number;
   totalTickets: number;
   openTickets: number;
   totalDepartments: number;
   totalFeedback: number;
   pendingFeedback: number;
-  readFeedback: number;
-  resolvedFeedback: number;
+  deactiveUsers:number;
+  deactiveTenants:number;
+
 }
 
 export interface ManagerStats {
@@ -181,7 +180,6 @@ export interface TicketStatistics {
   resolved: number;
   reopened: number;
   closed: number;
-  completed: number;
   escalated: number;
   cancelled: number;
   overdue: number;
@@ -291,3 +289,5 @@ export const fetchCeoTenantStats = () =>
 
 export const fetchCeoSystemStats = () =>
   api.get<{ success: boolean; data: CeoSystemStats }>('/dashboard/ceo/system');
+
+

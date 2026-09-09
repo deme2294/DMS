@@ -76,6 +76,7 @@ export default function NotificationCenter() {
     return () => window.removeEventListener('notifications-updated', handler);
   }, []);
 
+  
   useEffect(() => {
     if (open) loadNotifications();
   }, [open]);
