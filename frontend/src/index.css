@@ -1,10 +1,22 @@
 @import "tailwindcss";
 
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
 :root {
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
+  --bg-surface: #f1f5f9;
   --bg-topbar: #ffffff;
   --text-main: #0f172a;
+  --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
@@ -13,15 +25,38 @@
   --table-header-bg: #f8fafc;
   --table-row-hover: #f1f5f9;
   --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  /* Analytics accent colors (light) */
+  --analytics-tooltip-bg: #0f172a;
+  --analytics-tooltip-color: #ffffff;
+  --analytics-focus-bg: #eff6ff;
+  --analytics-focus-border: #bfdbfe;
+  --analytics-focus-color: #1e40af;
+  --analytics-badge-bg: #eff6ff;
+  --analytics-badge-color: #1d4ed8;
+  --analytics-badge-border: #dbeafe;
+  --analytics-trend-pos-bg: #dcfce7;
+  --analytics-trend-pos-color: #166534;
+  --analytics-trend-neg-bg: #fee2e2;
+  --analytics-trend-neg-color: #991b1b;
+  --analytics-trend-neutral-bg: #f1f5f9;
+  --analytics-trend-neutral-color: #475569;
+  --analytics-legend-active-bg: #eff6ff;
+  --analytics-legend-active-border: #93c5fd;
+  --analytics-hbar-track: #e2e8f0;
+  --analytics-progress-track: #f1f5f9;
+  --analytics-spinner-track: #e2e8f0;
+  --analytics-spinner-top: #2563eb;
 }
 
 [data-theme="dark"] {
   --bg-app: #0b0f17;
   --bg-card: #151b28;
+  --bg-surface: #111827;
   --bg-topbar: #101522;
   --text-main: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
   --border-color: #252e3e;
 
   --input-bg: #0f1420;
@@ -29,6 +64,27 @@
   --table-header-bg: #101522;
   --table-row-hover: #192234;
   --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  /* Analytics accent colors (dark) */
+  --analytics-tooltip-bg: #1e2740;
+  --analytics-tooltip-color: #f1f5f9;
+  --analytics-focus-bg: #0e1c34;
+  --analytics-focus-border: #1e3a6e;
+  --analytics-focus-color: #93c5fd;
+  --analytics-badge-bg: #0e1c34;
+  --analytics-badge-color: #93c5fd;
+  --analytics-badge-border: #1e3a6e;
+  --analytics-trend-pos-bg: #0f2e1d;
+  --analytics-trend-pos-color: #4ade80;
+  --analytics-trend-neg-bg: #2d1414;
+  --analytics-trend-neg-color: #f87171;
+  --analytics-trend-neutral-bg: #1e2330;
+  --analytics-trend-neutral-color: #94a3b8;
+  --analytics-legend-active-bg: #0e1c34;
+  --analytics-legend-active-border: #1d4ed8;
+  --analytics-hbar-track: #1e2740;
+  --analytics-progress-track: #1e2740;
+  --analytics-spinner-track: #252e3e;
+  --analytics-spinner-top: #60a5fa;
 }
 
 /* ==========================================================================
@@ -804,4 +860,315 @@ code {
   background-color: #7f1d1d !important;
   border-color: #991b1b !important;
   color: #fecaca !important;
+}
+
+/* ==========================================================================
+   ANALYTICS PAGE — COMPREHENSIVE DARK THEME OVERRIDES
+   Targets every CSS module class used in AdminAnalytics.module.css
+   ========================================================================== */
+
+/* ── Page background ──────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="page"] {
+  background-color: var(--bg-app) !important;
+}
+
+/* ── Header row & title group ─────────────────────────────────────────────── */
+[data-theme="dark"] [class*="headerRow"],
+[data-theme="dark"] [class*="chartCard"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] [class*="titleGroup"] h1,
+[data-theme="dark"] [class*="cardTitle"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="titleGroup"] p,
+[data-theme="dark"] [class*="cardSubtitle"] {
+  color: var(--text-secondary) !important;
+}
+
+/* ── Timeframe selector / toggle buttons ─────────────────────────────────── */
+[data-theme="dark"] [class*="timeframeSelector"],
+[data-theme="dark"] [class*="chartModeToggle"] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] [class*="timeframeBtn"],
+[data-theme="dark"] [class*="chartModeBtn"] {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] [class*="timeframeBtn"]:hover,
+[data-theme="dark"] [class*="chartModeBtn"]:hover {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="timeframeBtn"][class*="active"],
+[data-theme="dark"] [class*="chartModeBtn"][class*="active"] {
+  background-color: #1e2740 !important;
+  color: #60a5fa !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* ── Select / action buttons ──────────────────────────────────────────────── */
+[data-theme="dark"] [class*="selectInput"] {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="actionBtn"]:not([class*="Primary"]) {
+  background-color: #1e2330 !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="actionBtn"]:not([class*="Primary"]):hover {
+  background-color: #252b38 !important;
+}
+
+/* ── KPI Cards ────────────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="kpiCard"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+[data-theme="dark"] [class*="kpiCard"]:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] [class*="kpiValue"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="kpiLabel"] {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] [class*="kpiSubtext"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── KPI Trend badges ─────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="trendPositive"] {
+  background: var(--analytics-trend-pos-bg) !important;
+  color: var(--analytics-trend-pos-color) !important;
+}
+
+[data-theme="dark"] [class*="trendNegative"] {
+  background: var(--analytics-trend-neg-bg) !important;
+  color: var(--analytics-trend-neg-color) !important;
+}
+
+[data-theme="dark"] [class*="trendNeutral"] {
+  background: var(--analytics-trend-neutral-bg) !important;
+  color: var(--analytics-trend-neutral-color) !important;
+}
+
+/* ── Chart card header & divider ──────────────────────────────────────────── */
+[data-theme="dark"] [class*="cardHeader"] {
+  border-bottom-color: var(--border-color) !important;
+}
+
+/* ── Badge pill ───────────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="badgePill"] {
+  background: var(--analytics-badge-bg) !important;
+  color: var(--analytics-badge-color) !important;
+  border-color: var(--analytics-badge-border) !important;
+}
+
+/* ── Trend graph stats strip ──────────────────────────────────────────────── */
+[data-theme="dark"] [class*="trendHeaderStats"] {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] [class*="trendStatLabel"] {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] [class*="trendStatVal"] {
+  color: var(--text-primary) !important;
+}
+
+/* ── Metric chip toggles ──────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="metricChip"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] [class*="metricChip"][class*="activeCreated"] {
+  background: #0e1c34 !important;
+  border-color: #1e3a6e !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] [class*="metricChip"][class*="activeResolved"] {
+  background: #0f2e1d !important;
+  border-color: #166534 !important;
+  color: #4ade80 !important;
+}
+
+/* ── SVG Graph container ──────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="svgGraphContainer"] {
+  background: var(--bg-card) !important;
+}
+
+/* ── Graph tooltip ────────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="graphTooltip"] {
+  background: var(--analytics-tooltip-bg) !important;
+  color: var(--analytics-tooltip-color) !important;
+}
+
+/* ── Focus banner (slice isolation) ──────────────────────────────────────── */
+[data-theme="dark"] [class*="focusBanner"] {
+  background: var(--analytics-focus-bg) !important;
+  border-color: var(--analytics-focus-border) !important;
+  color: var(--analytics-focus-color) !important;
+}
+
+[data-theme="dark"] [class*="focusClearBtn"] {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] [class*="focusClearBtn"]:hover {
+  background: #1e3a6e !important;
+}
+
+/* ── Pie / Donut legend list items ────────────────────────────────────────── */
+[data-theme="dark"] [class*="donutLegendItem"] {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] [class*="donutLegendItem"]:hover {
+  background: var(--bg-card) !important;
+  border-color: #3b4a63 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] [class*="donutLegendItem"][class*="active"] {
+  background: var(--analytics-legend-active-bg) !important;
+  border-color: var(--analytics-legend-active-border) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+}
+
+[data-theme="dark"] [class*="legendLeft"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="legendCount"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="legendPct"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Donut center info ────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="donutCenterVal"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="donutCenterLabel"] {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] [class*="donutCenterSub"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Horizontal Category Bar Chart items ──────────────────────────────────── */
+[data-theme="dark"] [class*="horizontalBarItem"] {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] [class*="horizontalBarItem"]:hover {
+  background: var(--bg-card) !important;
+  border-color: #3b4a63 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] [class*="hBarTitle"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="hBarCount"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="hBarPct"] {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] [class*="hBarTrack"] {
+  background: var(--analytics-hbar-track) !important;
+}
+
+/* ── Department performance table ─────────────────────────────────────────── */
+[data-theme="dark"] [class*="deptNameCell"] {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] [class*="progressTrack"] {
+  background: var(--analytics-progress-track) !important;
+}
+
+/* ── Loading spinner ──────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="loadingContainer"] {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] [class*="spinner"] {
+  border-color: var(--analytics-spinner-track) !important;
+  border-top-color: var(--analytics-spinner-top) !important;
+}
+
+/* ── Empty state text ─────────────────────────────────────────────────────── */
+[data-theme="dark"] [class*="emptyState"] {
+  color: var(--text-muted) !important;
+}
+
+/* ── Bar value text (SVG) fills ───────────────────────────────────────────── */
+[data-theme="dark"] [class*="barValueText"] {
+  fill: var(--text-primary) !important;
+}
+
+/* ── Inline utility class overrides for analytics TSX ────────────────────── */
+[data-theme="dark"] .analytics-legend-strip {
+  border-top-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .analytics-legend-label {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .analytics-dist-tab-active {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .analytics-dist-tab-inactive {
+  background-color: var(--bg-card) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .analytics-dist-tab-inactive:hover {
+  background-color: var(--bg-surface) !important;
+}
+
+[data-theme="dark"] .analytics-table-strong {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .analytics-filter-label {
+  color: var(--text-secondary) !important;
 }

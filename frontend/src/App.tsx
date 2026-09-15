@@ -45,6 +45,7 @@ import Reports from './pages/Reports/Reports';
 import Audit from './pages/Audit/Audit';
 import TicketCategories from './pages/TicketCategories/TicketCategories';
 import AdminDashboard from './pages/Dashboard/AdminDashboard';
+import AdminAnalytics from './pages/Analytics/AdminAnalytics';
 import ManagerDashboard from './pages/Dashboard/ManagerDashboard';
 import StaffDashboard from './pages/Dashboard/StaffDashboard';
 import TenantDashboard from './pages/Dashboard/TenantDashboard';
@@ -118,6 +119,7 @@ export default function App() {
 
         <Route element={<AdminLayout />}>
           <Route path="/admin/dashboard" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedRoute roles={['admin', 'manager']}><AdminAnalytics /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute roles={['admin']}><UserList /></ProtectedRoute>} />
           <Route path="/admin/users/create" element={<ProtectedRoute roles={['admin']}><UserCreate /></ProtectedRoute>} />
           <Route path="/admin/users/:id/edit" element={<ProtectedRoute roles={['admin']}><UserEdit /></ProtectedRoute>} />

@@ -277,7 +277,7 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowPassword((p) => !p)}
                     disabled={isLoading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword
@@ -294,7 +294,7 @@ export default function Login() {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={isLoading}
-                  className="w-4 h-4 rounded accent-blue-500"
+                  className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
                 />
                 <span className="text-sm text-slate-300">Remember me for 7 days</span>
               </label>
@@ -303,7 +303,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading || isLocked}
-                className="w-full py-3.5 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
+                className="w-full py-3.5 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
               >
                 {isLoading ? (
                   <>
@@ -338,7 +338,7 @@ export default function Login() {
                     key={role}
                     type="button"
                     onClick={() => quickFill(username)}
-                    className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-500/60 hover:bg-slate-700/50 transition-all duration-150 active:scale-95 group"
+                    className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-500/60 hover:bg-slate-700/50 transition-all duration-150 active:scale-95 group cursor-pointer"
                   >
                     <span className={`text-xs font-bold text-transparent bg-clip-text bg-gradient-to-br ${bg}`}>
                       {icon} {role}

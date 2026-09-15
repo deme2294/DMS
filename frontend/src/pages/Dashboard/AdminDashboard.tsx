@@ -88,7 +88,13 @@ export default function AdminDashboard() {
             Welcome back, <span className="font-medium text-slate-700">{user?.firstName} {user?.lastName}</span> · System overview
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/admin/analytics"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-sm hover:shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all"
+          >
+            <span>📈</span> Ticket Analytics & Trends →
+          </Link>
           <span className="text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </span>

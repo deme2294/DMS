@@ -178,6 +178,7 @@ export interface TicketStatistics {
   waitingTenant: number;
   waitingVendor: number;
   resolved: number;
+  completed?: number;
   reopened: number;
   closed: number;
   escalated: number;
@@ -289,5 +290,103 @@ export const fetchCeoTenantStats = () =>
 
 export const fetchCeoSystemStats = () =>
   api.get<{ success: boolean; data: CeoSystemStats }>('/dashboard/ceo/system');
+
+// ── Admin Professional Analytics Types & API ──
+export interface AdminAnalyticsKpis {
+  totalTickets: number;
+  resolvedTickets: number;
+  openTickets: number;
+  inProgressTickets: number;
+  overdueTickets: number;
+  resolutionRate: number;
+  overdueRate: number;
+  slaComplianceRate: number;
+  avgResolutionHours: number;
+  avgFirstResponseHours: number;
+  monthGrowthPercent: number;
+  weekGrowthPercent: number;
+  currentMonthCount: number;
+  previousMonthCount: number;
+  currentWeekCount: number;
+  previousWeekCount: number;
+}
+
+export interface MonthlyTrendItem {
+  monthKey: string;
+  monthLabel: string;
+  totalCreated: number;
+  totalResolved: number;
+  activeBacklog: number;
+  overdueCount: number;
+  avgResolutionHours: number;
+}
+
+export interface WeeklyTrendItem {
+  weekKey: string;
+  weekLabel: string;
+  weekStartDate: string;
+  totalCreated: number;
+  totalResolved: number;
+  inProgress: number;
+  overdueCount: number;
+}
+
+export interface DailyTrendItem {
+  dateKey: string;
+  dateLabel: string;
+  totalCreated: number;
+  totalResolved: number;
+}
+
+export interface DepartmentAnalyticsItem {
+  departmentId: string;
+  departmentName: string;
+  departmentCode: string;
+  headName: string;
+  totalTickets: number;
+  openTickets: number;
+  inProgressTickets: number;
+  resolvedTickets: number;
+  overdueTickets: number;
+  avgResolutionHours: number;
+  slaComplianceRate: number;
+  resolutionRate: number;
+}
+
+export interface StatusAnalyticsItem {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PriorityAnalyticsItem {
+  priority: string;
+  count: number;
+  resolved: number;
+  overdue: number;
+  avgHours: number;
+  percentage: number;
+}
+
+export interface CategoryAnalyticsItem {
+  categoryName: string;
+  count: number;
+  resolved: number;
+}
+
+export interface AdminAnalyticsData {
+  kpis: AdminAnalyticsKpis;
+  monthlyTrends: MonthlyTrendItem[];
+  weeklyTrends: WeeklyTrendItem[];
+  dailyTrends: DailyTrendItem[];
+  departmentAnalytics: DepartmentAnalyticsItem[];
+  statusBreakdown: StatusAnalyticsItem[];
+  priorityDistribution: PriorityAnalyticsItem[];
+  categoryBreakdown: CategoryAnalyticsItem[];
+}
+
+export const fetchAdminAnalytics = (params?: { timeframe?: string; departmentId?: string }) =>
+  api.get<{ success: boolean; data: AdminAnalyticsData }>('/dashboard/admin/analytics', { params });
+
 
 

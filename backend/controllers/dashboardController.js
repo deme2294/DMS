@@ -335,3 +335,15 @@ export const getCeoSystemStats = async (_req, res, next) => {
     next(err);
   }
 };
+
+export const getAdminAnalytics = async (req, res, next) => {
+  try {
+    const timeframe = req.query.timeframe || '6m';
+    const departmentId = req.query.departmentId || null;
+    const data = await dashboardRepo.getAdminAnalytics({ timeframe, departmentId });
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+

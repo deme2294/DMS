@@ -21,6 +21,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Main',
         items: [
           { label: 'Dashboard', path: '/admin/dashboard', icon: '📊', permission: 'dashboard.read' },
+          { label: 'Analytics', path: '/admin/analytics', icon: '📈', permission: 'dashboard.read' },
         ],
       },
       {
@@ -51,7 +52,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         {
           title: 'System',
           items: [
-            { label: 'Reports', path: '/admin/reports', icon: '📈', permission: 'reports.read' },
+            { label: 'Reports', path: '/admin/reports', icon: '📑', permission: 'reports.read' },
             { label: 'Audit Log', path: '/admin/audit', icon: '🔍', permission: 'audit.read' },
             { label: 'My Profile', path: '/admin/profile', icon: '👤' },
           ],
@@ -64,6 +65,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Main',
         items: [
           { label: 'Dashboard', path: '/manager/dashboard', icon: '📊', permission: 'dashboard.read' },
+          { label: 'Analytics', path: '/admin/analytics', icon: '📈', permission: 'dashboard.read' },
         ],
       },
       {

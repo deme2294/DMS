@@ -198,9 +198,9 @@ export default function Reports() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
           <div>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>By Priority</h3>
-            <DataTable<{ priority: string; avgHours: number; count: number } & { id?: string }>
+            <DataTable<{ id: string; priority: string; avgHours: number; count: number }>
               loading={loading}
-              data={ticketReport?.resolutionTimeByPriority ?? []}
+              data={(ticketReport?.resolutionTimeByPriority ?? []).map((r, i) => ({ ...r, id: r.priority || String(i) }))}
               emptyMessage="No resolution data"
               columns={[
                 { key: 'priority', label: 'Priority' },
@@ -211,9 +211,9 @@ export default function Reports() {
           </div>
           <div>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>By Status</h3>
-            <DataTable<{ status: string; avgHours: number; count: number } & { id?: string }>
+            <DataTable<{ id: string; status: string; avgHours: number; count: number }>
               loading={loading}
-              data={ticketReport?.resolutionTimeByStatus ?? []}
+              data={(ticketReport?.resolutionTimeByStatus ?? []).map((r, i) => ({ ...r, id: r.status || String(i) }))}
               emptyMessage="No resolution data"
               columns={[
                 { key: 'status', label: 'Status' },

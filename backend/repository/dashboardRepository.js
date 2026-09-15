@@ -634,6 +634,271 @@ export const getStaffSlaDashboard = async (userId) => {
   };
 };
 
+export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null } = {}) => {
+  let dateFilter = '';
+  const queryParams = {};
+
+  if (timeframe === '7d') {
+    dateFilter = 'AND t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  } else if (timeframe === '30d') {
+    dateFilter = 'AND t.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+  } else if (timeframe === '90d') {
+    dateFilter = 'AND t.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)';
+  } else if (timeframe === '6m') {
+    dateFilter = 'AND t.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)';
+  } else if (timeframe === '12m') {
+    dateFilter = 'AND t.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)';
+  }
+
+  let deptFilter = '';
+  if (departmentId && departmentId !== 'all') {
+    deptFilter = 'AND t.department_id = :departmentId';
+    queryParams.departmentId = departmentId;
+  }
+
+  // 1. Overall KPIs
+  const [kpiRows] = await pool.query(`
+    SELECT
+      COUNT(*) AS total_tickets,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved_tickets,
+      SUM(CASE WHEN t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review') THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_tickets,
+      AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+               THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END) AS avg_resolution_hours,
+      AVG(CASE WHEN tr.first_reply_at IS NOT NULL
+               THEN TIMESTAMPDIFF(MINUTE, t.created_at, tr.first_reply_at) / 60.0 ELSE NULL END) AS avg_first_response_hours,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) AS resolved_within_sla
+    FROM tickets t
+    LEFT JOIN (
+      SELECT ticket_id, MIN(created_at) AS first_reply_at
+      FROM ticket_replies
+      WHERE is_internal = 0
+      GROUP BY ticket_id
+    ) tr ON tr.ticket_id = t.id
+    WHERE 1=1 ${dateFilter} ${deptFilter}
+  `, queryParams);
+
+  // Month-over-month and week-over-week growth query
+  const [growthRows] = await pool.query(`
+    SELECT
+      SUM(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS current_period_count,
+      SUM(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 60 DAY) AND t.created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS previous_period_count,
+      SUM(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS current_week_count,
+      SUM(CASE WHEN t.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) AND t.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS previous_week_count
+    FROM tickets t
+    WHERE 1=1 ${deptFilter}
+  `, queryParams);
+
+  // 2. Monthly breakdown (last 12 months)
+  const [monthlyTrends] = await pool.query(`
+    SELECT
+      DATE_FORMAT(t.created_at, '%Y-%m') AS month_key,
+      DATE_FORMAT(t.created_at, '%b %Y') AS month_label,
+      COUNT(*) AS total_created,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved,
+      SUM(CASE WHEN t.status IN ('open', 'assigned', 'pending', 'in_progress', 'waiting_tenant', 'waiting_vendor', 'reopened', 'escalated') THEN 1 ELSE 0 END) AS active_backlog,
+      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_count,
+      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours
+    FROM tickets t
+    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) ${deptFilter}
+    GROUP BY month_key, month_label
+    ORDER BY month_key ASC
+  `, queryParams);
+
+  // 3. Weekly breakdown (last 12 weeks)
+  const [weeklyTrends] = await pool.query(`
+    SELECT
+      YEARWEEK(t.created_at, 1) AS week_key,
+      DATE_FORMAT(DATE_SUB(t.created_at, INTERVAL WEEKDAY(t.created_at) DAY), '%b %d') AS week_label,
+      DATE_FORMAT(DATE_SUB(t.created_at, INTERVAL WEEKDAY(t.created_at) DAY), '%Y-%m-%d') AS week_start_date,
+      COUNT(*) AS total_created,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_count
+    FROM tickets t
+    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK) ${deptFilter}
+    GROUP BY week_key, week_label, week_start_date
+    ORDER BY week_key ASC
+  `, queryParams);
+
+  // 4. Daily breakdown (last 14 days)
+  const [dailyTrends] = await pool.query(`
+    SELECT
+      DATE_FORMAT(t.created_at, '%Y-%m-%d') AS date_key,
+      DATE_FORMAT(t.created_at, '%a, %b %d') AS date_label,
+      COUNT(*) AS total_created,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved
+    FROM tickets t
+    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ${deptFilter}
+    GROUP BY date_key, date_label
+    ORDER BY date_key ASC
+  `, queryParams);
+
+  // 5. Department-based analytics
+  const [departmentAnalytics] = await pool.query(`
+    SELECT
+      d.id AS department_id,
+      d.name AS department_name,
+      d.code AS department_code,
+      CONCAT(u.first_name, ' ', u.last_name) AS head_name,
+      COUNT(t.id) AS total_tickets,
+      SUM(CASE WHEN t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review') THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved_tickets,
+      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_tickets,
+      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
+      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+    FROM departments d
+    LEFT JOIN users u ON u.id = d.head_user_id
+    LEFT JOIN tickets t ON t.department_id = d.id ${dateFilter}
+    GROUP BY d.id, d.name, d.code, head_name
+    ORDER BY total_tickets DESC
+  `);
+
+  // 6. Status Breakdown
+  const [statusBreakdown] = await pool.query(`
+    SELECT
+      t.status,
+      COUNT(*) AS count
+    FROM tickets t
+    WHERE 1=1 ${dateFilter} ${deptFilter}
+    GROUP BY t.status
+    ORDER BY count DESC
+  `, queryParams);
+
+  // 7. Priority Distribution
+  const [priorityDistribution] = await pool.query(`
+    SELECT
+      t.priority,
+      COUNT(*) AS count,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved,
+      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue,
+      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_hours
+    FROM tickets t
+    WHERE 1=1 ${dateFilter} ${deptFilter}
+    GROUP BY t.priority
+    ORDER BY FIELD(t.priority, 'urgent', 'high', 'medium', 'low')
+  `, queryParams);
+
+  // 8. Category Breakdown
+  const [categoryBreakdown] = await pool.query(`
+    SELECT
+      COALESCE(t.category, 'General') AS category_name,
+      COUNT(t.id) AS count,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved
+    FROM tickets t
+    WHERE 1=1 ${dateFilter} ${deptFilter}
+    GROUP BY category_name
+    ORDER BY count DESC
+    LIMIT 10
+  `, queryParams);
+
+  const kpis = kpiRows[0] || {};
+  const growth = growthRows[0] || {};
+
+  const total = Number(kpis.total_tickets || 0);
+  const resolved = Number(kpis.resolved_tickets || 0);
+  const open = Number(kpis.open_tickets || 0);
+  const inProgress = Number(kpis.in_progress_tickets || 0);
+  const overdue = Number(kpis.overdue_tickets || 0);
+  const resolvedWithinSla = Number(kpis.resolved_within_sla || 0);
+
+  const curMonth = Number(growth.current_period_count || 0);
+  const prevMonth = Number(growth.previous_period_count || 0);
+  const monthGrowthPercent = prevMonth === 0 ? (curMonth > 0 ? 100 : 0) : Number((((curMonth - prevMonth) / prevMonth) * 100).toFixed(1));
+
+  const curWeek = Number(growth.current_week_count || 0);
+  const prevWeek = Number(growth.previous_week_count || 0);
+  const weekGrowthPercent = prevWeek === 0 ? (curWeek > 0 ? 100 : 0) : Number((((curWeek - prevWeek) / prevWeek) * 100).toFixed(1));
+
+  const resolutionRate = total > 0 ? Number(((resolved / total) * 100).toFixed(1)) : 0;
+  const overdueRate = total > 0 ? Number(((overdue / total) * 100).toFixed(1)) : 0;
+  const slaComplianceRate = resolved > 0 ? Number(((resolvedWithinSla / resolved) * 100).toFixed(1)) : 100;
+
+  return {
+    kpis: {
+      totalTickets: total,
+      resolvedTickets: resolved,
+      openTickets: open,
+      inProgressTickets: inProgress,
+      overdueTickets: overdue,
+      resolutionRate,
+      overdueRate,
+      slaComplianceRate,
+      avgResolutionHours: kpis.avg_resolution_hours ? Number(Number(kpis.avg_resolution_hours).toFixed(1)) : 0,
+      avgFirstResponseHours: kpis.avg_first_response_hours ? Number(Number(kpis.avg_first_response_hours).toFixed(1)) : 0,
+      monthGrowthPercent,
+      weekGrowthPercent,
+      currentMonthCount: curMonth,
+      previousMonthCount: prevMonth,
+      currentWeekCount: curWeek,
+      previousWeekCount: prevWeek,
+    },
+    monthlyTrends: monthlyTrends.map((m) => ({
+      monthKey: m.month_key,
+      monthLabel: m.month_label,
+      totalCreated: Number(m.total_created || 0),
+      totalResolved: Number(m.total_resolved || 0),
+      activeBacklog: Number(m.active_backlog || 0),
+      overdueCount: Number(m.overdue_count || 0),
+      avgResolutionHours: Number(m.avg_resolution_hours || 0),
+    })),
+    weeklyTrends: weeklyTrends.map((w) => ({
+      weekKey: w.week_key,
+      weekLabel: w.week_label,
+      weekStartDate: w.week_start_date,
+      totalCreated: Number(w.total_created || 0),
+      totalResolved: Number(w.total_resolved || 0),
+      inProgress: Number(w.in_progress || 0),
+      overdueCount: Number(w.overdue_count || 0),
+    })),
+    dailyTrends: dailyTrends.map((d) => ({
+      dateKey: d.date_key,
+      dateLabel: d.date_label,
+      totalCreated: Number(d.total_created || 0),
+      totalResolved: Number(d.total_resolved || 0),
+    })),
+    departmentAnalytics: departmentAnalytics.map((dept) => ({
+      departmentId: dept.department_id,
+      departmentName: dept.department_name,
+      departmentCode: dept.department_code,
+      headName: dept.head_name || 'Unassigned',
+      totalTickets: Number(dept.total_tickets || 0),
+      openTickets: Number(dept.open_tickets || 0),
+      inProgressTickets: Number(dept.in_progress_tickets || 0),
+      resolvedTickets: Number(dept.resolved_tickets || 0),
+      overdueTickets: Number(dept.overdue_tickets || 0),
+      avgResolutionHours: Number(dept.avg_resolution_hours || 0),
+      slaComplianceRate: Number(dept.sla_compliance_rate || 0),
+      resolutionRate: Number(dept.resolution_rate || 0),
+    })),
+    statusBreakdown: statusBreakdown.map((sb) => ({
+      status: sb.status,
+      count: Number(sb.count || 0),
+      percentage: total > 0 ? Number(((Number(sb.count || 0) / total) * 100).toFixed(1)) : 0,
+    })),
+    priorityDistribution: priorityDistribution.map((p) => ({
+      priority: p.priority,
+      count: Number(p.count || 0),
+      resolved: Number(p.resolved || 0),
+      overdue: Number(p.overdue || 0),
+      avgHours: Number(p.avg_hours || 0),
+      percentage: total > 0 ? Number(((Number(p.count || 0) / total) * 100).toFixed(1)) : 0,
+    })),
+    categoryBreakdown: categoryBreakdown.map((c) => ({
+      categoryName: c.category_name,
+      count: Number(c.count || 0),
+      resolved: Number(c.resolved || 0),
+    })),
+  };
+};
+
 const formatRemainingTime = (ms) => {
   if (ms < 0) return 'Overdue';
   const hours = Math.floor(ms / (1000 * 60 * 60));

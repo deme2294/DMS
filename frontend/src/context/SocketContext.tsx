@@ -37,9 +37,10 @@ export const SocketProvider = ({ children }: SocketProviderProps) => {
       return;
     }
 
-    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
     
     const newSocket = io(socketUrl, {
+      path: '/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

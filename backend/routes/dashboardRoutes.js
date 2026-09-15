@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/admin', authorize('dashboard.read'), dashboardController.getAdminDashboard);
+router.get('/admin/analytics', authorize('dashboard.read'), dashboardController.getAdminAnalytics);
 router.get('/admin/sla', authorize('dashboard.read'), dashboardController.getAdminSlaDashboard);
 router.get('/manager', requireRole('manager'), dashboardController.getManagerDashboard);
 router.get('/manager/sla', requireRole('manager'), dashboardController.getManagerSlaDashboard);
