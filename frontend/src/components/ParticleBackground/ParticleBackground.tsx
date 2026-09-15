@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-
 type ParticleBackgroundProps = {
   className?: string;
   id?: string;
