@@ -690,6 +690,27 @@ export async function runAutoMigrations() {
        WHERE r.name = 'admin' AND p.code IN ('knowledge.submit','knowledge.review','knowledge.request_revision','knowledge.reject','knowledge.unpublish','knowledge.archive','knowledge.restore','knowledge.manage_categories','knowledge.view_versions','knowledge.manage_versions','knowledge.view_audit','knowledge.view_statistics')`
     );
 
+    // 23. Add CEO and Executive Analytics permissions
+    const ceoPermissions = [
+      'ceo.dashboard', 'executive.analytics', 'executive.reports', 'executive.approvals', 'executive.remarks'
+    ];
+    for (const code of ceoPermissions) {
+      await pool.query(
+        `INSERT IGNORE INTO permissions (code, description) VALUES (?, ?)`,
+        [code, code.replace('executive.', 'Executive ').replace('ceo.', 'CEO ').replace(/_/g, ' ')]
+      );
+    }
+    await pool.query(
+      `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+       SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+       WHERE r.name = 'ceo' AND p.code IN (
+         'users.read', 'tickets.read', 'departments.read', 'dashboard.read',
+         'notices.read', 'feedback.read', 'knowledge.read', 'office.read',
+         'reports.read', 'audit.read', 'ceo.dashboard', 'executive.analytics',
+         'executive.reports', 'executive.approvals', 'executive.remarks'
+       )`
+    );
+
     // 14a. Add admin_response columns to office_feedback table
     const officeFeedbackCols = [
       { col: 'admin_response', def: "TEXT NULL" },

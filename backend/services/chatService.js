@@ -3,6 +3,7 @@ import * as chatRepo from '../repository/chatRepository.js';
 import * as userRepo from '../repository/userRepository.js';
 import * as ticketRepo from '../repository/ticketRepository.js';
 import * as notificationService from '../services/notificationService.js';
+import { canContact } from '../config/contactMatrix.js';
 import pool from '../config/db.js';
 
 // ===================== CHAT ROOMS =====================
@@ -136,10 +137,11 @@ export const createDepartmentRoom = async (departmentId, createdBy) => {
   return chatRepo.findRoomById(roomId);
 };
 
-export const createDirectRoom = async (user1Id, user2Id) => {
+export const createDirectRoom = async (user1Id, user2Id, initiatorRole) => {
   console.log(`[createDirectRoom] Creating room between ${user1Id} and ${user2Id}`);
   
-  // Check if room already exists
+  // If a direct room already exists, reuse it (existing conversations persist
+  // even if the new contact hierarchy would restrict re-initiating contact).
   const existing = await chatRepo.findDirectRoom(user1Id, user2Id);
   if (existing) {
     console.log(`[createDirectRoom] Room already exists:`, existing.id);
@@ -154,6 +156,17 @@ export const createDirectRoom = async (user1Id, user2Id) => {
   if (!user1 || !user2) {
     console.error(`[createDirectRoom] User not found: user1=${!!user1}, user2=${!!user2}`);
     throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  }
+  
+  // Enforce the role-based contact hierarchy. A 1:1 direct chat may only be
+  // started with someone the initiator is allowed to contact directly. Staff are
+  // contacted only through their department manager; the CEO never contacts
+  // staff directly. Admin is the only exception that may contact staff directly.
+  if (!canContact(initiatorRole, user2.role)) {
+    throw Object.assign(
+      new Error('You can only start a direct conversation through your department manager'),
+      { statusCode: 403 }
+    );
   }
   
   console.log(`[createDirectRoom] Creating room for ${user1.first_name} & ${user2.first_name}`);
@@ -407,14 +420,12 @@ export const getChatUsers = async (currentUserId, currentUserRole) => {
     [currentUserId]
   );
   
-  // Filter based on role permissions
-  if (currentUserRole === 'tenant') {
-    // Tenants can only see staff, managers, and admins
-    return users.filter(u => ['admin', 'manager', 'staff'].includes(u.role));
-  }
-  
-  // All other roles can see everyone
-  return users;
+  // All roles are filtered by the role-based contact hierarchy so that, e.g.,
+  // the CEO never sees staff to contact directly, and staff/admin/tenant cannot
+  // start a direct conversation with the CEO (they reach the CEO via a manager).
+  // Staff are contactable only by their department manager; the only exception
+  // is Admin, who may contact staff directly.
+  return users.filter(u => canContact(currentUserRole, u.role));
 };
 
 export const getChatDepartments = async (currentUserId, currentUserRole) => {

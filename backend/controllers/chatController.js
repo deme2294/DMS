@@ -42,7 +42,7 @@ export const createDepartmentRoom = async (req, res, next) => {
 
 export const createDirectRoom = async (req, res, next) => {
   try {
-    const room = await chatService.createDirectRoom(req.user.id, req.body.userId);
+    const room = await chatService.createDirectRoom(req.user.id, req.body.userId, req.user.role);
     res.status(HTTP.CREATED).json({ success: true, data: room });
   } catch (err) {
     next(err);

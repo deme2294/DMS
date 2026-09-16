@@ -1134,8 +1134,20 @@ function CategoryRankedBarChart({
   );
 }
 
-// ── Main Admin Analytics Page ────────────────────────────────────────────────
-export default function AdminAnalytics() {
+export interface ProfessionalAnalyticsProps {
+  title?: string;
+  description?: string;
+  badgeText?: string;
+  isCeoView?: boolean;
+}
+
+// ── Main Admin / Executive Analytics Page ───────────────────────────────────
+export default function AdminAnalytics({
+  title = 'Ticket Analytics & Intelligence',
+  description = 'Interactive multi-color bar charts, pie/donut charts, monthly trends, and department workloads.',
+  badgeText,
+  isCeoView = false,
+}: ProfessionalAnalyticsProps = {}) {
   const { user } = useAuth();
   const [timeframe, setTimeframe] = useState<string>('6m');
   const [departmentId, setDepartmentId] = useState<string>('all');
@@ -1275,12 +1287,29 @@ export default function AdminAnalytics() {
       {/* ── Top Header & Controls ─────────────────────────────────────────── */}
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
-          <h1>
-            <span>📈</span> Ticket Analytics & Intelligence
-          </h1>
-          <p>
-            Interactive multi-color bar charts, pie/donut charts, monthly trends, and department workloads.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1>
+              <span>{isCeoView ? '👑' : '📈'}</span> {title}
+            </h1>
+            {badgeText && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #d97706, #b45309)',
+                  color: '#ffffff',
+                  boxShadow: '0 2px 6px rgba(180, 83, 9, 0.25)',
+                }}
+              >
+                {badgeText}
+              </span>
+            )}
+          </div>
+          <p>{description}</p>
         </div>
 
         <div className={styles.controlsGroup}>

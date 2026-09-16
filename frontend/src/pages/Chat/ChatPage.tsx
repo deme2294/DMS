@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import * as chatApi from '../../api/chatApi';
 import { buildAttachmentUrl } from '../../utils/attachmentUtils';
 import api from '../../api/axios';
+import { canContact } from '../../config/contact';
 import type { ChatRoom, ChatMessage, ChatParticipant, ChatMember } from '../../api/chatApi';
 import styles from './ChatPage.module.css';
 
@@ -128,7 +130,10 @@ export default function ChatPage() {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const { user: authUser } = useAuth();
+  // Prefer the authenticated user (has role/id) and fall back to any persisted
+  // 'user' object in localStorage for backward compatibility.
+  const currentUser = authUser || JSON.parse(localStorage.getItem('user') || '{}');
 
   // Auto-select room when navigated from notification or with state
   useEffect(() => {
@@ -573,6 +578,9 @@ export default function ChatPage() {
   const availableUsers = useMemo(() => {
     return allUsers.filter((u) => {
       if (u.id === currentUser.id) return false;
+      // Role-based contact hierarchy: only users the current role may directly
+      // contact are offered (e.g. CEO cannot contact staff directly).
+      if (!canContact(currentUser.role, u.role)) return false;
       if (!userSearchQuery) return true;
       const q = userSearchQuery.toLowerCase();
       return (
@@ -583,7 +591,7 @@ export default function ChatPage() {
         u.email?.toLowerCase().includes(q)
       );
     });
-  }, [allUsers, currentUser.id, userSearchQuery]);
+  }, [allUsers, currentUser.id, currentUser.role, userSearchQuery]);
 
   const displayedModalUsers = useMemo(() => {
     if (modalUserTab === 'online') {
@@ -1329,6 +1337,14 @@ export default function ChatPage() {
                       className={styles.modalSearchInput}
                     />
                   </div>
+
+                  {currentUser.role === 'ceo' && (
+                    <p className={styles.fieldHint}>
+                      Executive oversight mode: you can start a direct conversation with
+                      department managers and admins only. To reach staff, contact the
+                      relevant department manager.
+                    </p>
+                  )}
 
                   <div className={styles.modalFilterTabs}>
                     <button

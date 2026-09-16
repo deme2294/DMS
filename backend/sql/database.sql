@@ -809,18 +809,12 @@ WHERE r.name = 'tenant';
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN (
-  'users.read','users.create','users.update',
-  'tenants.manage',
-  'departments.read','departments.manage','matrix.manage',
-  'tickets.create','tickets.read','tickets.assign','tickets.approve','tickets.close',
-  'tickets.escalate','tickets.merge','tickets.reopen','tickets.complete','tickets.reassign',
-  'tickets.change_priority','tickets.change_category','tickets.internal_note',
-  'ticket_categories.manage','ticket_categories.approve','ticket_categories.reject','sla.manage',
-  'dashboard.read','notices.read','notices.create','notices.update','notices.delete','notices.manage',
-  'feedback.read','feedback.update','feedback.delete',
-  'knowledge.read','knowledge.create','knowledge.update','knowledge.approve',
-  'knowledge.publish','knowledge.categories','knowledge.stats','knowledge.manage',
-  'reports.read','audit.read','office.read',
+  'users.read',
+  'tickets.read',
+  'departments.read',
+  'dashboard.read', 'notices.read', 'feedback.read',
+  'knowledge.read', 'office.read',
+  'reports.read', 'audit.read',
   'ceo.dashboard','executive.analytics','executive.reports','executive.approvals','executive.remarks'
 )
 WHERE r.name = 'ceo';

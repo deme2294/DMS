@@ -307,70 +307,70 @@ export default function CeoTicketDetail() {
           )}
         </div>
 
-        {(role === 'admin' || role === 'manager' || role === 'staff' || role === 'ceo') && (
-          <div className={styles.card}>
-            <h3>Actions</h3>
-            <div className={styles.btnRow}>
-              {transitions.length > 0 && (
-                <button onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
-              )}
-              {(role === 'admin' || role === 'ceo') && (
-                <button
-                  className={styles.btnSecondary}
-                  onClick={() => setDeptModal(true)}
-                  disabled={ticket.isOverdue}
-                  title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
-                >
-                  Assign Dept
-                </button>
-              )}
-              {(role === 'admin' || role === 'manager') && ticket.departmentId && (
-                <button
-                  className={styles.btnSecondary}
-                  onClick={() => setStaffModal(true)}
-                  disabled={ticket.isOverdue}
-                  title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
-                >
-                  Assign Staff
-                </button>
-              )}
-              {(role === 'manager' || role === 'staff') && (
-                <button className={styles.btnSecondary} onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}>Accept</button>
-              )}
-              {(role === 'manager' || role === 'staff') && (
-                <button className={styles.btnSecondary} onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}>Reject</button>
-              )}
-              {(role === 'admin' || role === 'ceo') && (
-                <button className={styles.btnSecondary} onClick={() => setPriorityModal(true)}>Change Priority</button>
-              )}
-              {(role === 'admin' || role === 'ceo') && (
-                <button className={styles.btnSecondary} onClick={() => setCategoryModal(true)}>Change Category</button>
-              )}
-              {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && (transitions.includes('resolved') || transitions.includes('waiting_tenant')) && (
-                <button className={styles.btnSecondary} onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}>Resolve</button>
-              )}
-              {(role === 'admin' || role === 'ceo') && (
-                <button className={styles.btnSecondary} onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}>Escalate</button>
-              )}
-              {(role === 'admin' || role === 'ceo') && (
-                <button className={styles.btnSecondary} onClick={() => setMergeModal(true)}>Merge</button>
-              )}
-              {transitions.includes('closed') && (
-                <button className={styles.btnSecondary} onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}>Close</button>
-              )}
-              {transitions.includes('reopened') && (
-                <button className={styles.btnSecondary} onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}>Reopen</button>
-              )}
-              <button className={styles.btnSecondary} onClick={() => setNoteModal(true)}>Internal Note</button>
-              <button className={styles.btnSecondary} onClick={() => setAttachModal(true)}>Upload File</button>
-            </div>
-            {ticket.isOverdue && (
-              <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', fontSize: '0.9rem' }}>
-                ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
-              </div>
+      {(role === 'admin' || role === 'manager' || role === 'staff') && (
+        <div className={styles.card}>
+          <h3>Actions</h3>
+          <div className={styles.btnRow}>
+            {transitions.length > 0 && (
+              <button onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
             )}
+            {role === 'admin' && (
+              <button
+                className={styles.btnSecondary}
+                onClick={() => setDeptModal(true)}
+                disabled={ticket.isOverdue}
+                title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
+              >
+                Assign Dept
+              </button>
+            )}
+            {(role === 'admin' || role === 'manager') && ticket.departmentId && (
+              <button
+                className={styles.btnSecondary}
+                onClick={() => setStaffModal(true)}
+                disabled={ticket.isOverdue}
+                title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
+              >
+                Assign Staff
+              </button>
+            )}
+            {(role === 'manager' || role === 'staff') && (
+              <button className={styles.btnSecondary} onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}>Accept</button>
+            )}
+            {(role === 'manager' || role === 'staff') && (
+              <button className={styles.btnSecondary} onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}>Reject</button>
+            )}
+            {role === 'admin' && (
+              <button className={styles.btnSecondary} onClick={() => setPriorityModal(true)}>Change Priority</button>
+            )}
+            {role === 'admin' && (
+              <button className={styles.btnSecondary} onClick={() => setCategoryModal(true)}>Change Category</button>
+            )}
+            {(role === 'admin' || role === 'manager' || role === 'staff') && (transitions.includes('resolved') || transitions.includes('waiting_tenant')) && (
+              <button className={styles.btnSecondary} onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}>Resolve</button>
+            )}
+            {role === 'admin' && (
+              <button className={styles.btnSecondary} onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}>Escalate</button>
+            )}
+            {role === 'admin' && (
+              <button className={styles.btnSecondary} onClick={() => setMergeModal(true)}>Merge</button>
+            )}
+            {transitions.includes('closed') && (
+              <button className={styles.btnSecondary} onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}>Close</button>
+            )}
+            {transitions.includes('reopened') && (
+              <button className={styles.btnSecondary} onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}>Reopen</button>
+            )}
+            <button className={styles.btnSecondary} onClick={() => setNoteModal(true)}>Internal Note</button>
+            <button className={styles.btnSecondary} onClick={() => setAttachModal(true)}>Upload File</button>
           </div>
-        )}
+          {ticket.isOverdue && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', fontSize: '0.9rem' }}>
+              ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
+            </div>
+          )}
+        </div>
+      )}
       </div>
 
       <div className={styles.card}>
@@ -404,7 +404,7 @@ export default function CeoTicketDetail() {
             </li>
           ))}
         </ul>
-        <ReplyForm ticketId={ticket.id} canInternal={role !== 'tenant'} />
+        {role !== 'ceo' && <ReplyForm ticketId={ticket.id} canInternal={role !== 'tenant'} />}
       </div>
 
       <div className={styles.card}>

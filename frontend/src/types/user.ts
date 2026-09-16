@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'manager' | 'staff' | 'tenant';
+export type UserRole = 'admin' | 'manager' | 'staff' | 'tenant' | 'ceo';
 export type UserStatus = 'active' | 'inactive' | 'locked';
 
 export interface DepartmentRef {

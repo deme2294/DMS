@@ -8,7 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/admin', authorize('dashboard.read'), dashboardController.getAdminDashboard);
-router.get('/admin/analytics', authorize('dashboard.read'), dashboardController.getAdminAnalytics);
+router.get('/admin/analytics', authorize('dashboard.read', 'executive.analytics'), dashboardController.getAdminAnalytics);
 router.get('/admin/sla', authorize('dashboard.read'), dashboardController.getAdminSlaDashboard);
 router.get('/manager', requireRole('manager'), dashboardController.getManagerDashboard);
 router.get('/manager/sla', requireRole('manager'), dashboardController.getManagerSlaDashboard);
@@ -18,6 +18,7 @@ router.get('/tenant', requireRole('tenant'), dashboardController.getTenantDashbo
 
 // ── CEO Executive Dashboard (highest privilege, role + permission gated) ──
 router.get('/ceo', requireRole('ceo'), authorize('ceo.dashboard'), dashboardController.getCeoDashboard);
+router.get('/ceo/analytics', requireRole('ceo', 'admin'), authorize('executive.analytics', 'dashboard.read'), dashboardController.getAdminAnalytics);
 router.get('/ceo/departments', requireRole('ceo'), authorize('executive.analytics'), dashboardController.getCeoDepartmentPerformance);
 router.get('/ceo/staff', requireRole('ceo'), authorize('executive.analytics'), dashboardController.getCeoStaffPerformance);
 router.get('/ceo/tenants', requireRole('ceo'), authorize('executive.analytics'), dashboardController.getCeoTenantStats);

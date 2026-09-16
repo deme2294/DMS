@@ -3,23 +3,18 @@ export const ROLE_DASHBOARD: Record<string, string> = {
   manager: '/manager/dashboard',
   staff: '/staff/dashboard',
   tenant: '/tenant/dashboard',
+  ceo: '/ceo/dashboard',
 };
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: ['*'],
   ceo: [
-    'users.read', 'users.create', 'users.update',
-    'tenants.manage',
-    'departments.manage', 'matrix.manage',
-    'tickets.create', 'tickets.read', 'tickets.assign', 'tickets.approve', 'tickets.close',
-    'dashboard.read', 'notices.read', 'notices.create', 'notices.update', 'notices.delete',
-    'feedback.read', 'feedback.update', 'feedback.delete',
-    'knowledge.read', 'knowledge.create', 'knowledge.update', 'knowledge.approve',
-    'knowledge.publish', 'knowledge.submit', 'knowledge.review', 'knowledge.request_revision',
-    'knowledge.reject', 'knowledge.unpublish', 'knowledge.archive', 'knowledge.restore',
-    'knowledge.delete', 'knowledge.manage_categories', 'knowledge.view_versions',
-    'knowledge.manage_versions', 'knowledge.view_audit', 'knowledge.view_statistics',
-    'reports.read', 'audit.read', 'office.read',
+    'users.read',
+    'tickets.read',
+    'departments.read',
+    'dashboard.read', 'notices.read', 'feedback.read',
+    'knowledge.read', 'office.read',
+    'reports.read', 'audit.read',
     'ceo.dashboard', 'executive.analytics', 'executive.reports', 'executive.approvals', 'executive.remarks',
   ],
   manager: [

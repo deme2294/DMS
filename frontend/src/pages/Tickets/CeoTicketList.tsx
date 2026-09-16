@@ -243,9 +243,9 @@ export default function CeoTicketList() {
             render: (row) => (
               <div className={styles.actions}>
                 <Link to={`${base}/${row.id}`}>View</Link>
-                {(user?.role === 'admin' || user?.role === 'ceo') && <button onClick={() => { setAssignTicket(row); setDeptModal(true); }}>Assign Dept</button>}
+                {user?.role === 'admin' && <button onClick={() => { setAssignTicket(row); setDeptModal(true); }}>Assign Dept</button>}
                 {user?.role === 'manager' && row.departmentId && <button onClick={() => { setAssignTicket(row); setStaffModal(true); }}>Assign Staff</button>}
-                {(user?.role === 'admin' || user?.role === 'ceo') && <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>}
+                {user?.role === 'admin' && <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>}
               </div>
             ),
           },

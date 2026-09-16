@@ -153,35 +153,27 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         items: [
           { label: 'Dashboard', path: '/ceo/dashboard', icon: '👑', permission: 'ceo.dashboard' },
           { label: 'Executive Analytics', path: '/ceo/analytics', icon: '📈', permission: 'executive.analytics' },
-        ],
-      },
-      {
-        title: 'Management',
-        items: [
-          { label: 'Users', path: '/ceo/users', icon: '👥', permission: 'users.read' },
-          { label: 'Tenants', path: '/ceo/tenants', icon: '🏢', permission: 'tenants.manage' },
-          { label: 'Departments', path: '/ceo/departments', icon: '🏛️', permission: 'departments.manage' },
+          { label: 'Executive Approvals', path: '/ceo/approvals', icon: '✅', permission: 'executive.approvals' },
         ],
       },
       {
         title: 'Operations',
         items: [
           { label: 'Tickets', path: '/ceo/tickets', icon: '🎫', permission: 'tickets.read' },
-          { label: 'Executive Approvals', path: '/ceo/approvals', icon: '✅', permission: 'executive.approvals' },
-            { label: 'Chat', path: '/ceo/chat', icon: '💬' },
-            { label: 'Notifications', path: '/ceo/notifications', icon: '🔔' },
-            { label: 'Reports', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
+          { label: 'Reports', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
           { label: 'Knowledge Base', path: '/ceo/knowledge', icon: '📚', permission: 'knowledge.read' },
           { label: 'Notices', path: '/ceo/notices', icon: '📢', permission: 'notices.read' },
+          { label: 'Chat', path: '/ceo/chat', icon: '💬' },
+          { label: 'Notifications', path: '/ceo/notifications', icon: '🔔' },
         ],
       },
-        {
-          title: 'System',
-          items: [
-            { label: 'Audit Log', path: '/ceo/audit', icon: '🔍', permission: 'audit.read' },
-            { label: 'My Profile', path: '/ceo/profile', icon: '👤' },
-          ],
-        },
+      {
+        title: 'System',
+        items: [
+          { label: 'Audit Log', path: '/ceo/audit', icon: '🔍', permission: 'audit.read' },
+          { label: 'My Profile', path: '/ceo/profile', icon: '👤' },
+        ],
+      },
     ],
   },
 };

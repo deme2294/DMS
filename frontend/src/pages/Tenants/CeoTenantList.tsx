@@ -127,19 +127,23 @@ export default function CeoTenantList() {
           {
             key: 'actions',
             label: 'Actions',
-            render: (row) => (
+            render: (row: Tenant) => (
               <div className={styles.actions}>
                 <button onClick={() => navigate(`/ceo/tenants/${row.id}`)}>View</button>
-                <button onClick={() => navigate(`/ceo/tenants/${row.id}/edit`)}>Edit</button>
-                {row.status === 'pending' && (
-                  <button onClick={() => handleApprove(row)}>Approve</button>
+                {can('tenants.manage') && (
+                  <>
+                    <button onClick={() => navigate(`/ceo/tenants/${row.id}/edit`)}>Edit</button>
+                    {row.status === 'pending' && (
+                      <button onClick={() => handleApprove(row)}>Approve</button>
+                    )}
+                    {row.status !== 'pending' && (
+                      <button onClick={() => handleToggleStatus(row)}>
+                        {row.status === 'active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    )}
+                    <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>
+                  </>
                 )}
-                {row.status !== 'pending' && (
-                  <button onClick={() => handleToggleStatus(row)}>
-                    {row.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </button>
-                )}
-                <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>
               </div>
             ),
           },
