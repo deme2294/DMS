@@ -450,6 +450,7 @@ CREATE TABLE knowledge_base (
   rejected_by CHAR(36) NULL,
   unpublished_by CHAR(36) NULL,
   rejection_reason TEXT NULL,
+  revision_notes TEXT NULL,
   unpublish_reason TEXT NULL,
   helpful_yes INT DEFAULT 0,
   helpful_no INT DEFAULT 0,

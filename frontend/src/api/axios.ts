@@ -5,8 +5,9 @@ const api = axios.create({
   withCredentials: true,
 });
 
-let isRefreshing = false;
-let refreshPromise: Promise<any> | null = null;
+// Shared refresh state — keeps one in-flight refresh promise shared across
+// all concurrent 401 responses so we never send duplicate refresh requests.
+let refreshPromise: Promise<string> | null = null;
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
@@ -17,28 +18,41 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.config.url?.includes('/auth/login') || error.config.url?.includes('/auth/refresh')) {
+    const url: string = error.config?.url ?? '';
+
+    // Never retry auth-related endpoints — avoids infinite loops
+    if (url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout')) {
       return Promise.reject(error);
     }
 
     if (error.response?.status === 401 && !error.config._retry) {
       error.config._retry = true;
 
-      if (!isRefreshing) {
-        isRefreshing = true;
-        refreshPromise = (async () => {
+      // Start a single shared refresh if one isn't already in flight
+      if (!refreshPromise) {
+        refreshPromise = (async (): Promise<string> => {
           try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            const { data } = await api.post('/auth/refresh', refreshToken ? { refreshToken } : {});
-            localStorage.setItem('accessToken', data.data.accessToken);
-            return data.data.accessToken;
+            const storedRefreshToken = localStorage.getItem('refreshToken');
+            if (!storedRefreshToken) {
+              throw new Error('No refresh token available');
+            }
+            const { data } = await api.post('/auth/refresh', { refreshToken: storedRefreshToken });
+            const newAccessToken: string = data.data.accessToken;
+            localStorage.setItem('accessToken', newAccessToken);
+            // Also persist new refresh token if the server rotates it
+            if (data.data.refreshToken) {
+              localStorage.setItem('refreshToken', data.data.refreshToken);
+            }
+            return newAccessToken;
           } catch (err) {
+            // Refresh failed — clear session and redirect to login
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
+            localStorage.removeItem('role');
             window.location.href = '/login';
             throw err;
           } finally {
-            isRefreshing = false;
+            // Clear only after settling so concurrent waiters can all resolve
             refreshPromise = null;
           }
         })();
@@ -46,12 +60,17 @@ api.interceptors.response.use(
 
       try {
         const newToken = await refreshPromise;
-        error.config.headers.Authorization = `Bearer ${newToken}`;
+        // Retry the original request with the new token
+        error.config.headers = {
+          ...error.config.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
         return api(error.config);
       } catch {
         return Promise.reject(error);
       }
     }
+
     return Promise.reject(error);
   }
 );

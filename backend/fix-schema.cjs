@@ -1,10 +1,10 @@
-import mysql from 'mysql2/promise';
+const mysql = require('mysql2/promise');
 
 const config = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'helpdesk_db',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'helpdesk_db',
 };
 
 const columnsToAdd = [
