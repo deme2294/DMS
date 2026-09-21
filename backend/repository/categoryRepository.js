@@ -1,9 +1,16 @@
 import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 
-export const findAll = async ({ includeInactive = false, includePending = false } = {}) => {
+export const findAll = async ({ status = 'active', includeInactive = false, includePending = false } = {}) => {
   let where = 'WHERE 1=1';
-  if (!includeInactive) where += ' AND tc.is_active = 1';
+  if (status === 'inactive' || status === '0') {
+    where += ' AND tc.is_active = 0';
+  } else if (status === 'all' || includeInactive) {
+    // Show both active and inactive
+  } else {
+    // Default to active only
+    where += ' AND tc.is_active = 1';
+  }
   if (!includePending) where += " AND tc.status = 'approved'";
   const [rows] = await pool.query(
     `SELECT tc.id, tc.name, tc.description, tc.department_id,
@@ -14,7 +21,9 @@ export const findAll = async ({ includeInactive = false, includePending = false 
         CONCAT(cu.first_name, ' ', cu.last_name) AS created_by_name,
         CONCAT(ru.first_name, ' ', ru.last_name) AS requested_by_name,
         CONCAT(rv.first_name, ' ', rv.last_name) AS reviewed_by_name,
-        sp.priority AS sla_priority, sp.resolution_hours AS sla_resolution_hours
+        sp.name AS sla_policy_name, sp.priority AS sla_priority,
+        sp.response_hours AS sla_response_hours, sp.resolution_hours AS sla_resolution_hours,
+        sp.escalation_hours AS sla_escalation_hours
       FROM ticket_categories tc
       LEFT JOIN departments d ON d.id = tc.department_id
       LEFT JOIN users cu ON cu.id = tc.created_by
@@ -36,12 +45,16 @@ export const findById = async (id) => {
         d.name AS department_name,
         CONCAT(cu.first_name, ' ', cu.last_name) AS created_by_name,
         CONCAT(ru.first_name, ' ', ru.last_name) AS requested_by_name,
-        CONCAT(rv.first_name, ' ', rv.last_name) AS reviewed_by_name
+        CONCAT(rv.first_name, ' ', rv.last_name) AS reviewed_by_name,
+        sp.name AS sla_policy_name, sp.priority AS sla_priority,
+        sp.response_hours AS sla_response_hours, sp.resolution_hours AS sla_resolution_hours,
+        sp.escalation_hours AS sla_escalation_hours
       FROM ticket_categories tc
       LEFT JOIN departments d ON d.id = tc.department_id
       LEFT JOIN users cu ON cu.id = tc.created_by
       LEFT JOIN users ru ON ru.id = tc.requested_by
       LEFT JOIN users rv ON rv.id = tc.reviewed_by
+      LEFT JOIN sla_policies sp ON sp.id = tc.sla_policy_id
       WHERE tc.id = :id LIMIT 1`,
     { id }
   );

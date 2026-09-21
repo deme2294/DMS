@@ -114,6 +114,7 @@ export default function TicketList() {
   }, [deptModal, staffModal]);
 
   useEffect(() => {
+    fetchActiveDepartments().then((res) => setDepartments(res.data.data)).catch(() => {});
     fetchCategories().then((res) => setCategories(res.data.data.map((c: any) => ({ id: c.id, name: c.name })))).catch(() => {});
   }, []);
 
@@ -247,17 +248,23 @@ export default function TicketList() {
           { key: 'departmentName', label: 'Department', render: (row) => row.departmentName || '—' },
           {
             key: 'dueDate',
-            label: 'SLA',
-            render: (row) => (
-              <div>
-                {row.responseSlaBreached && <div className={styles.slaOverdue}>Response Breached</div>}
-                {row.escalationSlaBreached && <div className={styles.slaOverdue}>Escalation Breached</div>}
-                {!row.responseSlaBreached && !row.escalationSlaBreached && row.isOverdue && <div className={styles.slaOverdue}>Overdue</div>}
-                {!row.responseSlaBreached && !row.escalationSlaBreached && !row.isOverdue && row.dueDate && (
-                  <span className={styles.slaOnTrack}>Due: {new Date(row.dueDate).toLocaleDateString()}</span>
-                )}
-              </div>
-            ),
+            label: 'SLA Status',
+            render: (row) => {
+              const remainingHours = row.remainingMs != null ? Math.round(row.remainingMs / 3600000) : null;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.82rem' }}>
+                  {row.responseSlaBreached && <span className={styles.slaOverdue}>⚠️ Response Breached</span>}
+                  {row.escalationSlaBreached && <span className={styles.slaOverdue}>⚠️ Escalation Breached</span>}
+                  {row.isOverdue && <span className={styles.slaOverdue}>🔴 Resolution Overdue</span>}
+                  {!row.isOverdue && !row.responseSlaBreached && !row.escalationSlaBreached && row.dueDate && (
+                    <span className={styles.slaOnTrack}>
+                      🟢 Due: {new Date(row.dueDate).toLocaleDateString()} {remainingHours !== null ? `(${remainingHours}h left)` : ''}
+                    </span>
+                  )}
+                  {!row.dueDate && <span style={{ color: '#94a3b8' }}>No SLA</span>}
+                </div>
+              );
+            },
           },
           {
             key: 'createdAt',

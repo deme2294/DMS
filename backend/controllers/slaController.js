@@ -1,3 +1,4 @@
+import pool from '../config/db.js';
 import * as slaService from '../services/slaService.js';
 import { HTTP } from '../config/constants.js';
 
@@ -19,7 +20,7 @@ const normalizePolicy = (policy) => {
     categoryId: category_id || null,
     responseHours: Number(response_hours ?? 0),
     resolutionHours: Number(resolution_hours ?? 0),
-    escalationHours: Number(escalation_hours ?? 0),
+    escalationHours: escalation_hours !== null && escalation_hours !== undefined ? Number(escalation_hours) : null,
     workingHours: working_hours || null,
     createdAt: created_at || null,
     updatedAt: updated_at || null,
@@ -31,8 +32,11 @@ const normalizePolicies = (policies) => policies.map(normalizePolicy);
 
 export const listPolicies = async (req, res, next) => {
   try {
-    const includeInactive = req.query.includeInactive === 'true' && req.user.role === 'admin';
-    const categoryId = req.query.categoryId || null;
+    const includeInactive = req.query.includeInactive === 'true' && ['admin', 'manager', 'ceo'].includes(req.user?.role);
+    let categoryId = req.query.categoryId || null;
+    if (categoryId === 'null' || categoryId === 'undefined' || categoryId === '') {
+      categoryId = null;
+    }
     const data = await slaService.listPolicies(includeInactive, categoryId);
     res.status(HTTP.OK).json({ success: true, data: normalizePolicies(data) });
   } catch (err) {
@@ -79,20 +83,27 @@ export const deletePolicy = async (req, res, next) => {
 export const previewSLA = async (req, res, next) => {
   try {
     const { categoryId, priority } = req.query;
+    const catId = categoryId && categoryId !== 'null' && categoryId !== 'undefined' ? String(categoryId) : null;
+    const prio = String(priority || 'medium');
     const createdAt = req.query.createdAt ? new Date(String(req.query.createdAt)) : new Date();
-    const dueDates = await slaService.computeDueDate(
-      String(priority || 'medium'),
-      createdAt,
-      categoryId ? String(categoryId) : null
+
+    const policy = await slaService.resolveEffectivePolicy(catId, prio);
+    const dueDates = slaService.computeAllDueDates(
+      policy || {
+        priority: prio,
+        response_hours: 4,
+        resolution_hours: 24,
+        escalation_hours: 0,
+        working_hours: null,
+      },
+      createdAt
     );
-    const policies = await slaService.listPolicies(true, categoryId ? String(categoryId) : null);
-    const policy = policies.find(p => p.priority === priority && (!categoryId || p.category_id === categoryId)) || null;
 
     let categoryName = 'Global';
-    if (categoryId) {
+    if (catId) {
       const [catRows] = await pool.query(
         'SELECT name FROM ticket_categories WHERE id = :id LIMIT 1',
-        { id: String(categoryId) }
+        { id: catId }
       );
       if (catRows.length) categoryName = catRows[0].name;
     }
@@ -102,12 +113,12 @@ export const previewSLA = async (req, res, next) => {
       data: {
         policyId: policy?.id || null,
         policyName: policy?.name || 'Default SLA',
-        priority: String(priority || 'medium'),
+        priority: prio,
         category: categoryName,
-        categoryId: categoryId || null,
-        responseHours: policy?.response_hours ?? 4,
-        resolutionHours: policy?.resolution_hours ?? 24,
-        escalationHours: policy?.escalation_hours ?? 0,
+        categoryId: catId,
+        responseHours: policy ? Number(policy.response_hours ?? 4) : 4,
+        resolutionHours: policy ? Number(policy.resolution_hours ?? 24) : 24,
+        escalationHours: policy?.escalation_hours !== null && policy?.escalation_hours !== undefined ? Number(policy.escalation_hours) : null,
         responseDueDate: dueDates.responseDueDate,
         resolutionDueDate: dueDates.resolutionDueDate,
         escalationDueDate: dueDates.escalationDueDate,

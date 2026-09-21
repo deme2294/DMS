@@ -73,7 +73,7 @@ export const create = async ({
   resolutionHours,
   description,
   categoryId = null,
-  escalationHours = 0,
+  escalationHours = null,
   workingHours = null,
 }) => {
   const id = uuidv4();
@@ -87,9 +87,9 @@ export const create = async ({
       name,
       priority,
       categoryId: categoryId || null,
-      responseHours: responseHours ?? SLA_RESPONSE_HOURS[priority] ?? 4,
-      resolutionHours: resolutionHours ?? SLA_RESOLUTION_HOURS[priority] ?? 24,
-      escalationHours: escalationHours ?? 0,
+      responseHours: responseHours !== undefined && responseHours !== null ? Number(responseHours) : (SLA_RESPONSE_HOURS[priority] ?? 4),
+      resolutionHours: resolutionHours !== undefined && resolutionHours !== null ? Number(resolutionHours) : (SLA_RESOLUTION_HOURS[priority] ?? 24),
+      escalationHours: escalationHours !== null && escalationHours !== undefined && escalationHours !== '' ? Number(escalationHours) : null,
       workingHours: workingHours || null,
       description: description || null,
     }
@@ -112,9 +112,12 @@ export const update = async (id, {
   const params = { id };
   if (name !== undefined) { sets.push('name = :name'); params.name = name; }
   if (priority !== undefined) { sets.push('priority = :priority'); params.priority = priority; }
-  if (responseHours !== undefined) { sets.push('response_hours = :responseHours'); params.responseHours = responseHours; }
-  if (resolutionHours !== undefined) { sets.push('resolution_hours = :resolutionHours'); params.resolutionHours = resolutionHours; }
-  if (escalationHours !== undefined) { sets.push('escalation_hours = :escalationHours'); params.escalationHours = escalationHours; }
+  if (responseHours !== undefined) { sets.push('response_hours = :responseHours'); params.responseHours = Number(responseHours); }
+  if (resolutionHours !== undefined) { sets.push('resolution_hours = :resolutionHours'); params.resolutionHours = Number(resolutionHours); }
+  if (escalationHours !== undefined) {
+    sets.push('escalation_hours = :escalationHours');
+    params.escalationHours = escalationHours !== null && escalationHours !== undefined && escalationHours !== '' ? Number(escalationHours) : null;
+  }
   if (workingHours !== undefined) { sets.push('working_hours = :workingHours'); params.workingHours = workingHours || null; }
   if (description !== undefined) { sets.push('description = :description'); params.description = description || null; }
   if (isActive !== undefined) { sets.push('is_active = :isActive'); params.isActive = isActive ? 1 : 0; }

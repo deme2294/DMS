@@ -1,7 +1,7 @@
 import { validationResult, param, body } from 'express-validator';
 import { HTTP } from '../config/constants.js';
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_REGEX = /^[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$/i;
 
 export const validate = (req, res, next) => {
   const errors = validationResult(req);

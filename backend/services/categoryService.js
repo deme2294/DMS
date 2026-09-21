@@ -10,8 +10,12 @@ const getManagerDepartmentId = async (userId) => {
   return rows[0]?.department_id || null;
 };
 
-export const listCategories = async (includeInactive = false) =>
-  categoryRepo.findAll({ includeInactive });
+export const listCategories = async (options = {}) => {
+  if (typeof options === 'boolean') {
+    return categoryRepo.findAll({ includeInactive: options, status: options ? 'all' : 'active' });
+  }
+  return categoryRepo.findAll(options);
+};
 
 export const getCategory = async (id) => {
   const cat = await categoryRepo.findById(id);
@@ -19,10 +23,10 @@ export const getCategory = async (id) => {
   return cat;
 };
 
-// Admin creates an approved category immediately
+// Admin/CEO creates an approved category immediately
 export const createCategory = async (user, { name, description, departmentId, slaPolicyId, routingType = 'general' }) => {
-  if (user.role !== 'admin') {
-    throw Object.assign(new Error('Only admin can create approved categories directly'), { statusCode: 403 });
+  if (!['admin', 'ceo'].includes(user.role)) {
+    throw Object.assign(new Error('Only admin or executive can create approved categories directly'), { statusCode: 403 });
   }
   if (routingType === 'direct' && !departmentId) {
     throw Object.assign(new Error('Direct-routing categories must be linked to a department'), { statusCode: 400 });
@@ -80,8 +84,8 @@ export const requestCategory = async (user, { name, description, slaPolicyId, ro
 };
 
 export const updateCategory = async (user, id, payload) => {
-  if (!['admin', 'manager'].includes(user.role)) {
-    throw Object.assign(new Error('Only admin or manager can update categories'), { statusCode: 403 });
+  if (!['admin', 'manager', 'ceo'].includes(user.role)) {
+    throw Object.assign(new Error('Only admin, manager, or executive can update categories'), { statusCode: 403 });
   }
   const cat = await categoryRepo.findById(id);
   if (!cat) throw Object.assign(new Error('Category not found'), { statusCode: 404 });
@@ -108,8 +112,8 @@ export const updateCategory = async (user, id, payload) => {
 
 // Admin approves a pending category request
 export const approveCategory = async (user, id, reviewNotes) => {
-  if (user.role !== 'admin') {
-    throw Object.assign(new Error('Only admin can approve categories'), { statusCode: 403 });
+  if (!['admin', 'ceo'].includes(user.role)) {
+    throw Object.assign(new Error('Only admin or executive can approve categories'), { statusCode: 403 });
   }
   const cat = await categoryRepo.findById(id);
   if (!cat) throw Object.assign(new Error('Category not found'), { statusCode: 404 });
@@ -138,8 +142,8 @@ export const approveCategory = async (user, id, reviewNotes) => {
 
 // Admin rejects a pending category request
 export const rejectCategory = async (user, id, reviewNotes) => {
-  if (user.role !== 'admin') {
-    throw Object.assign(new Error('Only admin can reject categories'), { statusCode: 403 });
+  if (!['admin', 'ceo'].includes(user.role)) {
+    throw Object.assign(new Error('Only admin or executive can reject categories'), { statusCode: 403 });
   }
   const cat = await categoryRepo.findById(id);
   if (!cat) throw Object.assign(new Error('Category not found'), { statusCode: 404 });
@@ -167,8 +171,8 @@ export const rejectCategory = async (user, id, reviewNotes) => {
 };
 
 export const deleteCategory = async (user, id) => {
-  if (user.role !== 'admin') {
-    throw Object.assign(new Error('Only admin can delete categories'), { statusCode: 403 });
+  if (!['admin', 'ceo'].includes(user.role)) {
+    throw Object.assign(new Error('Only admin or executive can delete categories'), { statusCode: 403 });
   }
   const cat = await categoryRepo.findById(id);
   if (!cat) throw Object.assign(new Error('Category not found'), { statusCode: 404 });

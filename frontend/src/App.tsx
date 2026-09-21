@@ -150,7 +150,7 @@ export default function App() {
           <Route path="/admin/reports" element={<ProtectedRoute roles={['admin']}><Reports /></ProtectedRoute>} />
           <Route path="/admin/audit" element={<ProtectedRoute roles={['admin']}><Audit /></ProtectedRoute>} />
           <Route path="/admin/ticket-categories" element={<ProtectedRoute roles={['admin', 'manager']}><TicketCategories /></ProtectedRoute>} />
-          <Route path="/admin/sla" element={<ProtectedRoute roles={['admin']}><SLAPolicies /></ProtectedRoute>} />
+          <Route path="/admin/sla" element={<ProtectedRoute roles={['admin', 'ceo']}><SLAPolicies /></ProtectedRoute>} />
           <Route path="/admin/chat" element={<ProtectedRoute roles={['admin']}><ChatPage /></ProtectedRoute>} />
           <Route path="/admin/notifications" element={<ProtectedRoute roles={['admin']}><NotificationsPage /></ProtectedRoute>} />
           <Route path="/admin/profile" element={<ProtectedRoute roles={['admin']}><MyProfile /></ProtectedRoute>} />
@@ -161,6 +161,7 @@ export default function App() {
           <Route path="/manager/matrix" element={<ProtectedRoute roles={['manager']}><ManagerMatrixView /></ProtectedRoute>} />
           <Route path="/manager/tickets" element={<ProtectedRoute roles={['manager']}><TicketList /></ProtectedRoute>} />
           <Route path="/manager/tickets/:id" element={<ProtectedRoute roles={['manager']}><TicketDetail /></ProtectedRoute>} />
+          <Route path="/manager/ticket-categories" element={<ProtectedRoute roles={['admin', 'manager']}><TicketCategories /></ProtectedRoute>} />
           <Route path="/manager/notices" element={<ProtectedRoute roles={['manager']}><ManagerNotices /></ProtectedRoute>} />
           <Route path="/manager/knowledge" element={<ProtectedRoute roles={['manager']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/manager/knowledge/create" element={<ProtectedRoute roles={['manager']}><KnowledgeCreate /></ProtectedRoute>} />

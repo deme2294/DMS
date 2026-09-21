@@ -10,6 +10,11 @@ export interface TicketCategory {
     status?: 'pending' | 'approved' | 'rejected';
     routingType?: 'general' | 'direct';
     slaPolicyId?: string | null;
+    slaPolicyName?: string | null;
+    slaPriority?: string | null;
+    slaResponseHours?: number | null;
+    slaResolutionHours?: number | null;
+    slaEscalationHours?: number | null;
     requestedBy?: string | null;
     requestedByName?: string | null;
     reviewedBy?: string | null;
@@ -36,7 +41,7 @@ export interface CategoryRequest {
     createdAt?: string;
 }
 
-export const fetchCategories = (params?: { includeInactive?: boolean }) =>
+export const fetchCategories = (params?: { includeInactive?: boolean; status?: 'active' | 'inactive' | 'all'; isActive?: boolean }) =>
     api.get<{ success: boolean; data: TicketCategory[] }>('/ticket-categories', { params });
 
 export const fetchCategory = (id: string) =>

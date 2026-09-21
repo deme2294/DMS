@@ -652,29 +652,34 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
 
   let deptFilter = '';
   if (departmentId && departmentId !== 'all') {
-    deptFilter = 'AND t.department_id = :departmentId';
-    queryParams.departmentId = departmentId;
+    if (departmentId === 'unassigned') {
+      deptFilter = 'AND t.department_id IS NULL';
+    } else {
+      deptFilter = 'AND t.department_id = :departmentId';
+      queryParams.departmentId = departmentId;
+    }
   }
 
   // 1. Overall KPIs
   const [kpiRows] = await pool.query(`
     SELECT
       COUNT(*) AS total_tickets,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved_tickets,
-      SUM(CASE WHEN t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review') THEN 1 ELSE 0 END) AS open_tickets,
-      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
-      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_tickets,
-      AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
+      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND (t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL) THEN 1 ELSE 0 END) AS overdue_tickets,
+      AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END) AS avg_resolution_hours,
       AVG(CASE WHEN tr.first_reply_at IS NOT NULL
                THEN TIMESTAMPDIFF(MINUTE, t.created_at, tr.first_reply_at) / 60.0 ELSE NULL END) AS avg_first_response_hours,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) AS resolved_within_sla
+      SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) AS resolved_within_sla
     FROM tickets t
     LEFT JOIN (
-      SELECT ticket_id, MIN(created_at) AS first_reply_at
-      FROM ticket_replies
-      WHERE is_internal = 0
-      GROUP BY ticket_id
+      SELECT tr.ticket_id, MIN(tr.created_at) AS first_reply_at
+      FROM ticket_replies tr
+      JOIN tickets tk ON tk.id = tr.ticket_id
+      WHERE tr.is_internal = 0 AND tr.user_id != tk.created_by
+      GROUP BY tr.ticket_id
     ) tr ON tr.ticket_id = t.id
     WHERE 1=1 ${dateFilter} ${deptFilter}
   `, queryParams);
@@ -690,19 +695,24 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
     WHERE 1=1 ${deptFilter}
   `, queryParams);
 
-  // 2. Monthly breakdown (last 12 months)
+  // 2. Monthly breakdown
+  const monthlyDateConstraint = timeframe === 'all' ? '' : 'WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)';
+  const monthlyWhere = monthlyDateConstraint
+    ? `${monthlyDateConstraint} ${deptFilter}`
+    : (deptFilter ? `WHERE 1=1 ${deptFilter}` : '');
+
   const [monthlyTrends] = await pool.query(`
     SELECT
       DATE_FORMAT(t.created_at, '%Y-%m') AS month_key,
       DATE_FORMAT(t.created_at, '%b %Y') AS month_label,
       COUNT(*) AS total_created,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved,
-      SUM(CASE WHEN t.status IN ('open', 'assigned', 'pending', 'in_progress', 'waiting_tenant', 'waiting_vendor', 'reopened', 'escalated') THEN 1 ELSE 0 END) AS active_backlog,
-      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_count,
-      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS total_resolved,
+      SUM(CASE WHEN t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS active_backlog,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_count,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                      THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours
     FROM tickets t
-    WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) ${deptFilter}
+    ${monthlyWhere}
     GROUP BY month_key, month_label
     ORDER BY month_key ASC
   `, queryParams);
@@ -714,9 +724,9 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
       DATE_FORMAT(DATE_SUB(t.created_at, INTERVAL WEEKDAY(t.created_at) DAY), '%b %d') AS week_label,
       DATE_FORMAT(DATE_SUB(t.created_at, INTERVAL WEEKDAY(t.created_at) DAY), '%Y-%m-%d') AS week_start_date,
       COUNT(*) AS total_created,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved,
-      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
-      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_count
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS total_resolved,
+      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_count
     FROM tickets t
     WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK) ${deptFilter}
     GROUP BY week_key, week_label, week_start_date
@@ -729,7 +739,7 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
       DATE_FORMAT(t.created_at, '%Y-%m-%d') AS date_key,
       DATE_FORMAT(t.created_at, '%a, %b %d') AS date_label,
       COUNT(*) AS total_created,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS total_resolved
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS total_resolved
     FROM tickets t
     WHERE t.created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ${deptFilter}
     GROUP BY date_key, date_label
@@ -742,21 +752,43 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
       d.id AS department_id,
       d.name AS department_name,
       d.code AS department_code,
-      CONCAT(u.first_name, ' ', u.last_name) AS head_name,
+      COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unassigned') AS head_name,
       COUNT(t.id) AS total_tickets,
-      SUM(CASE WHEN t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review') THEN 1 ELSE 0 END) AS open_tickets,
-      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved_tickets,
-      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue_tickets,
-      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                      THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
-      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
     FROM departments d
     LEFT JOIN users u ON u.id = d.head_user_id
     LEFT JOIN tickets t ON t.department_id = d.id ${dateFilter}
     GROUP BY d.id, d.name, d.code, head_name
+
+    UNION ALL
+
+    SELECT
+      'unassigned' AS department_id,
+      'General / Unassigned' AS department_name,
+      'GEN' AS department_code,
+      'Helpdesk Admin' AS head_name,
+      COUNT(t.id) AS total_tickets,
+      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
+      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+    FROM tickets t
+    WHERE t.department_id IS NULL ${dateFilter}
+    HAVING total_tickets > 0
+
     ORDER BY total_tickets DESC
   `);
 
@@ -776,9 +808,9 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
     SELECT
       t.priority,
       COUNT(*) AS count,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved,
-      SUM(CASE WHEN t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status NOT IN ('resolved', 'closed', 'completed')) THEN 1 ELSE 0 END) AS overdue,
-      ROUND(AVG(CASE WHEN t.status IN ('resolved', 'closed', 'completed') AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                      THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_hours
     FROM tickets t
     WHERE 1=1 ${dateFilter} ${deptFilter}
@@ -791,12 +823,12 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
     SELECT
       COALESCE(t.category, 'General') AS category_name,
       COUNT(t.id) AS count,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved
     FROM tickets t
     WHERE 1=1 ${dateFilter} ${deptFilter}
     GROUP BY category_name
     ORDER BY count DESC
-    LIMIT 10
+    LIMIT 50
   `, queryParams);
 
   const kpis = kpiRows[0] || {};

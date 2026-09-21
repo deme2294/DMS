@@ -20,7 +20,13 @@ import styles from './TicketCategories.module.css';
 
 type Department = { id: string; name: string };
 
-const emptyForm = { name: '', description: '', departmentId: '', routingType: 'general' as 'general' | 'direct' };
+const emptyForm = {
+    name: '',
+    description: '',
+    departmentId: '',
+    slaPolicyId: '',
+    routingType: 'general' as 'general' | 'direct',
+};
 
 const emptySlaForm = {
     name: '',
@@ -38,7 +44,8 @@ export default function TicketCategories() {
     const [requests, setRequests] = useState<CategoryRequest[]>([]);
     const [slaPolicies, setSlaPolicies] = useState<SLAPolicy[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showInactive, setShowInactive] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+    const [searchQuery, setSearchQuery] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [reviewNotes, setReviewNotes] = useState('');
@@ -60,19 +67,34 @@ export default function TicketCategories() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetchCategories({ includeInactive: showInactive });
+            const res = await fetchCategories({ status: statusFilter });
             setCategories(res.data.data);
             const slaRes = await fetchSLAPolicies({ includeInactive: true });
             setSlaPolicies(slaRes.data.data);
         } finally {
             setLoading(false);
         }
-    }, [showInactive]);
+    }, [statusFilter]);
 
     useEffect(() => { load(); }, [load]);
 
-    const totalCatPages = useMemo(() => Math.max(1, Math.ceil(categories.length / catPageSize)), [categories.length, catPageSize]);
-    const pagedCategories = useMemo(() => categories.slice((catPage - 1) * catPageSize, catPage * catPageSize), [categories, catPage, catPageSize]);
+    const filteredCategories = useMemo(() => {
+        return categories.filter((cat) => {
+            if (statusFilter === 'active' && !cat.isActive) return false;
+            if (statusFilter === 'inactive' && cat.isActive) return false;
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const matchName = cat.name.toLowerCase().includes(q);
+                const matchDesc = (cat.description || '').toLowerCase().includes(q);
+                const matchDept = (cat.departmentName || '').toLowerCase().includes(q);
+                if (!matchName && !matchDesc && !matchDept) return false;
+            }
+            return true;
+        });
+    }, [categories, statusFilter, searchQuery]);
+
+    const totalCatPages = useMemo(() => Math.max(1, Math.ceil(filteredCategories.length / catPageSize)), [filteredCategories.length, catPageSize]);
+    const pagedCategories = useMemo(() => filteredCategories.slice((catPage - 1) * catPageSize, catPage * catPageSize), [filteredCategories, catPage, catPageSize]);
 
     useEffect(() => {
         fetchActiveDepartments()
@@ -99,6 +121,7 @@ export default function TicketCategories() {
             name: cat.name,
             description: cat.description || '',
             departmentId: cat.departmentId || '',
+            slaPolicyId: cat.slaPolicyId || '',
             routingType: (cat as any).routing_type || cat.routingType || 'general',
         });
         setError('');
@@ -117,6 +140,7 @@ export default function TicketCategories() {
                 name: form.name.trim(),
                 description: form.description.trim() || undefined,
                 departmentId: form.departmentId || undefined,
+                slaPolicyId: form.slaPolicyId || undefined,
                 routingType: form.routingType,
             };
             if (editing) {
@@ -201,21 +225,19 @@ export default function TicketCategories() {
                 setSlaError(`An SLA policy named "${slaForm.name.trim()}" already exists for this category.`);
                 return;
             }
-            const duplicatePriority = slaPolicies.find(p => p.categoryId === categoryId && p.priority === slaForm.priority);
-            if (duplicatePriority) {
-                setSlaError(`An SLA policy for priority "${slaForm.priority}" already exists for this category.`);
-                return;
-            }
-            await createSLAPolicy({
+            const res = await createSLAPolicy({
                 name: slaForm.name.trim(),
                 priority: slaForm.priority,
-                categoryId: slaForCategory?.id || undefined,
+                categoryId: categoryId || undefined,
                 responseHours: slaForm.responseHours,
                 resolutionHours: slaForm.resolutionHours,
                 escalationHours: slaForm.escalationHours,
                 description: slaForm.description.trim() || undefined,
             });
-            setMessage('SLA policy created');
+            if (slaForCategory && !slaForCategory.slaPolicyId && res?.data?.data?.id) {
+                await updateCategory(slaForCategory.id, { slaPolicyId: res.data.data.id }).catch(() => {});
+            }
+            setMessage('SLA policy created and linked to category');
             setSlaModalOpen(false);
             load();
         } catch (err: any) {
@@ -273,28 +295,79 @@ export default function TicketCategories() {
             )}
 
             <div className={styles.toolbar}>
-                <label className={styles.toggle}>
-                    <input
-                        type="checkbox"
-                        checked={showInactive}
-                        onChange={(e) => setShowInactive(e.target.checked)}
-                    />
-                    Show inactive categories
-                </label>
-                <span className={styles.count}>{categories.length} categories</span>
-                <select
-                    value={catPageSize}
-                    onChange={(e) => { setCatPageSize(Number(e.target.value)); setCatPage(1); }}
-                    style={{ fontSize: '0.82rem', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-color, #e2e8f0)', background: 'var(--input-bg, #fff)', color: 'var(--text-main, #0f172a)' }}
-                >
-                    {CAT_PAGE_OPTIONS.map(n => <option key={n} value={n}>Show {n}</option>)}
-                </select>
+                <div className={styles.toolbarLeft}>
+                    <div className={styles.statusTabs}>
+                        <button
+                            type="button"
+                            className={`${styles.tabBtn} ${statusFilter === 'active' ? styles.tabActive : ''}`}
+                            onClick={() => { setStatusFilter('active'); setCatPage(1); }}
+                        >
+                            Active
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.tabBtn} ${statusFilter === 'inactive' ? styles.tabActive : ''}`}
+                            onClick={() => { setStatusFilter('inactive'); setCatPage(1); }}
+                        >
+                            Inactive
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.tabBtn} ${statusFilter === 'all' ? styles.tabActive : ''}`}
+                            onClick={() => { setStatusFilter('all'); setCatPage(1); }}
+                        >
+                            All
+                        </button>
+                    </div>
+
+                    <div className={styles.searchWrapper}>
+                        <input
+                            type="text"
+                            placeholder="Search categories…"
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCatPage(1); }}
+                            className={styles.searchInput}
+                        />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                className={styles.clearSearchBtn}
+                                onClick={() => { setSearchQuery(''); setCatPage(1); }}
+                                title="Clear search"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className={styles.toolbarRight}>
+                    <span className={styles.count}>
+                        {filteredCategories.length} {statusFilter === 'inactive' ? 'inactive ' : statusFilter === 'active' ? 'active ' : ''}
+                        {filteredCategories.length === 1 ? 'category' : 'categories'}
+                    </span>
+                    <select
+                        value={catPageSize}
+                        onChange={(e) => { setCatPageSize(Number(e.target.value)); setCatPage(1); }}
+                        className={styles.pageSizeSelect}
+                    >
+                        {CAT_PAGE_OPTIONS.map(n => <option key={n} value={n}>Show {n}</option>)}
+                    </select>
+                </div>
             </div>
 
             {loading ? (
-                <div className={styles.loading}>Loading…</div>
-            ) : categories.length === 0 ? (
-                <div className={styles.empty}>No categories found. Create one to get started.</div>
+                <div className={styles.loading}>Loading categories…</div>
+            ) : filteredCategories.length === 0 ? (
+                <div className={styles.empty}>
+                    {searchQuery
+                        ? `No categories matching "${searchQuery}".`
+                        : statusFilter === 'inactive'
+                        ? 'No inactive categories found. All categories are currently active.'
+                        : statusFilter === 'active'
+                        ? 'No active categories found.'
+                        : 'No categories found. Create one to get started.'}
+                </div>
             ) : (
                 <div className={styles.grid}>
                     {pagedCategories.map((cat) => {
@@ -315,15 +388,20 @@ export default function TicketCategories() {
                                 {cat.description && (
                                     <p className={styles.catDesc}>{cat.description}</p>
                                 )}
+                                {cat.slaPolicyName && (
+                                    <div style={{ margin: '8px 0', fontSize: '0.82rem', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
+                                    </div>
+                                )}
                                 <div className={styles.cardMeta}>
                                     <span>Created by {cat.createdByName || '—'}</span>
                                 </div>
                                 {catSl.length > 0 && (
                                     <div className={styles.slaList}>
-                                        <strong>SLA Policies:</strong>
+                                        <strong>Category SLA Policies:</strong>
                                         <ul>
                                             {catSl.map((p) => (
-                                                <li key={p.id}>{p.name} ({p.priority})</li>
+                                                <li key={p.id}>{p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve)</li>
                                             ))}
                                         </ul>
                                     </div>
@@ -349,7 +427,7 @@ export default function TicketCategories() {
             {!loading && totalCatPages > 1 && (
                 <div className={styles.pagination} style={{ marginTop: 20 }}>
                     <button onClick={() => setCatPage(p => Math.max(1, p - 1))} disabled={catPage <= 1} className={styles.paginationBtn}>← Previous</button>
-                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary, #334155)' }}>Page {catPage} of {totalCatPages} &bull; {categories.length} total</span>
+                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary, #334155)' }}>Page {catPage} of {totalCatPages} &bull; {filteredCategories.length} total</span>
                     <button onClick={() => setCatPage(p => Math.min(totalCatPages, p + 1))} disabled={catPage >= totalCatPages} className={styles.paginationBtn}>Next →</button>
                 </div>
             )}
@@ -385,6 +463,19 @@ export default function TicketCategories() {
                          <option value="">All Departments</option>
                          {departments.map((d) => (
                              <option key={d.id} value={d.id}>{d.name}</option>
+                         ))}
+                     </select>
+
+                     <label>Default SLA Policy (optional)</label>
+                     <select
+                         value={form.slaPolicyId}
+                         onChange={(e) => setForm((f) => ({ ...f, slaPolicyId: e.target.value }))}
+                     >
+                         <option value="">No Default SLA Policy (System Priority Defaults)</option>
+                         {slaPolicies.map((p) => (
+                             <option key={p.id} value={p.id}>
+                                 {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve{p.categoryName ? ` [${p.categoryName}]` : ''})
+                             </option>
                          ))}
                      </select>
 

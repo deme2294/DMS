@@ -8,7 +8,25 @@ import styles from './SLAPolicies.module.css';
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 
-const empty = { name: '', priority: 'medium', categoryId: '', responseHours: 1, resolutionHours: 24, escalationHours: 0, description: '' };
+interface SLAFormState {
+  name: string;
+  priority: 'urgent' | 'high' | 'medium' | 'low' | '';
+  categoryId: string;
+  responseHours: number | string;
+  resolutionHours: number | string;
+  escalationHours: number | string;
+  description: string;
+}
+
+const empty: SLAFormState = {
+  name: '',
+  priority: '',
+  categoryId: '',
+  responseHours: '',
+  resolutionHours: '',
+  escalationHours: '',
+  description: '',
+};
 
 export default function SLAPolicies() {
   const { user } = useAuth();
@@ -18,7 +36,7 @@ export default function SLAPolicies() {
   const [modalOpen, setModalOpen] = useState(false);
   const [viewing, setViewing] = useState<SLAPolicy | null>(null);
   const [editing, setEditing] = useState<SLAPolicy | null>(null);
-  const [form, setForm] = useState(empty);
+  const [form, setForm] = useState<SLAFormState>(empty);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -28,7 +46,7 @@ export default function SLAPolicies() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: any = { includeInactive: user?.role === 'admin' };
+      const params: any = { includeInactive: ['admin', 'ceo'].includes(user?.role || '') };
       if (categoryFilter) params.categoryId = categoryFilter;
       const pRes = await fetchSLAPolicies(params);
       setPolicies(pRes.data.data);
@@ -53,23 +71,66 @@ export default function SLAPolicies() {
     return () => clearTimeout(t);
   }, [message]);
 
-  const openCreate = () => { setEditing(null); setForm(empty); setError(''); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm(empty);
+    setError('');
+    setModalOpen(true);
+  };
+
   const openEdit = (p: SLAPolicy) => {
     setEditing(p);
     setForm({
-      name: p.name, priority: p.priority, categoryId: p.categoryId || '',
-      responseHours: p.responseHours, resolutionHours: p.resolutionHours,
-      escalationHours: p.escalationHours || 0, description: p.description || '',
+      name: p.name,
+      priority: p.priority,
+      categoryId: p.categoryId || '',
+      responseHours: p.responseHours !== undefined && p.responseHours !== null ? p.responseHours : '',
+      resolutionHours: p.resolutionHours !== undefined && p.resolutionHours !== null ? p.resolutionHours : '',
+      escalationHours: p.escalationHours !== undefined && p.escalationHours !== null ? p.escalationHours : '',
+      description: p.description || '',
     });
-    setError(''); setModalOpen(true);
+    setError('');
+    setModalOpen(true);
   };
+
   const openView = (p: SLAPolicy) => setViewing(p);
 
   const handleSave = async () => {
     setError('');
+    if (!form.name.trim()) {
+      setError('Policy Name is required');
+      return;
+    }
+    if (!form.priority) {
+      setError('Please select a priority');
+      return;
+    }
+    if (form.responseHours === '' || isNaN(Number(form.responseHours)) || Number(form.responseHours) < 0) {
+      setError('First Response Time must be a valid number (>= 0)');
+      return;
+    }
+    if (form.resolutionHours === '' || isNaN(Number(form.resolutionHours)) || Number(form.resolutionHours) < 1) {
+      setError('Resolution Time must be a valid number (>= 1)');
+      return;
+    }
+    if (form.escalationHours !== '' && (isNaN(Number(form.escalationHours)) || Number(form.escalationHours) < 0)) {
+      setError('Escalation Time must be a valid number (>= 0)');
+      return;
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      priority: form.priority,
+      categoryId: form.categoryId ? form.categoryId : null,
+      responseHours: Number(form.responseHours),
+      resolutionHours: Number(form.resolutionHours),
+      escalationHours: form.escalationHours !== '' && form.escalationHours !== null ? Number(form.escalationHours) : null,
+      description: form.description.trim() || null,
+    };
+
     try {
-      if (editing) await updateSLAPolicy(editing.id, form);
-      else await createSLAPolicy(form);
+      if (editing) await updateSLAPolicy(editing.id, payload);
+      else await createSLAPolicy(payload);
       setMessage(editing ? 'SLA policy updated successfully' : 'SLA policy created successfully');
       setModalOpen(false);
       load();
@@ -234,9 +295,9 @@ export default function SLAPolicies() {
                         {p.priority}
                       </span>
                     </td>
-                    <td>{p.responseHours}h</td>
-                    <td>{p.resolutionHours}h</td>
-                    <td>{p.escalationHours || 0}h</td>
+                    <td>{p.responseHours !== undefined && p.responseHours !== null ? `${p.responseHours}h` : '—'}</td>
+                    <td>{p.resolutionHours !== undefined && p.resolutionHours !== null ? `${p.resolutionHours}h` : '—'}</td>
+                    <td>{p.escalationHours !== undefined && p.escalationHours !== null && p.escalationHours > 0 ? `${p.escalationHours}h` : '—'}</td>
                     <td>
                       <button
                         type="button"
@@ -255,7 +316,7 @@ export default function SLAPolicies() {
                       <div className={styles.actions}>
                         <button className={styles.viewBtn} onClick={() => openView(p)}>View</button>
                         <button className={styles.editBtn} onClick={() => openEdit(p)}>Edit</button>
-                        {user?.role === 'admin' && (
+                        {['admin', 'ceo'].includes(user?.role || '') && (
                           <button className={styles.deleteBtn} onClick={() => handleDelete(p)}>Delete</button>
                         )}
                       </div>
@@ -284,7 +345,11 @@ export default function SLAPolicies() {
         footer={
           <>
             <button className={styles.cancelBtn} onClick={() => setModalOpen(false)}>Cancel</button>
-            <button className={styles.submitBtn} onClick={handleSave} disabled={!form.name.trim()}>
+            <button
+              className={styles.submitBtn}
+              onClick={handleSave}
+              disabled={!form.name.trim() || !form.priority || form.responseHours === '' || form.resolutionHours === ''}
+            >
               {editing ? 'Update Policy' : 'Create Policy'}
             </button>
           </>
@@ -320,12 +385,13 @@ export default function SLAPolicies() {
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Priority</label>
+              <label className={styles.formLabel}>Priority <span className={styles.required}>*</span></label>
               <select
                 className={styles.formSelect}
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
               >
+                <option value="">-- Select Priority --</option>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
@@ -333,24 +399,26 @@ export default function SLAPolicies() {
 
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>First Response Time (hours)</label>
+              <label className={styles.formLabel}>First Response Time (hours) <span className={styles.required}>*</span></label>
               <input
                 type="number"
                 className={styles.formInput}
                 min="0"
+                placeholder="e.g. 4"
                 value={form.responseHours}
-                onChange={(e) => setForm({ ...form, responseHours: Number(e.target.value) })}
+                onChange={(e) => setForm({ ...form, responseHours: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
 
             <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Resolution Time (hours)</label>
+              <label className={styles.formLabel}>Resolution Time (hours) <span className={styles.required}>*</span></label>
               <input
                 type="number"
                 className={styles.formInput}
                 min="1"
+                placeholder="e.g. 24"
                 value={form.resolutionHours}
-                onChange={(e) => setForm({ ...form, resolutionHours: Number(e.target.value) })}
+                onChange={(e) => setForm({ ...form, resolutionHours: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
 
@@ -360,8 +428,9 @@ export default function SLAPolicies() {
                 type="number"
                 className={styles.formInput}
                 min="0"
+                placeholder="Optional (e.g. 48)"
                 value={form.escalationHours}
-                onChange={(e) => setForm({ ...form, escalationHours: Number(e.target.value) })}
+                onChange={(e) => setForm({ ...form, escalationHours: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
           </div>
@@ -373,7 +442,7 @@ export default function SLAPolicies() {
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Brief description of this SLA policy"
+              placeholder="Brief description of this SLA policy (optional)"
             />
           </div>
         </div>
@@ -407,15 +476,15 @@ export default function SLAPolicies() {
             </div>
             <div className={styles.viewRow}>
               <span className={styles.viewLabel}>First Response Time</span>
-              <span className={styles.viewValue}>{viewing.responseHours}h</span>
+              <span className={styles.viewValue}>{viewing.responseHours !== undefined && viewing.responseHours !== null ? `${viewing.responseHours}h` : '—'}</span>
             </div>
             <div className={styles.viewRow}>
               <span className={styles.viewLabel}>Resolution Time</span>
-              <span className={styles.viewValue}>{viewing.resolutionHours}h</span>
+              <span className={styles.viewValue}>{viewing.resolutionHours !== undefined && viewing.resolutionHours !== null ? `${viewing.resolutionHours}h` : '—'}</span>
             </div>
             <div className={styles.viewRow}>
               <span className={styles.viewLabel}>Escalation Time</span>
-              <span className={styles.viewValue}>{viewing.escalationHours || 0}h</span>
+              <span className={styles.viewValue}>{viewing.escalationHours !== undefined && viewing.escalationHours !== null && viewing.escalationHours > 0 ? `${viewing.escalationHours}h` : '—'}</span>
             </div>
             <div className={styles.viewRow}>
               <span className={styles.viewLabel}>Status</span>

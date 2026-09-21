@@ -1,3 +1,4 @@
+import pool from '../config/db.js';
 import * as slaRepo from '../repository/slaRepository.js';
 import * as auditService from './auditService.js';
 import { SLA_RESOLUTION_HOURS, SLA_RESPONSE_HOURS } from '../config/constants.js';
@@ -23,32 +24,44 @@ export const createPolicy = async (user, payload) => {
     throw Object.assign(new Error('Invalid priority'), { statusCode: 400 });
   }
   const categoryId = normalizeCategoryId(payload.categoryId);
-  const existingByPriority = await slaRepo.findByPriority(payload.priority, categoryId);
-  if (existingByPriority) {
-    const scope = categoryId ? `category '${categoryId}'` : 'global';
-    throw Object.assign(
-      new Error(`An SLA policy for priority '${payload.priority}' (${scope}) already exists`),
-      { statusCode: 409 }
-    );
+  const name = String(payload.name || '').trim();
+  if (!name) {
+    throw Object.assign(new Error('Policy name is required'), { statusCode: 400 });
   }
-  const existingByName = await slaRepo.findByName(payload.name, categoryId);
+  const existingByName = await slaRepo.findByName(name, categoryId);
   if (existingByName) {
     const scope = categoryId ? `category '${categoryId}'` : 'global';
     throw Object.assign(
-      new Error(`An SLA policy named '${payload.name}' (${scope}) already exists`),
+      new Error(`An SLA policy named '${name}' (${scope}) already exists`),
       { statusCode: 409 }
     );
   }
+  const responseHours = payload.responseHours !== undefined && payload.responseHours !== '' ? Number(payload.responseHours) : 4;
+  const resolutionHours = payload.resolutionHours !== undefined && payload.resolutionHours !== '' ? Number(payload.resolutionHours) : 24;
+  const escalationHours = payload.escalationHours !== undefined && payload.escalationHours !== null && payload.escalationHours !== ''
+    ? Number(payload.escalationHours)
+    : null;
+  const description = payload.description ? String(payload.description).trim() : null;
+
   const policy = await slaRepo.create({
-    name: payload.name,
+    name,
     priority: payload.priority,
-    responseHours: payload.responseHours,
-    resolutionHours: payload.resolutionHours,
-    description: payload.description,
+    responseHours,
+    resolutionHours,
+    description,
     categoryId,
-    escalationHours: payload.escalationHours,
-    workingHours: payload.workingHours,
+    escalationHours,
+    workingHours: payload.workingHours || null,
   });
+
+  if (categoryId) {
+    // If the category does not yet have an sla_policy_id, automatically set this as its default policy
+    await pool.query(
+      'UPDATE ticket_categories SET sla_policy_id = :policyId WHERE id = :categoryId AND (sla_policy_id IS NULL OR sla_policy_id = "")',
+      { policyId: policy.id, categoryId }
+    ).catch(() => {});
+  }
+
   auditService.logAction(user.id, 'create', 'sla_policy', policy.id, { role: user.role, new: policy }).catch(() => {});
   return policy;
 };
@@ -57,32 +70,30 @@ export const updatePolicy = async (user, id, payload) => {
   const policy = await slaRepo.findById(id);
   if (!policy) throw Object.assign(new Error('SLA policy not found'), { statusCode: 404 });
 
-  const newPriority = payload.priority ?? policy.priority;
   const newCategoryId = normalizeCategoryId(payload.categoryId !== undefined ? payload.categoryId : policy.category_id);
 
-  const priorityChanged = payload.priority && payload.priority !== policy.priority;
-  const categoryChanged = payload.categoryId !== undefined && newCategoryId !== (policy.category_id || null);
-
-  if (priorityChanged || categoryChanged) {
-    const existing = await slaRepo.findByPriority(newPriority, newCategoryId);
-    if (existing && existing.id !== id) {
+  if (payload.name && payload.name.trim() !== policy.name) {
+    const existingByName = await slaRepo.findByName(payload.name.trim(), newCategoryId);
+    if (existingByName && existingByName.id !== id) {
       const scope = newCategoryId ? `category '${newCategoryId}'` : 'global';
       throw Object.assign(
-        new Error(`An SLA policy for priority '${newPriority}' (${scope}) already exists`),
+        new Error(`An SLA policy named '${payload.name.trim()}' (${scope}) already exists`),
         { statusCode: 409 }
       );
     }
   }
 
   const updated = await slaRepo.update(id, {
-    name: payload.name,
+    name: payload.name !== undefined ? String(payload.name).trim() : undefined,
     priority: payload.priority,
-    responseHours: payload.responseHours,
-    resolutionHours: payload.resolutionHours,
-    description: payload.description,
+    responseHours: payload.responseHours !== undefined && payload.responseHours !== '' ? Number(payload.responseHours) : undefined,
+    resolutionHours: payload.resolutionHours !== undefined && payload.resolutionHours !== '' ? Number(payload.resolutionHours) : undefined,
+    description: payload.description !== undefined ? (payload.description ? String(payload.description).trim() : null) : undefined,
     isActive: payload.isActive,
     categoryId: payload.categoryId !== undefined ? newCategoryId : undefined,
-    escalationHours: payload.escalationHours,
+    escalationHours: payload.escalationHours !== undefined
+      ? (payload.escalationHours === null || payload.escalationHours === '' ? null : Number(payload.escalationHours))
+      : undefined,
     workingHours: payload.workingHours,
   });
   auditService.logAction(user.id, 'update', 'sla_policy', id, { role: user.role, old: policy, new: updated }).catch(() => {});
@@ -173,10 +184,38 @@ export const computeAllDueDates = (policy, createdAt = new Date()) => {
   return { responseDueDate, resolutionDueDate, escalationDueDate };
 };
 
+// Resolve the effective policy for a category and priority:
+// 1. Policy matching categoryId and priority
+// 2. Default policy linked to the category (ticket_categories.sla_policy_id)
+// 3. Fallback to global policy for that priority
+// 4. Default policy matching priority
+export const resolveEffectivePolicy = async (categoryId = null, priority = 'medium', slaPolicyId = null) => {
+  let policy = null;
+  if (slaPolicyId) {
+    policy = await slaRepo.findById(slaPolicyId);
+  }
+  if (!policy && categoryId) {
+    policy = await slaRepo.findPolicyByCategoryAndPriority(categoryId, priority);
+  }
+  if (!policy && categoryId) {
+    const [catRows] = await pool.query(
+      'SELECT sla_policy_id FROM ticket_categories WHERE id = :categoryId LIMIT 1',
+      { categoryId }
+    );
+    if (catRows[0]?.sla_policy_id) {
+      policy = await slaRepo.findById(catRows[0].sla_policy_id);
+    }
+  }
+  if (!policy) {
+    policy = await slaRepo.findPolicyByCategoryAndPriority(null, priority);
+  }
+  return policy;
+};
+
 // Find the effective policy (category-specific else global) and compute its due dates.
 // Returns the full due-dates object. Resolution due date is the SLA "due_date".
-export const computeDueDate = async (priority, createdAt = new Date(), categoryId = null) => {
-  const policy = await slaRepo.findPolicyByCategoryAndPriority(categoryId, priority);
+export const computeDueDate = async (priority, createdAt = new Date(), categoryId = null, slaPolicyId = null) => {
+  const policy = await resolveEffectivePolicy(categoryId, priority, slaPolicyId);
   const effective = policy || {
     priority,
     response_hours: SLA_RESPONSE_HOURS[priority] || 4,

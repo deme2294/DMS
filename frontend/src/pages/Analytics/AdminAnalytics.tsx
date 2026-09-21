@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { fetchAdminAnalytics } from '../../api/dashboardApi';
 import type { AdminAnalyticsData } from '../../api/dashboardApi';
+import { STATUS_LABELS, type TicketStatus } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
 import styles from './AdminAnalytics.module.css';
 
@@ -18,6 +19,9 @@ const STATUS_COLORS: Record<string, string> = {
   waiting_tenant: '#ec4899',
   waiting_vendor: '#8b5cf6',
   resolved: '#10b981',
+  completed: '#059669',
+  accepted: '#0d9488',
+  approved: '#10b981',
   closed: '#64748b',
   reopened: '#f97316',
   escalated: '#ef4444',
@@ -1186,7 +1190,7 @@ export default function AdminAnalytics({
     if (!data?.statusBreakdown) return [];
     return data.statusBreakdown.map((sb) => ({
       id: sb.status,
-      label: sb.status.replace(/_/g, ' '),
+      label: STATUS_LABELS[sb.status as TicketStatus] || sb.status.replace(/_/g, ' '),
       value: sb.count,
       color: STATUS_COLORS[sb.status] || '#64748b',
     }));
@@ -1269,7 +1273,7 @@ export default function AdminAnalytics({
       [],
       ['=== STATUS BREAKDOWN ==='],
       ['Status', 'Count', 'Percentage'],
-      ...data.statusBreakdown.map((s) => [s.status, s.count, `${s.percentage}%`]),
+      ...data.statusBreakdown.map((s) => [STATUS_LABELS[s.status as TicketStatus] || s.status, s.count, `${s.percentage}%`]),
     ];
 
     const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');

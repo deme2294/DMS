@@ -346,11 +346,27 @@ export default function TicketDetail() {
               <span className={styles.detailLabel}>Updated</span>
               <span className={styles.detailValue}>{ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '—'}</span>
             </div>
+            {ticket.responseDueDate && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>First Response SLA</span>
+                <span className={`${styles.detailValue} ${ticket.responseSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
+                  {new Date(ticket.responseDueDate).toLocaleString()} {ticket.responseSlaBreached ? '⚠️ (Breached)' : '✓ (Target)'}
+                </span>
+              </div>
+            )}
             {ticket.dueDate && (
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>SLA Due</span>
+                <span className={styles.detailLabel}>Resolution SLA Due</span>
                 <span className={`${styles.detailValue} ${ticket.isOverdue ? styles.slaOverdue : ticket.remainingMs != null && ticket.remainingMs < 3.6e6 ? styles.slaImminent : styles.slaOk}`}>
                   {new Date(ticket.dueDate).toLocaleString()} ({formatRemaining(ticket.remainingMs)})
+                </span>
+              </div>
+            )}
+            {ticket.escalationDueDate && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>Escalation SLA Due</span>
+                <span className={`${styles.detailValue} ${ticket.escalationSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
+                  {new Date(ticket.escalationDueDate).toLocaleString()} {ticket.escalationSlaBreached ? '⚠️ (Breached)' : ''}
                 </span>
               </div>
             )}
@@ -369,8 +385,7 @@ export default function TicketDetail() {
                   <button
                     className={styles.btnInfo}
                     onClick={() => setDeptModal(true)}
-                    disabled={ticket.isOverdue}
-                    title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
+                    title="Assign Department"
                   >
                     Assign Dept
                   </button>
@@ -379,8 +394,7 @@ export default function TicketDetail() {
                   <button
                     className={styles.btnInfo}
                     onClick={() => setStaffModal(true)}
-                    disabled={ticket.isOverdue}
-                    title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
+                    title="Assign Staff"
                   >
                     Assign Staff
                   </button>
@@ -393,8 +407,7 @@ export default function TicketDetail() {
                       setOverrideAssignedBy(user?.id || '');
                       setAttributionModal(true);
                     }}
-                    disabled={ticket.isOverdue}
-                    title={ticket.isOverdue ? 'Cannot control assignment: SLA overdue' : 'Control Assignment'}
+                    title="Control Assignment"
                   >
                     Control Assignment
                   </button>

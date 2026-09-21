@@ -194,11 +194,19 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
   const referenceNumber = await ticketRepo.generateReferenceNumber();
   const trackNumber = ticketRepo.generateTrackNumber();
   const priority = payload.priority || 'medium';
-  const dueDates = await slaService.computeDueDate(priority, new Date(), categoryId);
+  const effectivePolicy = await slaService.resolveEffectivePolicy(categoryId, priority, catInfo.sla_policy_id);
+  const dueDates = slaService.computeAllDueDates(
+    effectivePolicy || {
+      priority,
+      response_hours: 4,
+      resolution_hours: 24,
+      escalation_hours: 0,
+      working_hours: null,
+    },
+    new Date()
+  );
   const dueDate = dueDates.resolutionDueDate;
-
-  const effectivePolicy = await slaRepo.findPolicyByCategoryAndPriority(categoryId, priority);
-  const slaPolicyId = effectivePolicy?.id || null;
+  const slaPolicyId = effectivePolicy?.id || catInfo.sla_policy_id || null;
 
   await ticketRepo.create({
     id,
@@ -666,7 +674,11 @@ export const changePriority = async (user, id, priority, meta = {}) => {
   const categoryRecord = await categoryRepo.findByName(ticket.category).catch(() => null);
   const dueDates = await slaService.computeDueDate(priority, new Date(ticket.created_at), categoryRecord?.id || null);
 
-  const effectivePolicy = await slaRepo.findPolicyByCategoryAndPriority(categoryRecord?.id || null, priority);
+  const effectivePolicy = await slaService.resolveEffectivePolicy(
+    categoryRecord?.id || null,
+    priority,
+    categoryRecord?.sla_policy_id || null
+  );
   const updateFields = {
     due_date: dueDates.resolutionDueDate,
     response_due_date: dueDates.responseDueDate,
@@ -700,7 +712,11 @@ export const changeCategory = async (user, id, category, meta = {}) => {
   updateFields.response_due_date = dueDates.responseDueDate;
   updateFields.escalation_due_date = dueDates.escalationDueDate;
 
-  const effectivePolicy = await slaRepo.findPolicyByCategoryAndPriority(categoryRecord?.id || null, ticket.priority);
+  const effectivePolicy = await slaService.resolveEffectivePolicy(
+    categoryRecord?.id || null,
+    ticket.priority,
+    categoryRecord?.sla_policy_id || catInfo.sla_policy_id || null
+  );
   if (effectivePolicy?.id) {
     updateFields.sla_policy_id = effectivePolicy.id;
   }
@@ -798,6 +814,17 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
     id: replyId, ticketId, userId: user.id, message, visibility, attachmentId,
     type: 'reply', isInternal, departmentIds: departmentIds || null,
   });
+
+  // Track response SLA satisfaction when staff/manager/admin responds to user
+  if (!isInternal && ['admin', 'manager', 'staff'].includes(user.role)) {
+    if (ticket.response_due_date && (ticket.response_sla_breached === null || ticket.response_sla_breached === 0)) {
+      const now = new Date();
+      const breached = now > new Date(ticket.response_due_date) ? 1 : 0;
+      await ticketRepo.update(ticketId, {
+        response_sla_breached: breached,
+      }).catch(() => {});
+    }
+  }
 
   const savedTicket = await ticketRepo.findById(ticketId);
   await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1);

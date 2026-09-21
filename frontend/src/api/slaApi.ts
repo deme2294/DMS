@@ -8,7 +8,7 @@ export interface SLAPolicy {
   categoryName?: string | null;
   responseHours: number;
   resolutionHours: number;
-  escalationHours: number;
+  escalationHours?: number | null;
   workingHours?: any;
   description?: string | null;
   isActive: boolean;
@@ -24,7 +24,7 @@ export interface SLAPreview {
   categoryId: string | null;
   responseHours: number;
   resolutionHours: number;
-  escalationHours: number;
+  escalationHours?: number | null;
   responseDueDate: string;
   resolutionDueDate: string;
   escalationDueDate: string | null;
@@ -45,17 +45,27 @@ export const previewSLA = (params: { categoryId?: string; priority: string; crea
 export const createSLAPolicy = (payload: {
   name: string;
   priority: string;
-  categoryId?: string;
+  categoryId?: string | null;
   responseHours?: number;
   resolutionHours?: number;
-  escalationHours?: number;
+  escalationHours?: number | null;
   workingHours?: any;
-  description?: string;
+  description?: string | null;
 }) => api.post<{ success: boolean; data: SLAPolicy }>('/sla', payload);
 
 export const updateSLAPolicy = (
   id: string,
-  payload: { name?: string; priority?: string; categoryId?: string; responseHours?: number; resolutionHours?: number; escalationHours?: number; workingHours?: any; description?: string; isActive?: boolean }
+  payload: {
+    name?: string;
+    priority?: string;
+    categoryId?: string | null;
+    responseHours?: number;
+    resolutionHours?: number;
+    escalationHours?: number | null;
+    workingHours?: any;
+    description?: string | null;
+    isActive?: boolean;
+  }
 ) => api.put<{ success: boolean; data: SLAPolicy }>(`/sla/${id}`, payload);
 
 export const deleteSLAPolicy = (id: string) => api.delete(`/sla/${id}`);

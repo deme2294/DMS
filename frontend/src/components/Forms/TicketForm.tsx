@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { useEffect, useState } from 'react';
 import type { TicketFormValues, TicketPriority } from '../../types/ticket';
 import { DEFAULT_CATEGORIES, TICKET_PRIORITIES } from '../../types/ticket';
-import { previewSLA } from '../../api/slaApi';
+import { previewSLA, type SLAPreview } from '../../api/slaApi';
 import styles from './TicketForm.module.css';
 
 type CategoryOption = { id: string; name: string } | string;
@@ -17,20 +17,6 @@ type Props = {
   suggestedArticles?: { id: string; title: string; articleReference: string }[];
   onUseArticle?: (articleId: string) => void;
 };
-
-interface SLAPreviewData {
-  policyId: string | null;
-  policyName: string;
-  priority: string;
-  category: string;
-  categoryId: string | null;
-  responseHours: number;
-  resolutionHours: number;
-  escalationHours: number;
-  responseDueDate: string;
-  resolutionDueDate: string;
-  escalationDueDate: string | null;
-}
 
 function formatSize(bytes: number): string {
   if (!bytes) return '0 KB';
@@ -58,7 +44,7 @@ export default function TicketForm({
     },
   });
 
-  const [slaPreview, setSlaPreview] = useState<SLAPreviewData | null>(null);
+  const [slaPreview, setSlaPreview] = useState<SLAPreview | null>(null);
   const [loadingSla, setLoadingSla] = useState(false);
 
   const watchedCategory = watch('category');
@@ -268,7 +254,7 @@ export default function TicketForm({
               <span className={styles.slaLabel}>Resolution Time</span>
               <span className={styles.slaValue}>{slaPreview.resolutionHours} Hour(s)</span>
             </div>
-            {slaPreview.escalationHours > 0 && (
+            {Boolean(slaPreview.escalationHours && slaPreview.escalationHours > 0) && (
               <div className={styles.slaItem}>
                 <span className={styles.slaLabel}>Escalation After</span>
                 <span className={styles.slaValue}>{slaPreview.escalationHours} Hour(s)</span>

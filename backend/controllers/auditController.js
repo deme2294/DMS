@@ -4,7 +4,7 @@ import { HTTP } from '../config/constants.js';
 
 export const getAuditLogs = async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, userId, action, entityType, startDate, endDate } = req.query;
+    const { page = 1, limit = 50, userId, action, entityType, entity, startDate, endDate } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     let where = 'WHERE 1=1';
     const params = [];
@@ -17,9 +17,10 @@ export const getAuditLogs = async (req, res, next) => {
       where += ' AND al.action LIKE ?';
       params.push(`%${action}%`);
     }
-    if (entityType) {
+    const targetEntity = entityType || entity;
+    if (targetEntity) {
       where += ' AND al.entity_type = ?';
-      params.push(entityType);
+      params.push(targetEntity);
     }
     if (startDate) {
       where += ' AND al.created_at >= ?';
@@ -108,13 +109,14 @@ const toCsv = (headers, rows) => {
 
 export const exportAuditLogs = async (req, res, next) => {
   try {
-    const { userId, action, entityType, startDate, endDate } = req.query;
+    const { userId, action, entityType, entity, startDate, endDate } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
 
     if (userId) { where += ' AND al.user_id = ?'; params.push(userId); }
     if (action) { where += ' AND al.action LIKE ?'; params.push(`%${action}%`); }
-    if (entityType) { where += ' AND al.entity_type = ?'; params.push(entityType); }
+    const targetEntity = entityType || entity;
+    if (targetEntity) { where += ' AND al.entity_type = ?'; params.push(targetEntity); }
     if (startDate) { where += ' AND al.created_at >= ?'; params.push(startDate); }
     if (endDate) { where += ' AND al.created_at <= ?'; params.push(endDate); }
 

@@ -207,7 +207,7 @@ CREATE TABLE sla_policies (
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_sla_category_priority (category_id, priority)
+  INDEX idx_sla_category (category_id)
 );
 
 CREATE TABLE ticket_category_requests (
