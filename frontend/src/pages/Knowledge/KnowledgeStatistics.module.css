@@ -1,73 +1,833 @@
+/* --------------------------------------------------------------------------
+   KNOWLEDGE BASE STATISTICS & ANALYTICS STYLING
+   -------------------------------------------------------------------------- */
+
 .page {
-  padding: 24px;
+  padding: 28px 32px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+/* ── Hero & Quick Actions ──────────────────────────────────────────────────── */
+.actionBar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: -12px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
-.card {
-  padding: 20px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  border-top: 4px solid #3b82f6;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
-.cardValue {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1e293b;
+.btnSecondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
 }
 
-.cardLabel {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-top: 4px;
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
 }
 
-.section {
-  margin-top: 24px;
-  padding: 20px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+.btnPrimary:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38);
 }
 
-.section h3 {
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-}
-
-.feedbackGrid {
+/* ── Executive Top KPI Cards ─────────────────────────────────────────────── */
+.kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 28px;
 }
 
+.kpiCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.kpiCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1);
+  border-color: #cbd5e1;
+}
+
+.kpiTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.kpiLabel {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpiIconWrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.kpiValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.kpiValue {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.kpiBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badgeSuccess {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.badgeWarning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badgeInfo {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.kpiFooter {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.kpiProgressBar {
+  height: 6px;
+  width: 100%;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.kpiProgressFill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.8s ease;
+}
+
+/* ── Workflow Pipeline Section ───────────────────────────────────────────── */
+.pipelineSection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sectionHeaderTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.sectionSubtitle {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
+.pipelineBar {
+  display: flex;
+  height: 14px;
+  width: 100%;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #f1f5f9;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  margin-bottom: 16px;
+}
+
+.pipelineSegment {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+.pipelineLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  row-gap: 10px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendCount {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* ── Lifecycle & Status Cards Grid ───────────────────────────────────────── */
+.statusCategoryTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+  margin: 0 0 14px 2px;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.statusCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.statusCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: var(--card-color, #3b82f6);
+  transition: height 0.2s ease;
+}
+
+.statusCard:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 18px -3px rgba(15, 23, 42, 0.08);
+}
+
+.statusCard:hover::before {
+  height: 6px;
+}
+
+.statusCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.statusCardIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.statusCardPercent {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.statusCardValue {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.statusCardLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.statusCardDesc {
+  font-size: 0.77rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+/* ── Dual Split Dashboard Layout (Feedback & Department) ─────────────────── */
+.dualGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.panelCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Feedback Deep-Dive ─────────────────────────────────────────────────── */
+.feedbackScoreWidget {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+
+.scoreCircle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  flex-shrink: 0;
+}
+
+.scoreNumber {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.scoreSymbol {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.scoreInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scoreTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.scoreDesc {
+  font-size: 0.82rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.sentimentBarContainer {
+  margin-bottom: 20px;
+}
+
+.sentimentLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.helpfulText {
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.notHelpfulText {
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sentimentBar {
+  height: 12px;
+  width: 100%;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #fee2e2;
+  display: flex;
+}
+
+.sentimentHelpfulFill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  transition: width 0.6s ease;
+}
+
+.sentimentNotHelpfulFill {
+  height: 100%;
+  background: linear-gradient(90deg, #f87171, #ef4444);
+  transition: width 0.6s ease;
+}
+
+.feedbackTiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.feedbackTile {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feedbackTileHelpful {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.feedbackTileNotHelpful {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.feedbackTileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.feedbackTileTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.feedbackTileHelpful .feedbackTileTitle {
+  color: #166534;
+}
+
+.feedbackTileNotHelpful .feedbackTileTitle {
+  color: #991b1b;
+}
+
+.feedbackTileValue {
+  font-size: 1.75rem;
+  font-weight: 800;
+}
+
+.feedbackTileHelpful .feedbackTileValue {
+  color: #15803d;
+}
+
+.feedbackTileNotHelpful .feedbackTileValue {
+  color: #b91c1c;
+}
+
+.feedbackTileSub {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* ── Department Knowledge Distribution ───────────────────────────────────── */
 .deptList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .deptItem {
   display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
   background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.deptItem:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.deptItemTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.deptItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deptRank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.deptRankTop {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .deptName {
-  font-weight: 500;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.deptItemRight {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .deptCount {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.deptUnit {
+  font-size: 0.75rem;
   color: #64748b;
-  font-weight: 600;
+}
+
+.deptBar {
+  height: 6px;
+  width: 100%;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.deptBarFill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.6s ease;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
+  gap: 8px;
+}
+
+.emptyStateIcon {
+  font-size: 2.5rem;
+  opacity: 0.6;
+}
+
+/* ── Loading Skeleton State ──────────────────────────────────────────────── */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeletonBar {
+  height: 140px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 16px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Dark Theme Overrides ────────────────────────────────────────────────── */
+:global([data-theme="dark"]) .page {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .btnSecondary {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+:global([data-theme="dark"]) .btnSecondary:hover {
+  background: #273549;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .kpiCard,
+:global([data-theme="dark"]) .pipelineSection,
+:global([data-theme="dark"]) .statusCard,
+:global([data-theme="dark"]) .panelCard {
+  background: #131926;
+  border-color: #1e293b;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .kpiLabel,
+:global([data-theme="dark"]) .kpiFooter,
+:global([data-theme="dark"]) .sectionSubtitle,
+:global([data-theme="dark"]) .statusCardDesc,
+:global([data-theme="dark"]) .scoreDesc,
+:global([data-theme="dark"]) .deptUnit,
+:global([data-theme="dark"]) .legendItem {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .kpiValue,
+:global([data-theme="dark"]) .sectionTitle,
+:global([data-theme="dark"]) .statusCardValue,
+:global([data-theme="dark"]) .statusCardLabel,
+:global([data-theme="dark"]) .scoreTitle,
+:global([data-theme="dark"]) .deptName,
+:global([data-theme="dark"]) .deptCount,
+:global([data-theme="dark"]) .legendCount {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .kpiIconWrapper {
+  background: #1e293b;
+}
+
+:global([data-theme="dark"]) .kpiProgressBar,
+:global([data-theme="dark"]) .pipelineBar {
+  background: #1e293b;
+}
+
+:global([data-theme="dark"]) .statusCategoryTitle {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .statusCardPercent {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+:global([data-theme="dark"]) .feedbackScoreWidget {
+  background: linear-gradient(135deg, #182234, #131926);
+  border-color: #273549;
+}
+
+:global([data-theme="dark"]) .feedbackTileHelpful {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+:global([data-theme="dark"]) .feedbackTileHelpful .feedbackTileTitle {
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .feedbackTileHelpful .feedbackTileValue {
+  color: #34d399;
+}
+
+:global([data-theme="dark"]) .feedbackTileNotHelpful {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+:global([data-theme="dark"]) .feedbackTileNotHelpful .feedbackTileTitle {
+  color: #fca5a5;
+}
+
+:global([data-theme="dark"]) .feedbackTileNotHelpful .feedbackTileValue {
+  color: #f87171;
+}
+
+:global([data-theme="dark"]) .deptItem {
+  background: #182234;
+  border-color: #273549;
+}
+
+:global([data-theme="dark"]) .deptItem:hover {
+  background: #1e2c42;
+  border-color: #3b82f6;
+}
+
+:global([data-theme="dark"]) .deptRank {
+  background: #273549;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .deptRankTop {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+:global([data-theme="dark"]) .deptBar {
+  background: #273549;
+}
+
+/* ── Responsive Media Queries ────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dualGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 20px 16px;
+  }
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+  .actionBar {
+    justify-content: stretch;
+  }
+  .actionBar button {
+    flex: 1;
+    justify-content: center;
+  }
+  .statusGrid {
+    grid-template-columns: 1fr;
+  }
+  .feedbackScoreWidget {
+    flex-direction: column;
+    text-align: center;
+  }
+  .feedbackTiles {
+    grid-template-columns: 1fr;
+  }
 }

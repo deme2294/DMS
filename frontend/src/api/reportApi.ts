@@ -83,7 +83,10 @@ export const fetchStaffReport = (params?: ReportFilter) =>
 export const fetchTenantReport = (params?: ReportFilter) =>
   api.get<{ success: boolean; data: TenantReport }>('/reports/tenants', { params });
 
-export const exportReport = (type: 'tickets' | 'departments' | 'staff' | 'tenants', params?: ReportFilter) =>
+export const exportReport = (
+  type: 'tickets' | 'departments' | 'staff' | 'tenants' | 'comprehensive' | 'all',
+  params?: ReportFilter
+) =>
   api.get<Blob>(`/reports/${type}/export`, { params, responseType: 'blob' }).then((res) => {
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const a = document.createElement('a');
@@ -93,4 +96,4 @@ export const exportReport = (type: 'tickets' | 'departments' | 'staff' | 'tenant
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
-  });
+  });

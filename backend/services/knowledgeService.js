@@ -150,13 +150,6 @@ export const listPendingReview = async (user) => {
   if (isAdmin(user)) {
     return knowledgeRepo.findAll({ status: 'pending_approval', page: 1, limit: 100 });
   }
-  if (isManager(user)) {
-    const deptIds = await getUserDepartments(user);
-    if (!deptIds.length) {
-      return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
-    }
-    return knowledgeRepo.findAll({ status: 'pending_approval', departmentIds: deptIds, page: 1, limit: 100 });
-  }
   return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
 };
 
@@ -203,6 +196,9 @@ export const createArticle = async (data, user, req) => {
 
   const slug = generateSlug(data.title || uuidv4());
   const reference = await generateReference();
+  const shouldSubmit = Boolean(data.submitForApproval);
+  const initialStatus = shouldSubmit ? 'pending_approval' : 'draft';
+
   const article = {
     id: uuidv4(),
     article_reference: reference,
@@ -214,9 +210,10 @@ export const createArticle = async (data, user, req) => {
     tags: data.tags || null,
     visibility: data.visibility || 'internal',
     version: '1.0',
-    status: 'draft',
+    status: initialStatus,
     author_id: user.id,
     department_id: departmentId,
+    submitted_by: shouldSubmit ? user.id : null,
     created_by: user.id,
     updated_by: user.id,
   };
@@ -224,9 +221,13 @@ export const createArticle = async (data, user, req) => {
   await knowledgeRepo.create(article);
   const created = await knowledgeRepo.findById(article.id);
 
-  await logAction(user.id, 'ARTICLE_CREATED', 'knowledge_article', article.id, getIp(req), {
-    reference, title: article.title, status: 'draft'
+  await logAction(user.id, shouldSubmit ? 'ARTICLE_SUBMITTED' : 'ARTICLE_CREATED', 'knowledge_article', article.id, getIp(req), {
+    reference, title: article.title, status: initialStatus
   });
+
+  if (shouldSubmit) {
+    await notifyKnowledgeSubmitted(created, user);
+  }
 
   return created;
 };
@@ -296,6 +297,7 @@ export const requestRevision = async (id, reason, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (article.author_id === user.id) throw FORBIDDEN('You cannot request revision on your own article');
+  if (!isAdmin(user)) throw FORBIDDEN('Only admin can request revision for articles');
   canTransitionTo(article.status, 'needs_revision');
 
   await knowledgeRepo.update(id, {
@@ -325,7 +327,7 @@ export const approveArticle = async (id, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (article.author_id === user.id) throw FORBIDDEN('You cannot approve your own article');
-  if (!isAdmin(user) && !isManager(user)) throw FORBIDDEN('Only admin or manager can approve articles');
+  if (!isAdmin(user)) throw FORBIDDEN('Only admin can approve articles');
   canTransitionTo(article.status, 'approved');
 
   await knowledgeRepo.update(id, {
@@ -357,7 +359,7 @@ export const rejectArticle = async (id, reason, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (article.author_id === user.id) throw FORBIDDEN('You cannot reject your own article');
-  if (!isAdmin(user) && !isManager(user)) throw FORBIDDEN('Only admin or manager can reject articles');
+  if (!isAdmin(user)) throw FORBIDDEN('Only admin can reject articles');
   canTransitionTo(article.status, 'rejected');
   if (!reason || !reason.trim()) throw BAD_REQUEST('Rejection reason is required');
 

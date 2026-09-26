@@ -3,11 +3,11 @@ import { useEffect, useState, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Modal from '../../components/Modal/Modal';
 import {
-  changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
+   changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
    assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
    escalateTicket, mergeTickets, closeTicket, reopenTicket, approveResolution, rejectResolution,
    markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments,
-   overrideAssignment,
+   overrideAssignment, fetchDepartmentManagers, type DepartmentManager,
  } from '../../api/ticketApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
@@ -145,6 +145,9 @@ export default function TicketDetail() {
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [selectedDept, setSelectedDept] = useState('');
+  const [deptManagers, setDeptManagers] = useState<DepartmentManager[]>([]);
+  const [selectedManager, setSelectedManager] = useState('');
+  const [loadingManagers, setLoadingManagers] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('medium');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -240,6 +243,27 @@ export default function TicketDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deptModal, staffModal, categoryModal, mergeModal, noteModal]);
+
+  useEffect(() => {
+    if (!selectedDept) {
+      setDeptManagers([]);
+      setSelectedManager('');
+      return;
+    }
+    setLoadingManagers(true);
+    fetchDepartmentManagers(selectedDept)
+      .then((res) => {
+        const mgrs = res.data.data || [];
+        setDeptManagers(mgrs);
+        const headMgr = mgrs.find((m) => m.isHead) || mgrs[0];
+        setSelectedManager(headMgr ? headMgr.id : '');
+      })
+      .catch(() => {
+        setDeptManagers([]);
+        setSelectedManager('');
+      })
+      .finally(() => setLoadingManagers(false));
+  }, [selectedDept]);
 
   const flash = (msg: string, isErr = false) => {
     if (isErr) setError(msg); else setMessage(msg);
@@ -452,7 +476,7 @@ export default function TicketDetail() {
                 )}
               </div>
               {ticket.isOverdue && (
-                <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', fontSize: '0.9rem' }}>
+                <div className={styles.slaInlineWarning}>
                   ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
                 </div>
               )}
@@ -462,11 +486,11 @@ export default function TicketDetail() {
 
         {/* Escalation Banner */}
         {ticket.isEscalated && ticket.status === 'escalated' && (
-          <div className={styles.card} style={{ border: '2px solid #dc2626', background: '#fef2f2' }}>
-            <h3 style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <div className={`${styles.card} ${styles.slaDangerCard}`}>
+            <h3>
               <span>🚨</span> Ticket Escalated
             </h3>
-            <p style={{ color: '#7f1d1d', fontSize: '0.9rem', margin: '8px 0 0' }}>
+            <p>
               This ticket has been <strong>automatically escalated</strong> due to an SLA breach.
               {ticket.escalatedAt && <> Escalated at: <strong>{new Date(ticket.escalatedAt).toLocaleString()}</strong>.</>}
               {' '}Urgent attention required.
@@ -479,11 +503,11 @@ export default function TicketDetail() {
           const banners = [];
           if (ticket.responseSlaBreached) {
             banners.push(
-              <div key="resp" className={styles.card} style={{ border: '2px solid #dc2626', background: '#fef2f2' }}>
-                <h3 style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <div key="resp" className={`${styles.card} ${styles.slaDangerCard}`}>
+                <h3>
                   <span>⚠️</span> Response SLA Breached
                 </h3>
-                <p style={{ color: '#7f1d1d', fontSize: '0.9rem', margin: '8px 0 0' }}>
+                <p>
                   The response SLA for this ticket has been breached. Immediate attention is required.
                 </p>
               </div>
@@ -491,11 +515,11 @@ export default function TicketDetail() {
           }
           if (ticket.escalationSlaBreached) {
             banners.push(
-              <div key="esc" className={styles.card} style={{ border: '2px solid #dc2626', background: '#fef2f2' }}>
-                <h3 style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <div key="esc" className={`${styles.card} ${styles.slaDangerCard}`}>
+                <h3>
                   <span>🚨</span> Escalation SLA Breached
                 </h3>
-                <p style={{ color: '#7f1d1d', fontSize: '0.9rem', margin: '8px 0 0' }}>
+                <p>
                   The escalation SLA deadline has passed. This ticket should have been escalated automatically.
                 </p>
               </div>
@@ -503,11 +527,11 @@ export default function TicketDetail() {
           }
           if (ticket.remainingMs != null && ticket.remainingMs < 0 && !ticket.escalationSlaBreached && ticket.status !== 'escalated') {
             banners.push(
-              <div key="overdue" className={styles.card} style={{ border: '2px solid #dc2626', background: '#fef2f2' }}>
-                <h3 style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <div key="overdue" className={`${styles.card} ${styles.slaDangerCard}`}>
+                <h3>
                   <span>⏰</span> Resolution SLA Overdue
                 </h3>
-                <p style={{ color: '#7f1d1d', fontSize: '0.9rem', margin: '8px 0 0' }}>
+                <p>
                   The resolution deadline has passed. This ticket is now overdue by <strong>{formatRemaining(ticket.remainingMs)}</strong>.
                 </p>
               </div>
@@ -515,11 +539,11 @@ export default function TicketDetail() {
           }
           if (ticket.remainingMs != null && ticket.remainingMs >= 0 && ticket.remainingMs < 3.6e6 && ticket.status !== 'escalated') {
             banners.push(
-              <div key="imminent" className={styles.card} style={{ border: '2px solid #f59e0b', background: '#fffbeb' }}>
-                <h3 style={{ color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+              <div key="imminent" className={`${styles.card} ${styles.slaWarningCard}`}>
+                <h3>
                   <span>⏳</span> SLA Approaching
                 </h3>
-                <p style={{ color: '#78350f', fontSize: '0.9rem', margin: '8px 0 0' }}>
+                <p>
                   The resolution SLA will breach in approximately <strong>{formatRemaining(ticket.remainingMs)}</strong>. Please expedite resolution.
                 </p>
               </div>
@@ -530,11 +554,11 @@ export default function TicketDetail() {
 
         {/* Waiting for Tenant Banner (for staff/admin/manager) */}
         {(role === 'admin' || role === 'manager' || role === 'staff') && ticket.status === 'waiting_tenant' && (
-          <div className={styles.card} style={{ border: '2px solid #f59e0b', background: '#fffbeb' }}>
-            <h3 style={{ color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <div className={`${styles.card} ${styles.slaWarningCard}`}>
+            <h3>
               <span>⏳</span> Waiting for Tenant Confirmation
             </h3>
-            <p style={{ color: '#78350f', fontSize: '0.9rem', margin: '8px 0 0' }}>
+            <p>
               The ticket has been resolved and is now <strong>awaiting confirmation from the tenant</strong>.
               Once the tenant confirms the issue is fixed, the ticket will be automatically marked as <strong>Completed</strong>.
             </p>
@@ -542,24 +566,22 @@ export default function TicketDetail() {
         )}
 
         {role === 'tenant' && (ticket.status === 'waiting_tenant' || ticket.status === 'resolved' || (ticket.tenantConfirmationStatus === 'pending' && ticket.status !== 'closed' && ticket.status !== 'completed')) && (
-          <div className={styles.card} style={{ border: '2px solid #3b82f6', background: '#eff6ff' }}>
-            <h3 style={{ color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={`${styles.card} ${styles.slaInfoCard}`}>
+            <h3>
               <span>✅</span> Resolution Confirmation
             </h3>
-            <p style={{ color: '#1e3a8a', fontSize: '0.95rem', margin: '8px 0 16px' }}>
+            <p>
               Our support team has resolved this ticket. Please confirm whether the solution resolved your issue so we can mark it completed.
             </p>
             <div className={styles.btnRow}>
               <button
                 className={styles.btnApprove}
-                style={{ background: '#16a34a', color: '#fff', fontWeight: 700, padding: '10px 18px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                 onClick={() => call(() => approveResolution(ticket.id, notes || 'Tenant confirmed issue resolved'), 'Resolution approved! Ticket marked as completed.')}
               >
                 ✅ Yes, Issue Fixed (Mark Completed)
               </button>
               <button
                 className={styles.btnReject}
-                style={{ background: '#dc2626', color: '#fff', fontWeight: 600, padding: '10px 18px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
                 onClick={() => call(() => rejectResolution(ticket.id, notes || 'Issue not resolved - Tenant requested rework'), 'Ticket reopened and returned to In Progress')}
               >
                 ❌ No, Issue Not Fixed (Reopen)
@@ -739,16 +761,53 @@ export default function TicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={deptModal} title="Assign Department" onClose={() => setDeptModal(false)}>
+      <Modal open={deptModal} title="Assign Department & Manager" onClose={() => { setDeptModal(false); setSelectedManager(''); }}>
         <div className={styles.modalForm}>
           <label>Department</label>
           <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
             <option value="">Select Department</option>
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
+
+          {selectedDept && (
+            <>
+              <label>Department Manager (Validated Role & Department)</label>
+              {loadingManagers ? (
+                <div style={{ fontSize: '0.85rem', color: '#6b7280', padding: '4px 0' }}>Checking active managers for department...</div>
+              ) : deptManagers.length > 0 ? (
+                <select value={selectedManager} onChange={(e) => setSelectedManager(e.target.value)}>
+                  {deptManagers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.firstName} {m.lastName} ({m.email}) {m.isHead ? '★ Head Manager' : '• Manager'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ fontSize: '0.85rem', color: '#b45309', background: '#fef3c7', padding: '6px 10px', borderRadius: '4px' }}>
+                  ⚠️ No active manager currently assigned to this department. Ticket will enter department unassigned queue.
+                </div>
+              )}
+            </>
+          )}
+
           <label>Notes</label>
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <button disabled={!selectedDept} onClick={() => call(() => assignDepartment(ticket.id, { departmentId: selectedDept, notes }), 'Department assigned')}>Assign</button>
+          <button
+            disabled={!selectedDept}
+            onClick={() =>
+              call(
+                () =>
+                  assignDepartment(ticket.id, {
+                    departmentId: selectedDept,
+                    managerId: selectedManager || undefined,
+                    notes,
+                  }),
+                'Department assigned'
+              )
+            }
+          >
+            Assign
+          </button>
         </div>
       </Modal>
 
@@ -840,26 +899,40 @@ export default function TicketDetail() {
 
       <Modal open={noteModal} title="Add Internal Note" onClose={() => setNoteModal(false)}>
         <div className={styles.modalForm}>
-          <label>Note (internal only)</label>
-          <textarea rows={3} value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>Note (Internal Only)</label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              placeholder="Write your internal note here..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+            />
+          </div>
           {role === 'admin' && (
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Visible to Departments (optional)</label>
+            <div className={styles.modalField}>
+              <label className={styles.modalLabel}>Visible to Departments (Optional)</label>
               <select
                 multiple
+                className={styles.modalMultiSelect}
                 value={selectedNoteDepts}
                 onChange={(e) => {
                   const values = Array.from(e.target.selectedOptions).map((o) => o.value);
                   setSelectedNoteDepts(values);
                 }}
-                style={{ width: '100%', minHeight: 80, fontSize: '0.85rem', padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }}
               >
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Hold Ctrl/Cmd to select multiple. Leave empty to make visible to all internal staff.</span>
+              <span className={styles.modalHint}>Hold Ctrl/Cmd to select multiple. Leave empty to make visible to all internal staff.</span>
             </div>
           )}
-          <button disabled={!noteText.trim()} onClick={() => call(() => addInternalNote(ticket.id, noteText, undefined, selectedNoteDepts.join(',')), 'Internal note added')}>Save</button>
+          <button
+            className={styles.modalSubmitBtn}
+            disabled={!noteText.trim()}
+            onClick={() => call(() => addInternalNote(ticket.id, noteText, undefined, selectedNoteDepts.join(',')), 'Internal note added')}
+          >
+            Save Note
+          </button>
         </div>
       </Modal>
 

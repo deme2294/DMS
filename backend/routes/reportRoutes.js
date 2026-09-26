@@ -18,8 +18,9 @@ router.get('/tenants', reportController.getTenantReports);
 
 router.get(
     '/:type/export',
-    [param('type').isIn(['tickets', 'departments', 'staff', 'tenants']), validate],
+    [param('type').isIn(['tickets', 'departments', 'staff', 'tenants', 'comprehensive', 'all']), validate],
     reportController.exportReport
 );
+
 
 export default router;

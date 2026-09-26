@@ -2,9 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import * as chatRepo from '../repository/chatRepository.js';
 import * as userRepo from '../repository/userRepository.js';
 import * as ticketRepo from '../repository/ticketRepository.js';
+import * as notificationRepo from '../repository/notificationRepository.js';
 import * as notificationService from '../services/notificationService.js';
 import { canContact } from '../config/contactMatrix.js';
 import pool from '../config/db.js';
+import { sendMeetingInvitationEmail } from './emailService.js';
+import { emitToRoom, emitToUser, getIo } from './socketService.js';
 
 // ===================== CHAT ROOMS =====================
 
@@ -25,7 +28,15 @@ export const getRoomById = async (roomId, userId) => {
 
 export const getUserRooms = async (userId) => {
   const rooms = await chatRepo.findRoomsByUser(userId);
-  return rooms.map(room => {
+  const seen = new Set();
+  const uniqueRooms = [];
+  for (const room of rooms) {
+    if (!seen.has(room.id)) {
+      seen.add(room.id);
+      uniqueRooms.push(room);
+    }
+  }
+  return uniqueRooms.map(room => {
     if (room.room_type === 'direct' && room.other_user_first_name) {
       const roleStr = room.other_user_role ? ` (${room.other_user_role})` : '';
       return {
@@ -137,19 +148,17 @@ export const createDepartmentRoom = async (departmentId, createdBy) => {
   return chatRepo.findRoomById(roomId);
 };
 
-export const createDirectRoom = async (user1Id, user2Id, initiatorRole) => {
-  console.log(`[createDirectRoom] Creating room between ${user1Id} and ${user2Id}`);
-  
-  // If a direct room already exists, reuse it (existing conversations persist
-  // even if the new contact hierarchy would restrict re-initiating contact).
-  const existing = await chatRepo.findDirectRoom(user1Id, user2Id);
-  if (existing) {
-    console.log(`[createDirectRoom] Room already exists:`, existing.id);
-    return existing;
-  }
+export const getEnrichedRoomForUser = async (roomId, userId) => {
+  const rooms = await getUserRooms(userId);
+  const found = rooms.find((r) => r.id === roomId);
+  if (found) return found;
+  return await chatRepo.findRoomById(roomId);
+};
+
+export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialMode = 'chat', io = null) => {
+  console.log(`[createDirectRoom] Creating/opening room between ${user1Id} and ${user2Id} (mode: ${initialMode})`);
   
   // Get both users
-  console.log(`[createDirectRoom] Fetching users...`);
   const user1 = await userRepo.findById(user1Id);
   const user2 = await userRepo.findById(user2Id);
   
@@ -158,36 +167,91 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole) => {
     throw Object.assign(new Error('User not found'), { statusCode: 404 });
   }
   
-  // Enforce the role-based contact hierarchy. A 1:1 direct chat may only be
-  // started with someone the initiator is allowed to contact directly. Staff are
-  // contacted only through their department manager; the CEO never contacts
-  // staff directly. Admin is the only exception that may contact staff directly.
+  // Enforce role-based contact hierarchy
   if (!canContact(initiatorRole, user2.role)) {
     throw Object.assign(
       new Error('You can only start a direct conversation through your department manager'),
       { statusCode: 403 }
     );
   }
-  
-  console.log(`[createDirectRoom] Creating room for ${user1.first_name} & ${user2.first_name}`);
-  
-  // Create room
-  const roomId = uuidv4();
-  await chatRepo.createRoom({
-    id: roomId,
-    roomType: 'direct',
-    ticketId: null,
-    departmentId: null,
-    name: `${user1.first_name} & ${user2.first_name}`,
-    createdBy: user1Id,
-  });
-  
-  // Add both participants
-  await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user1Id });
-  await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user2Id });
-  
-  console.log(`[createDirectRoom] Room created successfully: ${roomId}`);
-  return chatRepo.findRoomById(roomId);
+
+  let roomId;
+  // If a direct room already exists, reuse it and ensure both users are active participants
+  const existing = await chatRepo.findDirectRoom(user1Id, user2Id);
+  if (existing) {
+    console.log(`[createDirectRoom] Existing direct room found:`, existing.id);
+    roomId = existing.id;
+    // Auto-accept & reactivate both registered users as active participants
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user1Id });
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user2Id });
+  } else {
+    // Create new direct room
+    roomId = uuidv4();
+    await chatRepo.createRoom({
+      id: roomId,
+      roomType: 'direct',
+      ticketId: null,
+      departmentId: null,
+      name: `${user1.first_name} & ${user2.first_name}`,
+      createdBy: user1Id,
+    });
+    
+    // Auto-accept both registered participants
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user1Id });
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user2Id });
+    console.log(`[createDirectRoom] Created new direct room: ${roomId}`);
+  }
+
+  const enrichedRoom = await getEnrichedRoomForUser(roomId, user1Id);
+
+  // If initialMode is 'video', create conference message and alert recipient in real-time
+  if (initialMode === 'video') {
+    const meetingTitle = `Direct Video Call with ${user1.first_name} ${user1.last_name}`.trim();
+    const meetingUrl = `https://meet.jit.si/dms-conf-${roomId.substring(0, 8)}`;
+    const messageText = `🎥 [VIDEO_CONFERENCE]\nTitle: ${meetingTitle}\nLink: ${meetingUrl}\nInvited: ${user2.first_name} ${user2.last_name} (${user2.role})\nMode: Direct In-App Video Conference\nScreen Share: Enabled`;
+    
+    try {
+      const createdMsg = await sendMessage(
+        { roomId, message: messageText, messageType: 'text' },
+        user1Id
+      );
+      if (io && createdMsg) {
+        io.to(`room:${roomId}`).emit('new-message', createdMsg);
+      }
+    } catch (msgErr) {
+      console.warn('[createDirectRoom] Could not save call invite message:', msgErr);
+    }
+
+    if (io) {
+      io.to(`user:${user2Id}`).emit('meeting-invite-received', {
+        id: uuidv4(),
+        senderId: user1Id,
+        senderName: `${user1.first_name} ${user1.last_name}`.trim(),
+        senderRole: user1.role,
+        meetingTitle,
+        meetingUrl,
+        meetingType: 'dms_conference',
+        roomId,
+        customSettings: { screenShareEnabled: true },
+        notes: 'Direct 1-on-1 In-App Video Conference',
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Real-time update for recipient sidebar
+  if (io) {
+    try {
+      const recipientRoom = await getEnrichedRoomForUser(roomId, user2Id);
+      if (recipientRoom) {
+        io.to(`user:${user2Id}`).emit('direct-room-created', recipientRoom);
+      }
+    } catch (socketErr) {
+      console.warn('[createDirectRoom] Error notifying recipient socket:', socketErr);
+    }
+  }
+
+  return enrichedRoom;
 };
 
 export const addParticipantToRoom = async (roomId, userId, addedBy) => {
@@ -234,7 +298,7 @@ export const getRoomMessages = async (roomId, userId, limit = 50, offset = 0) =>
   // Update last seen
   await chatRepo.updateParticipantLastSeen(roomId, userId);
   
-  return chatRepo.findMessagesByRoom(roomId, limit, offset);
+  return chatRepo.findMessagesByRoom(roomId, userId, limit, offset);
 };
 
 export const sendMessage = async (data, userId) => {
@@ -305,20 +369,43 @@ export const editMessage = async (messageId, newMessage, userId) => {
   return chatRepo.findMessageById(messageId);
 };
 
-export const deleteMessage = async (messageId, userId) => {
+export const deleteMessage = async (messageId, userId, deleteType = 'everyone') => {
   const message = await chatRepo.findMessageById(messageId);
   if (!message) {
     throw Object.assign(new Error('Message not found'), { statusCode: 404 });
   }
-  
-  // Only sender can delete
-  if (message.sender_id !== userId) {
+
+  // Check if participant in room
+  const participant = await chatRepo.findParticipant(message.room_id, userId);
+  if (!participant) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
   }
-  
+
+  // 1. Delete Only for Current User ("Delete for Me")
+  if (deleteType === 'for_me') {
+    await chatRepo.deleteMessageForUser(messageId, userId);
+    return { success: true, messageId, roomId: message.room_id, deleteType: 'for_me' };
+  }
+
+  // 2. Delete for Everyone (Only the creator can delete for everyone)
+  if (message.sender_id !== userId) {
+    throw Object.assign(
+      new Error('Access denied. Only the message creator can delete this message for everyone.'),
+      { statusCode: 403 }
+    );
+  }
+
   await chatRepo.softDeleteMessage(messageId);
-  
-  return { success: true };
+
+  // Real-time broadcast deletion to all participants in the room
+  emitToRoom(message.room_id, 'message-deleted', {
+    messageId,
+    roomId: message.room_id,
+    deletedBy: userId,
+    deleteType: 'everyone',
+  });
+
+  return { success: true, messageId, roomId: message.room_id, deleteType: 'everyone' };
 };
 
 export const markMessagesAsRead = async (roomId, userId, messageIds = []) => {
@@ -450,5 +537,362 @@ export const getDepartmentChatMembers = async (departmentId) => {
 
 export const getTicketChatMembers = async (ticketId) => {
   return await chatRepo.getTicketMembersWithStatus(ticketId);
+};
+
+// ===================== VIDEO CALL & MEETING INVITATIONS =====================
+
+/**
+ * Get all active registered users across roles for Google Meet invitation selection
+ */
+export const getRegisteredContactsForMeeting = async (currentUserId) => {
+  const [users] = await pool.query(
+    `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.tenant_id,
+            r.name as role, COALESCE(uos.is_online, 0) as is_online, uos.last_seen
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     LEFT JOIN user_online_status uos ON uos.user_id = u.id
+     WHERE u.id != ? AND u.status = 'active'
+     ORDER BY u.first_name, u.last_name`,
+    [currentUserId]
+  );
+  return users;
+};
+
+/**
+ * Dispatch a Google Meet invitation:
+ * - Validates recipient email exists as a registered user
+ * - Stores meeting message in room
+ * - Sends official email with direct join button to the registered user
+ * - Broadcasts message via Socket.IO
+ */
+/**
+ * Dispatch a customizable Video Conference / Google Meet invitation:
+ * - Validates all recipients exist as active registered users in the DMS database
+ * - Supports inviting individual users, multiple users, or entire user roles
+ * - Stores meeting message in room
+ * - Sends official email with direct join button to each registered user
+ * - Broadcasts message via Socket.IO and emits direct real-time notification
+ */
+export const sendMeetingInvite = async (data, senderId, io = null) => {
+  const {
+    recipientEmail,
+    recipientEmails,
+    roles,
+    meetingUrl,
+    roomId,
+    title,
+    notes,
+    meetingType = 'dms_conference',
+    customSettings = {},
+    scheduledTime,
+    durationMinutes = 30,
+  } = data;
+
+  if (!meetingUrl || !meetingUrl.startsWith('http')) {
+    throw Object.assign(new Error('A valid meeting URL is required (e.g. https://meet.jit.si/... or https://meet.google.com/...)'), { statusCode: 400 });
+  }
+
+  // 1. Gather all requested emails and roles
+  const targetEmails = new Set();
+  if (recipientEmail && typeof recipientEmail === 'string' && recipientEmail.trim()) {
+    targetEmails.add(recipientEmail.trim().toLowerCase());
+  }
+  if (Array.isArray(recipientEmails)) {
+    recipientEmails.forEach((em) => {
+      if (em && typeof em === 'string' && em.trim()) {
+        targetEmails.add(em.trim().toLowerCase());
+      }
+    });
+  }
+
+  // 2. If roles array provided, find all registered users in those roles
+  if (Array.isArray(roles) && roles.length > 0) {
+    const [roleUsers] = await pool.query(
+      `SELECT u.id, u.email, u.first_name, u.last_name, r.name as role
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE r.name IN (?) AND u.status = 'active' AND u.id != ?`,
+      [roles, senderId]
+    );
+    roleUsers.forEach((u) => targetEmails.add(u.email.toLowerCase()));
+  }
+
+  if (targetEmails.size === 0) {
+    throw Object.assign(new Error('Please select or specify at least one registered recipient or user role to invite'), { statusCode: 400 });
+  }
+
+  // 3. Get sender info
+  const [senders] = await pool.query(
+    `SELECT u.id, u.email, u.first_name, u.last_name, r.name as role
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? LIMIT 1`,
+    [senderId]
+  );
+  if (!senders.length) {
+    throw Object.assign(new Error('Sender not found'), { statusCode: 404 });
+  }
+  const sender = senders[0];
+
+  // 4. Validate that all target recipients are active registered users in DMS
+  const emailList = Array.from(targetEmails);
+  const [recipients] = await pool.query(
+    `SELECT u.id, u.email, u.first_name, u.last_name, r.name as role
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     WHERE LOWER(u.email) IN (?) AND u.status = 'active'`,
+    [emailList]
+  );
+
+  const foundEmailSet = new Set(recipients.map((r) => r.email.toLowerCase()));
+  const unregistered = emailList.filter((em) => !foundEmailSet.has(em));
+  if (unregistered.length > 0) {
+    throw Object.assign(
+      new Error(`The following emails are not active registered users in the system: ${unregistered.join(', ')}. Only registered users can be invited.`),
+      { statusCode: 404 }
+    );
+  }
+
+  // 5. Resolve target room
+  let targetRoomId = roomId;
+  let roomName = 'DMS Video Conference';
+
+  if (targetRoomId) {
+    const room = await chatRepo.findRoomById(targetRoomId);
+    if (room) {
+      roomName = room.name || 'Chat Room';
+      // Ensure all invited recipients are added as participants
+      for (const rec of recipients) {
+        const isParticipant = await chatRepo.findParticipant(targetRoomId, rec.id);
+        if (!isParticipant) {
+          await chatRepo.addParticipant({ id: uuidv4(), roomId: targetRoomId, userId: rec.id }).catch(() => {});
+        }
+      }
+    } else {
+      targetRoomId = null;
+    }
+  }
+
+  if (!targetRoomId) {
+    if (recipients.length === 1) {
+      const rec = recipients[0];
+      const existing = await chatRepo.findDirectRoom(senderId, rec.id);
+      if (existing) {
+        targetRoomId = existing.id;
+        roomName = existing.name || `${sender.first_name} & ${rec.first_name}`;
+      } else {
+        targetRoomId = uuidv4();
+        roomName = `${sender.first_name} & ${rec.first_name}`;
+        await chatRepo.createRoom({
+          id: targetRoomId,
+          roomType: 'direct',
+          ticketId: null,
+          departmentId: null,
+          name: roomName,
+          createdBy: senderId,
+        });
+        await chatRepo.addParticipant({ id: uuidv4(), roomId: targetRoomId, userId: senderId });
+        await chatRepo.addParticipant({ id: uuidv4(), roomId: targetRoomId, userId: rec.id });
+      }
+    } else {
+      // Create a dedicated group conference room for the invited registered participants
+      targetRoomId = uuidv4();
+      const rolesSummary = Array.from(new Set(recipients.map((r) => r.role))).join(', ');
+      roomName = title?.trim() || `Conference (${rolesSummary})`;
+      await chatRepo.createRoom({
+        id: targetRoomId,
+        roomType: 'direct',
+        ticketId: null,
+        departmentId: null,
+        name: roomName,
+        createdBy: senderId,
+      });
+      await chatRepo.addParticipant({ id: uuidv4(), roomId: targetRoomId, userId: senderId });
+      for (const rec of recipients) {
+        await chatRepo.addParticipant({ id: uuidv4(), roomId: targetRoomId, userId: rec.id }).catch(() => {});
+      }
+    }
+  }
+
+  // 6. Create formatted meeting message with rich metadata
+  const meetingTitle = title?.trim() || 'DMS Video Conference & Screen Sharing';
+  const isDmsConf = meetingType === 'dms_conference' || meetingUrl.includes('meet.jit.si') || meetingUrl.includes('8x8.vc');
+  const tag = isDmsConf ? '[VIDEO_CONFERENCE]' : '[GOOGLE_MEET_CALL]';
+  const recipientSummary = recipients.map((r) => `${r.first_name} ${r.last_name} (${r.role})`).join(', ');
+  const rolesSummary = Array.from(new Set(recipients.map((r) => r.role))).join(', ');
+  const isScreenShare = Boolean(
+    customSettings?.screenShareEnabled ||
+    meetingTitle.toLowerCase().includes('screen') ||
+    notes?.toLowerCase().includes('screen')
+  );
+
+  let formattedScheduledTime = '';
+  if (scheduledTime) {
+    try {
+      const d = new Date(scheduledTime);
+      if (!isNaN(d.getTime())) {
+        formattedScheduledTime = d.toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+      }
+    } catch {
+      formattedScheduledTime = String(scheduledTime);
+    }
+  }
+
+  const createdTimeStr = new Date().toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  let meetingMessageText = `🎥 ${tag}\nTitle: ${meetingTitle}\nLink: ${meetingUrl}`;
+  if (scheduledTime) {
+    meetingMessageText += `\nEvent Time: ${scheduledTime}`;
+    if (formattedScheduledTime) {
+      meetingMessageText += `\nScheduled For: ${formattedScheduledTime}`;
+    }
+    meetingMessageText += `\nDuration: ${durationMinutes || 30} mins`;
+  }
+  meetingMessageText += `\nCreated: ${new Date().toISOString()}`;
+  meetingMessageText += `\nInvited: ${recipientSummary}\nRoles: ${rolesSummary}`;
+  if (isScreenShare) {
+    meetingMessageText += '\nScreen Share: Enabled';
+  }
+  if (customSettings?.passcode) {
+    meetingMessageText += `\nPasscode: ${customSettings.passcode}`;
+  }
+  if (notes) {
+    meetingMessageText += `\nNotes: ${notes}`;
+  }
+
+  const message = await sendMessage(
+    {
+      roomId: targetRoomId,
+      message: meetingMessageText,
+      messageType: 'text',
+    },
+    senderId
+  );
+
+  // 7. Send personalized invitation email and create in-app web notifications for each registered recipient
+  for (const rec of recipients) {
+    // 7a. Web Application Notification
+    const notifTitle = isScreenShare
+      ? `🖥️ Screen Share & Video Event: ${meetingTitle}`
+      : `📹 Video Conference: ${meetingTitle}`;
+    const timeDisplay = formattedScheduledTime || (scheduledTime ? new Date(scheduledTime).toLocaleString() : 'Immediate Session');
+    const notifMsg = `${sender.first_name} ${sender.last_name} (${sender.role}) invited you to a video & screen share session scheduled for ${timeDisplay}.`;
+
+    await notificationRepo.createNotification(
+      rec.id,
+      notifTitle,
+      notifMsg,
+      'chat',
+      null,
+      null,
+      targetRoomId
+    ).catch((err) => console.error(`[sendMeetingInvite] In-app notification error for ${rec.email}:`, err));
+
+    emitToUser(rec.id, 'notification', {
+      title: notifTitle,
+      message: notifMsg,
+      type: 'chat',
+      roomId: targetRoomId,
+      scheduledTime: scheduledTime || null,
+      createdAt: new Date().toISOString(),
+    });
+
+    // 7b. Registered Email Dispatch
+    sendMeetingInvitationEmail({
+      recipientEmail: rec.email,
+      recipientName: `${rec.first_name} ${rec.last_name || ''}`.trim(),
+      senderName: `${sender.first_name} ${sender.last_name || ''}`.trim(),
+      senderRole: sender.role,
+      meetingUrl,
+      meetingTitle,
+      roomName,
+      notes,
+      webAppUrl: data.origin || '',
+      scheduledTime: scheduledTime || null,
+      formattedScheduledTime,
+      createdTime: createdTimeStr,
+      durationMinutes: durationMinutes ? Number(durationMinutes) : 30,
+      isScreenShare,
+    }).catch((err) => console.error(`[sendMeetingInvite] Email dispatch error to ${rec.email}:`, err));
+  }
+
+  // 8. Broadcast via Socket.IO: message to room and direct alert to recipients
+  if (io) {
+    io.to(`room:${targetRoomId}`).emit('new-message', message);
+
+    // Direct real-time invitation notification to each online recipient
+    for (const rec of recipients) {
+      io.to(`user:${rec.id}`).emit('meeting-invite-received', {
+        id: uuidv4(),
+        senderId,
+        senderName: `${sender.first_name} ${sender.last_name}`.trim(),
+        senderRole: sender.role,
+        meetingTitle,
+        meetingUrl,
+        meetingType,
+        roomId: targetRoomId,
+        customSettings,
+        notes,
+        scheduledTime: scheduledTime || null,
+        formattedScheduledTime,
+        durationMinutes: durationMinutes ? Number(durationMinutes) : 30,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return {
+    success: true,
+    message,
+    roomId: targetRoomId,
+    recipients,
+    recipientCount: recipients.length,
+    meetingUrl,
+    meetingTitle,
+    meetingType,
+  };
+};
+
+/**
+ * Verify if current authenticated user is registered and authorized to access a meeting
+ */
+export const verifyMeetingAccess = async ({ meetingUrl, roomId, passcode, userId, userRole }) => {
+  const [users] = await pool.query(
+    `SELECT u.id, u.email, u.first_name, u.last_name, r.name as role
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? AND u.status = 'active' LIMIT 1`,
+    [userId]
+  );
+  if (!users.length) {
+    throw Object.assign(new Error('Unauthorized: User is not an active registered account in DMS'), { statusCode: 403 });
+  }
+  const user = users[0];
+
+  return {
+    authorized: true,
+    user: {
+      id: user.id,
+      name: `${user.first_name} ${user.last_name}`.trim(),
+      email: user.email,
+      role: user.role,
+    },
+    meetingUrl,
+  };
 };
 

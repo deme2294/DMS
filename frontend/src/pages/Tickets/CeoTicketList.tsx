@@ -15,6 +15,14 @@ import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES } from '../../types/t
 import { usePagination } from '../../hooks/usePagination';
 import { useAuth } from '../../context/AuthContext';
 import { io, Socket } from 'socket.io-client';
+import {
+  EyeIcon,
+  BuildingOffice2Icon,
+  UserPlusIcon,
+  TrashIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+} from '@heroicons/react/24/outline';
 import styles from './CeoTickets.module.css';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -242,10 +250,43 @@ export default function CeoTicketList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
-                <Link to={`${base}/${row.id}`}>View</Link>
-                {user?.role === 'admin' && <button onClick={() => { setAssignTicket(row); setDeptModal(true); }}>Assign Dept</button>}
-                {user?.role === 'manager' && row.departmentId && <button onClick={() => { setAssignTicket(row); setStaffModal(true); }}>Assign Staff</button>}
-                {user?.role === 'admin' && <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>}
+                <Link to={`${base}/${row.id}`} className={styles.actionBtnView} title="View Details">
+                  <EyeIcon className={styles.actionIcon} />
+                  <span>View</span>
+                </Link>
+                {user?.role === 'admin' && (
+                  <button
+                    type="button"
+                    className={styles.actionBtnDept}
+                    onClick={() => { setAssignTicket(row); setDeptModal(true); }}
+                    title="Assign to Department"
+                  >
+                    <BuildingOffice2Icon className={styles.actionIcon} />
+                    <span>Dept</span>
+                  </button>
+                )}
+                {user?.role === 'manager' && row.departmentId && (
+                  <button
+                    type="button"
+                    className={styles.actionBtnStaff}
+                    onClick={() => { setAssignTicket(row); setStaffModal(true); }}
+                    title="Assign to Staff Member"
+                  >
+                    <UserPlusIcon className={styles.actionIcon} />
+                    <span>Staff</span>
+                  </button>
+                )}
+                {user?.role === 'admin' && (
+                  <button
+                    type="button"
+                    className={styles.actionBtnDelete}
+                    onClick={() => handleDelete(row)}
+                    title="Delete Ticket"
+                  >
+                    <TrashIcon className={styles.actionIcon} />
+                    <span>Delete</span>
+                  </button>
+                )}
               </div>
             ),
           },
@@ -258,29 +299,119 @@ export default function CeoTicketList() {
         <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
       </div>
 
-      <Modal open={deptModal} title="Assign Department" onClose={() => setDeptModal(false)}>
+      <Modal
+        open={deptModal}
+        title="Assign Department"
+        onClose={() => setDeptModal(false)}
+        maxWidth="500px"
+        footer={
+          <div className={styles.modalFooter}>
+            <button
+              type="button"
+              className={styles.modalCancelBtn}
+              onClick={() => setDeptModal(false)}
+            >
+              <XMarkIcon className={styles.inlineIcon} />
+              <span>Cancel</span>
+            </button>
+            <button
+              type="button"
+              className={styles.modalSubmitBtn}
+              onClick={handleAssignDepartment}
+              disabled={!selectedDept}
+            >
+              <BuildingOffice2Icon className={styles.inlineIcon} />
+              <span>Assign Department</span>
+            </button>
+          </div>
+        }
+      >
         <div className={styles.modalForm}>
-          <label>Department</label>
-          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-            <option value="">Select Department</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          <label>Notes (optional)</label>
-          <textarea rows={3} value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} />
-          <button onClick={handleAssignDepartment} disabled={!selectedDept}>Assign</button>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>
+              <BuildingOffice2Icon className={styles.inlineIcon} />
+              <span>Department <span style={{ color: '#ef4444' }}>*</span></span>
+            </label>
+            <select
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className={styles.modalSelect}
+            >
+              <option value="">Select Department</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>
+              <DocumentTextIcon className={styles.inlineIcon} />
+              <span>Notes (optional)</span>
+            </label>
+            <textarea
+              rows={3}
+              value={assignNotes}
+              onChange={(e) => setAssignNotes(e.target.value)}
+              placeholder="Add optional assignment notes or handover instructions..."
+              className={styles.modalTextarea}
+            />
+          </div>
         </div>
       </Modal>
 
-      <Modal open={staffModal} title="Assign Staff" onClose={() => setStaffModal(false)}>
+      <Modal
+        open={staffModal}
+        title="Assign Staff"
+        onClose={() => setStaffModal(false)}
+        maxWidth="500px"
+        footer={
+          <div className={styles.modalFooter}>
+            <button
+              type="button"
+              className={styles.modalCancelBtn}
+              onClick={() => setStaffModal(false)}
+            >
+              <XMarkIcon className={styles.inlineIcon} />
+              <span>Cancel</span>
+            </button>
+            <button
+              type="button"
+              className={styles.modalSubmitBtn}
+              onClick={handleAssignStaff}
+              disabled={!selectedStaff}
+            >
+              <UserPlusIcon className={styles.inlineIcon} />
+              <span>Assign Staff</span>
+            </button>
+          </div>
+        }
+      >
         <div className={styles.modalForm}>
-          <label>Staff</label>
-          <select value={selectedStaff} onChange={(e) => setSelectedStaff(e.target.value)}>
-            <option value="">Select Staff</option>
-            {staffUsers.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
-          </select>
-          <label>Notes (optional)</label>
-          <textarea rows={3} value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} />
-          <button onClick={handleAssignStaff} disabled={!selectedStaff}>Assign</button>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>
+              <UserPlusIcon className={styles.inlineIcon} />
+              <span>Staff Member <span style={{ color: '#ef4444' }}>*</span></span>
+            </label>
+            <select
+              value={selectedStaff}
+              onChange={(e) => setSelectedStaff(e.target.value)}
+              className={styles.modalSelect}
+            >
+              <option value="">Select Staff</option>
+              {staffUsers.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+            </select>
+          </div>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>
+              <DocumentTextIcon className={styles.inlineIcon} />
+              <span>Notes (optional)</span>
+            </label>
+            <textarea
+              rows={3}
+              value={assignNotes}
+              onChange={(e) => setAssignNotes(e.target.value)}
+              placeholder="Add optional assignment notes or handover instructions..."
+              className={styles.modalTextarea}
+            />
+          </div>
         </div>
       </Modal>
     </div>

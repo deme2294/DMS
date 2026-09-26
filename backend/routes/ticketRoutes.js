@@ -43,6 +43,17 @@ router.patch('/notifications/:id/read', authorize('tickets.read', 'tickets.creat
 router.patch('/notifications/read-all', authorize('tickets.read', 'tickets.create'), ticketController.markAllNotificationsRead);
 router.delete('/notifications/:id', authorize('tickets.read', 'tickets.create'), ticketController.deleteNotification);
 
+// Department managers — declared before '/:id' to avoid shadowing by ticket id
+router.get(
+  '/departments/:departmentId/managers',
+  authorize('tickets.read', 'tickets.assign'),
+  [
+    param('departmentId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('Valid departmentId required'),
+    validate,
+  ],
+  ticketController.getDepartmentManagers
+);
+
 router.get('/:id', authorize('tickets.read', 'tickets.create'), [idParam(), validate], ticketController.getTicketById);
 router.get('/:id/timeline', authorize('tickets.read', 'tickets.create'), [idParam(), validate], ticketController.getTimeline);
 
@@ -78,13 +89,15 @@ router.put(
   ticketController.updateTicket
 );
 
-// Admin assigns a department manager
+// Admin assigns a department manager (validating department + role)
 router.post(
   '/:id/assign-department',
   requireRole('admin'),
   [
     idParam(),
     body('departmentId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('departmentId required'),
+    body('managerId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     body('notes').optional({ nullable: true }).trim(),
     validate,
   ],

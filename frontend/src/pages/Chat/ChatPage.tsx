@@ -1,97 +1,33 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import * as chatApi from '../../api/chatApi';
-import { buildAttachmentUrl } from '../../utils/attachmentUtils';
 import api from '../../api/axios';
 import { canContact } from '../../config/contact';
-import type { ChatRoom, ChatMessage, ChatParticipant, ChatMember } from '../../api/chatApi';
+import type { ChatRoom, ChatMessage, ChatParticipant, ChatMember, RegisteredContact } from '../../api/chatApi';
+import type { OnlineUser, Department, Ticket } from './types';
+import { formatMessageDateGroup, parseMeetingMessage, getMeetingEventStatus } from './types';
+
+import { ChatSidebar } from './components/ChatSidebar';
+import { ChatHeader } from './components/ChatHeader';
+import { ChatMessagesArea } from './components/ChatMessagesArea';
+import { ChatInputArea } from './components/ChatInputArea';
+import { InAppVideoConference } from './components/InAppVideoConference';
+import { ChatMembersPanel } from './components/ChatMembersPanel';
+import { NewChatModal } from './components/NewChatModal';
+import { MeetingInviteModal } from './components/MeetingInviteModal';
+import { DeleteMessageModal } from './components/DeleteMessageModal';
+
 import styles from './ChatPage.module.css';
-
-interface OnlineUser {
-  id: string;
-  username: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-  is_online: boolean;
-}
-
-interface Department {
-  id: string;
-  name: string;
-  code?: string;
-}
-
-interface Ticket {
-  id: string;
-  title: string;
-  ticket_number: string;
-  priority?: string;
-  status?: string;
-}
-
-const getRoleColor = (role?: string) => {
-  switch (role?.toLowerCase()) {
-    case 'ceo':
-      return { bg: '#f5f3ff', border: '#ddd6fe', text: '#7c3aed' };
-    case 'admin':
-      return { bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' };
-    case 'manager':
-      return { bg: '#ecfdf5', border: '#a7f3d0', text: '#059669' };
-    case 'staff':
-      return { bg: '#f0f9ff', border: '#bae6fd', text: '#0284c7' };
-    case 'tenant':
-      return { bg: '#fffbeb', border: '#fde68a', text: '#d97706' };
-    default:
-      return { bg: '#f1f5f9', border: '#e2e8f0', text: '#64748b' };
-  }
-};
-
-const getAvatarGradient = (str: string) => {
-  const gradients = [
-    'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-    'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-    'linear-gradient(135deg, #ec4899, #be185d)',
-    'linear-gradient(135deg, #10b981, #047857)',
-    'linear-gradient(135deg, #f59e0b, #b45309)',
-    'linear-gradient(135deg, #06b6d4, #0e7490)',
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return gradients[Math.abs(hash) % gradients.length];
-};
-
-const formatMessageDateGroup = (dateStr: string) => {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = d.toDateString() === yesterday.toDateString();
-
-  if (isToday) return 'Today';
-  if (isYesterday) return 'Yesterday';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
-};
-
-const formatTimeOnly = (dateStr: string) => {
-  return new Date(dateStr).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 export default function ChatPage() {
   const { socket, connected } = useSocket();
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Primary Conversation State
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -106,7 +42,18 @@ export default function ChatPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
 
-  // New Chat Modal state
+  // Message Deletion State
+  const [messageToDelete, setMessageToDelete] = useState<ChatMessage | null>(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+
+  // ===================== VIEW MODE STATE =====================
+  // 'chat': Pure text chat
+  // 'video': 100% in-app native WebRTC video conference
+  // 'split': Side-by-side view with both Video & Text Chat
+  const [activeViewMode, setActiveViewMode] = useState<'chat' | 'video' | 'split'>('chat');
+  const [isVideoActive, setIsVideoActive] = useState(false);
+
+  // New Chat Modal State
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [allUsers, setAllUsers] = useState<OnlineUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -114,492 +61,367 @@ export default function ChatPage() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [modalUserTab, setModalUserTab] = useState<'all' | 'online'>('all');
-  
   const [chatType, setChatType] = useState<'direct' | 'department' | 'ticket'>('direct');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState('');
   const [newChatName, setNewChatName] = useState('');
   const [creatingRoom, setCreatingRoom] = useState(false);
-
-  // Modal members preview
   const [modalMembers, setModalMembers] = useState<ChatMember[]>([]);
   const [loadingModalMembers, setLoadingModalMembers] = useState(false);
-  
+
+  // Customizable Meeting Invitation State
+  const [showMeetModal, setShowMeetModal] = useState(false);
+  const [meetingPlatform, setMeetingPlatform] = useState<'dms_conference' | 'google_meet' | 'custom'>('dms_conference');
+  const [meetUrl, setMeetUrl] = useState('');
+  const [selectedRecipientEmails, setSelectedRecipientEmails] = useState<string[]>([]);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('all');
+  const [meetTitle, setMeetTitle] = useState('');
+  const [meetNotes, setMeetNotes] = useState('');
+  const [meetingScreenShare, setMeetingScreenShare] = useState(true);
+  const [meetingStartAudioMuted, setMeetingStartAudioMuted] = useState(false);
+  const [meetingStartVideoMuted, setMeetingStartVideoMuted] = useState(false);
+  const [meetingRequireRegisteredOnly, setMeetingRequireRegisteredOnly] = useState(true);
+  const [meetingPasscode, setMeetingPasscode] = useState('');
+  const [meetingScheduleMode, setMeetingScheduleMode] = useState<'now' | 'scheduled'>('now');
+  const [meetingScheduledTime, setMeetingScheduledTime] = useState<string>('');
+  const [meetingDurationMinutes, setMeetingDurationMinutes] = useState<number>(30);
+  const [sendingMeetInvite, setSendingMeetInvite] = useState(false);
+  const [meetSuccessMsg, setMeetSuccessMsg] = useState('');
+  const [registeredContacts, setRegisteredContacts] = useState<RegisteredContact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [incomingMeetingInvite, setIncomingMeetingInvite] = useState<any | null>(null);
+
+  // Whole Page View & Sidebar Collapse State
+  const [isWholePageMode, setIsWholePageMode] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user: authUser } = useAuth();
-  // Prefer the authenticated user (has role/id) and fall back to any persisted
-  // 'user' object in localStorage for backward compatibility.
   const currentUser = authUser || JSON.parse(localStorage.getItem('user') || '{}');
 
-  // Auto-select room when navigated from notification or with state
+  // Reset layout scroll on mount so page stays at top
   useEffect(() => {
-    const state = location.state as { selectedRoomId?: string; userId?: string } | null;
-    if (!state?.selectedRoomId && !state?.userId) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const content = document.querySelector('main');
+    if (content) content.scrollTop = 0;
+  }, []);
 
-    if (state.selectedRoomId) {
-      const roomId = state.selectedRoomId;
-      const existingRoom = rooms.find((r) => r.id === roomId);
-      if (existingRoom) {
-        setSelectedRoom(existingRoom);
-        navigate(location.pathname, { replace: true, state: {} });
-        return;
+  // Auto-scroll ONLY the chat messages container to bottom without scrolling outer window/page
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      const container = messagesEndRef.current.parentElement;
+      if (container) {
+        if (behavior === 'smooth' && typeof container.scrollTo === 'function') {
+          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        } else {
+          container.scrollTop = container.scrollHeight;
+        }
       }
-
-      let cancelled = false;
-      const fetchRoom = async () => {
-        try {
-          const res = await chatApi.fetchRoomById(roomId);
-          if (!cancelled && res.data.data) {
-            setSelectedRoom(res.data.data);
-          }
-        } catch (error) {
-          if (!cancelled) {
-            console.error('Failed to fetch room from notification:', error);
-          }
-        } finally {
-          if (!cancelled) {
-            navigate(location.pathname, { replace: true, state: {} });
-          }
-        }
-      };
-
-      fetchRoom();
-      return () => {
-        cancelled = true;
-      };
-    } else if (state.userId) {
-      let cancelled = false;
-      const createDirect = async () => {
-        try {
-          const res = await chatApi.createDirectRoom({ userId: state.userId! });
-          if (!cancelled && res.data.data) {
-            setSelectedRoom(res.data.data);
-            loadRooms();
-          }
-        } catch (error) {
-          if (!cancelled) {
-            console.error('Failed to open direct chat:', error);
-          }
-        } finally {
-          if (!cancelled) {
-            navigate(location.pathname, { replace: true, state: {} });
-          }
-        }
-      };
-
-      createDirect();
-      return () => {
-        cancelled = true;
-      };
     }
-  }, [location.state, rooms, navigate]);
+  };
 
-  const loadRooms = async (autoSelect = false) => {
-    setLoading(true);
+  const selectedRoomRef = useRef<ChatRoom | null>(null);
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom;
+  }, [selectedRoom]);
+
+  const hasLoadedRoomsOnce = useRef(false);
+  const handledLocationTargetRef = useRef<string | null>(null);
+
+  // 1. Initial Rooms and Unread Counts (Stable callback, no infinite loop)
+  const loadRooms = useCallback(async () => {
     try {
-      const res = await chatApi.fetchUserRooms();
-      const loadedRooms = res.data.data || [];
-      setRooms(loadedRooms);
-      if (autoSelect && loadedRooms.length > 0) {
-        setSelectedRoom((prev) => {
-          if (!prev) return loadedRooms[0];
-          const updated = loadedRooms.find((r) => r.id === prev.id);
-          return updated || prev;
-        });
+      if (!hasLoadedRoomsOnce.current) {
+        setLoading(true);
       }
-    } catch (error) {
-      console.error('Failed to load rooms:', error);
+      const [roomsRes, unreadRes] = await Promise.all([
+        chatApi.fetchUserRooms(),
+        chatApi.fetchUnreadCount(),
+      ]);
+
+      const fetchedRooms: ChatRoom[] = roomsRes.data.data || [];
+      const unreadCountVal = (unreadRes.data.data as any)?.count ?? 0;
+
+      setRooms(fetchedRooms);
+      setUnreadCount(unreadCountVal);
+      hasLoadedRoomsOnce.current = true;
+      return fetchedRooms;
+    } catch (err) {
+      console.error('Failed to load chat rooms:', err);
+      return [];
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadUnreadCount = async () => {
-    try {
-      const res = await chatApi.fetchUnreadCount();
-      setUnreadCount(res.data.data?.count || 0);
-    } catch (error) {
-      console.error('Failed to load unread count:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadRooms(true);
-    loadUnreadCount();
   }, []);
 
-  const loadAllUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const usersRes = await api.get('/chat/users');
-      const usersData = usersRes.data.data || [];
-      setAllUsers(usersData);
-      
-      try {
-        const deptRes = await api.get('/chat/departments');
-        setDepartments(deptRes.data.data || []);
-      } catch (error: any) {
-        console.error('Failed to load departments:', error);
-        setDepartments([]);
-      }
-      
-      try {
-        const ticketsRes = await api.get('/tickets');
-        setTickets(ticketsRes.data.data || []);
-      } catch (error: any) {
-        if (error.response?.status !== 403) {
-          console.error('Failed to load tickets:', error);
-        }
-        setTickets([]);
-      }
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const handleStartNewChat = () => {
-    loadAllUsers();
-    setUserSearchQuery('');
-    setModalUserTab('all');
-    setSelectedUserId('');
-    setSelectedDepartmentId('');
-    setSelectedTicketId('');
-    setModalMembers([]);
-    setShowNewChatModal(true);
-  };
-
-  // Fetch department/ticket members preview in modal
   useEffect(() => {
-    if (!showNewChatModal) {
-      setModalMembers([]);
+    let isCancelled = false;
+
+    const initRoomsAndSelection = async () => {
+      const fetchedRooms = await loadRooms();
+      if (isCancelled) return;
+
+      const targetRoomId = (location.state as any)?.selectedRoomId;
+      if (targetRoomId && handledLocationTargetRef.current !== targetRoomId) {
+        handledLocationTargetRef.current = targetRoomId;
+        const found = fetchedRooms.find((r) => r.id === targetRoomId);
+        if (found) {
+          setSelectedRoom(found);
+        } else {
+          try {
+            const res = await chatApi.fetchRoomById(targetRoomId);
+            if (!isCancelled && res.data?.data) {
+              const directRoom = res.data.data;
+              setSelectedRoom(directRoom);
+              setRooms((prev) => (prev.some((r) => r.id === directRoom.id) ? prev : [directRoom, ...prev]));
+            }
+          } catch (err) {
+            console.error('Failed to load room by target ID:', err);
+          }
+        }
+        if ((location.state as any)?.autoJoinVideo) {
+          setIsVideoActive(true);
+          setActiveViewMode('video');
+        }
+      } else if (!selectedRoomRef.current && fetchedRooms.length > 0) {
+        setSelectedRoom(fetchedRooms[0]);
+      }
+    };
+
+    initRoomsAndSelection();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [loadRooms, location.state]);
+
+  // 2. Load Messages and Participants when Selected Room Changes
+  useEffect(() => {
+    if (!selectedRoom) {
+      setMessages([]);
+      setParticipants([]);
       return;
     }
 
-    if (chatType === 'department' && selectedDepartmentId) {
-      setLoadingModalMembers(true);
-      chatApi.fetchDepartmentChatMembers(selectedDepartmentId)
-        .then((res) => setModalMembers(res.data.data || []))
-        .catch((err) => {
-          console.error('Failed to load department members:', err);
-          setModalMembers([]);
-        })
-        .finally(() => setLoadingModalMembers(false));
-    } else if (chatType === 'ticket' && selectedTicketId) {
-      setLoadingModalMembers(true);
-      chatApi.fetchTicketChatMembers(selectedTicketId)
-        .then((res) => setModalMembers(res.data.data || []))
-        .catch((err) => {
-          console.error('Failed to load ticket members:', err);
-          setModalMembers([]);
-        })
-        .finally(() => setLoadingModalMembers(false));
-    } else {
-      setModalMembers([]);
-    }
-  }, [showNewChatModal, chatType, selectedDepartmentId, selectedTicketId]);
+    let isCancelled = false;
 
-  const handleCreateRoom = async () => {
-    if (creatingRoom) return;
-    
-    setCreatingRoom(true);
-    try {
-      let response;
-      
-      if (chatType === 'direct') {
-        if (!selectedUserId) return;
-        response = await chatApi.createDirectRoom({
-          userId: selectedUserId,
-          name: newChatName || undefined,
-        });
-      } else if (chatType === 'department') {
-        if (!selectedDepartmentId) return;
-        response = await chatApi.createDepartmentRoom({
-          departmentId: selectedDepartmentId,
-          name: newChatName || undefined,
-        });
-      } else if (chatType === 'ticket') {
-        if (!selectedTicketId) return;
-        response = await chatApi.createTicketRoom({
-          ticketId: selectedTicketId,
-          name: newChatName || undefined,
-        });
+    const loadRoomData = async () => {
+      try {
+        const [msgRes, partRes] = await Promise.all([
+          chatApi.fetchRoomMessages(selectedRoom.id),
+          chatApi.fetchRoomParticipants(selectedRoom.id),
+        ]);
+
+        if (!isCancelled) {
+          setMessages(msgRes.data.data || []);
+          setParticipants(partRes.data.data || []);
+          setTimeout(scrollToBottom, 80);
+        }
+
+        // Mark as read
+        if (selectedRoom.unread_count && selectedRoom.unread_count > 0) {
+          await chatApi.markMessagesAsRead(selectedRoom.id);
+          setRooms((prev) =>
+            prev.map((r) => (r.id === selectedRoom.id ? { ...r, unread_count: 0 } : r))
+          );
+          setUnreadCount((prev) => Math.max(0, prev - (selectedRoom.unread_count || 0)));
+        }
+      } catch (err) {
+        console.error('Failed to load messages or participants:', err);
       }
-      
-      await loadRooms();
-      if (response?.data?.data) {
-        setSelectedRoom(response.data.data);
-      }
-      
-      setShowNewChatModal(false);
-      setChatType('direct');
-      setSelectedUserId('');
-      setSelectedDepartmentId('');
-      setSelectedTicketId('');
-      setNewChatName('');
-    } catch (error: any) {
-      console.error('Failed to create room:', error);
-      alert(error.response?.data?.message || 'Failed to create chat room.');
-    } finally {
-      setCreatingRoom(false);
+    };
+
+    loadRoomData();
+
+    if (socket?.connected) {
+      socket.emit('join-room', selectedRoom.id);
     }
-  };
-
-  // Load messages & participants when room selected
-  useEffect(() => {
-    if (!selectedRoom) return;
-    loadMessages(selectedRoom.id);
-    loadParticipants(selectedRoom.id);
-    setMobileSidebarOpen(false);
-  }, [selectedRoom]);
-
-  // Join socket room
-  useEffect(() => {
-    if (!socket || !selectedRoom) return;
-    socket.emit('join-room', selectedRoom.id);
 
     return () => {
-      socket.emit('leave-room', selectedRoom.id);
+      isCancelled = true;
+      if (socket?.connected) {
+        socket.emit('leave-room', selectedRoom.id);
+      }
     };
-  }, [socket, selectedRoom]);
+  }, [selectedRoom?.id, socket]);
 
-  const loadMessages = async (roomId: string) => {
-    try {
-      const res = await chatApi.fetchRoomMessages(roomId);
-      setMessages(res.data.data || []);
-      scrollToBottom();
-      
-      await chatApi.markMessagesAsRead(roomId);
-      loadUnreadCount();
-    } catch (error) {
-      console.error('Failed to load messages:', error);
-    }
-  };
-
-  const loadParticipants = async (roomId: string) => {
-    try {
-      const res = await chatApi.fetchRoomParticipants(roomId);
-      setParticipants(res.data.data || []);
-    } catch (error) {
-      console.error('Failed to load participants:', error);
-    }
-  };
-
-  // Socket event listeners with real-time online status updates
+  // 3. Socket.IO Listeners (Messages, Read receipts, Incoming meeting alerts)
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('new-message', (message: ChatMessage) => {
-      if (message.room_id === selectedRoom?.id) {
-        setMessages((prev) => [...prev, message]);
-        scrollToBottom();
-        
-        if (message.sender_id !== currentUser.id) {
-          chatApi.markMessagesAsRead(message.room_id, [message.id]);
-        }
-      }
-      loadRooms();
-      loadUnreadCount();
-    });
-
-    socket.on('message-edited', (message: ChatMessage) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === message.id ? message : m))
-      );
-    });
-
-    socket.on('message-deleted', ({ messageId }: { messageId: string }) => {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    });
-
-    socket.on('user-typing', (data: { userId: string; firstName: string; lastName: string }) => {
-      setTypingUsers((prev) => new Set(prev).add(`${data.firstName} ${data.lastName}`));
-    });
-
-    socket.on('user-stopped-typing', (data: { userId: string }) => {
-      setTypingUsers((prev) => {
-        const newSet = new Set(prev);
-        participants.forEach((p) => {
-          if (p.user_id === data.userId) {
-            newSet.delete(`${p.first_name} ${p.last_name}`);
-          }
+    const handleNewMessage = (msg: ChatMessage) => {
+      if (selectedRoom && msg.room_id === selectedRoom.id) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
         });
-        return newSet;
+        setTimeout(scrollToBottom, 60);
+      } else {
+        setRooms((prev) =>
+          prev.map((r) =>
+            r.id === msg.room_id
+              ? {
+                  ...r,
+                  last_message: msg.message,
+                  last_message_at: msg.created_at,
+                  unread_count: (r.unread_count || 0) + 1,
+                }
+              : r
+          )
+        );
+        setUnreadCount((prev) => prev + 1);
+      }
+    };
+
+    const handleMeetingInvite = (data: any) => {
+      setIncomingMeetingInvite(data);
+    };
+
+    const handleUserTyping = ({ roomId, firstName, lastName }: any) => {
+      if (selectedRoom && roomId === selectedRoom.id) {
+        const name = `${firstName} ${lastName}`.trim();
+        setTypingUsers((prev) => new Set(prev).add(name));
+      }
+    };
+
+    const handleUserStoppedTyping = ({ roomId, firstName, lastName }: any) => {
+      if (selectedRoom && roomId === selectedRoom.id) {
+        const name = `${firstName} ${lastName}`.trim();
+        setTypingUsers((prev) => {
+          const next = new Set(prev);
+          next.delete(name);
+          return next;
+        });
+      }
+    };
+
+    const handleDirectRoomCreated = (newRoom: any) => {
+      setRooms((prev) => {
+        if (prev.some((r) => r.id === newRoom.id)) return prev;
+        return [newRoom, ...prev];
       });
-    });
+    };
 
-    socket.on('user-online', (data: { userId: string; username?: string }) => {
-      if (data?.userId) {
-        setParticipants((prev) =>
-          prev.map((p) => (p.user_id === data.userId ? { ...p, is_online: true } : p))
-        );
-        setRooms((prev) =>
-          prev.map((r) => {
-            if (r.other_user_id === data.userId) {
-              return { ...r, other_user_online: true };
-            }
-            return r;
-          })
-        );
-        setAllUsers((prev) =>
-          prev.map((u) => (u.id === data.userId ? { ...u, is_online: true } : u))
-        );
-        setModalMembers((prev) =>
-          prev.map((m) => (m.id === data.userId ? { ...m, is_online: true } : m))
-        );
-      }
-      if (selectedRoom) loadParticipants(selectedRoom.id);
-    });
+    const handleMessageDeleted = ({ messageId }: { messageId: string; roomId?: string }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    };
 
-    socket.on('user-offline', (data: { userId: string; username?: string }) => {
-      if (data?.userId) {
-        setParticipants((prev) =>
-          prev.map((p) => (p.user_id === data.userId ? { ...p, is_online: false } : p))
-        );
-        setRooms((prev) =>
-          prev.map((r) => {
-            if (r.other_user_id === data.userId) {
-              return { ...r, other_user_online: false };
-            }
-            return r;
-          })
-        );
-        setAllUsers((prev) =>
-          prev.map((u) => (u.id === data.userId ? { ...u, is_online: false } : u))
-        );
-        setModalMembers((prev) =>
-          prev.map((m) => (m.id === data.userId ? { ...m, is_online: false } : m))
-        );
-      }
-      if (selectedRoom) loadParticipants(selectedRoom.id);
-    });
+    socket.on('new-message', handleNewMessage);
+    socket.on('message-deleted', handleMessageDeleted);
+    socket.on('meeting-invite-received', handleMeetingInvite);
+    socket.on('direct-room-created', handleDirectRoomCreated);
+    socket.on('user-typing', handleUserTyping);
+    socket.on('user-stopped-typing', handleUserStoppedTyping);
 
     return () => {
-      socket.off('new-message');
-      socket.off('message-edited');
-      socket.off('message-deleted');
-      socket.off('user-typing');
-      socket.off('user-stopped-typing');
-      socket.off('user-online');
-      socket.off('user-offline');
+      socket.off('new-message', handleNewMessage);
+      socket.off('message-deleted', handleMessageDeleted);
+      socket.off('meeting-invite-received', handleMeetingInvite);
+      socket.off('direct-room-created', handleDirectRoomCreated);
+      socket.off('user-typing', handleUserTyping);
+      socket.off('user-stopped-typing', handleUserStoppedTyping);
     };
-  }, [socket, selectedRoom, participants, currentUser.id]);
+  }, [socket, selectedRoom?.id]);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
-
+  // 4. Send Chat Message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim() || !selectedRoom || !socket || sending) return;
+    if (!selectedRoom || !messageText.trim() || sending) return;
 
+    const text = messageText.trim();
+    setMessageText('');
     setSending(true);
+
     try {
-      await chatApi.sendMessage({
+      const res = await chatApi.sendMessage({
         roomId: selectedRoom.id,
-        message: messageText.trim(),
+        message: text,
+        messageType: 'text',
       });
-      
-      setMessageText('');
-      
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+
+      if (res.data?.data) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === res.data.data.id)) return prev;
+          return [...prev, res.data.data];
+        });
+        setTimeout(scrollToBottom, 60);
       }
-      socket.emit('typing-stop', selectedRoom.id);
-    } catch (error) {
-      console.error('Failed to send message:', error);
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setMessageText(text);
     } finally {
       setSending(false);
     }
   };
 
-  const handleTyping = () => {
-    if (!socket || !selectedRoom) return;
-
-    socket.emit('typing-start', selectedRoom.id);
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('typing-stop', selectedRoom.id);
-    }, 3000);
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 5. Send File Attachment
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedRoom) return;
 
-    try {
-      const uploadRes = await chatApi.uploadChatFile(file);
-      const uploaded = uploadRes.data.data;
+    const formData = new FormData();
+    formData.append('attachment', file);
+    formData.append('roomId', selectedRoom.id);
+    formData.append('message', `Shared file: ${file.name}`);
+    formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
 
-      await chatApi.sendMessage({
-        roomId: selectedRoom.id,
-        message: `Sent a file: ${uploaded.name}`,
-        messageType: uploaded.mimetype.startsWith('image/') ? 'image' : 'file',
-        attachmentPath: uploaded.path,
-        attachmentName: uploaded.name,
-        attachmentSize: uploaded.size,
+    try {
+      setSending(true);
+      const res = await api.post('/chat/attachment', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } catch (error) {
-      console.error('Failed to upload file:', error);
-      alert('Failed to upload file');
+      if (res.data?.data) {
+        setMessages((prev) => [...prev, res.data.data]);
+        setTimeout(scrollToBottom, 60);
+      }
+    } catch (err) {
+      console.error('Failed to upload attachment:', err);
+      alert('Failed to upload file. Please ensure it is an approved format under 10MB.');
+    } finally {
+      setSending(false);
+      e.target.value = '';
     }
   };
 
-  // Filter rooms by search and category
-  const filteredRooms = useMemo(() => {
-    return rooms.filter((room) => {
-      const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase());
-      if (!matchesSearch) return false;
+  // 6. Typing notifications
+  const handleTyping = () => {
+    if (!socket?.connected || !selectedRoom) return;
+    socket.emit('typing-start', selectedRoom.id);
 
-      if (activeFilter === 'all') return true;
-      return room.room_type === activeFilter;
-    });
-  }, [rooms, searchTerm, activeFilter]);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing-stop', selectedRoom.id);
+    }, 2000);
+  };
 
-  const displayRooms = useMemo(() => {
-    if (selectedRoom && !filteredRooms.find((r) => r.id === selectedRoom.id)) {
-      return [selectedRoom, ...filteredRooms];
+  // 6b. Message Deletion
+  const handleRequestDeleteMessage = (msg: ChatMessage) => {
+    setMessageToDelete(msg);
+  };
+
+  const handleConfirmDeleteMessage = async (deleteType: 'everyone' | 'for_me' = 'everyone') => {
+    if (!messageToDelete) return;
+    setDeletingMessage(true);
+    try {
+      await chatApi.deleteMessage(messageToDelete.id, deleteType);
+      if (deleteType === 'everyone' && socket?.connected) {
+        socket.emit('delete-message', { messageId: messageToDelete.id, deleteType: 'everyone' });
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== messageToDelete.id));
+      setMessageToDelete(null);
+    } catch (err: any) {
+      console.error('Failed to delete message:', err);
+      alert(err.response?.data?.message || 'Failed to delete message. Please try again.');
+    } finally {
+      setDeletingMessage(false);
     }
-    return filteredRooms;
-  }, [selectedRoom, filteredRooms]);
+  };
 
-  const availableUsers = useMemo(() => {
-    return allUsers.filter((u) => {
-      if (u.id === currentUser.id) return false;
-      // Role-based contact hierarchy: only users the current role may directly
-      // contact are offered (e.g. CEO cannot contact staff directly).
-      if (!canContact(currentUser.role, u.role)) return false;
-      if (!userSearchQuery) return true;
-      const q = userSearchQuery.toLowerCase();
-      return (
-        u.first_name?.toLowerCase().includes(q) ||
-        u.last_name?.toLowerCase().includes(q) ||
-        u.username?.toLowerCase().includes(q) ||
-        u.role?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q)
-      );
-    });
-  }, [allUsers, currentUser.id, currentUser.role, userSearchQuery]);
-
-  const displayedModalUsers = useMemo(() => {
-    if (modalUserTab === 'online') {
-      return availableUsers.filter((u) => u.is_online);
-    }
-    return availableUsers;
-  }, [availableUsers, modalUserTab]);
-
+  // 7. Filtering and Derived State
   const roomTypeCounts = useMemo(() => {
     return {
       all: rooms.length,
@@ -609,7 +431,18 @@ export default function ChatPage() {
     };
   }, [rooms]);
 
-  // Group messages by date for elegant separators
+  const displayRooms = useMemo(() => {
+    let list = rooms;
+    if (activeFilter !== 'all') {
+      list = list.filter((r) => r.room_type === activeFilter);
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      list = list.filter((r) => r.name?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [rooms, activeFilter, searchTerm]);
+
   const messageGroups = useMemo(() => {
     const groups: { date: string; items: ChatMessage[] }[] = [];
     let currentDate = '';
@@ -636,7 +469,6 @@ export default function ChatPage() {
   }, [messages]);
 
   const onlineParticipants = useMemo(() => participants.filter((p) => p.is_online), [participants]);
-  const offlineParticipants = useMemo(() => participants.filter((p) => !p.is_online), [participants]);
 
   const directPartner = useMemo(() => {
     if (selectedRoom?.room_type !== 'direct') return null;
@@ -649,1019 +481,727 @@ export default function ChatPage() {
     return false;
   }, [directPartner, selectedRoom]);
 
+  // ===================== MEETING INVITATION MODAL LOGIC =====================
+  const openMeetModal = async () => {
+    setMeetingPlatform('dms_conference');
+    setMeetTitle(
+      selectedRoom
+        ? `${selectedRoom.name} - Support Video Call`
+        : 'Help Desk In-App Video Conference & Screen Sharing'
+    );
+    setMeetNotes('');
+    setMeetSuccessMsg('');
+    setSelectedRoleFilter('all');
+    setMeetingScheduleMode('now');
+    setMeetingScheduledTime('');
+    setMeetingDurationMinutes(30);
+
+    const roomUrl = `https://meet.dms.gov/room/${selectedRoom?.id || 'general'}`;
+    setMeetUrl(roomUrl);
+
+    if (selectedRoom?.room_type === 'direct' && directPartner?.email) {
+      setSelectedRecipientEmails([directPartner.email.toLowerCase()]);
+    } else {
+      setSelectedRecipientEmails([]);
+    }
+    setShowMeetModal(true);
+
+    // Fetch registered contacts
+    setLoadingContacts(true);
+    try {
+      const res = await chatApi.fetchRegisteredContacts();
+      if (res.data?.data) {
+        setRegisteredContacts(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load registered contacts:', err);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const handleSendMeetInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedRecipientEmails.length === 0) {
+      alert('Please select at least one registered user to invite.');
+      return;
+    }
+
+    setSendingMeetInvite(true);
+    try {
+      const res = await chatApi.sendMeetingInvite({
+        recipientEmails: selectedRecipientEmails,
+        meetingUrl: meetUrl.trim() || `https://meet.dms.gov/room/${selectedRoom?.id || 'general'}`,
+        roomId: selectedRoom?.id,
+        title: meetTitle.trim() || 'DMS Video Conference & Screen Sharing',
+        notes: meetNotes.trim(),
+        meetingType: meetingPlatform,
+        scheduledTime: meetingScheduleMode === 'scheduled' && meetingScheduledTime ? meetingScheduledTime : undefined,
+        durationMinutes: meetingDurationMinutes,
+        customSettings: {
+          screenShareEnabled: meetingScreenShare,
+          startAudioMuted: meetingStartAudioMuted,
+          startVideoMuted: meetingStartVideoMuted,
+          requireRegisteredOnly: meetingRequireRegisteredOnly,
+          passcode: meetingPasscode.trim() || undefined,
+        },
+      });
+
+      if (res.data?.data?.message) {
+        if (selectedRoom && selectedRoom.id === res.data.data.roomId) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === res.data.data.message.id)) return prev;
+            return [...prev, res.data.data.message];
+          });
+          setTimeout(scrollToBottom, 60);
+        } else if (!selectedRoom) {
+          loadRooms();
+        }
+      }
+
+      setMeetSuccessMsg(
+        meetingScheduleMode === 'scheduled'
+          ? '✅ Event scheduled! Notification and email dispatched with event time.'
+          : '✅ Invitation dispatched with notifications and emails!'
+      );
+      setTimeout(() => {
+        setShowMeetModal(false);
+        setMeetSuccessMsg('');
+      }, 1500);
+    } catch (err: any) {
+      console.error('Failed to send meet invite:', err);
+      const validationDetails = err?.response?.data?.errors
+        ?.map((e: any) => e.msg || e.message)
+        .filter(Boolean)
+        .join('\n• ');
+      const errMsg = validationDetails
+        ? `Validation error:\n• ${validationDetails}`
+        : err?.response?.data?.message || err?.message || 'Failed to dispatch meeting invitation';
+      alert(`Error: ${errMsg}`);
+    } finally {
+      setSendingMeetInvite(false);
+    }
+  };
+
+  const availableRoles = useMemo(() => {
+    const set = new Set<string>();
+    registeredContacts.forEach((c) => {
+      if (c.role) set.add(c.role.toLowerCase());
+    });
+    return Array.from(set).sort();
+  }, [registeredContacts]);
+
+  const filteredRegisteredContacts = useMemo(() => {
+    let list = registeredContacts;
+    if (selectedRoleFilter !== 'all') {
+      list = list.filter((c) => c.role?.toLowerCase() === selectedRoleFilter.toLowerCase());
+    }
+    if (contactSearchQuery.trim()) {
+      const q = contactSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (c) =>
+          c.first_name.toLowerCase().includes(q) ||
+          c.last_name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.role.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [registeredContacts, selectedRoleFilter, contactSearchQuery]);
+
+  const toggleRecipientSelection = (email: string) => {
+    const em = email.toLowerCase();
+    setSelectedRecipientEmails((prev) =>
+      prev.includes(em) ? prev.filter((e) => e !== em) : [...prev, em]
+    );
+  };
+
+  const selectAllInRole = (role: string) => {
+    const targetContacts =
+      role === 'all'
+        ? filteredRegisteredContacts
+        : registeredContacts.filter((c) => c.role?.toLowerCase() === role.toLowerCase());
+    const targetEmails = targetContacts.map((c) => c.email.toLowerCase());
+    const allAlreadySelected = targetEmails.every((em) => selectedRecipientEmails.includes(em));
+
+    if (allAlreadySelected) {
+      setSelectedRecipientEmails((prev) => prev.filter((em) => !targetEmails.includes(em)));
+    } else {
+      setSelectedRecipientEmails((prev) => Array.from(new Set([...prev, ...targetEmails])));
+    }
+  };
+
+  // ===================== NEW CHAT MODAL LOGIC =====================
+  const handleStartNewChat = async () => {
+    setShowNewChatModal(true);
+    setLoadingUsers(true);
+    try {
+      const [usersRes, deptsRes, ticketsRes] = await Promise.all([
+        chatApi.fetchChatUsers(),
+        chatApi.fetchChatDepartments(),
+        api.get('/tickets'),
+      ]);
+      setAllUsers(usersRes.data.data || []);
+      setDepartments(deptsRes.data.data || []);
+      setTickets(ticketsRes.data.data || []);
+    } catch (err) {
+      console.error('Failed to load new chat data:', err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    let list = allUsers.filter((u) => u.id !== currentUser.id && canContact(currentUser.role, u.role));
+    if (modalUserTab === 'online') {
+      list = list.filter((u) => u.is_online);
+    }
+    if (userSearchQuery.trim()) {
+      const q = userSearchQuery.toLowerCase().trim();
+      list = list.filter(
+        (u) =>
+          u.first_name.toLowerCase().includes(q) ||
+          u.last_name.toLowerCase().includes(q) ||
+          u.username.toLowerCase().includes(q) ||
+          u.role.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [allUsers, currentUser, modalUserTab, userSearchQuery]);
+
+  // 1-Click Auto-Accept Direct Chat with a registered user (Text or Video)
+  const handleStartDirectUserChat = async (userId: string, initialMode: 'chat' | 'video' = 'chat') => {
+    setCreatingRoom(true);
+    try {
+      const res = await chatApi.createDirectRoom({ userId, initialMode });
+      const createdRoom = res.data.data;
+      if (createdRoom) {
+        setSelectedRoom(createdRoom);
+        loadRooms();
+        setShowNewChatModal(false);
+        if (initialMode === 'video') {
+          setIsVideoActive(true);
+          setActiveViewMode('video');
+        } else {
+          setIsVideoActive(false);
+          setActiveViewMode('chat');
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to start direct chat:', err);
+      alert(err.response?.data?.message || 'Failed to start direct conversation');
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingRoom(true);
+
+    try {
+      let createdRoom: ChatRoom | null = null;
+      if (chatType === 'direct') {
+        const res = await chatApi.createDirectRoom({ userId: selectedUserId, initialMode: 'chat' });
+        createdRoom = res.data.data;
+      } else if (chatType === 'department') {
+        const res = await chatApi.createDepartmentRoom({
+          departmentId: selectedDepartmentId,
+          name: newChatName.trim() || undefined,
+        });
+        createdRoom = res.data.data;
+      } else if (chatType === 'ticket') {
+        const res = await chatApi.createTicketRoom({
+          ticketId: selectedTicketId,
+          name: newChatName.trim() || undefined,
+        });
+        createdRoom = res.data.data;
+      }
+
+      if (createdRoom) {
+        setSelectedRoom(createdRoom);
+        loadRooms();
+        setShowNewChatModal(false);
+        setActiveViewMode('chat');
+      }
+    } catch (err: any) {
+      console.error('Failed to create chat room:', err);
+      alert(err.response?.data?.message || 'Failed to create conversation');
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
+  // Switch to In-App Video Mode
+  const handleStartInAppVideo = () => {
+    setIsVideoActive(true);
+    setActiveViewMode('video');
+  };
+
+  const handleLeaveInAppVideo = () => {
+    setIsVideoActive(false);
+    setActiveViewMode('chat');
+  };
+
+  const latestScheduledMeeting = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const info = parseMeetingMessage(messages[i].message);
+      if (info?.isMeeting && info.scheduledTime) {
+        const statusObj = getMeetingEventStatus(info.scheduledTime, info.durationMinutes || 30);
+        return {
+          ...info,
+          statusObj,
+          senderName: `${messages[i].first_name} ${messages[i].last_name}`,
+        };
+      }
+    }
+    return null;
+  }, [messages]);
+
   return (
-    <div className={styles.page}>
-      <PageHeader
-        title="Enterprise Messaging"
-        description="Collaborate in real-time with teams, direct peers, and ticket threads"
-      />
-
-      <div className={styles.chatContainer}>
-        {/* Mobile Header Toggle */}
-        <div className={styles.mobileNav}>
-          <button
-            type="button"
-            className={styles.mobileNavBtn}
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          >
-            💬 {mobileSidebarOpen ? 'Close Chats' : 'View Chats'} ({rooms.length})
-          </button>
-          {selectedRoom && (
-            <span className={styles.mobileCurrentRoom}>
-              {selectedRoom.name}
-            </span>
-          )}
+    <div
+      className={`${styles.chatPageWrapper} ${
+        isWholePageMode ? styles.chatPageWrapperWholePage : ''
+      }`}
+    >
+      {!isWholePageMode && (
+        <div className={styles.chatPageHeaderCompact}>
+          <PageHeader
+            title="Help Desk Communications"
+            description="Unified real-time text chat, department channels, and 100% in-app video conferencing"
+          />
         </div>
+      )}
 
-        {/* Sidebar */}
-        <aside className={`${styles.sidebar} ${mobileSidebarOpen ? styles.sidebarOpen : ''}`}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.sidebarHeaderTop}>
-              <div className={styles.sidebarTitleGroup}>
-                <span className={styles.sidebarTitleIcon}>💬</span>
-                <h3>Conversations</h3>
-              </div>
-              <button
-                type="button"
-                className={styles.newChatBtn}
-                onClick={handleStartNewChat}
-                title="Start a new conversation"
-              >
-                <span className={styles.plusIcon}>+</span>
-                <span>New Chat</span>
-              </button>
-            </div>
-
-            {unreadCount > 0 && (
-              <div className={styles.unreadBanner}>
-                <span className={styles.pulseDot} />
-                <span>{unreadCount} unread message{unreadCount !== 1 ? 's' : ''}</span>
-              </div>
-            )}
-
-            <div className={styles.searchBox}>
-              <span className={styles.searchIcon}>🔍</span>
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  className={styles.clearSearchBtn}
-                  onClick={() => setSearchTerm('')}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Category Filter Pills */}
-            <div className={styles.filterPills}>
-              <button
-                type="button"
-                className={`${styles.filterPill} ${activeFilter === 'all' ? styles.filterActive : ''}`}
-                onClick={() => setActiveFilter('all')}
-              >
-                All <span className={styles.pillCount}>{roomTypeCounts.all}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.filterPill} ${activeFilter === 'direct' ? styles.filterActive : ''}`}
-                onClick={() => setActiveFilter('direct')}
-              >
-                Direct <span className={styles.pillCount}>{roomTypeCounts.direct}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.filterPill} ${activeFilter === 'department' ? styles.filterActive : ''}`}
-                onClick={() => setActiveFilter('department')}
-              >
-                Dept <span className={styles.pillCount}>{roomTypeCounts.department}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.filterPill} ${activeFilter === 'ticket' ? styles.filterActive : ''}`}
-                onClick={() => setActiveFilter('ticket')}
-              >
-                Tickets <span className={styles.pillCount}>{roomTypeCounts.ticket}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Room List */}
-          <div className={styles.roomList}>
-            {loading ? (
-              <div className={styles.loadingState}>
-                <div className={styles.spinner} />
-                <p>Loading your conversations...</p>
-              </div>
-            ) : displayRooms.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyStateIcon}>💬</div>
-                <h4>No conversations found</h4>
-                <p>
-                  {searchTerm
-                    ? 'No chats match your search query.'
-                    : 'Start a direct chat, department channel, or ticket discussion.'}
-                </p>
-                <button
-                  type="button"
-                  className={styles.startChatBtn}
-                  onClick={handleStartNewChat}
-                >
-                  ➕ Start First Chat
-                </button>
-              </div>
-            ) : (
-              displayRooms.map((room) => {
-                const isSelected = selectedRoom?.id === room.id;
-                const avatarBg = getAvatarGradient(room.name || room.id);
-                const isDirect = room.room_type === 'direct';
-                const isDirectOnline = Boolean(room.other_user_online);
-                const onlineCount = room.online_members_count ?? 0;
-
-                return (
-                  <div
-                    key={room.id}
-                    className={`${styles.roomItem} ${isSelected ? styles.activeRoom : ''}`}
-                    onClick={() => setSelectedRoom(room)}
-                  >
-                    <div className={styles.roomAvatarWrapper}>
-                      <div className={styles.roomAvatar} style={{ background: avatarBg }}>
-                        {room.room_type === 'ticket' && '🎫'}
-                        {room.room_type === 'department' && '👥'}
-                        {room.room_type === 'direct' && (room.other_user_first_name?.[0] || '👤')}
-                      </div>
-                      {isDirect ? (
-                        <span
-                          className={isDirectOnline ? styles.roomOnlineDot : styles.roomOfflineDot}
-                          title={isDirectOnline ? 'Online on Chat Page' : 'Offline'}
-                        />
-                      ) : null}
-                    </div>
-
-                    <div className={styles.roomInfo}>
-                      <div className={styles.roomHeaderRow}>
-                        <span className={styles.roomName}>{room.name}</span>
-                        {room.last_message_at && (
-                          <span className={styles.roomTime}>
-                            {formatTimeOnly(room.last_message_at)}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.roomSubRow}>
-                        <span className={styles.lastMessage}>
-                          {room.last_message ? (
-                            room.last_message
-                          ) : (
-                            <span className={styles.emptyMessageText}>No messages yet</span>
-                          )}
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          {!isDirect && onlineCount > 0 && (
-                            <span className={styles.roomOnlineCountBadge} title={`${onlineCount} members online`}>
-                              <span className={styles.miniDot} />
-                              {onlineCount} online
-                            </span>
-                          )}
-                          {room.unread_count! > 0 && (
-                            <span className={styles.unreadCountBadge}>
-                              {room.unread_count}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </aside>
-
-        {/* Chat Window + Side Drawer */}
-        <div className={styles.chatWindowWrapper}>
-          <main className={styles.chatWindowInner}>
-            {selectedRoom ? (
-              <>
-                {/* Top Header */}
-                <header className={styles.chatHeader}>
-                  <div className={styles.chatHeaderLeft}>
-                    <div className={styles.chatHeaderAvatarWrapper}>
-                      <div
-                        className={styles.chatHeaderAvatar}
-                        style={{ background: getAvatarGradient(selectedRoom.name || selectedRoom.id) }}
-                      >
-                        {selectedRoom.room_type === 'ticket' && '🎫'}
-                        {selectedRoom.room_type === 'department' && '👥'}
-                        {selectedRoom.room_type === 'direct' && (directPartner?.first_name?.[0] || '👤')}
-                      </div>
-                      {selectedRoom.room_type === 'direct' && (
-                        <span
-                          className={isDirectPartnerOnline ? styles.headerOnlineDot : styles.headerOfflineDot}
-                          title={isDirectPartnerOnline ? 'Online on Chat Page' : 'Offline'}
-                        />
-                      )}
-                    </div>
-
-                    <div className={styles.chatHeaderInfo}>
-                      <div className={styles.chatTitleGroup}>
-                        <h3>{selectedRoom.name}</h3>
-                        <span className={styles.roomTypeTag}>
-                          {selectedRoom.room_type === 'ticket'
-                            ? 'Ticket Chat'
-                            : selectedRoom.room_type === 'department'
-                            ? 'Department'
-                            : 'Direct Message'}
-                        </span>
-                        {selectedRoom.room_type === 'direct' && directPartner?.role_name && (
-                          <span
-                            className={styles.memberRoleTag}
-                            style={{
-                              background: getRoleColor(directPartner.role_name).bg,
-                              borderColor: getRoleColor(directPartner.role_name).border,
-                              color: getRoleColor(directPartner.role_name).text,
-                            }}
-                          >
-                            {directPartner.role_name}
-                          </span>
-                        )}
-                      </div>
-
-                      {selectedRoom.room_type === 'direct' ? (
-                        <div className={styles.participantsSummary}>
-                          <span
-                            className={`${styles.directStatusBadge} ${
-                              isDirectPartnerOnline ? styles.directStatusOnline : styles.directStatusOffline
-                            }`}
-                          >
-                            <span
-                              className={styles.onlineDotIndicator}
-                              style={{ background: isDirectPartnerOnline ? '#22c55e' : '#94a3b8' }}
-                            />
-                            {isDirectPartnerOnline ? 'Active now on Chat Page' : 'Offline'}
-                          </span>
-                          {directPartner?.email && (
-                            <>
-                              <span className={styles.metaDivider}>•</span>
-                              <span>{directPartner.email}</span>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <div className={styles.participantsSummary}>
-                          <span className={styles.participantCount}>
-                            {participants.length} member{participants.length !== 1 ? 's' : ''}
-                          </span>
-                          <span className={styles.metaDivider}>•</span>
-                          <span className={styles.onlineBadge}>
-                            <span className={styles.onlineDotIndicator} />
-                            {onlineParticipants.length} online now
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={styles.chatHeaderRight}>
-                    <button
-                      type="button"
-                      className={`${styles.membersToggleBtn} ${showMembersPanel ? styles.membersToggleBtnActive : ''}`}
-                      onClick={() => setShowMembersPanel(!showMembersPanel)}
-                      title="Toggle members and online status roster"
-                    >
-                      <span>👥</span>
-                      <span>Members ({onlineParticipants.length} online)</span>
-                    </button>
-
-                    <div
-                      className={`${styles.socketStatus} ${
-                        connected ? styles.statusConnected : styles.statusDisconnected
-                      }`}
-                      title={connected ? 'Real-time WebSocket connected' : 'WebSocket connecting...'}
-                    >
-                      <span className={styles.statusDot} />
-                      <span>{connected ? 'Live Sync' : 'Connecting...'}</span>
-                    </div>
-                  </div>
-                </header>
-
-                {/* Messages Area */}
-                <div className={styles.messagesArea}>
-                  {messages.length === 0 ? (
-                    <div className={styles.emptyMessagesArea}>
-                      <div className={styles.emptyMessageGraphic}>👋</div>
-                      <h3>Start the Conversation</h3>
-                      <p>
-                        This is the beginning of the discussion in <strong>{selectedRoom.name}</strong>.
-                        Send a message or share files below.
-                      </p>
-                    </div>
-                  ) : (
-                    messageGroups.map((group) => (
-                      <div key={group.date} className={styles.dateGroup}>
-                        <div className={styles.dateDivider}>
-                          <span>{group.date}</span>
-                        </div>
-
-                        {group.items.map((msg) => {
-                          const isOwn = msg.sender_id === currentUser.id;
-                          const roleStyle = getRoleColor(msg.sender_role || msg.role_name || '');
-
-                          return (
-                            <div
-                              key={msg.id}
-                              className={`${styles.messageRow} ${isOwn ? styles.ownMessageRow : styles.otherMessageRow}`}
-                            >
-                              {!isOwn && (
-                                <div
-                                  className={styles.senderAvatar}
-                                  style={{ background: getAvatarGradient(`${msg.first_name} ${msg.last_name}`) }}
-                                >
-                                  {msg.first_name?.[0] || 'U'}
-                                </div>
-                              )}
-
-                              <div className={styles.messageBubbleContainer}>
-                                {!isOwn && (
-                                  <div className={styles.senderDetails}>
-                                    <span className={styles.senderName}>
-                                      {msg.first_name} {msg.last_name}
-                                    </span>
-                                    {(msg.sender_role || msg.role_name) && (
-                                      <span
-                                        className={styles.senderRoleBadge}
-                                        style={{
-                                          background: roleStyle.bg,
-                                          borderColor: roleStyle.border,
-                                          color: roleStyle.text,
-                                        }}
-                                      >
-                                        {msg.sender_role || msg.role_name}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
-
-                                <div
-                                  className={`${styles.messageBubble} ${
-                                    isOwn ? styles.ownBubble : styles.otherBubble
-                                  }`}
-                                >
-                                  {msg.attachment_path && msg.message_type === 'image' ? (
-                                    <div className={styles.imageAttachment}>
-                                      <img
-                                        src={buildAttachmentUrl(msg.attachment_path)}
-                                        alt={msg.attachment_name || 'Attached Image'}
-                                        className={styles.messageImage}
-                                        onClick={() =>
-                                          window.open(
-                                            buildAttachmentUrl(msg.attachment_path),
-                                            '_blank'
-                                          )
-                                        }
-                                      />
-                                    </div>
-                                  ) : msg.attachment_path ? (
-                                    <a
-                                      href={buildAttachmentUrl(msg.attachment_path)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={styles.fileAttachmentCard}
-                                    >
-                                      <span className={styles.fileIcon}>📄</span>
-                                      <div className={styles.fileInfo}>
-                                        <span className={styles.fileName}>{msg.attachment_name || 'Download File'}</span>
-                                        <span className={styles.fileAction}>Click to open / download</span>
-                                      </div>
-                                      <span className={styles.downloadIcon}>⬇</span>
-                                    </a>
-                                  ) : null}
-
-                                  <div className={styles.messageText}>{msg.message}</div>
-
-                                  <div className={styles.messageMeta}>
-                                    <span className={styles.messageTimestamp}>
-                                      {formatTimeOnly(msg.created_at)}
-                                    </span>
-                                    {msg.is_edited && <span className={styles.editedTag}>(edited)</span>}
-                                    {isOwn && <span className={styles.checkmarks}>✓✓</span>}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))
-                  )}
-
-                  {typingUsers.size > 0 && (
-                    <div className={styles.typingIndicatorBar}>
-                      <div className={styles.typingWave}>
-                        <span />
-                        <span />
-                        <span />
-                      </div>
-                      <span className={styles.typingText}>
-                        {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
-                      </span>
-                    </div>
-                  )}
-
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Message Input Area */}
-                <form className={styles.inputArea} onSubmit={handleSendMessage}>
-                  <label className={styles.attachBtn} title="Attach file or image">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      onChange={handleFileUpload}
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-                    />
-                    📎
-                  </label>
-
-                  <div className={styles.inputWrapper}>
-                    <input
-                      type="text"
-                      value={messageText}
-                      onChange={(e) => {
-                        setMessageText(e.target.value);
-                        handleTyping();
-                      }}
-                      placeholder={connected ? `Message ${selectedRoom.name}...` : 'Connecting to chat service...'}
-                      disabled={sending || !connected}
-                      className={styles.messageInput}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!messageText.trim() || sending || !connected}
-                    className={styles.sendButton}
-                    title="Send message (Enter)"
-                  >
-                    {sending ? (
-                      <span className={styles.miniSpinner} />
-                    ) : (
-                      <span className={styles.sendIcon}>➤</span>
-                    )}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div className={styles.noRoomSelectedView}>
-                <div className={styles.noRoomGraphic}>💬</div>
-                <h2>Select a Conversation</h2>
-                <p>Choose an ongoing discussion from the sidebar or start a new team or direct chat.</p>
-                <button
-                  type="button"
-                  className={styles.bigStartChatBtn}
-                  onClick={handleStartNewChat}
-                >
-                  ➕ Start New Conversation
-                </button>
-              </div>
-            )}
-          </main>
-
-          {/* Collapsible Members & Presence Roster Panel */}
-          {selectedRoom && showMembersPanel && (
-            <aside className={styles.membersPanel}>
-              <div className={styles.membersPanelHeader}>
-                <div className={styles.membersPanelTitleGroup}>
-                  <span>👥</span>
-                  <h4>Room Members ({participants.length})</h4>
-                </div>
-                <button
-                  type="button"
-                  className={styles.membersCloseBtn}
-                  onClick={() => setShowMembersPanel(false)}
-                  title="Close members panel"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className={styles.membersPanelBody}>
-                {/* Online Members Section */}
-                <div>
-                  <div className={styles.membersSectionTitle}>
-                    <span>🟢 Online Now ({onlineParticipants.length})</span>
-                  </div>
-                  <div className={styles.membersList}>
-                    {onlineParticipants.length === 0 ? (
-                      <p className={styles.emptyMessageText} style={{ padding: '6px 8px', fontSize: '0.75rem' }}>
-                        No members currently online
-                      </p>
-                    ) : (
-                      onlineParticipants.map((p) => {
-                        const isMe = p.user_id === currentUser.id;
-                        const rStyle = getRoleColor(p.role_name);
-                        return (
-                          <div key={p.id || p.user_id} className={styles.memberCard}>
-                            <div className={styles.memberAvatarWrapper}>
-                              <div
-                                className={styles.memberAvatar}
-                                style={{ background: getAvatarGradient(`${p.first_name} ${p.last_name}`) }}
-                              >
-                                {p.first_name?.[0] || 'U'}
-                              </div>
-                              <span className={styles.memberOnlineDot} title="Online on Chat Page" />
-                            </div>
-                            <div className={styles.memberDetails}>
-                              <div className={styles.memberNameRow}>
-                                <span className={styles.memberName}>
-                                  {p.first_name} {p.last_name}
-                                </span>
-                                {isMe && <span className={styles.youBadge}>You</span>}
-                              </div>
-                              <div className={styles.memberSubRow}>
-                                <span
-                                  className={styles.memberRoleTag}
-                                  style={{
-                                    background: rStyle.bg,
-                                    borderColor: rStyle.border,
-                                    color: rStyle.text,
-                                  }}
-                                >
-                                  {p.role_name}
-                                </span>
-                                <span className={styles.memberStatusText}>Active on Chat</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* Offline Members Section */}
-                <div>
-                  <div className={styles.membersSectionTitle}>
-                    <span>⚪ Offline ({offlineParticipants.length})</span>
-                  </div>
-                  <div className={styles.membersList}>
-                    {offlineParticipants.length === 0 ? (
-                      <p className={styles.emptyMessageText} style={{ padding: '6px 8px', fontSize: '0.75rem' }}>
-                        All room members are currently online!
-                      </p>
-                    ) : (
-                      offlineParticipants.map((p) => {
-                        const isMe = p.user_id === currentUser.id;
-                        const rStyle = getRoleColor(p.role_name);
-                        return (
-                          <div key={p.id || p.user_id} className={styles.memberCard} style={{ opacity: 0.75 }}>
-                            <div className={styles.memberAvatarWrapper}>
-                              <div
-                                className={styles.memberAvatar}
-                                style={{ background: getAvatarGradient(`${p.first_name} ${p.last_name}`) }}
-                              >
-                                {p.first_name?.[0] || 'U'}
-                              </div>
-                              <span className={styles.memberOfflineDot} title="Offline" />
-                            </div>
-                            <div className={styles.memberDetails}>
-                              <div className={styles.memberNameRow}>
-                                <span className={styles.memberName}>
-                                  {p.first_name} {p.last_name}
-                                </span>
-                                {isMe && <span className={styles.youBadge}>You</span>}
-                              </div>
-                              <div className={styles.memberSubRow}>
-                                <span
-                                  className={styles.memberRoleTag}
-                                  style={{
-                                    background: rStyle.bg,
-                                    borderColor: rStyle.border,
-                                    color: rStyle.text,
-                                  }}
-                                >
-                                  {p.role_name}
-                                </span>
-                                <span className={styles.memberStatusText}>Offline</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            </aside>
-          )}
-        </div>
-      </div>
-
-      {/* Modern New Chat Modal */}
-      {showNewChatModal && (
-        <div className={styles.modalBackdrop} onClick={() => setShowNewChatModal(false)}>
-          <div className={styles.modalContainer} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleGroup}>
-                <span className={styles.modalHeaderIcon}>✨</span>
-                <div>
-                  <h3>New Conversation</h3>
-                  <p>Choose your communication channel and recipients</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className={styles.modalCloseBtn}
-                onClick={() => setShowNewChatModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              {/* Segmented Type Selector */}
-              <div className={styles.typeSegmentContainer}>
-                <button
-                  type="button"
-                  className={`${styles.typeSegmentBtn} ${chatType === 'direct' ? styles.typeSegmentActive : ''}`}
-                  onClick={() => {
-                    setChatType('direct');
-                    setSelectedDepartmentId('');
-                    setSelectedTicketId('');
-                  }}
-                >
-                  <span className={styles.typeIcon}>👤</span>
-                  <span>Direct User</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.typeSegmentBtn} ${chatType === 'department' ? styles.typeSegmentActive : ''}`}
-                  onClick={() => {
-                    setChatType('department');
-                    setSelectedUserId('');
-                    setSelectedTicketId('');
-                  }}
-                >
-                  <span className={styles.typeIcon}>👥</span>
-                  <span>Department</span>
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.typeSegmentBtn} ${chatType === 'ticket' ? styles.typeSegmentActive : ''}`}
-                  onClick={() => {
-                    setChatType('ticket');
-                    setSelectedUserId('');
-                    setSelectedDepartmentId('');
-                  }}
-                >
-                  <span className={styles.typeIcon}>🎫</span>
-                  <span>Ticket Room</span>
-                </button>
-              </div>
-
-              {/* Direct Message User Selection */}
-              {chatType === 'direct' && (
-                <div className={styles.formSection}>
-                  <div className={styles.userSearchContainer}>
-                    <span className={styles.searchIcon}>🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Search users by name, username, or role..."
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className={styles.modalSearchInput}
-                    />
-                  </div>
-
-                  {currentUser.role === 'ceo' && (
-                    <p className={styles.fieldHint}>
-                      Executive oversight mode: you can start a direct conversation with
-                      department managers and admins only. To reach staff, contact the
-                      relevant department manager.
-                    </p>
-                  )}
-
-                  <div className={styles.modalFilterTabs}>
-                    <button
-                      type="button"
-                      className={`${styles.modalFilterTab} ${modalUserTab === 'all' ? styles.modalFilterTabActive : ''}`}
-                      onClick={() => setModalUserTab('all')}
-                    >
-                      All Users ({availableUsers.length})
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.modalFilterTab} ${modalUserTab === 'online' ? styles.modalFilterTabActive : ''}`}
-                      onClick={() => setModalUserTab('online')}
-                    >
-                      🟢 Online Now ({availableUsers.filter((u) => u.is_online).length})
-                    </button>
-                  </div>
-
-                  {loadingUsers ? (
-                    <div className={styles.modalLoadingState}>
-                      <div className={styles.spinner} />
-                      <p>Loading directory...</p>
-                    </div>
-                  ) : displayedModalUsers.length === 0 ? (
-                    <div className={styles.modalEmptyState}>
-                      <p>
-                        {modalUserTab === 'online'
-                          ? 'No users are currently online.'
-                          : 'No matching users found.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className={styles.userListScroll}>
-                      {displayedModalUsers.map((user) => {
-                        const isSelected = selectedUserId === user.id;
-                        const roleStyle = getRoleColor(user.role);
-                        const userAvatarBg = getAvatarGradient(`${user.first_name} ${user.last_name}`);
-
-                        return (
-                          <div
-                            key={user.id}
-                            className={`${styles.userCard} ${isSelected ? styles.userCardSelected : ''}`}
-                            onClick={() => setSelectedUserId(user.id)}
-                          >
-                            <div className={styles.userAvatarWrapper}>
-                              <div className={styles.userAvatar} style={{ background: userAvatarBg }}>
-                                {user.first_name?.[0] || 'U'}
-                              </div>
-                              <span
-                                className={`${styles.userOnlineIndicator} ${
-                                  user.is_online ? styles.userOnline : styles.userOffline
-                                }`}
-                                title={user.is_online ? 'Online on Chat Page' : 'Offline'}
-                              />
-                            </div>
-
-                            <div className={styles.userCardDetails}>
-                              <div className={styles.userCardName}>
-                                {user.first_name} {user.last_name}
-                              </div>
-                              <div className={styles.userCardMeta}>
-                                @{user.username}
-                                {user.email && ` • ${user.email}`}
-                              </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span
-                                className={user.is_online ? styles.directStatusOnline : styles.directStatusOffline}
-                                style={{ fontSize: '0.72rem', fontWeight: 600 }}
-                              >
-                                {user.is_online ? '🟢 Online' : '⚪ Offline'}
-                              </span>
-                              <span
-                                className={styles.userRoleTag}
-                                style={{
-                                  background: roleStyle.bg,
-                                  borderColor: roleStyle.border,
-                                  color: roleStyle.text,
-                                }}
-                              >
-                                {user.role}
-                              </span>
-                            </div>
-                          </div>
-                        );
+      {/* Incoming Real-Time Meeting Alert Banner */}
+      {incomingMeetingInvite && (
+        <div className={styles.incomingInviteBanner}>
+          <div className={styles.incomingInviteLeft}>
+            <span className={styles.incomingInvitePulse} />
+            <div>
+              <strong>{incomingMeetingInvite.senderName}</strong> ({incomingMeetingInvite.senderRole})
+              {incomingMeetingInvite.scheduledTime ? (
+                <>
+                  {' '}scheduled an in-app video & screen share event: "{incomingMeetingInvite.meetingTitle}" for{' '}
+                  <strong style={{ color: '#0f172a' }}>
+                    {incomingMeetingInvite.formattedScheduledTime ||
+                      new Date(incomingMeetingInvite.scheduledTime).toLocaleString([], {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
-                    </div>
-                  )}
-                </div>
+                  </strong>{' '}
+                  ({incomingMeetingInvite.durationMinutes || 30} mins)
+                </>
+              ) : (
+                <> invited you to an in-app video conference: "{incomingMeetingInvite.meetingTitle}"</>
               )}
-
-              {/* Department Selection */}
-              {chatType === 'department' && (
-                <div className={styles.formSection}>
-                  <label className={styles.fieldLabel}>Select Department Channel</label>
-                  <div className={styles.selectWrapper}>
-                    <select
-                      value={selectedDepartmentId}
-                      onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                      className={styles.modalSelect}
-                    >
-                      <option value="">Choose department channel...</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          🏢 {dept.name} {dept.code ? `(${dept.code})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className={styles.fieldHint}>
-                    All members assigned to this department will be part of this channel.
-                  </p>
-
-                  {/* Live Department Members & Online Roster Preview */}
-                  {selectedDepartmentId && (
-                    <div className={styles.modalRosterBox}>
-                      <div className={styles.modalRosterHeader}>
-                        <span className={styles.modalRosterTitle}>
-                          <span>👥</span> Department Members ({modalMembers.length})
-                        </span>
-                        <span className={styles.modalOnlineBadge}>
-                          <span className={styles.onlineDotIndicator} />
-                          {modalMembers.filter((m) => m.is_online).length} Online Now
-                        </span>
-                      </div>
-                      {loadingModalMembers ? (
-                        <div className={styles.spinner} style={{ margin: '8px auto' }} />
-                      ) : modalMembers.length === 0 ? (
-                        <p className={styles.emptyMessageText}>No members found in this department.</p>
-                      ) : (
-                        <div className={styles.modalRosterList}>
-                          {modalMembers.map((m) => {
-                            const rStyle = getRoleColor(m.role);
-                            return (
-                              <div
-                                key={m.id}
-                                className={`${styles.modalRosterCard} ${
-                                  m.is_online ? styles.modalRosterCardOnline : styles.modalRosterCardOffline
-                                }`}
-                              >
-                                <div className={styles.memberAvatarWrapper}>
-                                  <div
-                                    className={styles.memberAvatar}
-                                    style={{
-                                      background: getAvatarGradient(`${m.first_name} ${m.last_name}`),
-                                      width: '26px',
-                                      height: '26px',
-                                      fontSize: '0.75rem',
-                                    }}
-                                  >
-                                    {m.first_name?.[0] || 'U'}
-                                  </div>
-                                  <span className={m.is_online ? styles.memberOnlineDot : styles.memberOfflineDot} />
-                                </div>
-                                <div className={styles.modalRosterInfo}>
-                                  <div className={styles.modalRosterName}>
-                                    {m.first_name} {m.last_name}
-                                  </div>
-                                  <div className={styles.modalRosterSub}>
-                                    <span
-                                      className={styles.memberRoleTag}
-                                      style={{
-                                        background: rStyle.bg,
-                                        borderColor: rStyle.border,
-                                        color: rStyle.text,
-                                        fontSize: '0.65rem',
-                                        padding: '0 4px',
-                                      }}
-                                    >
-                                      {m.role}
-                                    </span>
-                                    <span>{m.is_online ? '🟢 Online' : '⚪ Offline'}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Ticket Selection */}
-              {chatType === 'ticket' && (
-                <div className={styles.formSection}>
-                  <label className={styles.fieldLabel}>Select Support Ticket</label>
-                  <div className={styles.selectWrapper}>
-                    <select
-                      value={selectedTicketId}
-                      onChange={(e) => setSelectedTicketId(e.target.value)}
-                      className={styles.modalSelect}
-                    >
-                      <option value="">Choose ticket thread...</option>
-                      {tickets.map((ticket) => (
-                        <option key={ticket.id} value={ticket.id}>
-                          🎫 #{ticket.ticket_number} - {ticket.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className={styles.fieldHint}>
-                    Creates a dedicated workspace discussion tied directly to this ticket.
-                  </p>
-
-                  {/* Live Ticket Members & Online Roster Preview */}
-                  {selectedTicketId && (
-                    <div className={styles.modalRosterBox}>
-                      <div className={styles.modalRosterHeader}>
-                        <span className={styles.modalRosterTitle}>
-                          <span>🎫</span> Ticket Discussion Members ({modalMembers.length})
-                        </span>
-                        <span className={styles.modalOnlineBadge}>
-                          <span className={styles.onlineDotIndicator} />
-                          {modalMembers.filter((m) => m.is_online).length} Online Now
-                        </span>
-                      </div>
-                      {loadingModalMembers ? (
-                        <div className={styles.spinner} style={{ margin: '8px auto' }} />
-                      ) : modalMembers.length === 0 ? (
-                        <p className={styles.emptyMessageText}>No participants found for this ticket.</p>
-                      ) : (
-                        <div className={styles.modalRosterList}>
-                          {modalMembers.map((m) => {
-                            const rStyle = getRoleColor(m.role);
-                            return (
-                              <div
-                                key={m.id}
-                                className={`${styles.modalRosterCard} ${
-                                  m.is_online ? styles.modalRosterCardOnline : styles.modalRosterCardOffline
-                                }`}
-                              >
-                                <div className={styles.memberAvatarWrapper}>
-                                  <div
-                                    className={styles.memberAvatar}
-                                    style={{
-                                      background: getAvatarGradient(`${m.first_name} ${m.last_name}`),
-                                      width: '26px',
-                                      height: '26px',
-                                      fontSize: '0.75rem',
-                                    }}
-                                  >
-                                    {m.first_name?.[0] || 'U'}
-                                  </div>
-                                  <span className={m.is_online ? styles.memberOnlineDot : styles.memberOfflineDot} />
-                                </div>
-                                <div className={styles.modalRosterInfo}>
-                                  <div className={styles.modalRosterName}>
-                                    {m.first_name} {m.last_name}
-                                  </div>
-                                  <div className={styles.modalRosterSub}>
-                                    <span
-                                      className={styles.memberRoleTag}
-                                      style={{
-                                        background: rStyle.bg,
-                                        borderColor: rStyle.border,
-                                        color: rStyle.text,
-                                        fontSize: '0.65rem',
-                                        padding: '0 4px',
-                                      }}
-                                    >
-                                      {m.ticket_role || m.role}
-                                    </span>
-                                    <span>{m.is_online ? '🟢 Online' : '⚪ Offline'}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Custom Name */}
-              <div className={styles.formSection}>
-                <label className={styles.fieldLabel}>Custom Channel / Thread Title (Optional)</label>
-                <input
-                  type="text"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder="e.g. Project Onboarding, Urgent Follow-up"
-                  className={styles.modalTextInput}
-                />
-              </div>
             </div>
-
-            <div className={styles.modalFooter}>
-              <button
-                type="button"
-                className={styles.modalCancelBtn}
-                onClick={() => setShowNewChatModal(false)}
-                disabled={creatingRoom}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.modalSubmitBtn}
-                onClick={handleCreateRoom}
-                disabled={
-                  creatingRoom ||
-                  (chatType === 'direct' && !selectedUserId) ||
-                  (chatType === 'department' && !selectedDepartmentId) ||
-                  (chatType === 'ticket' && !selectedTicketId)
+          </div>
+          <div className={styles.incomingInviteActions}>
+            <button
+              type="button"
+              className={styles.incomingJoinBtn}
+              onClick={async () => {
+                let targetRoom = rooms.find((r) => r.id === incomingMeetingInvite.roomId);
+                if (!targetRoom) {
+                  try {
+                    const res = await chatApi.fetchRoomById(incomingMeetingInvite.roomId);
+                    targetRoom = res.data.data;
+                  } catch (e) {
+                    console.warn('Could not fetch target room by id', e);
+                  }
                 }
-              >
-                {creatingRoom ? 'Creating Channel...' : '🚀 Start Conversation'}
-              </button>
-            </div>
+                if (targetRoom) setSelectedRoom(targetRoom);
+                handleStartInAppVideo();
+                setIncomingMeetingInvite(null);
+                loadRooms();
+              }}
+            >
+              {incomingMeetingInvite.customSettings?.screenShareEnabled ? '🖥️ Accept & Join Screen Share' : '📹 Accept Video Call'}
+            </button>
+            <button
+              type="button"
+              className={styles.incomingDismissBtn}
+              style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+              onClick={async () => {
+                let targetRoom = rooms.find((r) => r.id === incomingMeetingInvite.roomId);
+                if (!targetRoom) {
+                  try {
+                    const res = await chatApi.fetchRoomById(incomingMeetingInvite.roomId);
+                    targetRoom = res.data.data;
+                  } catch (e) {}
+                }
+                if (targetRoom) setSelectedRoom(targetRoom);
+                setActiveViewMode('chat');
+                setIsVideoActive(false);
+                setIncomingMeetingInvite(null);
+                loadRooms();
+              }}
+            >
+              💬 Open Chat
+            </button>
+            <button
+              type="button"
+              className={styles.incomingDismissBtn}
+              onClick={() => setIncomingMeetingInvite(null)}
+              title="Dismiss notification"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}
+
+      <div
+        className={`${styles.chatMainContainer} ${
+          isWholePageMode ? styles.chatMainContainerWholePage : ''
+        }`}
+      >
+        {/* Left Sidebar: Conversations & Channels */}
+        <ChatSidebar
+          rooms={rooms}
+          displayRooms={displayRooms}
+          selectedRoom={selectedRoom}
+          loading={loading}
+          searchTerm={searchTerm}
+          activeFilter={activeFilter}
+          unreadCount={unreadCount}
+          mobileSidebarOpen={mobileSidebarOpen}
+          isSidebarCollapsed={isSidebarCollapsed}
+          roomTypeCounts={roomTypeCounts}
+          onSelectRoom={(r) => setSelectedRoom(r)}
+          onSearchChange={(q) => setSearchTerm(q)}
+          onFilterChange={(f) => setActiveFilter(f)}
+          onStartNewChat={handleStartNewChat}
+          onCloseMobileSidebar={() => setMobileSidebarOpen(false)}
+        />
+
+        {/* Center Active Workspace */}
+        <main className={styles.chatConversationArea}>
+          {selectedRoom ? (
+            <>
+              {/* Header with Mode Switcher Buttons */}
+              <ChatHeader
+                selectedRoom={selectedRoom}
+                participants={participants}
+                onlineParticipants={onlineParticipants}
+                isDirectPartnerOnline={isDirectPartnerOnline}
+                directPartner={directPartner}
+                activeViewMode={activeViewMode}
+                isVideoActive={isVideoActive}
+                connected={connected}
+                showMembersPanel={showMembersPanel}
+                isWholePageMode={isWholePageMode}
+                isSidebarCollapsed={isSidebarCollapsed}
+                onSetViewMode={(mode) => {
+                  setActiveViewMode(mode);
+                  if (mode === 'video' || mode === 'split') {
+                    setIsVideoActive(true);
+                  }
+                }}
+                onOpenMeetModal={openMeetModal}
+                onToggleMembersPanel={() => setShowMembersPanel(!showMembersPanel)}
+                onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+                onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
+                onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              />
+
+              {/* Event Timing Banner for Scheduled Video & Screen Share Session */}
+              {latestScheduledMeeting && activeViewMode !== 'video' && (
+                <div
+                  style={{
+                    background:
+                      latestScheduledMeeting.statusObj.status === 'live'
+                        ? 'rgba(16, 185, 129, 0.12)'
+                        : 'var(--bg-hover)',
+                    borderBottom: `1px solid ${
+                      latestScheduledMeeting.statusObj.status === 'live' ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-light)'
+                    }`,
+                    padding: '10px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>
+                      {latestScheduledMeeting.screenShareEnabled ? '🖥️' : '📹'}
+                    </span>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: '0.84rem',
+                          fontWeight: 700,
+                          color: 'var(--text-main)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                        }}
+                      >
+                        <span>{latestScheduledMeeting.title}</span>
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            background:
+                              latestScheduledMeeting.statusObj.status === 'live'
+                                ? 'rgba(16, 185, 129, 0.2)'
+                                : 'rgba(37, 99, 235, 0.15)',
+                            color: latestScheduledMeeting.statusObj.badgeColor,
+                            border: `1px solid ${latestScheduledMeeting.statusObj.badgeColor}40`,
+                          }}
+                        >
+                          {latestScheduledMeeting.statusObj.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Scheduled Event Time:{' '}
+                        <strong style={{ color: 'var(--text-main)' }}>
+                          {latestScheduledMeeting.scheduledTime
+                            ? new Date(latestScheduledMeeting.scheduledTime).toLocaleString([], {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Upcoming'}
+                        </strong>{' '}
+                        • Host: {latestScheduledMeeting.senderName}
+                        {latestScheduledMeeting.screenShareEnabled && (
+                          <span style={{ color: '#0284c7', marginLeft: '6px', fontWeight: 600 }}>
+                            • 🖥️ Screen Sharing Enabled
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleStartInAppVideo()}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        border: 'none',
+                        background:
+                          latestScheduledMeeting.statusObj.status === 'live'
+                            ? 'linear-gradient(135deg, #16a34a 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {latestScheduledMeeting.statusObj.status === 'live'
+                        ? '🚀 Join Screen Share Call (Live)'
+                        : '🗓️ Join / Enter Conference Room'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* VIEW 1: Pure Text Chat Mode */}
+              {activeViewMode === 'chat' && (
+                <div className={styles.chatMessagesWrapper}>
+                  <ChatMessagesArea
+                    selectedRoom={selectedRoom}
+                    currentUser={currentUser}
+                    messageGroups={messageGroups}
+                    typingUsers={typingUsers}
+                    messagesEndRef={messagesEndRef}
+                    onJoinInAppVideo={() => {
+                      handleStartInAppVideo();
+                    }}
+                    onDeleteMessage={handleRequestDeleteMessage}
+                  />
+                  <ChatInputArea
+                    messageText={messageText}
+                    sending={sending}
+                    onMessageTextChange={(val) => setMessageText(val)}
+                    onSendMessage={handleSendMessage}
+                    onFileSelect={handleFileSelect}
+                    onTyping={handleTyping}
+                  />
+                </div>
+              )}
+
+              {/* VIEW 2: 100% In-App Video Conference Mode */}
+              {activeViewMode === 'video' && (
+                <InAppVideoConference
+                  room={selectedRoom}
+                  currentUser={currentUser}
+                  socket={socket}
+                  onLeave={handleLeaveInAppVideo}
+                  onSwitchToChat={() => setActiveViewMode('chat')}
+                  onOpenInviteModal={openMeetModal}
+                  isWholePageMode={isWholePageMode}
+                  onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
+                />
+              )}
+
+              {/* VIEW 3: Split View (Side-by-side Video + Text Chat) */}
+              {activeViewMode === 'split' && (
+                <div className={styles.chatSplitArea}>
+                  <div className={styles.splitVideoPane}>
+                    <InAppVideoConference
+                      room={selectedRoom}
+                      currentUser={currentUser}
+                      socket={socket}
+                      onLeave={handleLeaveInAppVideo}
+                      onSwitchToChat={() => setActiveViewMode('chat')}
+                      onOpenInviteModal={openMeetModal}
+                      isWholePageMode={isWholePageMode}
+                      onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
+                    />
+                  </div>
+                  <div className={styles.splitChatPane}>
+                    <ChatMessagesArea
+                      selectedRoom={selectedRoom}
+                      currentUser={currentUser}
+                      messageGroups={messageGroups}
+                      typingUsers={typingUsers}
+                      messagesEndRef={messagesEndRef}
+                      onJoinInAppVideo={() => {
+                        handleStartInAppVideo();
+                      }}
+                      onDeleteMessage={handleRequestDeleteMessage}
+                    />
+                    <ChatInputArea
+                      messageText={messageText}
+                      sending={sending}
+                      onMessageTextChange={(val) => setMessageText(val)}
+                      onSendMessage={handleSendMessage}
+                      onFileSelect={handleFileSelect}
+                      onTyping={handleTyping}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className={styles.noRoomSelected}>
+              <div className={styles.noRoomGraphic}>💬</div>
+              <h3>No Conversation Selected</h3>
+              <p>Choose a conversation from the sidebar or start a new chat channel.</p>
+              <button
+                type="button"
+                className={styles.startChatBtn}
+                onClick={handleStartNewChat}
+              >
+                ➕ Start New Conversation
+              </button>
+            </div>
+          )}
+        </main>
+
+        {/* Right Sidebar: Members & Online Status */}
+        {selectedRoom && showMembersPanel && (
+          <ChatMembersPanel
+            participants={participants}
+            onlineParticipants={onlineParticipants}
+            onClose={() => setShowMembersPanel(false)}
+          />
+        )}
+      </div>
+
+      {/* New Conversation Modal */}
+      <NewChatModal
+        show={showNewChatModal}
+        chatType={chatType}
+        modalUserTab={modalUserTab}
+        userSearchQuery={userSearchQuery}
+        selectedUserId={selectedUserId}
+        selectedDepartmentId={selectedDepartmentId}
+        selectedTicketId={selectedTicketId}
+        newChatName={newChatName}
+        creatingRoom={creatingRoom}
+        loadingUsers={loadingUsers}
+        loadingModalMembers={loadingModalMembers}
+        filteredUsers={filteredUsers}
+        departments={departments}
+        tickets={tickets}
+        modalMembers={modalMembers}
+        onClose={() => setShowNewChatModal(false)}
+        onSetChatType={(t) => setChatType(t)}
+        onSetModalUserTab={(tab) => setModalUserTab(tab)}
+        onSetUserSearchQuery={(q) => setUserSearchQuery(q)}
+        onSelectUserId={(id) => setSelectedUserId(id)}
+        onSelectDepartmentId={(id) => setSelectedDepartmentId(id)}
+        onSelectTicketId={(id) => setSelectedTicketId(id)}
+        onSetNewChatName={(name) => setNewChatName(name)}
+        onCreateRoom={handleCreateRoom}
+        onStartDirectChat={handleStartDirectUserChat}
+      />
+
+      {/* Meeting Customization & Role-Based Invitation Modal */}
+      <MeetingInviteModal
+        show={showMeetModal}
+        meetTitle={meetTitle}
+        meetNotes={meetNotes}
+        meetUrl={meetUrl}
+        meetingPlatform={meetingPlatform}
+        meetingScreenShare={meetingScreenShare}
+        meetingStartAudioMuted={meetingStartAudioMuted}
+        meetingStartVideoMuted={meetingStartVideoMuted}
+        meetingRequireRegisteredOnly={meetingRequireRegisteredOnly}
+        meetingPasscode={meetingPasscode}
+        meetingScheduleMode={meetingScheduleMode}
+        meetingScheduledTime={meetingScheduledTime}
+        meetingDurationMinutes={meetingDurationMinutes}
+        sendingMeetInvite={sendingMeetInvite}
+        meetSuccessMsg={meetSuccessMsg}
+        loadingContacts={loadingContacts}
+        contactSearchQuery={contactSearchQuery}
+        selectedRoleFilter={selectedRoleFilter}
+        selectedRecipientEmails={selectedRecipientEmails}
+        registeredContacts={registeredContacts}
+        availableRoles={availableRoles}
+        filteredRegisteredContacts={filteredRegisteredContacts}
+        onClose={() => setShowMeetModal(false)}
+        onSetMeetTitle={(t) => setMeetTitle(t)}
+        onSetMeetNotes={(n) => setMeetNotes(n)}
+        onSetMeetUrl={(u) => setMeetUrl(u)}
+        onSetMeetingPlatform={(p) => setMeetingPlatform(p)}
+        onSetMeetingScreenShare={(s) => setMeetingScreenShare(s)}
+        onSetMeetingStartAudioMuted={(a) => setMeetingStartAudioMuted(a)}
+        onSetMeetingStartVideoMuted={(v) => setMeetingStartVideoMuted(v)}
+        onSetMeetingRequireRegisteredOnly={(r) => setMeetingRequireRegisteredOnly(r)}
+        onSetMeetingPasscode={(c) => setMeetingPasscode(c)}
+        onSetMeetingScheduleMode={(m) => setMeetingScheduleMode(m)}
+        onSetMeetingScheduledTime={(t) => setMeetingScheduledTime(t)}
+        onSetMeetingDurationMinutes={(d) => setMeetingDurationMinutes(d)}
+        onSetContactSearchQuery={(q) => setContactSearchQuery(q)}
+        onSetSelectedRoleFilter={(f) => setSelectedRoleFilter(f)}
+        onToggleRecipientSelection={toggleRecipientSelection}
+        onSelectAllInRole={selectAllInRole}
+        onClearSelection={() => setSelectedRecipientEmails([])}
+        onSendMeetInvite={handleSendMeetInvite}
+        onStartInAppVideo={() => {
+          setShowMeetModal(false);
+          handleStartInAppVideo();
+        }}
+      />
+
+      {/* Delete Message Confirmation Modal (Delete for Everyone & Delete Only for Me) */}
+      <DeleteMessageModal
+        show={Boolean(messageToDelete)}
+        message={messageToDelete}
+        currentUserId={currentUser.id}
+        deleting={deletingMessage}
+        onClose={() => setMessageToDelete(null)}
+        onConfirmDelete={handleConfirmDeleteMessage}
+      />
     </div>
   );
 }

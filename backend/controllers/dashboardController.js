@@ -108,18 +108,18 @@ export const getStaffDashboard = async (req, res, next) => {
   }
 };
 
-export const getTicketStats = async (_req, res, next) => {
+export const getTicketStats = async (req, res, next) => {
   try {
-    const data = await dashboardRepo.getTicketStatistics();
+    const data = await dashboardRepo.getTicketStatistics(req.user);
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
   }
 };
 
-export const getTicketCharts = async (_req, res, next) => {
+export const getTicketCharts = async (req, res, next) => {
   try {
-    const data = await dashboardRepo.getTicketCharts();
+    const data = await dashboardRepo.getTicketCharts(req.user);
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -128,7 +128,7 @@ export const getTicketCharts = async (_req, res, next) => {
 
 export const getOverdueTickets = async (req, res, next) => {
   try {
-    const data = await dashboardRepo.getOverdueTickets(Number(req.query.limit || 50));
+    const data = await dashboardRepo.getOverdueTickets(req.user, Number(req.query.limit || 50));
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -340,7 +340,7 @@ export const getAdminAnalytics = async (req, res, next) => {
   try {
     const timeframe = req.query.timeframe || '6m';
     const departmentId = req.query.departmentId || null;
-    const data = await dashboardRepo.getAdminAnalytics({ timeframe, departmentId });
+    const data = await dashboardRepo.getAdminAnalytics({ timeframe, departmentId, user: req.user });
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);

@@ -67,8 +67,6 @@ import CeoTicketList from './pages/Tickets/CeoTicketList';
 import CeoTicketDetail from './pages/Tickets/CeoTicketDetail';
 import CeoReports from './pages/Reports/CeoReports';
 import CeoKnowledgeList from './pages/Knowledge/CeoKnowledgeList';
-import CeoKnowledgeCreate from './pages/Knowledge/CeoKnowledgeCreate';
-import CeoKnowledgeEdit from './pages/Knowledge/CeoKnowledgeEdit';
 import CeoNoticesList from './pages/Notices/CeoNoticesList';
 import CeoNoticesCreate from './pages/Notices/CeoNoticesCreate';
 import CeoNoticesEdit from './pages/Notices/CeoNoticesEdit';
@@ -106,8 +104,6 @@ export default function App() {
           <Route path="/ceo/tickets/:id" element={<ProtectedRoute roles={['ceo']}><CeoTicketDetail /></ProtectedRoute>} />
           <Route path="/ceo/reports" element={<ProtectedRoute roles={['ceo']}><CeoReports /></ProtectedRoute>} />
           <Route path="/ceo/knowledge" element={<ProtectedRoute roles={['ceo']}><CeoKnowledgeList /></ProtectedRoute>} />
-          <Route path="/ceo/knowledge/create" element={<ProtectedRoute roles={['ceo']}><CeoKnowledgeCreate /></ProtectedRoute>} />
-          <Route path="/ceo/knowledge/:id/edit" element={<ProtectedRoute roles={['ceo']}><CeoKnowledgeEdit /></ProtectedRoute>} />
           <Route path="/ceo/notices" element={<ProtectedRoute roles={['ceo']}><CeoNoticesList /></ProtectedRoute>} />
           <Route path="/ceo/notices/create" element={<ProtectedRoute roles={['ceo']}><CeoNoticesCreate /></ProtectedRoute>} />
           <Route path="/ceo/notices/:id/edit" element={<ProtectedRoute roles={['ceo']}><CeoNoticesEdit /></ProtectedRoute>} />
@@ -138,7 +134,7 @@ export default function App() {
           <Route path="/admin/notices/:id/edit" element={<ProtectedRoute roles={['admin']}><NoticesEdit /></ProtectedRoute>} />
           <Route path="/admin/knowledge" element={<ProtectedRoute roles={['admin', 'manager', 'staff']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/admin/knowledge/create" element={<ProtectedRoute roles={['admin', 'manager', 'staff']}><KnowledgeCreate /></ProtectedRoute>} />
-          <Route path="/admin/knowledge/approval" element={<ProtectedRoute roles={['admin', 'manager']}><KnowledgeApproval /></ProtectedRoute>} />
+          <Route path="/admin/knowledge/approval" element={<ProtectedRoute roles={['admin']}><KnowledgeApproval /></ProtectedRoute>} />
           <Route path="/admin/knowledge/categories" element={<ProtectedRoute roles={['admin']}><KnowledgeCategories /></ProtectedRoute>} />
           <Route path="/admin/knowledge/statistics" element={<ProtectedRoute roles={['admin']}><KnowledgeStatistics /></ProtectedRoute>} />
           <Route path="/admin/knowledge/my-articles" element={<ProtectedRoute roles={['admin', 'manager', 'staff']}><KnowledgeMyArticles /></ProtectedRoute>} />
@@ -165,7 +161,6 @@ export default function App() {
           <Route path="/manager/notices" element={<ProtectedRoute roles={['manager']}><ManagerNotices /></ProtectedRoute>} />
           <Route path="/manager/knowledge" element={<ProtectedRoute roles={['manager']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/manager/knowledge/create" element={<ProtectedRoute roles={['manager']}><KnowledgeCreate /></ProtectedRoute>} />
-          <Route path="/manager/knowledge/approval" element={<ProtectedRoute roles={['manager']}><KnowledgeApproval /></ProtectedRoute>} />
           <Route path="/manager/knowledge/my-articles" element={<ProtectedRoute roles={['manager']}><KnowledgeMyArticles /></ProtectedRoute>} />
           <Route path="/manager/knowledge/:id/edit" element={<ProtectedRoute roles={['manager']}><KnowledgeEdit /></ProtectedRoute>} />
           <Route path="/manager/knowledge/:id/versions" element={<ProtectedRoute roles={['manager']}><KnowledgeVersions /></ProtectedRoute>} />

@@ -1,4 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  EyeIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  PlusIcon,
+  CheckIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+  ClockIcon,
+  GlobeAltIcon,
+  FolderIcon,
+  CalendarIcon,
+  ArrowTrendingUpIcon,
+  InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import Modal from '../../components/Modal/Modal';
 import { fetchSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, type SLAPolicy } from '../../api/slaApi';
@@ -202,23 +220,38 @@ export default function SLAPolicies() {
 
       <div className={styles.statsRow}>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Total Policies</span>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Total Policies</span>
+            <ShieldCheckIcon className={styles.statIcon} style={{ color: '#6366f1' }} />
+          </div>
           <span className={styles.statValue}>{stats.total}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Active</span>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Active</span>
+            <CheckCircleIcon className={styles.statIcon} style={{ color: '#16a34a' }} />
+          </div>
           <span className={styles.statValue} style={{ color: '#16a34a' }}>{stats.active}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Inactive</span>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Inactive</span>
+            <XCircleIcon className={styles.statIcon} style={{ color: '#dc2626' }} />
+          </div>
           <span className={styles.statValue} style={{ color: '#dc2626' }}>{stats.inactive}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Global</span>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Global</span>
+            <GlobeAltIcon className={styles.statIcon} style={{ color: '#0ea5e9' }} />
+          </div>
           <span className={styles.statValue}>{stats.global}</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statLabel}>Category-Specific</span>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Category-Specific</span>
+            <FolderIcon className={styles.statIcon} style={{ color: '#f59e0b' }} />
+          </div>
           <span className={styles.statValue}>{stats.categorySpecific}</span>
         </div>
       </div>
@@ -226,7 +259,7 @@ export default function SLAPolicies() {
       <div className={styles.headerRow}>
         <div className={styles.filters}>
           <div className={styles.searchBox}>
-            <span className={styles.searchIcon}>🔍</span>
+            <MagnifyingGlassIcon className={styles.searchIcon} />
             <input
               className={styles.searchInput}
               type="text"
@@ -283,7 +316,7 @@ export default function SLAPolicies() {
                 {filteredPolicies.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.name}</div>
+                      <div className={styles.policyName}>{p.name}</div>
                     </td>
                     <td>
                       <span className={`${styles.categoryBadge} ${!p.categoryId ? styles.globalBadge : ''}`}>
@@ -295,9 +328,28 @@ export default function SLAPolicies() {
                         {p.priority}
                       </span>
                     </td>
-                    <td>{p.responseHours !== undefined && p.responseHours !== null ? `${p.responseHours}h` : '—'}</td>
-                    <td>{p.resolutionHours !== undefined && p.resolutionHours !== null ? `${p.resolutionHours}h` : '—'}</td>
-                    <td>{p.escalationHours !== undefined && p.escalationHours !== null && p.escalationHours > 0 ? `${p.escalationHours}h` : '—'}</td>
+                    <td>
+                      <span className={styles.timeCell}>
+                        <ClockIcon className={styles.inlineIcon} />
+                        {p.responseHours !== undefined && p.responseHours !== null ? `${p.responseHours}h` : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.timeCell}>
+                        <ClockIcon className={styles.inlineIcon} />
+                        {p.resolutionHours !== undefined && p.resolutionHours !== null ? `${p.resolutionHours}h` : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.timeCell}>
+                        {p.escalationHours !== undefined && p.escalationHours !== null && p.escalationHours > 0 ? (
+                          <>
+                            <ClockIcon className={styles.inlineIcon} />
+                            {`${p.escalationHours}h`}
+                          </>
+                        ) : '—'}
+                      </span>
+                    </td>
                     <td>
                       <button
                         type="button"
@@ -305,7 +357,11 @@ export default function SLAPolicies() {
                         onClick={() => handleToggleStatus(p)}
                         title={p.isActive ? 'Click to deactivate' : 'Click to activate'}
                       >
-                        <span className={styles.toggleDot} />
+                        {p.isActive ? (
+                          <CheckCircleIcon className={styles.toggleIcon} />
+                        ) : (
+                          <XCircleIcon className={styles.toggleIcon} />
+                        )}
                         <span className={styles.toggleLabel}>{p.isActive ? 'Active' : 'Inactive'}</span>
                       </button>
                     </td>
@@ -314,10 +370,34 @@ export default function SLAPolicies() {
                     </td>
                     <td>
                       <div className={styles.actions}>
-                        <button className={styles.viewBtn} onClick={() => openView(p)}>View</button>
-                        <button className={styles.editBtn} onClick={() => openEdit(p)}>Edit</button>
+                        <button
+                          type="button"
+                          className={styles.viewBtn}
+                          onClick={() => openView(p)}
+                          title="View SLA Policy details"
+                        >
+                          <EyeIcon className={styles.btnIcon} />
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.editBtn}
+                          onClick={() => openEdit(p)}
+                          title="Edit SLA Policy"
+                        >
+                          <PencilSquareIcon className={styles.btnIcon} />
+                          <span>Edit</span>
+                        </button>
                         {['admin', 'ceo'].includes(user?.role || '') && (
-                          <button className={styles.deleteBtn} onClick={() => handleDelete(p)}>Delete</button>
+                          <button
+                            type="button"
+                            className={styles.deleteBtn}
+                            onClick={() => handleDelete(p)}
+                            title="Delete SLA Policy"
+                          >
+                            <TrashIcon className={styles.btnIcon} />
+                            <span>Delete</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -327,8 +407,12 @@ export default function SLAPolicies() {
                   <tr>
                     <td colSpan={9} className={styles.emptyState}>
                       <div className={styles.emptyIcon}>📋</div>
-                      <div>No SLA policies found</div>
-                      <div style={{ fontSize: 13, marginTop: 4 }}>Create a new policy to get started</div>
+                      <div className={styles.emptyTitle}>No SLA policies found</div>
+                      <div className={styles.emptySub}>Create a new policy to get started with automated SLA tracking</div>
+                      <button type="button" className={styles.emptyActionBtn} onClick={openCreate}>
+                        <PlusIcon className={styles.btnIcon} />
+                        <span>Create Policy</span>
+                      </button>
                     </td>
                   </tr>
                 )}
@@ -343,16 +427,30 @@ export default function SLAPolicies() {
         title={editing ? 'Edit SLA Policy' : 'Create New SLA Policy'}
         onClose={() => setModalOpen(false)}
         footer={
-          <>
-            <button className={styles.cancelBtn} onClick={() => setModalOpen(false)}>Cancel</button>
+          <div className={styles.modalFooter}>
+            <button type="button" className={styles.cancelBtn} onClick={() => setModalOpen(false)}>
+              <XMarkIcon className={styles.btnIcon} />
+              <span>Cancel</span>
+            </button>
             <button
+              type="button"
               className={styles.submitBtn}
               onClick={handleSave}
               disabled={!form.name.trim() || !form.priority || form.responseHours === '' || form.resolutionHours === ''}
             >
-              {editing ? 'Update Policy' : 'Create Policy'}
+              {editing ? (
+                <>
+                  <CheckIcon className={styles.btnIcon} />
+                  <span>Update Policy</span>
+                </>
+              ) : (
+                <>
+                  <PlusIcon className={styles.btnIcon} />
+                  <span>Create Policy</span>
+                </>
+              )}
             </button>
-          </>
+          </div>
         }
       >
         <div className={styles.formGrid}>
@@ -452,67 +550,165 @@ export default function SLAPolicies() {
         open={!!viewing}
         title="SLA Policy Details"
         onClose={() => setViewing(null)}
+        maxWidth="620px"
         footer={
-          <button className={styles.cancelBtn} onClick={() => setViewing(null)}>Close</button>
+          <div className={styles.modalFooter}>
+            <button type="button" className={styles.cancelBtn} onClick={() => setViewing(null)}>
+              <XMarkIcon className={styles.btnIcon} />
+              <span>Close</span>
+            </button>
+            {['admin', 'ceo'].includes(user?.role || '') && (
+              <button
+                type="button"
+                className={styles.modalEditBtn}
+                onClick={() => {
+                  const toEdit = viewing;
+                  setViewing(null);
+                  if (toEdit) openEdit(toEdit);
+                }}
+              >
+                <PencilSquareIcon className={styles.btnIcon} />
+                <span>Edit Policy</span>
+              </button>
+            )}
+          </div>
         }
       >
         {viewing && (
-          <div className={styles.viewGrid}>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Policy Name</span>
-              <span className={styles.viewValue}>{viewing.name}</span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Category</span>
-              <span className={styles.viewValue}>{getCategoryName(viewing.categoryId)}</span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Priority</span>
-              <span className={styles.viewValue}>
-                <span className={`${styles.badge} ${styles[`priority${viewing.priority.charAt(0).toUpperCase() + viewing.priority.slice(1)}`]}`}>
-                  {viewing.priority}
-                </span>
-              </span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>First Response Time</span>
-              <span className={styles.viewValue}>{viewing.responseHours !== undefined && viewing.responseHours !== null ? `${viewing.responseHours}h` : '—'}</span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Resolution Time</span>
-              <span className={styles.viewValue}>{viewing.resolutionHours !== undefined && viewing.resolutionHours !== null ? `${viewing.resolutionHours}h` : '—'}</span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Escalation Time</span>
-              <span className={styles.viewValue}>{viewing.escalationHours !== undefined && viewing.escalationHours !== null && viewing.escalationHours > 0 ? `${viewing.escalationHours}h` : '—'}</span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Status</span>
-              <span className={styles.viewValue}>
-                <button
-                  type="button"
-                  className={`${styles.toggleBtn} ${viewing.isActive ? styles.toggleOn : styles.toggleOff}`}
-                  title={viewing.isActive ? 'Active' : 'Inactive'}
-                >
-                  <span className={styles.toggleDot} />
-                  <span className={styles.toggleLabel}>{viewing.isActive ? 'Active' : 'Inactive'}</span>
-                </button>
-              </span>
-            </div>
-            <div className={styles.viewRow}>
-              <span className={styles.viewLabel}>Description</span>
-              <span className={styles.viewValue}>{viewing.description || '—'}</span>
-            </div>
-            {viewing.createdAt && (
-              <div className={styles.viewRow}>
-                <span className={styles.viewLabel}>Created</span>
-                <span className={styles.viewValue}>{new Date(viewing.createdAt).toLocaleString()}</span>
+          <div className={styles.detailContainer}>
+            {/* Header Hero Card */}
+            <div className={styles.detailHero}>
+              <div className={styles.detailHeroIcon}>
+                <ShieldCheckIcon className={styles.detailHeroIconSvg} />
               </div>
-            )}
-            {viewing.updatedAt && (
-              <div className={styles.viewRow}>
-                <span className={styles.viewLabel}>Updated</span>
-                <span className={styles.viewValue}>{new Date(viewing.updatedAt).toLocaleString()}</span>
+              <div className={styles.detailHeroContent}>
+                <div className={styles.detailHeroTop}>
+                  <h3 className={styles.detailPolicyName}>{viewing.name}</h3>
+                  <div className={styles.detailStatusWrapper}>
+                    <span className={`${styles.toggleBtn} ${viewing.isActive ? styles.toggleOn : styles.toggleOff}`}>
+                      {viewing.isActive ? (
+                        <CheckCircleIcon className={styles.toggleIcon} />
+                      ) : (
+                        <XCircleIcon className={styles.toggleIcon} />
+                      )}
+                      <span className={styles.toggleLabel}>{viewing.isActive ? 'Active' : 'Inactive'}</span>
+                    </span>
+                  </div>
+                </div>
+                <div className={styles.detailHeroMeta}>
+                  <span className={styles.detailMetaPill}>
+                    {viewing.categoryId ? (
+                      <>
+                        <FolderIcon className={styles.metaIcon} />
+                        <span>{getCategoryName(viewing.categoryId)}</span>
+                      </>
+                    ) : (
+                      <>
+                        <GlobeAltIcon className={styles.metaIcon} />
+                        <span>Global (All Categories)</span>
+                      </>
+                    )}
+                  </span>
+                  <span className={`${styles.badge} ${styles[`priority${viewing.priority.charAt(0).toUpperCase() + viewing.priority.slice(1)}`]}`}>
+                    {viewing.priority} priority
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Target SLA Metrics Grid */}
+            <div className={styles.detailMetricsGrid}>
+              <div className={styles.metricCard}>
+                <div className={styles.metricHeader}>
+                  <div className={`${styles.metricIconWrap} ${styles.metricBlue}`}>
+                    <ClockIcon className={styles.metricIcon} />
+                  </div>
+                  <span className={styles.metricLabel}>First Response</span>
+                </div>
+                <div className={styles.metricValue}>
+                  {viewing.responseHours !== undefined && viewing.responseHours !== null ? (
+                    <>
+                      <span className={styles.metricNumber}>{viewing.responseHours}</span>
+                      <span className={styles.metricUnit}>hrs</span>
+                    </>
+                  ) : (
+                    <span className={styles.metricEmpty}>—</span>
+                  )}
+                </div>
+                <span className={styles.metricHint}>Target reply time</span>
+              </div>
+
+              <div className={styles.metricCard}>
+                <div className={styles.metricHeader}>
+                  <div className={`${styles.metricIconWrap} ${styles.metricEmerald}`}>
+                    <CheckCircleIcon className={styles.metricIcon} />
+                  </div>
+                  <span className={styles.metricLabel}>Resolution</span>
+                </div>
+                <div className={styles.metricValue}>
+                  {viewing.resolutionHours !== undefined && viewing.resolutionHours !== null ? (
+                    <>
+                      <span className={styles.metricNumber}>{viewing.resolutionHours}</span>
+                      <span className={styles.metricUnit}>hrs</span>
+                    </>
+                  ) : (
+                    <span className={styles.metricEmpty}>—</span>
+                  )}
+                </div>
+                <span className={styles.metricHint}>Target resolution time</span>
+              </div>
+
+              <div className={styles.metricCard}>
+                <div className={styles.metricHeader}>
+                  <div className={`${styles.metricIconWrap} ${styles.metricAmber}`}>
+                    <ArrowTrendingUpIcon className={styles.metricIcon} />
+                  </div>
+                  <span className={styles.metricLabel}>Escalation</span>
+                </div>
+                <div className={styles.metricValue}>
+                  {viewing.escalationHours !== undefined && viewing.escalationHours !== null && viewing.escalationHours > 0 ? (
+                    <>
+                      <span className={styles.metricNumber}>{viewing.escalationHours}</span>
+                      <span className={styles.metricUnit}>hrs</span>
+                    </>
+                  ) : (
+                    <span className={styles.metricEmpty}>None</span>
+                  )}
+                </div>
+                <span className={styles.metricHint}>Auto-escalation point</span>
+              </div>
+            </div>
+
+            {/* Description Section */}
+            <div className={styles.detailSection}>
+              <div className={styles.detailSectionTitle}>
+                <InformationCircleIcon className={styles.sectionIcon} />
+                <span>Description</span>
+              </div>
+              <div className={styles.detailDescBox}>
+                {viewing.description ? (
+                  <p className={styles.detailDescText}>{viewing.description}</p>
+                ) : (
+                  <p className={styles.detailDescEmpty}>No description provided for this policy.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Audit / Timeline metadata */}
+            {(viewing.createdAt || viewing.updatedAt) && (
+              <div className={styles.detailAuditBar}>
+                {viewing.createdAt && (
+                  <div className={styles.auditItem}>
+                    <CalendarIcon className={styles.auditIcon} />
+                    <span>Created: <strong>{new Date(viewing.createdAt).toLocaleString()}</strong></span>
+                  </div>
+                )}
+                {viewing.updatedAt && (
+                  <div className={styles.auditItem}>
+                    <ClockIcon className={styles.auditIcon} />
+                    <span>Last Updated: <strong>{new Date(viewing.updatedAt).toLocaleString()}</strong></span>
+                  </div>
+                )}
               </div>
             )}
           </div>

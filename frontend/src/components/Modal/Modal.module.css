@@ -1,16 +1,22 @@
+/* ==========================================================================
+   MODAL COMPONENT — PROFESSIONAL ENTERPRISE DESIGN SYSTEM
+   ========================================================================== */
+
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.18s ease;
   padding: 20px;
 }
 
 .modal {
+  position: relative;
   width: 100%;
   max-width: 720px;
   max-height: 90vh;
@@ -18,16 +24,31 @@
   background: #ffffff;
   border-radius: 20px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.25);
+  box-shadow:
+    0 4px 6px -2px rgba(15, 23, 42, 0.05),
+    0 25px 60px -15px rgba(15, 23, 42, 0.22);
   display: flex;
   flex-direction: column;
-  animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Top accent gradient bar */
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+  border-radius: 20px 20px 0 0;
+  z-index: 10;
 }
 
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(12px);
+    transform: scale(0.96) translateY(14px);
   }
   to {
     opacity: 1;
@@ -35,86 +56,118 @@
   }
 }
 
+/* ── HEADER ─────────────────────────────────────────────────────────────── */
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 22px 28px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-bottom: 1px solid #e2e8f0;
-  border-left: 5px solid #2563eb;
+  padding: 24px 28px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
   flex-shrink: 0;
+  position: relative;
 }
 
 .header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  line-height: 1.3;
 }
 
 .header button {
   border: 1px solid #e2e8f0;
-  background: #ffffff;
-  font-size: 1.25rem;
+  background: #f8fafc;
+  font-size: 1.1rem;
   color: #64748b;
   cursor: pointer;
   padding: 0;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .header button:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  transform: scale(1.05) rotate(5deg);
 }
 
+/* ── BODY ────────────────────────────────────────────────────────────────── */
+
 .body {
-  padding: 28px;
+  padding: 24px 28px 28px;
   overflow-y: auto;
   flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
+
+.body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────────────────── */
 
 .footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 18px 28px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+  padding: 16px 28px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
   flex-shrink: 0;
 }
+
+/* ── ANIMATIONS ──────────────────────────────────────────────────────────── */
 
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+
 @media (max-width: 640px) {
   .backdrop {
-    padding: 12px;
+    padding: 0;
     align-items: flex-end;
   }
 
   .modal {
     max-width: 100%;
-    max-height: 95vh;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal::before {
     border-radius: 20px 20px 0 0;
   }
 
   .header {
-    padding: 18px 20px;
+    padding: 18px 20px 14px;
   }
 
   .body {
@@ -126,37 +179,48 @@
   }
 }
 
-/* ── Dark Theme Overrides for Modal ─────────────────────────────────────── */
+/* ==========================================================================
+   DARK THEME OVERRIDES
+   ========================================================================== */
+
 :global([data-theme="dark"]) .modal {
-  background: #181c24 !important;
-  border-color: #252b38 !important;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7) !important;
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+  box-shadow:
+    0 4px 6px -2px rgba(0, 0, 0, 0.4),
+    0 25px 60px -15px rgba(0, 0, 0, 0.75) !important;
+}
+
+:global([data-theme="dark"]) .modal::before {
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
 }
 
 :global([data-theme="dark"]) .header {
-  background: linear-gradient(135deg, #181c24 0%, #1e2330 100%) !important;
-  border-bottom-color: #252b38 !important;
-  border-left-color: #3b82f6 !important;
+  background: #151b28 !important;
+  border-bottom-color: #1e2738 !important;
 }
 
 :global([data-theme="dark"]) .header h2 {
-  color: #f8fafc !important;
+  color: #f1f5f9 !important;
 }
 
 :global([data-theme="dark"]) .header button {
-  background: #1e2330 !important;
-  border-color: #2e3547 !important;
+  background: #1c2436 !important;
+  border-color: #2d3748 !important;
   color: #94a3b8 !important;
 }
 
 :global([data-theme="dark"]) .header button:hover {
-  background: #252b38 !important;
-  color: #f8fafc !important;
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .body::-webkit-scrollbar-thumb {
+  background: #2d3748;
 }
 
 :global([data-theme="dark"]) .footer {
-  background: #13161f !important;
-  border-top-color: #252b38 !important;
+  background: #111622 !important;
+  border-top-color: #1e2738 !important;
 }
-
-

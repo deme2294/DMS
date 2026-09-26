@@ -53,6 +53,7 @@ export const findRoomsByUser = async (userId) => {
      LEFT JOIN departments d ON d.id = cr.department_id
      LEFT JOIN tickets t ON t.id = cr.ticket_id
      WHERE cp.user_id = ? AND cp.is_active = TRUE
+     GROUP BY cr.id
      ORDER BY CASE WHEN last_message_at IS NULL THEN 1 ELSE 0 END, last_message_at DESC, cr.created_at DESC`,
     [userId, userId, userId, userId]
   );
@@ -191,6 +192,16 @@ export const findParticipant = async (roomId, userId) => {
 
 export const addParticipant = async (participant) => {
   const { id, roomId, userId } = participant;
+  const existing = await findParticipant(roomId, userId);
+  if (existing) {
+    if (!existing.is_active) {
+      await pool.query(
+        `UPDATE chat_participants SET is_active = TRUE, joined_at = NOW() WHERE id = ?`,
+        [existing.id]
+      );
+    }
+    return existing.id;
+  }
   await pool.query(
     `INSERT INTO chat_participants (id, room_id, user_id, joined_at, is_active)
      VALUES (?, ?, ?, NOW(), TRUE)`,
@@ -215,7 +226,7 @@ export const removeParticipant = async (roomId, userId) => {
 
 // ===================== MESSAGES =====================
 
-export const findMessagesByRoom = async (roomId, limit = 50, offset = 0) => {
+export const findMessagesByRoom = async (roomId, userId = null, limit = 50, offset = 0) => {
   const [rows] = await pool.query(
     `SELECT cm.*, 
        u.first_name, u.last_name, u.username,
@@ -223,10 +234,11 @@ export const findMessagesByRoom = async (roomId, limit = 50, offset = 0) => {
      FROM chat_messages cm
      INNER JOIN users u ON u.id = cm.sender_id
      INNER JOIN roles r ON r.id = u.role_id
-     WHERE cm.room_id = ? AND cm.is_deleted = FALSE
+     LEFT JOIN chat_message_deletions cmd ON cmd.message_id = cm.id AND cmd.user_id = ?
+     WHERE cm.room_id = ? AND cm.is_deleted = FALSE AND cmd.id IS NULL
      ORDER BY cm.created_at DESC
      LIMIT ? OFFSET ?`,
-    [roomId, limit, offset]
+    [userId, roomId, limit, offset]
   );
   return rows.reverse(); // Return chronological order
 };
@@ -287,6 +299,17 @@ export const softDeleteMessage = async (messageId) => {
     `UPDATE chat_messages SET is_deleted = TRUE, deleted_at = NOW() WHERE id = ?`,
     [messageId]
   );
+};
+
+export const deleteMessageForUser = async (messageId, userId) => {
+  const { v4: uuidv4 } = await import('uuid');
+  const id = uuidv4();
+  await pool.query(
+    `INSERT IGNORE INTO chat_message_deletions (id, message_id, user_id, created_at)
+     VALUES (?, ?, ?, NOW())`,
+    [id, messageId, userId]
+  );
+  return { success: true };
 };
 
 // ===================== READ STATUS =====================

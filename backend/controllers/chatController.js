@@ -42,7 +42,14 @@ export const createDepartmentRoom = async (req, res, next) => {
 
 export const createDirectRoom = async (req, res, next) => {
   try {
-    const room = await chatService.createDirectRoom(req.user.id, req.body.userId, req.user.role);
+    const io = req.app?.get('io');
+    const room = await chatService.createDirectRoom(
+      req.user.id,
+      req.body.userId,
+      req.user.role,
+      req.body.initialMode || 'chat',
+      io
+    );
     res.status(HTTP.CREATED).json({ success: true, data: room });
   } catch (err) {
     next(err);
@@ -112,7 +119,9 @@ export const editMessage = async (req, res, next) => {
 
 export const deleteMessage = async (req, res, next) => {
   try {
-    const result = await chatService.deleteMessage(req.params.messageId, req.user.id);
+    const { messageId } = req.params;
+    const deleteType = req.body?.deleteType || req.query?.deleteType || 'everyone';
+    const result = await chatService.deleteMessage(messageId, req.user.id, deleteType);
     res.status(HTTP.OK).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -230,4 +239,45 @@ export const getTicketChatMembers = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getRegisteredContacts = async (req, res, next) => {
+  try {
+    const contacts = await chatService.getRegisteredContactsForMeeting(req.user.id);
+    res.status(HTTP.OK).json({ success: true, data: contacts });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const sendMeetingInvite = async (req, res, next) => {
+  try {
+    const io = req.app?.get('io');
+    const origin = req.headers.origin || req.headers.referer || 'http://10.195.207.9:5173';
+    const result = await chatService.sendMeetingInvite({ ...req.body, origin }, req.user.id, io);
+    res.status(HTTP.CREATED).json({
+      success: true,
+      message: 'Video conference invitation sent and emailed successfully',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const verifyMeetingAccess = async (req, res, next) => {
+  try {
+    const result = await chatService.verifyMeetingAccess({
+      meetingUrl: req.body.meetingUrl,
+      roomId: req.body.roomId,
+      passcode: req.body.passcode,
+      userId: req.user.id,
+      userRole: req.user.role,
+    });
+    res.status(HTTP.OK).json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 

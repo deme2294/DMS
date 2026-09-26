@@ -76,7 +76,15 @@ export const changeStatus = async (req, res, next) => {
 
 export const assignDepartment = async (req, res, next) => {
   try {
-    const data = await ticketService.assignDepartment(req.user, req.params.id, req.body.departmentId, req.body.notes, clientMeta(req));
+    const managerId = req.body.managerId || req.body.assignedTo || null;
+    const data = await ticketService.assignDepartment(
+      req.user,
+      req.params.id,
+      req.body.departmentId,
+      req.body.notes,
+      managerId,
+      clientMeta(req)
+    );
     res.status(HTTP.OK).json({ success: true, message: 'Department assigned', data });
   } catch (err) {
     next(err);
@@ -325,4 +333,14 @@ export const getCategories = async (_req, res, next) => {
   }
 };
 
+export const getDepartmentManagers = async (req, res, next) => {
+  try {
+    const data = await ticketService.getDepartmentManagers(req.params.departmentId);
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export { TICKET_PRIORITIES };
+

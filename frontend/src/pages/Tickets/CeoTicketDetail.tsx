@@ -264,52 +264,74 @@ export default function CeoTicketDetail() {
 
       <div className={styles.detailGrid}>
         <div className={styles.card}>
-          <h3>Details</h3>
-          <p><strong>Status:</strong> <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status]}</span></p>
-          <p><strong>Priority:</strong> {ticket.priority}</p>
-          <p><strong>Category:</strong> {ticket.category}</p>
-          <p><strong>Department:</strong> {ticket.departmentName || '—'}</p>
-          <p><strong>Assigned To:</strong> {ticket.assignedToName || '—'}</p>
-          <p><strong>Tenant:</strong> {ticket.tenantName || '—'}</p>
-          <p><strong>Created:</strong> {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '—'}</p>
-          <p><strong>Updated:</strong> {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '—'}</p>
-          {ticket.dueDate && (
-            <p className={styles.slaInfo + ' ' + (ticket.isOverdue ? styles.slaOverdue : ticket.remainingMs != null && ticket.remainingMs < 3.6e6 ? styles.slaImminent : styles.slaOk)}>
-              <strong>SLA Due:</strong> {new Date(ticket.dueDate).toLocaleString()} ({formatRemaining(ticket.remainingMs)})
-              {!ticket.isOverdue && ticket.remainingMs != null && ticket.remainingMs > 0 && ticket.remainingMs < 3.6e6 && (
-                <span className={styles.slaImminent}> ⚠ Resolution deadline is approaching</span>
-              )}
-            </p>
-          )}
-          {(ticket as any).responseDueDate && (
-            <p className={styles.slaInfo}>
-              <strong>Response Due:</strong> {new Date((ticket as any).responseDueDate).toLocaleString()}
-              {!(ticket as any).responseSlaBreached && (() => {
-                const respRemaining = new Date((ticket as any).responseDueDate).getTime() - Date.now();
-                return respRemaining > 0 && respRemaining < 3.6e6 ? <span className={styles.slaImminent}> ⚠ Response deadline approaching</span> : null;
-              })()}
-            </p>
-          )}
-          {(ticket as any).escalationDueDate && (
-            <p className={styles.slaInfo}>
-              <strong>Escalation Due:</strong> {new Date((ticket as any).escalationDueDate).toLocaleString()}
-              {!(ticket as any).escalationSlaBreached && (() => {
-                const escRemaining = new Date((ticket as any).escalationDueDate).getTime() - Date.now();
-                return escRemaining > 0 && escRemaining < 3.6e6 ? <span className={styles.slaImminent}> ⚠ Escalation deadline approaching</span> : null;
-              })()}
-            </p>
-          )}
-          {(ticket as any).responseSlaBreached && (
-            <p className={styles.slaOverdue}><strong>Response SLA Breached</strong></p>
-          )}
-          {(ticket as any).escalationSlaBreached && (
-            <p className={styles.slaOverdue}><strong>Escalation SLA Breached</strong></p>
-          )}
+          <h3>📋 Ticket Details</h3>
+          <div className={styles.detailsSection}>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Status</span>
+              <span className={styles.detailValue}>
+                <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status] || ticket.status}</span>
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Priority</span>
+              <span className={styles.detailValue}>
+                <span className={`${styles.badge} ${styles[ticket.priority]}`}>{ticket.priority}</span>
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Category</span>
+              <span className={styles.detailValue}>{ticket.category || '—'}</span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Department</span>
+              <span className={styles.detailValue}>{ticket.departmentName || '—'}</span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Assigned To</span>
+              <span className={styles.detailValue}>{ticket.assignedToName || '—'}</span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Tenant</span>
+              <span className={styles.detailValue}>{ticket.tenantName || '—'}</span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Created</span>
+              <span className={styles.detailValue}>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '—'}</span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>Updated</span>
+              <span className={styles.detailValue}>{ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '—'}</span>
+            </div>
+            {ticket.dueDate && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>SLA Due</span>
+                <span className={`${styles.detailValue} ${ticket.isOverdue ? styles.slaOverdue : ticket.remainingMs != null && ticket.remainingMs < 3.6e6 ? styles.slaImminent : styles.slaOk}`}>
+                  {new Date(ticket.dueDate).toLocaleString()} ({formatRemaining(ticket.remainingMs)})
+                </span>
+              </div>
+            )}
+            {(ticket as any).responseDueDate && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>Response Due</span>
+                <span className={`${styles.detailValue} ${(ticket as any).responseSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
+                  {new Date((ticket as any).responseDueDate).toLocaleString()}
+                </span>
+              </div>
+            )}
+            {(ticket as any).escalationDueDate && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>Escalation Due</span>
+                <span className={`${styles.detailValue} ${(ticket as any).escalationSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
+                  {new Date((ticket as any).escalationDueDate).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
       {(role === 'admin' || role === 'manager' || role === 'staff') && (
         <div className={styles.card}>
-          <h3>Actions</h3>
+          <h3>⚡ Actions</h3>
           <div className={styles.btnRow}>
             {transitions.length > 0 && (
               <button onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
@@ -365,7 +387,7 @@ export default function CeoTicketDetail() {
             <button className={styles.btnSecondary} onClick={() => setAttachModal(true)}>Upload File</button>
           </div>
           {ticket.isOverdue && (
-            <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', fontSize: '0.9rem' }}>
+            <div className={styles.slaInlineWarning}>
               ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
             </div>
           )}
@@ -374,13 +396,13 @@ export default function CeoTicketDetail() {
       </div>
 
       <div className={styles.card}>
-        <h3>Description</h3>
+        <h3>📝 Description</h3>
         <p className={styles.description}>{ticket.description}</p>
       </div>
 
       {ticket.attachments && ticket.attachments.length > 0 && (
         <div className={styles.card}>
-          <h3>Attachments</h3>
+          <h3>📎 Attachments ({ticket.attachments.length})</h3>
           <ul className={styles.attachments}>
             {ticket.attachments.map((file) => (
               <li key={file.id}>
@@ -392,17 +414,22 @@ export default function CeoTicketDetail() {
       )}
 
       <div className={styles.card}>
-        <h3>Comments & Replies {role !== 'tenant' ? '(Internal notes visible to staff only)' : ''}</h3>
+        <h3>💬 Comments & Replies {role !== 'tenant' ? '(Internal notes visible to staff only)' : ''}</h3>
         {replies.length === 0 && <p>No replies yet.</p>}
         <ul className={styles.replies}>
-          {replies.map((reply) => (
-            <li key={reply.id} className={reply.visibility === 'internal' || reply.isInternal ? styles.internal : ''}>
-              <strong>{reply.userName || 'System'}</strong>
-              <span className={styles.visibility}>{(reply.visibility === 'internal' || reply.isInternal) ? ' (Internal)' : ''}</span>
-              <span className={styles.time}>{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</span>
-              <p className={styles.replyMessage}>{reply.message}</p>
-            </li>
-          ))}
+          {replies.map((reply) => {
+            const isInternal = reply.visibility === 'internal' || !!reply.isInternal;
+            return (
+              <li key={reply.id} className={isInternal ? styles.internal : styles.replyItem}>
+                <div className={styles.replyHeader}>
+                  <strong className={styles.replyAuthor}>{reply.userName || 'System'}</strong>
+                  {isInternal && <span className={styles.badgeInternal}>🔒 Internal Note</span>}
+                  <span className={styles.time}>{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</span>
+                </div>
+                <p className={styles.replyMessage}>{reply.message}</p>
+              </li>
+            );
+          })}
         </ul>
         {role !== 'ceo' && <ReplyForm ticketId={ticket.id} canInternal={role !== 'tenant'} />}
       </div>
@@ -410,7 +437,7 @@ export default function CeoTicketDetail() {
       <div className={styles.card}>
         <div className={styles.timelineHeaderRow}>
           <h3>
-            Timeline
+            📊 Timeline
             <span className={styles.timelineBadge}>{timeline.length}</span>
           </h3>
           {timeline.length > 0 && (
@@ -438,23 +465,38 @@ export default function CeoTicketDetail() {
           <p className={styles.emptyTimeline}>No timeline events recorded yet.</p>
         ) : (
           <>
-            <ul className={styles.timeline}>
-              {paginatedTimeline.map((ev) => (
-                <li key={ev.id}>
-                  <strong>{ev.actorName || 'System'}</strong>
-                  {' · '}
-                  <span style={{ textTransform: 'capitalize' }}>{ev.kind}</span>
-                  {ev.kind === 'status' && (
-                    <>: {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}</>
-                  )}
-                  {ev.kind === 'comment' && <>: {(ev.visibility === 'internal' ? '[Internal] ' : '') + (ev.message || '')}</>}
-                  {ev.kind === 'attachment' && <>: uploaded {ev.message}</>}
-                  {ev.kind === 'assignment' && <>: {ev.role} assignment {ev.status}</>}
-                  <span> — {ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}</span>
-                  {ev.notes && <p>{ev.notes}</p>}
-                </li>
-              ))}
-            </ul>
+            <div className={styles.timelineContainer}>
+              <ul className={styles.timeline}>
+                {paginatedTimeline.map((ev) => (
+                  <li key={ev.id}>
+                    <div className={styles.timelineEvent}>
+                      <strong>{ev.actorName || 'System'}</strong>
+                      <span className={styles.timelineKind}>
+                        {ev.kind}
+                      </span>
+                      {ev.kind === 'status' && (
+                        <div className={styles.timelineMessage}>
+                          {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                        </div>
+                      )}
+                      {ev.kind === 'comment' && (
+                        <div className={styles.timelineMessage}>
+                          {(ev.visibility === 'internal' ? '[Internal] ' : '') + (ev.message || '')}
+                        </div>
+                      )}
+                      {ev.kind === 'attachment' && (
+                        <div className={styles.timelineMessage}>uploaded {ev.message}</div>
+                      )}
+                      {ev.kind === 'assignment' && (
+                        <div className={styles.timelineMessage}>{ev.role} assignment {ev.status}</div>
+                      )}
+                      <span className={styles.timelineTime}>{ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}</span>
+                      {ev.notes && <div className={styles.timelineNotes}>📌 {ev.notes}</div>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             <div className={styles.timelinePagination}>
               <span className={styles.paginationInfo}>
@@ -555,24 +597,38 @@ export default function CeoTicketDetail() {
 
       <Modal open={noteModal} title="Add Internal Note" onClose={() => setNoteModal(false)}>
         <div className={styles.modalForm}>
-          <label>Note (internal only)</label>
-          <textarea rows={3} value={noteText} onChange={(e) => setNoteText(e.target.value)} />
-          <div style={{ marginTop: 8 }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: 4 }}>Visible to Departments (optional)</label>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>Note (Internal Only)</label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              placeholder="Write your internal note here..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+            />
+          </div>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>Visible to Departments (Optional)</label>
             <select
               multiple
+              className={styles.modalMultiSelect}
               value={selectedNoteDepts}
               onChange={(e) => {
                 const values = Array.from(e.target.selectedOptions).map((o) => o.value);
                 setSelectedNoteDepts(values);
               }}
-              style={{ width: '100%', minHeight: 80, fontSize: '0.85rem', padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0' }}
             >
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Hold Ctrl/Cmd to select multiple. Leave empty to make visible to all internal staff.</span>
+            <span className={styles.modalHint}>Hold Ctrl/Cmd to select multiple. Leave empty to make visible to all internal staff.</span>
           </div>
-          <button disabled={!noteText.trim()} onClick={() => call(() => addInternalNote(ticket.id, noteText, undefined, selectedNoteDepts.join(',')), 'Internal note added')}>Save</button>
+          <button
+            className={styles.modalSubmitBtn}
+            disabled={!noteText.trim()}
+            onClick={() => call(() => addInternalNote(ticket.id, noteText, undefined, selectedNoteDepts.join(',')), 'Internal note added')}
+          >
+            Save Note
+          </button>
         </div>
       </Modal>
 

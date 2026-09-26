@@ -21,10 +21,19 @@ export default defineConfig({
         target: 'http://localhost:5000',
         ws: true,
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            // Suppress benign ECONNRESET socket disconnect errors on client browser page reload
+            if ((err as any).code !== 'ECONNRESET') {
+              console.error('[vite ws proxy error]', err.message);
+            }
+          });
+        },
       },
     },
   },
 });
+
 
 
 

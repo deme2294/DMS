@@ -25,13 +25,14 @@ export const publishNotice = async (notice) => {
     }
   } else if (audience === 'department' && departmentId) {
     const [deptUsers] = await pool.query(
-      `SELECT u.id, u.first_name, u.last_name, u.email, u.username, r.name AS role
-       FROM user_departments ud
-       JOIN users u ON u.id = ud.user_id
+      `SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, u.username, r.name AS role
+       FROM users u
        JOIN roles r ON r.id = u.role_id
-       WHERE ud.department_id = ? AND u.status = 'active'
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.head_user_id = u.id
+       WHERE (ud.department_id = ? OR d.id = ?) AND u.status = 'active'
        ORDER BY u.first_name ASC`,
-      [departmentId]
+      [departmentId, departmentId]
     );
     recipients = deptUsers;
   } else if (audience === 'staff') {
@@ -85,10 +86,54 @@ export const listNotices = async (filters) => {
 export const getNotice = async (id) => {
   const notice = await noticeRepo.findById(id);
   if (!notice) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+  if (notice.created_by) {
+    const creatorDeptIds = await departmentService.getMyDepartmentIds(notice.created_by);
+    if (creatorDeptIds.length) {
+      const placeholders = creatorDeptIds.map(() => '?').join(',');
+      const [rows] = await pool.query(
+        `SELECT d.id, d.name, d.code FROM departments d WHERE d.id IN (${placeholders}) AND d.status = 'active'`,
+        creatorDeptIds
+      );
+      notice.creatorDepartments = rows;
+    } else {
+      notice.creatorDepartments = [];
+    }
+  } else {
+    notice.creatorDepartments = [];
+  }
   return notice;
 };
 
 export const createNotice = async (data, userId, userRole = 'admin') => {
+  let departmentId = data.departmentId || null;
+
+  if (data.targetAudience === 'department') {
+    const creatorDeptIds = await departmentService.getMyDepartmentIds(userId);
+    if (!creatorDeptIds || creatorDeptIds.length === 0) {
+      throw Object.assign(
+        new Error('You must be assigned to a department to create department-targeted notices'),
+        { statusCode: 400 }
+      );
+    }
+    if (departmentId) {
+      if (!creatorDeptIds.includes(departmentId)) {
+        throw Object.assign(
+          new Error("Department notices can only target the creator's own department"),
+          { statusCode: 403 }
+        );
+      }
+    } else {
+      if (creatorDeptIds.length === 1) {
+        departmentId = creatorDeptIds[0];
+      } else {
+        throw Object.assign(
+          new Error("Please select one of your assigned departments"),
+          { statusCode: 400 }
+        );
+      }
+    }
+  }
+
   const notice = {
     id: uuidv4(),
     title: data.title,
@@ -99,7 +144,7 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
     priority: data.priority || 'medium',
     status: data.status || 'draft',
     targetAudience: data.targetAudience || 'all',
-    departmentId: data.departmentId || null,
+    departmentId,
     assignedTo: data.assignedTo || null,
     assignedBy: data.assignedTo ? userId : null,
     creatorRole: userRole,
@@ -117,6 +162,36 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
 export const updateNotice = async (id, data, updaterId = null) => {
   const existing = await noticeRepo.findById(id);
   if (!existing) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+
+  const effectiveAudience = data.targetAudience !== undefined ? data.targetAudience : existing.target_audience;
+  if (effectiveAudience === 'department') {
+    const creatorId = existing.created_by || updaterId;
+    const creatorDeptIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (!creatorDeptIds || creatorDeptIds.length === 0) {
+      throw Object.assign(
+        new Error('The notice creator is not assigned to any department'),
+        { statusCode: 400 }
+      );
+    }
+    const targetDeptId = data.departmentId !== undefined ? data.departmentId : existing.department_id;
+    if (targetDeptId) {
+      if (!creatorDeptIds.includes(targetDeptId)) {
+        throw Object.assign(
+          new Error("Department notices can only target the creator's own department"),
+          { statusCode: 403 }
+        );
+      }
+    } else {
+      if (creatorDeptIds.length === 1) {
+        data.departmentId = creatorDeptIds[0];
+      } else {
+        throw Object.assign(
+          new Error("Please select one of the creator's assigned departments"),
+          { statusCode: 400 }
+        );
+      }
+    }
+  }
 
   const allowed = [
     'title', 'description', 'image', 'attachment', 'attachmentName',
@@ -261,51 +336,60 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
   let departmentId = data.departmentId || null;
   let assignedTo = data.assignedTo || null;
 
-  if (creatorRole === 'manager') {
-    const managerDepartmentIds = await departmentService.getMyDepartmentIds(creatorId);
-
-    if (data.targetAudience === 'department') {
-      if (!departmentId) {
+  if (data.targetAudience === 'department') {
+    const creatorDeptIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (!creatorDeptIds || creatorDeptIds.length === 0) {
+      throw Object.assign(
+        new Error('You must be assigned to a department to create department-targeted notices'),
+        { statusCode: 400 }
+      );
+    }
+    if (departmentId) {
+      if (!creatorDeptIds.includes(departmentId)) {
         throw Object.assign(
-          new Error('Department ID is required for department-targeted notices'),
-          { statusCode: 400 }
-        );
-      }
-      if (!managerDepartmentIds.includes(departmentId)) {
-        throw Object.assign(
-          new Error('You can only target departments you manage'),
+          new Error("Department notices can only target your own assigned department"),
           { statusCode: 403 }
         );
       }
-    } else if (data.targetAudience === 'staff') {
-      if (assignedTo) {
-        const staffUser = await userRepo.findById(assignedTo);
-        if (!staffUser) {
-          throw Object.assign(new Error('Staff user not found'), { statusCode: 404 });
-        }
-        const staffDeptIds = (staffUser.departments || []).map((d) => d.id);
-        const hasAccess = staffDeptIds.some((id) => managerDepartmentIds.includes(id));
-        if (!hasAccess) {
-          throw Object.assign(
-            new Error('You can only assign notices to staff in your department'),
-            { statusCode: 403 }
-          );
-        }
+    } else {
+      if (creatorDeptIds.length === 1) {
+        departmentId = creatorDeptIds[0];
       } else {
-        if (managerDepartmentIds.length === 0) {
-          throw Object.assign(
-            new Error('You do not manage any departments'),
-            { statusCode: 403 }
-          );
-        }
-        if (managerDepartmentIds.length === 1) {
-          departmentId = managerDepartmentIds[0];
-        } else if (!departmentId || !managerDepartmentIds.includes(departmentId)) {
-          throw Object.assign(
-            new Error('Please select a specific department for staff targeting'),
-            { statusCode: 400 }
-          );
-        }
+        throw Object.assign(
+          new Error("Please select one of your assigned departments"),
+          { statusCode: 400 }
+        );
+      }
+    }
+  } else if (creatorRole === 'manager' && data.targetAudience === 'staff') {
+    const managerDepartmentIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (assignedTo) {
+      const staffUser = await userRepo.findById(assignedTo);
+      if (!staffUser) {
+        throw Object.assign(new Error('Staff user not found'), { statusCode: 404 });
+      }
+      const staffDeptIds = (staffUser.departments || []).map((d) => d.id);
+      const hasAccess = staffDeptIds.some((id) => managerDepartmentIds.includes(id));
+      if (!hasAccess) {
+        throw Object.assign(
+          new Error('You can only assign notices to staff in your department'),
+          { statusCode: 403 }
+        );
+      }
+    } else {
+      if (managerDepartmentIds.length === 0) {
+        throw Object.assign(
+          new Error('You do not manage any departments'),
+          { statusCode: 403 }
+        );
+      }
+      if (managerDepartmentIds.length === 1) {
+        departmentId = managerDepartmentIds[0];
+      } else if (!departmentId || !managerDepartmentIds.includes(departmentId)) {
+        throw Object.assign(
+          new Error('Please select a specific department for staff targeting'),
+          { statusCode: 400 }
+        );
       }
     }
   }
@@ -351,7 +435,16 @@ const publishTargetedNotice = async (notice) => {
     }
   } else if (notice.targetAudience === 'department' && notice.departmentId) {
     // Department-specific - get all users in that department
-    const deptUsers = await noticeRepo.getStaffInDepartment(notice.departmentId);
+    const [deptUsers] = await pool.query(
+      `SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, u.username, r.name AS role
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.head_user_id = u.id
+       WHERE (ud.department_id = ? OR d.id = ?) AND u.status = 'active'
+       ORDER BY u.first_name ASC`,
+      [notice.departmentId, notice.departmentId]
+    );
     recipients = deptUsers;
   } else if (notice.targetAudience === 'staff') {
     if (notice.departmentId) {
@@ -393,6 +486,36 @@ export const updateTargetedNotice = async (id, data, updaterId, updaterRole) => 
       new Error('You can only update notices you created'),
       { statusCode: 403 }
     );
+  }
+
+  const effectiveAudience = data.targetAudience !== undefined ? data.targetAudience : existing.target_audience;
+  if (effectiveAudience === 'department') {
+    const creatorId = existing.created_by || updaterId;
+    const creatorDeptIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (!creatorDeptIds || creatorDeptIds.length === 0) {
+      throw Object.assign(
+        new Error('The notice creator is not assigned to any department'),
+        { statusCode: 400 }
+      );
+    }
+    const targetDeptId = data.departmentId !== undefined ? data.departmentId : existing.department_id;
+    if (targetDeptId) {
+      if (!creatorDeptIds.includes(targetDeptId)) {
+        throw Object.assign(
+          new Error("Department notices can only target the creator's own department"),
+          { statusCode: 403 }
+        );
+      }
+    } else {
+      if (creatorDeptIds.length === 1) {
+        data.departmentId = creatorDeptIds[0];
+      } else {
+        throw Object.assign(
+          new Error("Please select one of the creator's assigned departments"),
+          { statusCode: 400 }
+        );
+      }
+    }
   }
 
   const allowed = [
@@ -465,7 +588,7 @@ export const getMyDepartments = async (userId) => {
   if (!departmentIds.length) return [];
   const placeholders = departmentIds.map(() => '?').join(',');
   const [rows] = await pool.query(
-    `SELECT d.id, d.name, d.code FROM departments d WHERE d.id IN (${placeholders})`,
+    `SELECT d.id, d.name, d.code FROM departments d WHERE d.id IN (${placeholders}) AND d.status = 'active'`,
     departmentIds
   );
   return rows;

@@ -608,3 +608,106 @@ export const getTimeline = async (ticketId) => {
   events.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   return events;
 };
+
+/**
+ * Find the primary active manager for a department considering BOTH department and role ('manager').
+ * Prioritizes the department head if they are an active manager, otherwise takes the first active manager.
+ */
+export const findDepartmentManager = async (departmentId) => {
+  if (!departmentId) return null;
+
+  // 1. Check if department head is an active user with role 'manager' in this department
+  const [headRows] = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, u.email, r.name AS role, 1 AS is_head
+     FROM departments d
+     JOIN users u ON u.id = d.head_user_id
+     JOIN roles r ON r.id = u.role_id
+     JOIN user_departments ud ON ud.user_id = u.id AND ud.department_id = d.id
+     WHERE d.id = :departmentId
+       AND r.name = 'manager'
+       AND u.status = 'active'
+     LIMIT 1`,
+    { departmentId }
+  );
+  if (headRows.length > 0) {
+    return headRows[0];
+  }
+
+  // 2. Query any active user in user_departments for this department with role 'manager'
+  const [mgrRows] = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, u.email, r.name AS role, 0 AS is_head
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     JOIN user_departments ud ON ud.user_id = u.id
+     WHERE ud.department_id = :departmentId
+       AND r.name = 'manager'
+       AND u.status = 'active'
+     ORDER BY u.created_at ASC
+     LIMIT 1`,
+    { departmentId }
+  );
+
+  return mgrRows[0] || null;
+};
+
+/**
+ * List all active managers assigned to a department (matching role = 'manager' and user_departments).
+ */
+export const findDepartmentManagers = async (departmentId) => {
+  if (!departmentId) return [];
+  const [rows] = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, u.email, r.name AS role,
+            (CASE WHEN d.head_user_id = u.id THEN 1 ELSE 0 END) AS is_head
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     JOIN user_departments ud ON ud.user_id = u.id
+     LEFT JOIN departments d ON d.id = ud.department_id
+     WHERE ud.department_id = :departmentId
+       AND r.name = 'manager'
+       AND u.status = 'active'
+     ORDER BY is_head DESC, u.first_name ASC, u.last_name ASC`,
+    { departmentId }
+  );
+  return rows;
+};
+
+/**
+ * Validates that a user is an active manager belonging to the specified department.
+ */
+export const validateDepartmentManager = async (userId, departmentId) => {
+  if (!userId || !departmentId) return false;
+  const [rows] = await pool.query(
+    `SELECT u.id
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     JOIN user_departments ud ON ud.user_id = u.id
+     WHERE u.id = :userId
+       AND ud.department_id = :departmentId
+       AND r.name = 'manager'
+       AND u.status = 'active'
+     LIMIT 1`,
+    { userId, departmentId }
+  );
+  return rows.length > 0;
+};
+
+/**
+ * Validates that a user is active staff belonging to the specified department.
+ */
+export const validateDepartmentStaff = async (userId, departmentId) => {
+  if (!userId || !departmentId) return false;
+  const [rows] = await pool.query(
+    `SELECT u.id
+     FROM users u
+     JOIN roles r ON r.id = u.role_id
+     JOIN user_departments ud ON ud.user_id = u.id
+     WHERE u.id = :userId
+       AND ud.department_id = :departmentId
+       AND r.name = 'staff'
+       AND u.status = 'active'
+     LIMIT 1`,
+    { userId, departmentId }
+  );
+  return rows.length > 0;
+};
+

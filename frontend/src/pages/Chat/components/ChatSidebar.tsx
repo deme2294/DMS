@@ -1,0 +1,257 @@
+import React from 'react';
+import type { ChatRoom } from '../../../api/chatApi';
+import { getAvatarGradient, formatTimeOnly } from '../types';
+import styles from '../ChatPage.module.css';
+
+interface ChatSidebarProps {
+  rooms: ChatRoom[];
+  displayRooms: ChatRoom[];
+  selectedRoom: ChatRoom | null;
+  loading: boolean;
+  searchTerm: string;
+  activeFilter: 'all' | 'direct' | 'department' | 'ticket';
+  unreadCount: number;
+  mobileSidebarOpen: boolean;
+  isSidebarCollapsed?: boolean;
+  roomTypeCounts: {
+    all: number;
+    direct: number;
+    department: number;
+    ticket: number;
+  };
+  onSelectRoom: (room: ChatRoom) => void;
+  onSearchChange: (val: string) => void;
+  onFilterChange: (filter: 'all' | 'direct' | 'department' | 'ticket') => void;
+  onStartNewChat: () => void;
+  onCloseMobileSidebar: () => void;
+}
+
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({
+  rooms,
+  displayRooms,
+  selectedRoom,
+  loading,
+  searchTerm,
+  activeFilter,
+  unreadCount,
+  mobileSidebarOpen,
+  isSidebarCollapsed,
+  roomTypeCounts,
+  onSelectRoom,
+  onSearchChange,
+  onFilterChange,
+  onStartNewChat,
+  onCloseMobileSidebar,
+}) => {
+  return (
+    <aside
+      className={`${styles.chatSidebar} ${
+        mobileSidebarOpen ? styles.sidebarOpenMobile : ''
+      } ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
+    >
+      <div className={styles.sidebarHeader}>
+        <div className={styles.sidebarTitleRow}>
+          <div className={styles.sidebarTitleGroup}>
+            <span className={styles.sidebarIcon}>💬</span>
+            <h2>Conversations</h2>
+          </div>
+          <button
+            type="button"
+            className={styles.newChatBtn}
+            onClick={onStartNewChat}
+            title="Start new conversation"
+          >
+            <span>➕</span>
+            <span className={styles.newChatBtnText}>New Chat</span>
+          </button>
+        </div>
+
+        {unreadCount > 0 && (
+          <div className={styles.unreadBanner}>
+            <span className={styles.pulseDot} />
+            <span>
+              {unreadCount} unread message{unreadCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+
+        <div className={styles.searchBox}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className={styles.clearSearchBtn}
+              onClick={() => onSearchChange('')}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className={styles.filterPills}>
+          <button
+            type="button"
+            className={`${styles.filterPill} ${styles.filterPillAll} ${
+              activeFilter === 'all' ? styles.filterActiveAll : ''
+            }`}
+            onClick={() => onFilterChange('all')}
+          >
+            <span>💬 All</span>
+            <span className={styles.pillCount}>{roomTypeCounts.all}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterPill} ${styles.filterPillDirect} ${
+              activeFilter === 'direct' ? styles.filterActiveDirect : ''
+            }`}
+            onClick={() => onFilterChange('direct')}
+          >
+            <span>👤 Direct</span>
+            <span className={styles.pillCount}>{roomTypeCounts.direct}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterPill} ${styles.filterPillDept} ${
+              activeFilter === 'department' ? styles.filterActiveDept : ''
+            }`}
+            onClick={() => onFilterChange('department')}
+          >
+            <span>🏢 Dept</span>
+            <span className={styles.pillCount}>{roomTypeCounts.department}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterPill} ${styles.filterPillTicket} ${
+              activeFilter === 'ticket' ? styles.filterActiveTicket : ''
+            }`}
+            onClick={() => onFilterChange('ticket')}
+          >
+            <span>🎫 Tickets</span>
+            <span className={styles.pillCount}>{roomTypeCounts.ticket}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Room List */}
+      <div className={styles.roomList}>
+        {loading && rooms.length === 0 ? (
+          <div className={styles.loadingState}>
+            <div className={styles.spinner} />
+            <p>Loading your conversations...</p>
+          </div>
+        ) : displayRooms.length === 0 ? (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyStateIcon}>💬</div>
+            <h4>No conversations found</h4>
+            <p>
+              {searchTerm
+                ? 'No chats match your search query.'
+                : 'Start a direct chat, department channel, or ticket discussion.'}
+            </p>
+            <button
+              type="button"
+              className={styles.startChatBtn}
+              onClick={onStartNewChat}
+            >
+              ➕ Start First Chat
+            </button>
+          </div>
+        ) : (
+          displayRooms.map((room) => {
+            const isSelected = selectedRoom?.id === room.id;
+            const avatarBg = getAvatarGradient(room.name || room.id);
+            const isDirect = room.room_type === 'direct';
+            const isDirectOnline = Boolean(room.other_user_online);
+            const onlineCount = room.online_members_count ?? 0;
+
+            return (
+              <div
+                key={room.id}
+                className={`${styles.roomItem} ${isSelected ? styles.activeRoom : ''}`}
+                onClick={() => {
+                  onSelectRoom(room);
+                  onCloseMobileSidebar();
+                }}
+              >
+                <div className={styles.roomAvatarWrapper}>
+                  <div className={styles.roomAvatar} style={{ background: avatarBg }}>
+                    {isDirect
+                      ? room.name?.[0] || 'U'
+                      : room.room_type === 'ticket'
+                      ? '🎫'
+                      : '🏢'}
+                  </div>
+                  {isDirect ? (
+                    <span
+                      className={`${styles.onlineIndicator} ${
+                        isDirectOnline ? styles.online : styles.offline
+                      }`}
+                      title={isDirectOnline ? 'Active now on Chat Page' : 'Offline'}
+                    />
+                  ) : (
+                    onlineCount > 0 && (
+                      <span
+                        className={`${styles.onlineIndicator} ${styles.online}`}
+                        title={`${onlineCount} online now`}
+                      />
+                    )
+                  )}
+                </div>
+
+                <div className={styles.roomContent}>
+                  <div className={styles.roomTopRow}>
+                    <div className={styles.roomNameWrapper}>
+                      <span className={styles.roomName}>{room.name}</span>
+                      <span
+                        className={`${styles.roomTypeBadge} ${
+                          room.room_type === 'direct'
+                            ? styles.badgeDirect
+                            : room.room_type === 'department'
+                            ? styles.badgeDepartment
+                            : styles.badgeTicket
+                        }`}
+                      >
+                        {room.room_type}
+                      </span>
+                    </div>
+                    {room.last_message_at && (
+                      <span className={styles.roomTime}>
+                        {formatTimeOnly(room.last_message_at)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className={styles.roomBottomRow}>
+                    <p className={styles.lastMessagePreview}>
+                      {room.last_message
+                        ? room.last_message.startsWith('🎥 [VIDEO_CONFERENCE]')
+                          ? '📹 Video Conference Invitation'
+                          : room.last_message.startsWith('🎥 [GOOGLE_MEET_CALL]')
+                          ? '🎥 Video Meeting Invitation'
+                          : room.last_message
+                        : 'No messages yet'}
+                    </p>
+                    {Boolean(room.unread_count && room.unread_count > 0) && (
+                      <span className={styles.unreadBadge}>
+                        {(room.unread_count ?? 0) > 99 ? '99+' : room.unread_count}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </aside>
+  );
+};
+
+export default ChatSidebar;

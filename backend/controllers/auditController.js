@@ -121,8 +121,9 @@ export const exportAuditLogs = async (req, res, next) => {
     if (endDate) { where += ' AND al.created_at <= ?'; params.push(endDate); }
 
     const [rows] = await pool.query(
-      `SELECT al.user_id, u.username, al.action, al.entity_type AS entity,
-              al.entity_id, al.ip_address, al.details, al.created_at
+      `SELECT al.id, al.user_id, u.username, u.first_name, u.last_name, u.email,
+              al.action, al.entity_type AS entity, al.entity_id, al.ip_address,
+              al.details, al.created_at
        FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
        ${where}
@@ -130,22 +131,56 @@ export const exportAuditLogs = async (req, res, next) => {
       params
     );
 
-    const data = rows.map((r) => ({
-      user: r.username || r.user_id,
-      action: r.action,
-      entity: r.entity,
-      entity_id: r.entity_id || '',
-      ip_address: r.ip_address || '',
-      date: new Date(r.created_at).toISOString(),
-      details: r.details ? (typeof r.details === 'string' ? r.details : JSON.stringify(r.details)) : '',
-    }));
+    const data = rows.map((r) => {
+      const fullName = r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : (r.username || r.user_id || 'System');
+      let detailStr = '';
+      if (r.details) {
+        if (typeof r.details === 'string') {
+          detailStr = r.details;
+        } else {
+          try {
+            detailStr = JSON.stringify(r.details);
+          } catch {
+            detailStr = String(r.details);
+          }
+        }
+      }
+      return {
+        'Log ID': r.id,
+        'User ID': r.user_id || 'N/A',
+        'Username': r.username || 'System',
+        'Full Name': fullName,
+        'Email': r.email || 'N/A',
+        'Action': r.action,
+        'Entity Type': r.entity || 'N/A',
+        'Entity ID': r.entity_id || 'N/A',
+        'IP Address': r.ip_address || 'N/A',
+        'Timestamp': new Date(r.created_at).toLocaleString(),
+        'ISO Date': new Date(r.created_at).toISOString(),
+        'Details': detailStr,
+      };
+    });
 
-    const csv = toCsv(['user', 'action', 'entity', 'entity_id', 'ip_address', 'date', 'details'], data);
+    const csv = toCsv([
+      'Log ID',
+      'User ID',
+      'Username',
+      'Full Name',
+      'Email',
+      'Action',
+      'Entity Type',
+      'Entity ID',
+      'IP Address',
+      'Timestamp',
+      'ISO Date',
+      'Details',
+    ], data);
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="audit-logs-export.csv"');
     res.send(csv);
   } catch (err) {
     next(err);
   }
 };
+

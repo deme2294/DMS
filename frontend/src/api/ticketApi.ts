@@ -45,8 +45,23 @@ export const changeTicketStatus = (
   payload: { status: string; notes?: string; departmentId?: string; assignedTo?: string }
 ) => api.patch(`/tickets/${id}/status`, payload);
 
-export const assignDepartment = (id: string, payload: { departmentId: string; notes?: string }) =>
-  api.post(`/tickets/${id}/assign-department`, payload);
+export interface DepartmentManager {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  isHead?: number;
+}
+
+export const assignDepartment = (
+  id: string,
+  payload: { departmentId: string; notes?: string; managerId?: string; assignedTo?: string }
+) => api.post(`/tickets/${id}/assign-department`, payload);
+
+export const fetchDepartmentManagers = (departmentId: string) =>
+  api.get<{ success: boolean; data: DepartmentManager[] }>(`/tickets/departments/${departmentId}/managers`);
+
 
 export const assignStaff = (id: string, payload: { staffId: string; notes?: string }) =>
   api.post(`/tickets/${id}/assign-staff`, payload);

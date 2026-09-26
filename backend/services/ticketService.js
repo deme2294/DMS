@@ -161,17 +161,30 @@ export const trackTicket = async (trackNumber) => {
 
 // Auto-route a "direct" category ticket straight to the owning department manager
 // (bypasses the admin queue — the category itself designates the destination department).
+// Considers BOTH department and role ('manager') to avoid cross-department misrouting.
 const routeTicketToDepartment = async (ticketId, departmentId, ticket, meta = {}) => {
   const notes = 'Automatically routed to your department';
-  await ticketRepo.update(ticketId, { department_id: departmentId, status: 'assigned', assigned_to: null });
+  // Consider BOTH department and role: find active manager for this exact department
+  const manager = await ticketRepo.findDepartmentManager(departmentId);
+  const managerId = manager?.id || null;
+
+  await ticketRepo.update(ticketId, { department_id: departmentId, status: 'assigned', assigned_to: managerId });
   await logStatus(ticketId, 'open', 'assigned', { id: null, role: 'system' }, notes, meta);
   await ticketRepo.createAssignment({
-    ticketId, assignedBy: null, assignedTo: null, role: 'department_manager',
-    notes, priority: ticket.priority, category: ticket.category,
+    ticketId,
+    assignedBy: null,
+    assignedTo: managerId,
+    role: 'department_manager',
+    notes,
+    priority: ticket.priority,
+    category: ticket.category,
   });
   const updated = await getTicket({ id: null, role: 'admin' }, ticketId);
   await notificationService.notifyTicketAssignedToDepartment(updated, departmentId);
-  auditService.logAction(null, 'auto_route_direct', 'ticket', ticketId, meta?.ip, { departmentId, routingType: 'direct' }, { role: 'system', browser: meta?.browser }).catch(() => {});
+  if (managerId) {
+    await notificationService.notifyTicketAssigned(updated, managerId, null);
+  }
+  auditService.logAction(null, 'auto_route_direct', 'ticket', ticketId, meta?.ip, { departmentId, managerId, routingType: 'direct' }, { role: 'system', browser: meta?.browser }).catch(() => {});
   return updated;
 };
 
@@ -281,8 +294,39 @@ export const updateTicket = async (user, id, payload, meta = {}) => {
 
   const updateFields = {};
   if (!isTenant) {
+    const targetDeptId = payload.departmentId !== undefined ? payload.departmentId : ticket.department_id;
     if (payload.departmentId !== undefined) updateFields.department_id = payload.departmentId;
-    if (payload.assignedTo !== undefined) updateFields.assigned_to = payload.assignedTo;
+
+    if (payload.assignedTo !== undefined) {
+      if (payload.assignedTo) {
+        const targetUser = await userRepository.findById(payload.assignedTo);
+        if (!targetUser) throw Object.assign(new Error('Assignee user not found'), { statusCode: 404 });
+        if (targetUser.status !== 'active') throw Object.assign(new Error('Assignee user is not active'), { statusCode: 400 });
+        if (targetUser.role === 'tenant') throw Object.assign(new Error('Cannot assign tickets to tenants'), { statusCode: 400 });
+
+        if (targetDeptId) {
+          const inDept = targetUser.departments && targetUser.departments.some((d) => d.id === targetDeptId);
+          if (!inDept) {
+            if (targetUser.role === 'manager') {
+              throw Object.assign(new Error('Selected manager does not belong to the ticket department. Both department and role must match.'), { statusCode: 400 });
+            }
+            throw Object.assign(new Error('Assignee does not belong to the ticket department'), { statusCode: 400 });
+          }
+        }
+        updateFields.assigned_to = payload.assignedTo;
+      } else {
+        updateFields.assigned_to = null;
+      }
+    } else if (payload.departmentId !== undefined && payload.departmentId !== ticket.department_id && ticket.assigned_to) {
+      // Department changed, but assignedTo wasn't explicitly provided.
+      // Verify if the current assignee belongs to the new department; if not, re-route to new department's manager
+      const currentAssignee = await userRepository.findById(ticket.assigned_to);
+      const stillInDept = currentAssignee?.departments && currentAssignee.departments.some((d) => d.id === payload.departmentId);
+      if (!stillInDept) {
+        const newDeptMgr = await ticketRepo.findDepartmentManager(payload.departmentId);
+        updateFields.assigned_to = newDeptMgr?.id || null;
+      }
+    }
   }
   if (payload.title) updateFields.title = payload.title;
   if (payload.description) updateFields.description = payload.description;
@@ -375,8 +419,8 @@ export const deleteTicket = async (user, id) => {
   await ticketRepo.remove(id);
 };
 
-// ── Admin: assign department manager ──
-export const assignDepartment = async (user, id, departmentId, notes, meta = {}) => {
+// ── Admin: assign department manager (considering BOTH department and role) ──
+export const assignDepartment = async (user, id, departmentId, notes, managerId = null, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
@@ -387,21 +431,82 @@ export const assignDepartment = async (user, id, departmentId, notes, meta = {})
     throw Object.assign(new Error('Direct-route tickets are already routed to a department and cannot be assigned by admin'), { statusCode: 400 });
   }
 
-  await ticketRepo.update(id, { department_id: departmentId });
-  await logStatus(id, ticket.status, 'assigned', user, notes || 'Assigned to department', meta);
-  await ticketRepo.createAssignment({ ticketId: id, assignedBy: user.id, assignedTo: null, role: 'department_manager', notes, priority: ticket.priority, category: ticket.category });
+  // Resolve manager considering BOTH department and role
+  let targetManagerId = null;
+  if (managerId) {
+    const mgrUser = await userRepository.findById(managerId);
+    if (!mgrUser) throw Object.assign(new Error('Selected manager not found'), { statusCode: 404 });
+    if (mgrUser.status !== 'active') throw Object.assign(new Error('Selected manager is not active'), { statusCode: 400 });
+
+    // Role verification: MUST have the 'manager' role
+    if (mgrUser.role !== 'manager') {
+      throw Object.assign(new Error("Selected user does not have the 'manager' role. Tickets must be assigned to a department manager."), { statusCode: 400 });
+    }
+
+    // Department verification: MUST belong to the specified department
+    const inDept = mgrUser.departments && mgrUser.departments.some((d) => d.id === departmentId);
+    if (!inDept) {
+      throw Object.assign(new Error("Selected manager does not belong to the target department. Ticket routing must consider both department and role."), { statusCode: 400 });
+    }
+    targetManagerId = mgrUser.id;
+  } else {
+    // Automatically find the active manager for this department matching both criteria
+    const resolvedManager = await ticketRepo.findDepartmentManager(departmentId);
+    targetManagerId = resolvedManager?.id || null;
+  }
+
+  // Close previous active assignments if reassigned
+  const activeDept = await ticketRepo.findActiveAssignment(id, 'department_manager');
+  if (activeDept) {
+    await ticketRepo.reassignAssignment(activeDept.id);
+  }
+  const activeStaff = await ticketRepo.findActiveAssignment(id, 'staff');
+  if (activeStaff) {
+    await ticketRepo.reassignAssignment(activeStaff.id);
+  }
+
+  await ticketRepo.update(id, {
+    department_id: departmentId,
+    assigned_to: targetManagerId,
+    status: 'assigned',
+  });
+  await logStatus(id, ticket.status, 'assigned', user, notes || 'Assigned to department manager', meta);
+  await ticketRepo.createAssignment({
+    ticketId: id,
+    assignedBy: user.id,
+    assignedTo: targetManagerId,
+    role: 'department_manager',
+    notes,
+    priority: ticket.priority,
+    category: ticket.category,
+    fromAssignmentId: activeDept?.id || null,
+  });
 
   const updated = await getTicket(user, id);
   await notificationService.notifyTicketAssignedToDepartment(updated, departmentId);
-  auditService.logAction(user.id, 'assign_department', 'ticket', id, meta?.ip, { departmentId, notes }, { role: user.role, browser: meta?.browser }).catch(() => {});
+  if (targetManagerId) {
+    await notificationService.notifyTicketAssigned(updated, targetManagerId, user.id);
+  }
+  auditService.logAction(user.id, 'assign_department', 'ticket', id, meta?.ip, { departmentId, managerId: targetManagerId, notes }, { role: user.role, browser: meta?.browser }).catch(() => {});
   return updated;
 };
 
-// ── Manager: assign / reassign staff ──
+// ── Manager: assign / reassign staff (validating BOTH department and role) ──
 export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // Validate staff member's role and department
+  const staff = await userRepository.findById(staffId);
+  if (!staff) throw Object.assign(new Error('Staff user not found'), { statusCode: 404 });
+  if (staff.status !== 'active') throw Object.assign(new Error('Selected staff member is not active'), { statusCode: 400 });
+  if (staff.role !== 'staff') {
+    throw Object.assign(new Error("Selected user does not have the 'staff' role"), { statusCode: 400 });
+  }
+  if (ticket.department_id && (!staff.departments || !staff.departments.some((d) => d.id === ticket.department_id))) {
+    throw Object.assign(new Error("Staff member does not belong to the ticket's department"), { statusCode: 400 });
+  }
 
   const active = await ticketRepo.findActiveAssignment(id, 'staff');
   if (active) {
@@ -429,10 +534,24 @@ export const acceptAssignment = async (user, id, meta = {}) => {
   if (!active) throw Object.assign(new Error('No pending assignment to accept'), { statusCode: 400 });
 
   await ticketRepo.acceptAssignment(active.id);
-  if (ticket.status === 'assigned') {
-    await ticketRepo.update(id, { status: 'in_progress' });
-    await logStatus(id, 'assigned', 'in_progress', user, 'Assignment accepted', meta);
+  if (!active.assigned_to) {
+    await ticketRepo.updateAssignment(active.id, { assigned_to: user.id });
   }
+
+  const updateFields = {};
+  if (ticket.status === 'assigned') {
+    updateFields.status = 'in_progress';
+  }
+  if (!ticket.assigned_to && user.role === 'manager') {
+    updateFields.assigned_to = user.id;
+  }
+  if (Object.keys(updateFields).length > 0) {
+    await ticketRepo.update(id, updateFields);
+    if (updateFields.status) {
+      await logStatus(id, 'assigned', 'in_progress', user, 'Assignment accepted', meta);
+    }
+  }
+
   const updated = await getTicket(user, id);
   await notificationService.notifyTicketAccepted(updated, user.id);
   sendTicketAcceptedEmail(updated, user.id).catch(() => {});
@@ -884,7 +1003,12 @@ export const markNotificationAsRead = (id, userId) => notificationService.markNo
 export const markAllNotificationsAsRead = (userId) => notificationService.markAllNotificationsRead(userId);
 export const deleteNotification = (id, userId) => notificationService.deleteNotification(id, userId);
 
+export const getDepartmentManagers = async (departmentId) => {
+  return ticketRepo.findDepartmentManagers(departmentId);
+};
+
 // Backward-compatible aliases (new behavior preserved)
 export { approveResolution as approveCompletion };
 export { rejectResolution as rejectCompletion };
 export { markResolved as markCompleted };
+

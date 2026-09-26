@@ -8,6 +8,7 @@ import {
   fetchAllCategories,
 } from '../../api/knowledgeApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
+import { fetchMyDepartments } from '../../api/reportApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
 import styles from './KnowledgeCreate.module.css';
@@ -26,6 +27,7 @@ export default function KnowledgeCreate() {
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<DeptOption[]>([]);
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
+  const [submitForApproval, setSubmitForApproval] = useState(false);
 
   const {
     register,
@@ -48,22 +50,31 @@ export default function KnowledgeCreate() {
     setError('');
     (async () => {
       try {
+        const deptPromise =
+          role === 'manager' || role === 'staff'
+            ? fetchMyDepartments()
+            : fetchActiveDepartments();
         const [deptRes, catRes] = await Promise.all([
-          fetchActiveDepartments(),
+          deptPromise,
           fetchAllCategories(),
         ]);
-        setDepartments(deptRes.data.data || []);
+        const deptList: DeptOption[] = (deptRes.data.data as DeptOption[]) || [];
+        setDepartments(deptList);
         setCategories(catRes.data.data || []);
+
+        if (deptList.length === 1) {
+          setValue('departmentId', deptList[0].id);
+        }
       } catch {
         setDepartments([]);
         setCategories([]);
       }
     })();
-  }, []);
+  }, [role, setValue]);
 
   const onSubmit = async (values: ArticleFormValues) => {
     if ((role === 'staff' || role === 'manager') && !values.departmentId) {
-      setError('Please assign the article to a department');
+      setError('Please assign the article to your department');
       return;
     }
     try {
@@ -75,8 +86,9 @@ export default function KnowledgeCreate() {
         tags: values.tags || null,
         visibility: values.visibility || 'internal',
         departmentId: values.departmentId || null,
+        submitForApproval,
       });
-      navigate(`${basePath}`);
+      navigate(basePath);
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create article');
     }
@@ -143,7 +155,11 @@ export default function KnowledgeCreate() {
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
-            {(role === 'staff' || role === 'manager') && <span className={styles.error}>Assign to one of your departments</span>}
+            {(role === 'staff' || role === 'manager') && (
+              <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4, display: 'block' }}>
+                Assigned to your department
+              </span>
+            )}
           </div>
         </div>
 
@@ -153,12 +169,25 @@ export default function KnowledgeCreate() {
         </div>
 
         <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-          Articles are saved as <strong>draft</strong> and must be submitted for approval before publishing.
+          Articles submitted for approval will be reviewed and approved by the <strong>Admin</strong> before publishing.
         </p>
 
         <div className={styles.formActions}>
-          <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Create Article'}
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={isSubmitting}
+            onClick={() => setSubmitForApproval(true)}
+          >
+            {isSubmitting && submitForApproval ? 'Submitting...' : 'Submit for Approval'}
+          </button>
+          <button
+            type="submit"
+            className={styles.draftBtn}
+            disabled={isSubmitting}
+            onClick={() => setSubmitForApproval(false)}
+          >
+            {isSubmitting && !submitForApproval ? 'Saving...' : 'Save as Draft'}
           </button>
           <button type="button" className={styles.cancelBtn} onClick={() => navigate(basePath)}>
             Cancel

@@ -65,56 +65,180 @@ export const getAdminDashboard = async () => {
   };
 };
 
+// ── Helper: fetch department IDs for a manager ─────────────────────────────
+export const getManagerDepartmentIds = async (userId) => {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT d.id AS department_id
+     FROM departments d
+     LEFT JOIN user_departments ud ON ud.department_id = d.id
+     WHERE d.head_user_id = :userId OR ud.user_id = :userId`,
+    { userId }
+  );
+  return rows.map((r) => r.department_id);
+};
+
+// ── Helper: fetch department IDs for a staff user ──────────────────────────
+export const getStaffDepartmentIds = async (userId) => {
+  const [rows] = await pool.query(
+    `SELECT department_id FROM user_departments WHERE user_id = :userId`,
+    { userId }
+  );
+  return rows.map((r) => r.department_id);
+};
+
+// ── Helper: Build dynamic SQL WHERE filter based on user role, department & assignment ──
+export const buildUserTicketScope = async (user, tableAlias = 't', paramPrefix = 'scope') => {
+  if (!user || user.role === 'admin' || user.role === 'ceo') {
+    return { whereClause: '', params: {} };
+  }
+
+  if (user.role === 'tenant') {
+    return {
+      whereClause: `AND ${tableAlias}.tenant_id = :${paramPrefix}TenantId`,
+      params: { [`${paramPrefix}TenantId`]: user.tenant_id },
+    };
+  }
+
+  if (user.role === 'staff') {
+    // Staff: tickets assigned to staff, or within staff's department if unassigned
+    const deptIds = await getStaffDepartmentIds(user.id);
+    if (deptIds.length > 0) {
+      const placeholders = deptIds.map((_, i) => `:${paramPrefix}StaffDept${i}`).join(',');
+      const params = { [`${paramPrefix}StaffUserId`]: user.id };
+      deptIds.forEach((id, i) => { params[`${paramPrefix}StaffDept${i}`] = id; });
+      return {
+        whereClause: `AND (${tableAlias}.assigned_to = :${paramPrefix}StaffUserId OR (${tableAlias}.department_id IN (${placeholders}) AND ${tableAlias}.assigned_to IS NULL))`,
+        params,
+      };
+    }
+    return {
+      whereClause: `AND ${tableAlias}.assigned_to = :${paramPrefix}StaffUserId`,
+      params: { [`${paramPrefix}StaffUserId`]: user.id },
+    };
+  }
+
+  if (user.role === 'manager') {
+    // Manager: tickets belonging to manager's departments or directly assigned to manager
+    const deptIds = await getManagerDepartmentIds(user.id);
+    if (deptIds.length > 0) {
+      const placeholders = deptIds.map((_, i) => `:${paramPrefix}MgrDept${i}`).join(',');
+      const params = { [`${paramPrefix}MgrUserId`]: user.id };
+      deptIds.forEach((id, i) => { params[`${paramPrefix}MgrDept${i}`] = id; });
+      return {
+        whereClause: `AND (${tableAlias}.department_id IN (${placeholders}) OR ${tableAlias}.assigned_to = :${paramPrefix}MgrUserId)`,
+        params,
+      };
+    }
+    return {
+      whereClause: `AND ${tableAlias}.assigned_to = :${paramPrefix}MgrUserId`,
+      params: { [`${paramPrefix}MgrUserId`]: user.id },
+    };
+  }
+
+  return { whereClause: 'AND 1=0', params: {} };
+};
+
 export const getManagerDashboard = async (userId) => {
+  const deptIds = await getManagerDepartmentIds(userId);
+  const hasDepts = deptIds.length > 0;
+
+  // Department name and user count
+  let departmentName = null;
+  let departmentUserCount = 0;
+  if (hasDepts) {
+    const placeholders = deptIds.map(() => '?').join(',');
+    const [deptInfo] = await pool.query(
+      `SELECT GROUP_CONCAT(DISTINCT d.name SEPARATOR ', ') AS department_name,
+              COUNT(DISTINCT ud.user_id) AS user_count
+       FROM departments d
+       LEFT JOIN user_departments ud ON ud.department_id = d.id
+       WHERE d.id IN (${placeholders})`,
+      deptIds
+    );
+    departmentName = deptInfo[0]?.department_name || null;
+    departmentUserCount = Number(deptInfo[0]?.user_count || 0);
+  }
+
+  // Scoped where clause strictly for manager's departments and assigned tickets
+  let deptScopeWhere = 'WHERE 1=0';
+  const queryParams = { userId };
+  if (hasDepts) {
+    const placeholders = deptIds.map((_, i) => `:deptId${i}`).join(',');
+    deptIds.forEach((id, i) => { queryParams[`deptId${i}`] = id; });
+    deptScopeWhere = `WHERE (t.department_id IN (${placeholders}) OR t.assigned_to = :userId)`;
+  } else {
+    deptScopeWhere = `WHERE t.assigned_to = :userId`;
+  }
+
+  // Department-wide ticket counts
+  const [deptStats] = await pool.query(`
+    SELECT
+      COUNT(*) AS total_tickets,
+      SUM(CASE WHEN t.status IN ('open', 'assigned', 'pending', 'submitted') THEN 1 ELSE 0 END) AS pending,
+      SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed', 'approved') THEN 1 ELSE 0 END) AS resolved,
+      SUM(CASE WHEN t.status = 'waiting_tenant' THEN 1 ELSE 0 END) AS waiting_tenant
+    FROM tickets t
+    ${deptScopeWhere}
+  `, queryParams);
+
+  // Directly assigned to manager count
   const [assignedTickets] = await pool.query(`
-    SELECT COUNT(*) AS total_assigned,
-           SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) AS resolved,
-           SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
-           SUM(CASE WHEN status IN ('open','assigned','pending') THEN 1 ELSE 0 END) AS pending
+    SELECT COUNT(*) AS total_assigned
     FROM tickets
     WHERE assigned_to = :userId
   `, { userId });
-  const [departmentTickets] = await pool.query(`
-    SELECT COUNT(*) AS total
-    FROM tickets t
-    JOIN departments d ON d.id = t.department_id
-    LEFT JOIN user_departments ud ON ud.department_id = d.id AND ud.user_id = :userId
-    WHERE d.head_user_id = :userId OR ud.user_id = :userId
-  `, { userId });
-  const [departmentInfo] = await pool.query(`
-    SELECT d.name AS department_name,
-           (SELECT COUNT(*) FROM user_departments WHERE department_id = d.id) AS user_count
-    FROM departments d
-    LEFT JOIN user_departments ud ON ud.department_id = d.id AND ud.user_id = :userId
-    WHERE d.head_user_id = :userId OR ud.user_id = :userId
-    LIMIT 1
-  `, { userId });
-  const [staffPerformance] = await pool.query(`
-    SELECT u.id, u.first_name, u.last_name, u.username,
-           COUNT(t.id) AS total_tickets,
-           SUM(CASE WHEN t.status = 'resolved' THEN 1 ELSE 0 END) AS resolved
-    FROM users u
-    JOIN roles r ON r.id = u.role_id AND r.name = 'staff'
-    LEFT JOIN tickets t ON t.assigned_to = u.id
-    JOIN user_departments ud ON ud.user_id = u.id
-    GROUP BY u.id
-    ORDER BY resolved DESC
-    LIMIT 10
-  `);
+
+  // Staff performance: strictly staff within the manager's department(s)
+  let staffPerformance = [];
+  if (hasDepts) {
+    const placeholders = deptIds.map((_, i) => `:staffDeptId${i}`).join(',');
+    const staffParams = {};
+    deptIds.forEach((id, i) => { staffParams[`staffDeptId${i}`] = id; });
+    const [staffRows] = await pool.query(`
+      SELECT u.id, u.first_name, u.last_name, u.username,
+             COUNT(t.id) AS total_tickets,
+             SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved,
+             SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress
+      FROM users u
+      JOIN roles r ON r.id = u.role_id AND r.name = 'staff'
+      JOIN user_departments ud ON ud.user_id = u.id
+      LEFT JOIN tickets t ON t.assigned_to = u.id
+      WHERE ud.department_id IN (${placeholders})
+      GROUP BY u.id
+      ORDER BY resolved DESC
+      LIMIT 10
+    `, staffParams);
+    staffPerformance = staffRows;
+  }
+
+  // Recent tickets: strictly belonging to manager's departments or assigned to manager
   const [recentTickets] = await pool.query(`
     SELECT t.id, t.reference_number, t.title, t.priority, t.status, t.created_at,
-           u.first_name AS assigned_to_name
+           CONCAT(u.first_name, ' ', u.last_name) AS assigned_to_name,
+           d.name AS department_name
     FROM tickets t
+    LEFT JOIN departments d ON d.id = t.department_id
     LEFT JOIN users u ON u.id = t.assigned_to
+    ${deptScopeWhere}
     ORDER BY t.created_at DESC
     LIMIT 10
-  `);
+  `, queryParams);
 
+  const s = deptStats[0] || {};
   return {
-    assignedTickets: assignedTickets[0],
-    departmentTickets: departmentTickets[0],
-    departmentName: departmentInfo[0]?.department_name || null,
-    departmentUserCount: departmentInfo[0]?.user_count || 0,
+    assignedTickets: {
+      total_assigned: Number(s.pending || 0),
+      in_progress: Number(s.in_progress || 0),
+      resolved: Number(s.resolved || 0),
+      pending: Number(s.waiting_tenant || 0),
+      my_direct_assigned: Number(assignedTickets[0]?.total_assigned || 0),
+    },
+    departmentTickets: {
+      total: Number(s.total_tickets || 0),
+    },
+    departmentName,
+    departmentUserCount,
     staffPerformance,
     recentTickets,
   };
@@ -123,23 +247,26 @@ export const getManagerDashboard = async (userId) => {
 export const getStaffDashboard = async (userId) => {
   const [assignedTickets] = await pool.query(`
     SELECT COUNT(*) AS total_assigned,
-           SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) AS resolved,
+           SUM(CASE WHEN status IN ('resolved', 'closed', 'completed') THEN 1 ELSE 0 END) AS resolved,
            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
-           SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS new_assigned
+           SUM(CASE WHEN status IN ('assigned', 'open', 'pending') THEN 1 ELSE 0 END) AS new_assigned
     FROM tickets
     WHERE assigned_to = :userId
   `, { userId });
+
   const [todayTickets] = await pool.query(`
     SELECT COUNT(*) AS today_count
     FROM tickets
     WHERE assigned_to = :userId
-      AND DATE(created_at) = CURDATE()
+      AND (DATE(created_at) = CURDATE() OR DATE(resolved_at) = CURDATE())
   `, { userId });
+
   const [recentTickets] = await pool.query(`
     SELECT t.id, t.reference_number, t.title, t.priority, t.status, t.created_at,
-           tn.organization_name AS tenant_name
+           tn.organization_name AS tenant_name, d.name AS department_name
     FROM tickets t
-    JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN departments d ON d.id = t.department_id
     WHERE t.assigned_to = :userId
     ORDER BY t.created_at DESC
     LIMIT 10
@@ -154,21 +281,37 @@ export const getStaffDashboard = async (userId) => {
 
 const ACTIVE_STATUS_SET = `'open','assigned','in_progress','pending','waiting_tenant','waiting_vendor','escalated','reopened'`;
 
-export const getTicketStatistics = async () => {
+export const getTicketStatistics = async (user = null) => {
+  const scope = await buildUserTicketScope(user, 'tickets', 'stat');
+  const scopeWhere = scope.whereClause ? `WHERE 1=1 ${scope.whereClause}` : '';
+
   const [statusRows] = await pool.query(
-    `SELECT status, COUNT(*) AS count FROM tickets GROUP BY status`
+    `SELECT status, COUNT(*) AS count FROM tickets ${scopeWhere} GROUP BY status`,
+    scope.params
   );
   const byStatus = {};
   statusRows.forEach((r) => { byStatus[r.status] = Number(r.count); });
 
+  const overdueWhere = scope.whereClause
+    ? `WHERE due_date IS NOT NULL AND due_date < NOW() AND status IN (${ACTIVE_STATUS_SET}) ${scope.whereClause}`
+    : `WHERE due_date IS NOT NULL AND due_date < NOW() AND status IN (${ACTIVE_STATUS_SET})`;
   const [overdue] = await pool.query(
-    `SELECT COUNT(*) AS count FROM tickets
-     WHERE due_date IS NOT NULL AND due_date < NOW() AND status IN (${ACTIVE_STATUS_SET})`
+    `SELECT COUNT(*) AS count FROM tickets ${overdueWhere}`,
+    scope.params
   );
-  const [total] = await pool.query(`SELECT COUNT(*) AS count FROM tickets`);
+
+  const [total] = await pool.query(
+    `SELECT COUNT(*) AS count FROM tickets ${scopeWhere}`,
+    scope.params
+  );
+
+  const avgWhere = scope.whereClause
+    ? `WHERE status IN ('closed','resolved','completed','approved') ${scope.whereClause}`
+    : `WHERE status IN ('closed','resolved','completed','approved')`;
   const [resolvedAvg] = await pool.query(
     `SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(closed_at, resolved_at, NOW()))) AS avg_hours
-     FROM tickets WHERE status IN ('closed','resolved','completed','approved')`
+     FROM tickets ${avgWhere}`,
+    scope.params
   );
 
   return {
@@ -190,30 +333,46 @@ export const getTicketStatistics = async () => {
   };
 };
 
-export const getTicketCharts = async () => {
+export const getTicketCharts = async (user = null) => {
+  const scope = await buildUserTicketScope(user, 'tickets', 'chart');
+  const scopeWhere = scope.whereClause ? `WHERE 1=1 ${scope.whereClause}` : '';
+
   const [byCategory] = await pool.query(
-    `SELECT category, COUNT(*) AS count FROM tickets GROUP BY category ORDER BY count DESC`
+    `SELECT category, COUNT(*) AS count FROM tickets ${scopeWhere} GROUP BY category ORDER BY count DESC`,
+    scope.params
   );
+
+  const tScope = await buildUserTicketScope(user, 't', 'tchart');
+  const tWhere = tScope.whereClause ? `WHERE 1=1 ${tScope.whereClause}` : '';
   const [byDepartment] = await pool.query(
     `SELECT COALESCE(d.name, 'Unassigned') AS name, COUNT(*) AS count
      FROM tickets t LEFT JOIN departments d ON d.id = t.department_id
-     GROUP BY d.name ORDER BY count DESC`
+     ${tWhere}
+     GROUP BY d.name ORDER BY count DESC`,
+    tScope.params
   );
+
   const [byPriority] = await pool.query(
-    `SELECT priority, COUNT(*) AS count FROM tickets GROUP BY priority`
+    `SELECT priority, COUNT(*) AS count FROM tickets ${scopeWhere} GROUP BY priority`,
+    scope.params
   );
   const [byStatus] = await pool.query(
-    `SELECT status, COUNT(*) AS count FROM tickets GROUP BY status`
+    `SELECT status, COUNT(*) AS count FROM tickets ${scopeWhere} GROUP BY status`,
+    scope.params
   );
   const [monthly] = await pool.query(
     `SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, COUNT(*) AS count
-     FROM tickets WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-     GROUP BY month ORDER BY month`
+     FROM tickets
+     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) ${scope.whereClause}
+     GROUP BY month ORDER BY month`,
+    scope.params
   );
   const [resolutionByPriority] = await pool.query(
     `SELECT priority, AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(closed_at, resolved_at))) AS avg_hours
-     FROM tickets WHERE status IN ('closed','resolved') AND closed_at IS NOT NULL
-     GROUP BY priority`
+     FROM tickets
+     WHERE status IN ('closed','resolved') AND closed_at IS NOT NULL ${scope.whereClause}
+     GROUP BY priority`,
+    scope.params
   );
 
   return {
@@ -226,7 +385,8 @@ export const getTicketCharts = async () => {
   };
 };
 
-export const getOverdueTickets = async (limit = 50) => {
+export const getOverdueTickets = async (user = null, limit = 50) => {
+  const scope = await buildUserTicketScope(user, 't', 'ovd');
   const [rows] = await pool.query(
     `SELECT t.id, t.reference_number, t.title, t.priority, t.status, t.category,
             t.due_date, t.created_at, tn.organization_name AS tenant_name,
@@ -236,8 +396,9 @@ export const getOverdueTickets = async (limit = 50) => {
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users u ON u.id = t.assigned_to
      WHERE t.due_date IS NOT NULL AND t.due_date < NOW() AND t.status IN (${ACTIVE_STATUS_SET})
+       ${scope.whereClause}
      ORDER BY t.due_date ASC LIMIT :limit`,
-    { limit: Number(limit) }
+    { ...scope.params, limit: Number(limit) }
   );
   return rows;
 };
@@ -634,7 +795,7 @@ export const getStaffSlaDashboard = async (userId) => {
   };
 };
 
-export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null } = {}) => {
+export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null, user = null } = {}) => {
   let dateFilter = '';
   const queryParams = {};
 
@@ -651,7 +812,71 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
   }
 
   let deptFilter = '';
-  if (departmentId && departmentId !== 'all') {
+  let deptAnalyticsDeptConstraint = '';
+
+  if (user) {
+    if (user.role === 'manager') {
+      const mgrDeptIds = await getManagerDepartmentIds(user.id);
+      if (mgrDeptIds.length > 0) {
+        if (departmentId && departmentId !== 'all') {
+          if (mgrDeptIds.includes(departmentId)) {
+            deptFilter = 'AND t.department_id = :mgrSpecificDeptId';
+            queryParams.mgrSpecificDeptId = departmentId;
+          } else {
+            // Manager trying to access a department they don't belong to: restrict to their own departments
+            const placeholders = mgrDeptIds.map((_, i) => `:mgrDeptId${i}`).join(',');
+            mgrDeptIds.forEach((id, i) => { queryParams[`mgrDeptId${i}`] = id; });
+            deptFilter = `AND (t.department_id IN (${placeholders}) OR t.assigned_to = :mgrUserId)`;
+            queryParams.mgrUserId = user.id;
+          }
+        } else {
+          const placeholders = mgrDeptIds.map((_, i) => `:mgrDeptId${i}`).join(',');
+          mgrDeptIds.forEach((id, i) => { queryParams[`mgrDeptId${i}`] = id; });
+          deptFilter = `AND (t.department_id IN (${placeholders}) OR t.assigned_to = :mgrUserId)`;
+          queryParams.mgrUserId = user.id;
+        }
+
+        // Restrict departmentAnalytics breakdown table strictly to the manager's departments
+        const placeholders = mgrDeptIds.map((_, i) => `:tableDeptId${i}`).join(',');
+        mgrDeptIds.forEach((id, i) => { queryParams[`tableDeptId${i}`] = id; });
+        deptAnalyticsDeptConstraint = `WHERE d.id IN (${placeholders})`;
+      } else {
+        deptFilter = 'AND t.assigned_to = :mgrUserId';
+        queryParams.mgrUserId = user.id;
+        deptAnalyticsDeptConstraint = 'WHERE 1=0';
+      }
+    } else if (user.role === 'staff') {
+      const staffDeptIds = await getStaffDepartmentIds(user.id);
+      if (staffDeptIds.length > 0) {
+        const placeholders = staffDeptIds.map((_, i) => `:staffDeptId${i}`).join(',');
+        staffDeptIds.forEach((id, i) => { queryParams[`staffDeptId${i}`] = id; });
+        deptFilter = `AND (t.assigned_to = :staffUserId OR t.department_id IN (${placeholders}))`;
+        queryParams.staffUserId = user.id;
+
+        const tblPlaceholders = staffDeptIds.map((_, i) => `:tableStaffDeptId${i}`).join(',');
+        staffDeptIds.forEach((id, i) => { queryParams[`tableStaffDeptId${i}`] = id; });
+        deptAnalyticsDeptConstraint = `WHERE d.id IN (${tblPlaceholders})`;
+      } else {
+        deptFilter = 'AND t.assigned_to = :staffUserId';
+        queryParams.staffUserId = user.id;
+        deptAnalyticsDeptConstraint = 'WHERE 1=0';
+      }
+    } else if (user.role === 'tenant') {
+      deptFilter = 'AND t.tenant_id = :tenantId';
+      queryParams.tenantId = user.tenant_id;
+      deptAnalyticsDeptConstraint = 'WHERE 1=0';
+    } else {
+      // admin / ceo: standard filtering
+      if (departmentId && departmentId !== 'all') {
+        if (departmentId === 'unassigned') {
+          deptFilter = 'AND t.department_id IS NULL';
+        } else {
+          deptFilter = 'AND t.department_id = :departmentId';
+          queryParams.departmentId = departmentId;
+        }
+      }
+    }
+  } else if (departmentId && departmentId !== 'all') {
     if (departmentId === 'unassigned') {
       deptFilter = 'AND t.department_id IS NULL';
     } else {
@@ -746,51 +971,59 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null 
     ORDER BY date_key ASC
   `, queryParams);
 
+  let unassignedUnion = '';
+  if (!user || user.role === 'admin' || user.role === 'ceo') {
+    unassignedUnion = `
+      UNION ALL
+
+      SELECT
+        'unassigned' AS department_id,
+        'General / Unassigned' AS department_name,
+        'GEN' AS department_code,
+        'Helpdesk Admin' AS head_name,
+        COUNT(t.id) AS total_tickets,
+        SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+        SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+        SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
+        SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+        ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                       THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
+        ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+        ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+      FROM tickets t
+      WHERE t.department_id IS NULL ${dateFilter}
+      HAVING total_tickets > 0
+    `;
+  }
+
   // 5. Department-based analytics
   const [departmentAnalytics] = await pool.query(`
-    SELECT
-      d.id AS department_id,
-      d.name AS department_name,
-      d.code AS department_code,
-      COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unassigned') AS head_name,
-      COUNT(t.id) AS total_tickets,
-      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
-      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
-      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
-      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
-                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
-      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
-    FROM departments d
-    LEFT JOIN users u ON u.id = d.head_user_id
-    LEFT JOIN tickets t ON t.department_id = d.id ${dateFilter}
-    GROUP BY d.id, d.name, d.code, head_name
-
-    UNION ALL
-
-    SELECT
-      'unassigned' AS department_id,
-      'General / Unassigned' AS department_name,
-      'GEN' AS department_code,
-      'Helpdesk Admin' AS head_name,
-      COUNT(t.id) AS total_tickets,
-      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
-      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
-      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
-      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
-                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
-      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
-    FROM tickets t
-    WHERE t.department_id IS NULL ${dateFilter}
-    HAVING total_tickets > 0
-
+    SELECT * FROM (
+      SELECT
+        d.id AS department_id,
+        d.name AS department_name,
+        d.code AS department_code,
+        COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unassigned') AS head_name,
+        COUNT(t.id) AS total_tickets,
+        SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+        SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+        SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
+        SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+        ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                       THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
+        ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+        ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+      FROM departments d
+      LEFT JOIN users u ON u.id = d.head_user_id
+      LEFT JOIN tickets t ON t.department_id = d.id ${dateFilter}
+      ${deptAnalyticsDeptConstraint}
+      GROUP BY d.id, d.name, d.code, head_name
+      ${unassignedUnion}
+    ) AS combined_depts
     ORDER BY total_tickets DESC
-  `);
+  `, queryParams);
 
   // 6. Status Breakdown
   const [statusBreakdown] = await pool.query(`

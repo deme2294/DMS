@@ -152,15 +152,22 @@ export default function NotificationCenter() {
                   <div
                     className={styles.link}
                     onClick={() => {
+                      setOpen(false);
                       handleMarkRead(n.id);
                       const role = user?.role || 'admin';
-                      if (n.type === 'chat' || n.type === 'message') {
+                      const isChat =
+                        n.type === 'chat' ||
+                        n.type === 'message' ||
+                        Boolean(n.roomId) ||
+                        Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
+                        Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
+                      if (isChat) {
                         if (n.roomId) {
                           navigate(chatPaths[role] || '/admin/chat', { state: { selectedRoomId: n.roomId } });
                         } else {
                           navigate(chatPaths[role] || '/admin/chat');
                         }
-                      } else if (n.type === 'notice') {
+                      } else if (n.type === 'notice' || Boolean(n.noticeId)) {
                         navigate(noticePaths[role] || '/admin/notices');
                       } else if (n.ticketId) {
                         navigate(`${basePaths[role] || '/admin/tickets'}/${n.ticketId}`);

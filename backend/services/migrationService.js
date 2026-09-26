@@ -167,6 +167,18 @@ export async function runAutoMigrations() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS chat_message_deletions (
+        id VARCHAR(36) PRIMARY KEY,
+        message_id VARCHAR(36) NOT NULL,
+        user_id VARCHAR(36) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_chat_msg_user_del (message_id, user_id),
+        KEY idx_cmd_user (user_id),
+        KEY idx_cmd_message (message_id)
+      )
+    `);
+
     // Helper functions for checking column/index existence
     const columnExists = async (table, column) => {
       const [rows] = await pool.query(

@@ -141,18 +141,31 @@ export default function NotificationsPage() {
     return () => window.removeEventListener('notifications-updated', handler);
   }, [loadNotifications, loadUnreadCount]);
 
-  const handleNotificationClick = async (n: NotificationItem) => {
-    await markNotificationRead(n.id);
-    setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, readAt: new Date().toISOString() } : item));
+  const isChatNotification = useCallback((n: NotificationItem) => {
+    return (
+      n.type === 'chat' ||
+      n.type === 'message' ||
+      Boolean(n.roomId) ||
+      Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
+      Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message))
+    );
+  }, []);
+
+  const handleNotificationClick = (n: NotificationItem) => {
+    // Non-blocking mark read so navigation is triggered immediately
+    markNotificationRead(n.id).catch(() => {});
+    setNotifications((prev) =>
+      prev.map((item) => (item.id === n.id ? { ...item, readAt: new Date().toISOString() } : item))
+    );
     setUnreadCount((c) => Math.max(0, c - 1));
 
     const role = user?.role || 'admin';
 
-    if ((n.type === 'chat' || n.type === 'message') && n.roomId) {
-      navigate(chatPaths[role] || '/admin/chat', { state: { selectedRoomId: n.roomId } });
-    } else if (n.type === 'chat' || n.type === 'message') {
-      navigate(chatPaths[role] || '/admin/chat');
-    } else if (n.type === 'notice') {
+    if (isChatNotification(n)) {
+      navigate(chatPaths[role] || '/admin/chat', {
+        state: { selectedRoomId: n.roomId || undefined },
+      });
+    } else if (n.type === 'notice' || Boolean(n.noticeId)) {
       navigate(noticePaths[role] || '/admin/notices');
     } else if (n.ticketId) {
       navigate(`${basePaths[role] || '/admin/tickets'}/${n.ticketId}`);
@@ -188,16 +201,16 @@ export default function NotificationsPage() {
   const filterCounts = {
     all: notifications.length,
     unread: notifications.filter((n) => !n.readAt).length,
-    chat: notifications.filter((n) => n.type === 'chat' || n.type === 'message').length,
-    ticket: notifications.filter((n) => n.type === 'ticket' || n.type === 'reply' || n.type === 'status' || n.type === 'assignment' || n.type === 'escalation').length,
-    notice: notifications.filter((n) => n.type === 'notice').length,
+    chat: notifications.filter((n) => isChatNotification(n)).length,
+    ticket: notifications.filter((n) => !isChatNotification(n) && (n.type === 'ticket' || n.type === 'reply' || n.type === 'status' || n.type === 'assignment' || n.type === 'escalation')).length,
+    notice: notifications.filter((n) => n.type === 'notice' || Boolean(n.noticeId)).length,
   };
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.readAt;
-    if (filter === 'chat') return n.type === 'chat' || n.type === 'message';
-    if (filter === 'ticket') return ['ticket', 'reply', 'status', 'assignment', 'escalation', 'completion', 'approval', 'rejection', 'reopen', 'merge', 'sla'].includes(n.type);
-    if (filter === 'notice') return n.type === 'notice';
+    if (filter === 'chat') return isChatNotification(n);
+    if (filter === 'ticket') return !isChatNotification(n) && ['ticket', 'reply', 'status', 'assignment', 'escalation', 'completion', 'approval', 'rejection', 'reopen', 'merge', 'sla'].includes(n.type);
+    if (filter === 'notice') return n.type === 'notice' || Boolean(n.noticeId);
     return true;
   });
 
@@ -228,20 +241,30 @@ export default function NotificationsPage() {
             </p>
           </div>
         </div>
-        {hasUnread && (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button
-            className={styles.markAllBtn}
-            onClick={handleMarkAllRead}
-            disabled={markingAll}
+            type="button"
+            className={styles.openChatNavBtn}
+            onClick={() => navigate(chatPaths[user?.role || 'admin'] || '/admin/chat')}
+            title="Navigate directly to Chat"
           >
-            {markingAll ? (
-              <span className={styles.spinner} />
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            )}
-            Mark all read
+            💬 Go to Chat
           </button>
-        )}
+          {hasUnread && (
+            <button
+              className={styles.markAllBtn}
+              onClick={handleMarkAllRead}
+              disabled={markingAll}
+            >
+              {markingAll ? (
+                <span className={styles.spinner} />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              )}
+              Mark all read
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Pills */}
@@ -304,7 +327,8 @@ export default function NotificationsPage() {
           </div>
           <div className={styles.list}>
             {pagedNotifications.map((n) => {
-            const cfg = notifConfig[n.type] || defaultConfig;
+            const isChat = isChatNotification(n);
+            const cfg = isChat ? notifConfig.chat : (notifConfig[n.type] || defaultConfig);
             const isUnread = !n.readAt;
             return (
               <div
@@ -320,14 +344,14 @@ export default function NotificationsPage() {
 
                 {/* Icon container */}
                 <div className={`${styles.iconWrap} ${styles[cfg.colorClass]}`}>
-                  <span className={styles.iconEmoji}>{cfg.icon}</span>
+                  <span className={styles.iconEmoji}>{isChat ? '💬' : cfg.icon}</span>
                 </div>
 
                 {/* Content */}
                 <div className={styles.content}>
                   <div className={styles.metaRow}>
                     <span className={`${styles.typeBadge} ${styles[cfg.colorClass + 'Badge']}`}>
-                      {cfg.label}
+                      {isChat ? 'Chat' : cfg.label}
                     </span>
                     <time className={styles.time}>
                       {n.createdAt ? getRelativeTime(n.createdAt) : ''}
@@ -335,6 +359,13 @@ export default function NotificationsPage() {
                   </div>
                   <strong className={styles.title}>{n.title}</strong>
                   <p className={styles.message}>{n.message}</p>
+                  {isChat && (
+                    <div style={{ marginTop: 6 }}>
+                      <span className={styles.chatActionPrompt}>
+                        💬 Open Chat Conversation →
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Unread dot */}

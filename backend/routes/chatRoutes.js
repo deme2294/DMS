@@ -196,4 +196,45 @@ router.get(
   chatController.getTicketChatMembers
 );
 
+// ===================== VIDEO CALL & MEETING INVITATIONS =====================
+
+// Get all registered users for video meeting selection (all roles: tenant, staff, manager, admin, ceo)
+router.get(
+  '/registered-contacts',
+  chatController.getRegisteredContacts
+);
+
+// Send customizable Video / Google Meet invitation with chat message and email dispatch
+router.post(
+  '/meeting-invite',
+  [
+    body('meetingUrl').trim().notEmpty().withMessage('Valid meeting URL is required'),
+    body('recipientEmail').optional({ values: 'falsy' }).trim(),
+    body('recipientEmails').optional().isArray().withMessage('recipientEmails must be an array of strings'),
+    body('roles').optional().isArray().withMessage('roles must be an array of strings'),
+    body('roomId').optional({ values: 'falsy' }).trim(),
+    body('title').optional().trim(),
+    body('notes').optional().trim(),
+    body('meetingType').optional().trim(),
+    body('scheduledTime').optional().trim(),
+    body('durationMinutes').optional().isInt(),
+    body('customSettings').optional().isObject(),
+    validate
+  ],
+  chatController.sendMeetingInvite
+);
+
+// Verify registered user access to a meeting
+router.post(
+  '/meeting/verify-access',
+  [
+    body('meetingUrl').trim().notEmpty().withMessage('Meeting URL is required'),
+    body('roomId').optional({ values: 'falsy' }).trim(),
+    body('passcode').optional().trim(),
+    validate
+  ],
+  chatController.verifyMeetingAccess
+);
+
 export default router;
+

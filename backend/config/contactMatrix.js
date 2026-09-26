@@ -18,9 +18,9 @@
 export const CONTACTABLE_ROLES = {
   ceo: ['manager', 'admin'],
   manager: ['manager', 'staff', 'admin', 'ceo', 'tenant'],
-  staff: ['manager', 'admin', 'tenant'],
+  staff: ['manager', 'admin', 'tenant', 'staff'],
   tenant: ['manager', 'admin'],
-  admin: ['staff', 'manager', 'tenant'],
+  admin: ['admin', 'staff', 'manager', 'tenant', 'ceo'],
 };
 
 export const canContact = (initiatorRole, targetRole) => {

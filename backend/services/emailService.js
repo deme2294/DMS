@@ -680,3 +680,129 @@ export const sendOfficeInquiryResponseEmail = async ({
     `),
   });
 };
+
+/**
+ * Send Google Meet Video Call Invitation to a registered user.
+ * @param {object} p { recipientEmail, recipientName, senderName, senderRole, meetingUrl, meetingTitle, roomName, notes }
+ */
+export const sendMeetingInvitationEmail = async ({
+  recipientEmail,
+  recipientName = 'Colleague',
+  senderName = 'Help Desk Team Member',
+  senderRole = 'User',
+  meetingUrl,
+  meetingTitle = 'Live Video Consultation & Support',
+  roomName = 'Help Desk Chat',
+  notes = '',
+  webAppUrl = '',
+  scheduledTime = null,
+  formattedScheduledTime = '',
+  createdTime = '',
+  durationMinutes = 30,
+  isScreenShare = false,
+}) => {
+  const formattedRole = senderRole.charAt(0).toUpperCase() + senderRole.slice(1);
+  const notesSection = notes
+    ? `
+      <div style="margin: 20px 0; background: #f8fafc; border-left: 4px solid #00897b; padding: 14px 18px; border-radius: 4px;">
+        <strong style="color: #334155; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Host Note:</strong>
+        <p style="margin: 6px 0 0 0; color: #475569; font-size: 14px; line-height: 1.5;">${notes}</p>
+      </div>`
+    : '';
+
+  const effectiveScreenShare = Boolean(
+    isScreenShare || meetingTitle.toLowerCase().includes('screen') || notes.toLowerCase().includes('screen')
+  );
+
+  const appUrl = webAppUrl || process.env.APP_URL || 'http://10.195.207.9:5173';
+  const headerBadge = effectiveScreenShare ? '🖥️ SCREEN SHARING & VIDEO SESSION' : '🎥 LIVE VIDEO MEETING';
+  const ctaText = formattedScheduledTime
+    ? (effectiveScreenShare ? '🖥️ Join Scheduled Screen Share & Call' : '📹 Join Scheduled Video Call')
+    : (effectiveScreenShare ? '🖥️ Join Screen Share & Video Now' : '🎥 Join Video Call Now');
+
+  const subjectPrefix = effectiveScreenShare ? '🖥️ Screen Sharing & Video' : '📹 Video Meeting';
+  const timeSubject = formattedScheduledTime ? ` [Scheduled: ${formattedScheduledTime}]` : '';
+
+  await sendMail({
+    to: recipientEmail,
+    subject: `${subjectPrefix}: ${meetingTitle}${timeSubject} (from ${senderName})`,
+    text: `Hello ${recipientName},\n\n${senderName} (${formattedRole}) has invited you to a ${effectiveScreenShare ? 'Screen Sharing & Video' : 'Video Conference'} session: "${meetingTitle}".\n\n${formattedScheduledTime ? `Scheduled Time: ${formattedScheduledTime}\nDuration: ${durationMinutes} mins\n` : ''}${createdTime ? `Created: ${createdTime}\n` : ''}${effectiveScreenShare ? 'Screen Share: Enabled\n' : ''}\nMeeting Link: ${meetingUrl}\nWeb App Chat: ${appUrl}\n\nJoin directly from the link or via your Help Desk portal.`,
+    html: wrap('Video Conference & Screen Sharing Invitation', `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="display: inline-block; background: ${effectiveScreenShare ? '#eff6ff' : '#e6f4ea'}; color: ${effectiveScreenShare ? '#1d4ed8' : '#137333'}; font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 20px; margin-bottom: 12px; border: 1px solid ${effectiveScreenShare ? '#bfdbfe' : '#b7e1cd'};">
+          ${headerBadge}
+        </div>
+        <h2 style="color: #202124; margin: 4px 0 8px 0; font-size: 22px;">${meetingTitle}</h2>
+        <p style="color: #5f6368; margin: 0; font-size: 14px;">Chat Channel: <strong>${roomName}</strong></p>
+      </div>
+
+      <div style="background: #ffffff; border: 1px solid #dadce0; border-radius: 12px; padding: 24px; margin: 20px 0; box-shadow: 0 1px 3px rgba(60,64,67,0.1);">
+        <p style="color: #3c4043; font-size: 15px; margin-top: 0;">
+          Hello <strong>${recipientName}</strong>,
+        </p>
+        <p style="color: #3c4043; font-size: 14px; line-height: 1.6;">
+          <strong>${senderName}</strong> (<span style="color: #1a73e8; font-weight: 600;">${formattedRole}</span>) has invited you to join a video conference and screen sharing session.
+        </p>
+
+        ${formattedScheduledTime ? `
+        <div style="margin: 18px 0; background: #f0fdf4; border: 1px solid #86efac; border-left: 5px solid #16a34a; border-radius: 8px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">
+            🗓️ Scheduled Event Date & Time
+          </div>
+          <div style="font-size: 17px; font-weight: 700; color: #14532d; margin-top: 4px;">
+            ${formattedScheduledTime}
+          </div>
+          <div style="font-size: 13px; color: #166534; margin-top: 6px;">
+            Estimated Duration: <strong>${durationMinutes} Minutes</strong>
+            ${createdTime ? `<span style="color: #64748b; margin-left: 8px;">• Created: ${createdTime}</span>` : ''}
+          </div>
+          ${effectiveScreenShare ? `
+          <div style="margin-top: 10px; display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid #bae6fd;">
+            🖥️ Screen Sharing Enabled: Attendees can present their screen or view presentations
+          </div>` : ''}
+        </div>` : `
+        <div style="margin: 18px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #00897b; border-radius: 8px; padding: 14px 18px;">
+          <div style="font-size: 11px; font-weight: 700; color: #00796b; text-transform: uppercase; letter-spacing: 0.5px;">
+            ⚡ Immediate Session Notice
+          </div>
+          <div style="font-size: 15px; font-weight: 700; color: #1e293b; margin-top: 4px;">
+            Starting Now • Attendees can join immediately
+          </div>
+          ${createdTime ? `<div style="font-size: 12px; color: #64748b; margin-top: 4px;">Created: ${createdTime}</div>` : ''}
+          ${effectiveScreenShare ? `
+          <div style="margin-top: 8px; display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid #bae6fd;">
+            🖥️ Screen Sharing Enabled
+          </div>` : ''}
+        </div>`}
+
+        ${notesSection}
+
+        <div style="text-align: center; margin: 30px 0 20px 0;">
+          <a href="${meetingUrl}" target="_blank" rel="noopener noreferrer"
+             style="background: #1a73e8; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 6px rgba(26,115,232,0.4);">
+            ${ctaText}
+          </a>
+        </div>
+
+        <div style="text-align: center; margin-top: 15px;">
+          <span style="font-size: 12px; color: #5f6368;">Or join using URL:</span><br/>
+          <a href="${meetingUrl}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; font-size: 13px; word-break: break-all;">
+            ${meetingUrl}
+          </a>
+        </div>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center;">
+          <span style="font-size: 13px; color: #4b5563;">You can also view this chat and join the call inside the web application:</span><br/>
+          <a href="${appUrl}" target="_blank" rel="noopener noreferrer" style="color: #00897b; font-weight: 600; font-size: 13px; display: inline-block; margin-top: 6px;">
+            💬 Open Help Desk Web Chat
+          </a>
+        </div>
+      </div>
+
+      <div style="background: #f1f3f4; border-radius: 8px; padding: 16px; font-size: 13px; color: #5f6368;">
+        💡 <strong>Quick Tip:</strong> Make sure your camera and microphone permissions are enabled in your browser before joining. You can also join or preview the video call directly inside the <strong>Help Desk Chat Page</strong>.
+      </div>
+    `),
+  });
+};
+

@@ -787,7 +787,7 @@ JOIN permissions p ON p.code IN (
   'ticket_categories.manage',
   'dashboard.read','departments.read','departments.manage','matrix.manage','reports.read','audit.read',
   'notices.read',
-  'knowledge.read','knowledge.create','knowledge.update','knowledge.approve','knowledge.categories'
+  'knowledge.read','knowledge.create','knowledge.update','knowledge.categories'
 )
 WHERE r.name = 'manager';
 

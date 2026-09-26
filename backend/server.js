@@ -368,13 +368,8 @@ function startServer(port) {
 
         socket.on('delete-message', async (messageId) => {
             try {
-                const chatRepo = await import('./repository/chatRepository.js');
-                const message = await chatRepo.findMessageById(messageId);
-                
-                if (message && message.sender_id === user.id) {
-                    await chatRepo.softDeleteMessage(messageId);
-                    io.to(`room:${message.room_id}`).emit('message-deleted', { messageId });
-                }
+                const chatService = await import('./services/chatService.js');
+                await chatService.deleteMessage(messageId, user.id);
             } catch (err) {
                 socket.emit('error', { message: err.message });
             }
@@ -430,10 +425,65 @@ function startServer(port) {
             }
         });
 
+        // ===================== IN-APP WEBRTC VIDEO CONFERENCE =====================
+        socket.on('video-join', ({ roomId, peerInfo }) => {
+            const videoRoom = `video:${roomId}`;
+            socket.join(videoRoom);
+            console.log(`Video peer joined ${videoRoom}: ${user.username} (${socket.id})`);
+            socket.to(videoRoom).emit('video-user-joined', {
+                socketId: socket.id,
+                userId: user.id,
+                username: user.username,
+                firstName: user.first_name,
+                lastName: user.last_name,
+                role: user.role,
+                peerInfo: peerInfo || {}
+            });
+        });
+
+        socket.on('video-signal', ({ to, signal }) => {
+            if (to) {
+                io.to(to).emit('video-signal', {
+                    from: socket.id,
+                    signal,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        firstName: user.first_name,
+                        lastName: user.last_name,
+                        role: user.role
+                    }
+                });
+            }
+        });
+
+        socket.on('video-stream-state', ({ roomId, isMicMuted, isCameraOff, isScreenSharing }) => {
+            socket.to(`video:${roomId}`).emit('video-peer-state-changed', {
+                socketId: socket.id,
+                userId: user.id,
+                isMicMuted,
+                isCameraOff,
+                isScreenSharing
+            });
+        });
+
+        socket.on('video-leave', ({ roomId }) => {
+            const videoRoom = `video:${roomId}`;
+            socket.leave(videoRoom);
+            socket.to(videoRoom).emit('video-user-left', {
+                socketId: socket.id,
+                userId: user.id
+            });
+            console.log(`Video peer left ${videoRoom}: ${user.username}`);
+        });
+
         // ===================== DISCONNECT =====================
         socket.on('disconnect', async () => {
             console.log(`Socket disconnected: ${user.username}`);
             
+            // Broadcast video-user-left to any active video rooms
+            io.emit('video-user-left', { socketId: socket.id, userId: user.id });
+
             // Set user offline
             try {
                 const chatService = await import('./services/chatService.js');
