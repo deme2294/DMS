@@ -1182,8 +1182,9 @@ export default function AdminAnalytics({
   };
 
   useEffect(() => {
+    if (!user) return;
     loadAnalytics();
-  }, [timeframe, departmentId]);
+  }, [timeframe, departmentId, user]);
 
   // Formatted data items for Pie & Donut Charts
   const statusChartItems = useMemo<ChartSliceItem[]>(() => {

@@ -36,7 +36,23 @@ const basePaths: Record<string, string> = {
   ceo: '/ceo/tickets',
 };
 
-type FilterType = 'all' | 'unread' | 'chat' | 'ticket' | 'notice';
+const knowledgePaths: Record<string, string> = {
+  admin: '/admin/knowledge',
+  manager: '/manager/knowledge',
+  staff: '/staff/knowledge',
+  tenant: '/tenant/knowledge',
+  ceo: '/admin/knowledge',
+};
+
+const feedbackPaths: Record<string, string> = {
+  admin: '/admin/feedback',
+  manager: '/admin/feedback',
+  staff: '/admin/feedback',
+  tenant: '/tenant/feedback',
+  ceo: '/admin/feedback',
+};
+
+type FilterType = 'all' | 'unread' | 'knowledge' | 'chat' | 'ticket' | 'notice';
 
 interface NotifConfig {
   icon: string;
@@ -59,7 +75,8 @@ const notifConfig: Record<string, NotifConfig> = {
   rejection:  { icon: '👎', label: 'Rejection',    colorClass: 'colorRejection' },
   reopen:     { icon: '🔓', label: 'Reopened',     colorClass: 'colorReopen' },
   merge:      { icon: '🔀', label: 'Merged',       colorClass: 'colorStatus' },
-  knowledge:  { icon: '📚', label: 'Knowledge',    colorClass: 'colorNotice' },
+  knowledge:  { icon: '📚', label: 'Knowledge Base', colorClass: 'colorNotice' },
+  feedback:   { icon: '⭐', label: 'Feedback',     colorClass: 'colorStatus' },
 };
 
 const defaultConfig: NotifConfig = { icon: '🔔', label: 'Notification', colorClass: 'colorDefault' };
@@ -141,6 +158,23 @@ export default function NotificationsPage() {
     return () => window.removeEventListener('notifications-updated', handler);
   }, [loadNotifications, loadUnreadCount]);
 
+  const isKnowledgeNotification = useCallback((n: NotificationItem) => {
+    return (
+      n.type === 'knowledge' ||
+      Boolean(n.articleId) ||
+      Boolean(n.title && /article|knowledge|kb-|revision/i.test(n.title)) ||
+      Boolean(n.message && /article|knowledge|kb-/i.test(n.message))
+    );
+  }, []);
+
+  const isFeedbackNotification = useCallback((n: NotificationItem) => {
+    return (
+      n.type === 'feedback' ||
+      Boolean(n.title && /feedback|rating|review/i.test(n.title)) ||
+      Boolean(n.message && /feedback|rating/i.test(n.message))
+    );
+  }, []);
+
   const isChatNotification = useCallback((n: NotificationItem) => {
     return (
       n.type === 'chat' ||
@@ -161,12 +195,17 @@ export default function NotificationsPage() {
 
     const role = user?.role || 'admin';
 
-    if (isChatNotification(n)) {
+    if (isKnowledgeNotification(n)) {
+      const kbBase = knowledgePaths[role] || '/admin/knowledge';
+      navigate(n.articleId ? `${kbBase}/${n.articleId}` : kbBase);
+    } else if (isChatNotification(n)) {
       navigate(chatPaths[role] || '/admin/chat', {
         state: { selectedRoomId: n.roomId || undefined },
       });
     } else if (n.type === 'notice' || Boolean(n.noticeId)) {
       navigate(noticePaths[role] || '/admin/notices');
+    } else if (isFeedbackNotification(n)) {
+      navigate(feedbackPaths[role] || '/admin/feedback');
     } else if (n.ticketId) {
       navigate(`${basePaths[role] || '/admin/tickets'}/${n.ticketId}`);
     } else {
@@ -201,15 +240,17 @@ export default function NotificationsPage() {
   const filterCounts = {
     all: notifications.length,
     unread: notifications.filter((n) => !n.readAt).length,
+    knowledge: notifications.filter((n) => isKnowledgeNotification(n)).length,
     chat: notifications.filter((n) => isChatNotification(n)).length,
-    ticket: notifications.filter((n) => !isChatNotification(n) && (n.type === 'ticket' || n.type === 'reply' || n.type === 'status' || n.type === 'assignment' || n.type === 'escalation')).length,
+    ticket: notifications.filter((n) => !isChatNotification(n) && !isKnowledgeNotification(n) && !isFeedbackNotification(n) && (n.type === 'ticket' || n.type === 'reply' || n.type === 'status' || n.type === 'assignment' || n.type === 'escalation')).length,
     notice: notifications.filter((n) => n.type === 'notice' || Boolean(n.noticeId)).length,
   };
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.readAt;
+    if (filter === 'knowledge') return isKnowledgeNotification(n);
     if (filter === 'chat') return isChatNotification(n);
-    if (filter === 'ticket') return !isChatNotification(n) && ['ticket', 'reply', 'status', 'assignment', 'escalation', 'completion', 'approval', 'rejection', 'reopen', 'merge', 'sla'].includes(n.type);
+    if (filter === 'ticket') return !isChatNotification(n) && !isKnowledgeNotification(n) && !isFeedbackNotification(n) && ['ticket', 'reply', 'status', 'assignment', 'escalation', 'completion', 'approval', 'rejection', 'reopen', 'merge', 'sla'].includes(n.type);
     if (filter === 'notice') return n.type === 'notice' || Boolean(n.noticeId);
     return true;
   });
@@ -222,6 +263,7 @@ export default function NotificationsPage() {
   const filterPills: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'unread', label: 'Unread' },
+    { key: 'knowledge', label: 'Knowledge Base' },
     { key: 'chat', label: 'Chat' },
     { key: 'ticket', label: 'Tickets' },
     { key: 'notice', label: 'Notices' },
@@ -300,7 +342,7 @@ export default function NotificationsPage() {
       ) : !error && filteredNotifications.length === 0 ? (
         <div className={styles.emptyState}>
           <div className={styles.emptyIcon}>
-            {filter === 'unread' ? '✅' : filter === 'chat' ? '💬' : filter === 'notice' ? '📢' : filter === 'ticket' ? '🎫' : '🔔'}
+            {filter === 'unread' ? '✅' : filter === 'knowledge' ? '📚' : filter === 'chat' ? '💬' : filter === 'notice' ? '📢' : filter === 'ticket' ? '🎫' : '🔔'}
           </div>
           <h3 className={styles.emptyTitle}>
             {filter === 'unread' ? "You're all caught up!" : `No ${filter === 'all' ? '' : filter + ' '}notifications`}
@@ -328,7 +370,15 @@ export default function NotificationsPage() {
           <div className={styles.list}>
             {pagedNotifications.map((n) => {
             const isChat = isChatNotification(n);
-            const cfg = isChat ? notifConfig.chat : (notifConfig[n.type] || defaultConfig);
+            const isKnowledge = isKnowledgeNotification(n);
+            const isFeedback = isFeedbackNotification(n);
+            const cfg = isKnowledge
+              ? notifConfig.knowledge
+              : isChat
+              ? notifConfig.chat
+              : isFeedback
+              ? notifConfig.feedback
+              : (notifConfig[n.type] || defaultConfig);
             const isUnread = !n.readAt;
             return (
               <div
@@ -344,14 +394,14 @@ export default function NotificationsPage() {
 
                 {/* Icon container */}
                 <div className={`${styles.iconWrap} ${styles[cfg.colorClass]}`}>
-                  <span className={styles.iconEmoji}>{isChat ? '💬' : cfg.icon}</span>
+                  <span className={styles.iconEmoji}>{cfg.icon}</span>
                 </div>
 
                 {/* Content */}
                 <div className={styles.content}>
                   <div className={styles.metaRow}>
                     <span className={`${styles.typeBadge} ${styles[cfg.colorClass + 'Badge']}`}>
-                      {isChat ? 'Chat' : cfg.label}
+                      {cfg.label}
                     </span>
                     <time className={styles.time}>
                       {n.createdAt ? getRelativeTime(n.createdAt) : ''}
@@ -359,6 +409,13 @@ export default function NotificationsPage() {
                   </div>
                   <strong className={styles.title}>{n.title}</strong>
                   <p className={styles.message}>{n.message}</p>
+                  {isKnowledge && (
+                    <div style={{ marginTop: 6 }}>
+                      <span className={styles.chatActionPrompt} style={{ color: '#38bdf8' }}>
+                        📚 View Knowledge Article →
+                      </span>
+                    </div>
+                  )}
                   {isChat && (
                     <div style={{ marginTop: 6 }}>
                       <span className={styles.chatActionPrompt}>

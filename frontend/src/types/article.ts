@@ -15,6 +15,7 @@ export interface ArticleListParams {
   search?: string;
   status?: string;
   category?: string;
+  authorId?: string;
   page?: number;
   limit?: number;
 }

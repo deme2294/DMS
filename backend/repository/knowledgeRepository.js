@@ -36,7 +36,7 @@ const FROM = `
 
 const buildWhere = ({
   search, category, status, authorId, departmentIds, ids,
-  visibility, excludeDeleted = true, reference
+  visibility, excludeDeleted = true, reference, forStaff, forManager
 } = {}) => {
   let where = 'WHERE 1=1';
   const params = [];
@@ -66,11 +66,55 @@ const buildWhere = ({
     where += ' AND kb.author_id = ?';
     params.push(authorId);
   }
-  if (Array.isArray(departmentIds) && departmentIds.length) {
+
+  if (forStaff) {
+    const { userId, departmentIds = [] } = forStaff;
+    const staffConditions = [];
+    const staffParams = [];
+
+    // 1. Staff's own articles (any status)
+    staffConditions.push('kb.author_id = ?');
+    staffParams.push(userId);
+
+    // 2. Department articles (approved, published, or pending review)
+    if (Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const deptPlaceholders = departmentIds.map(() => '?').join(',');
+      staffConditions.push(`(kb.department_id IN (${deptPlaceholders}) AND kb.status IN ('published', 'approved', 'pending_approval'))`);
+      staffParams.push(...departmentIds);
+    }
+
+    // 3. Organization-wide published articles
+    staffConditions.push(`(kb.status = 'published' AND kb.visibility IN ('public', 'tenant', 'internal'))`);
+
+    where += ` AND (${staffConditions.join(' OR ')})`;
+    params.push(...staffParams);
+  } else if (forManager) {
+    const { userId, departmentIds = [] } = forManager;
+    const managerConditions = [];
+    const managerParams = [];
+
+    // 1. Manager's own articles
+    managerConditions.push('kb.author_id = ?');
+    managerParams.push(userId);
+
+    // 2. Department articles (any status within manager's department)
+    if (Array.isArray(departmentIds) && departmentIds.length > 0) {
+      const deptPlaceholders = departmentIds.map(() => '?').join(',');
+      managerConditions.push(`kb.department_id IN (${deptPlaceholders})`);
+      managerParams.push(...departmentIds);
+    }
+
+    // 3. Organization-wide published articles
+    managerConditions.push(`(kb.status = 'published' AND kb.visibility IN ('public', 'tenant', 'internal'))`);
+
+    where += ` AND (${managerConditions.join(' OR ')})`;
+    params.push(...managerParams);
+  } else if (Array.isArray(departmentIds) && departmentIds.length) {
     const placeholders = departmentIds.map(() => '?').join(',');
     where += ` AND kb.department_id IN (${placeholders})`;
     params.push(...departmentIds);
   }
+
   if (Array.isArray(ids) && ids.length) {
     const placeholders = ids.map(() => '?').join(',');
     where += ` AND kb.id IN (${placeholders})`;
@@ -112,11 +156,13 @@ export const findByReference = async (reference) => {
 
 export const findAll = async ({
   search, category, status, authorId, departmentIds, ids,
-  visibility, page = 1, limit = 10, excludeDeleted = true
+  visibility, page = 1, limit = 10, excludeDeleted = true,
+  forStaff, forManager
 } = {}) => {
   const offset = (page - 1) * limit;
   const { where, params } = buildWhere({
-    search, category, status, authorId, departmentIds, ids, visibility, excludeDeleted
+    search, category, status, authorId, departmentIds, ids, visibility, excludeDeleted,
+    forStaff, forManager
   });
 
   const [countRows] = await pool.query(
@@ -254,8 +300,12 @@ export const update = async (id, fields) => {
     reviewedBy: 'reviewed_by',
     approvedBy: 'approved_by',
     approvedAt: 'approved_at',
+    rejectionReason: 'rejection_reason',
+    revisionNotes: 'revision_notes',
     rejectedBy: 'rejected_by',
     rejectedAt: 'rejected_at',
+    publishedBy: 'published_by',
+    publishedAt: 'published_at',
     unpublishedBy: 'unpublished_by',
     unpublishReason: 'unpublish_reason',
     unpublishedAt: 'unpublished_at',

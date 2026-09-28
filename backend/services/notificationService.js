@@ -628,6 +628,8 @@ export const notifyKnowledgeSubmitted = async (article, submittedByUser) => {
       `Article "${truncate(article.title, 80)}" (${article.article_reference}) has been submitted for review.`,
       'knowledge',
       null,
+      null,
+      null,
       article.id
     );
     emitToUser(admin.id, 'notification', {
@@ -646,6 +648,8 @@ export const notifyKnowledgeApproved = async (article, approvedByUser) => {
       'Article Approved',
       `Your article "${truncate(article.title, 80)}" (${article.article_reference}) has been approved.`,
       'knowledge',
+      null,
+      null,
       null,
       article.id
     );
@@ -666,6 +670,8 @@ export const notifyKnowledgeRejected = async (article, rejectedByUser, reason) =
       `Your article "${truncate(article.title, 80)}" was rejected. Reason: ${truncate(reason || 'No reason provided', 120)}`,
       'knowledge',
       null,
+      null,
+      null,
       article.id
     );
     emitToUser(article.author_id, 'notification', {
@@ -684,6 +690,8 @@ export const notifyKnowledgeRevisionRequested = async (article, requestedByUser,
       'Article Revision Requested',
       `Your article "${truncate(article.title, 80)}" needs revision. ${truncate(reason || '', 120)}`,
       'knowledge',
+      null,
+      null,
       null,
       article.id
     );
@@ -708,6 +716,8 @@ export const notifyKnowledgePublished = async (article, publishedByUser) => {
       `Article "${truncate(article.title, 80)}" (${article.article_reference}) has been published.`,
       'knowledge',
       null,
+      null,
+      null,
       article.id
     );
     emitToUser(admin.id, 'notification', {
@@ -726,6 +736,8 @@ export const notifyKnowledgeUnpublished = async (article, unpublishedByUser) => 
       'Article Unpublished',
       `Your article "${truncate(article.title, 80)}" has been unpublished.`,
       'knowledge',
+      null,
+      null,
       null,
       article.id
     );

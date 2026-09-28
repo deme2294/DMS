@@ -16,6 +16,7 @@ import {
 } from '../../api/knowledgeApi';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import styles from './CeoKnowledgeEdit.module.css';
 
 export default function CeoKnowledgeEdit() {
@@ -153,54 +154,94 @@ export default function CeoKnowledgeEdit() {
         </div>
 
         <div className={styles.formActions}>
-          {editable && (
-            <button type="submit" className={styles.submitBtn} disabled={saving}>
-              {saving ? 'Saving...' : 'Update Article'}
+          {can('knowledge.delete') && (
+            <button
+              type="button"
+              className={styles.dangerBtn}
+              disabled={busy || saving}
+              onClick={() => {
+                if (confirm('Delete this article?')) {
+                  runAction(() => deleteArticle(article.id), 'Deleted').then(() => navigate('/ceo/knowledge'));
+                }
+              }}
+            >
+              <TrashIcon style={{ width: 16, height: 16 }} />
+              Delete
             </button>
           )}
+
+          {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={() => runAction(() => submitArticle(article.id), 'Submitted for review')}
+            >
+              Submit for Review
+            </button>
+          )}
+          {can('knowledge.approve') && article.status === 'pending_approval' && (
+            <>
+              <button
+                type="button"
+                className={styles.submitBtn}
+                disabled={busy || saving}
+                onClick={() => runAction(() => approveArticle(article.id), 'Approved')}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                className={styles.dangerBtn}
+                disabled={busy || saving}
+                onClick={() => runAction(() => rejectArticle(article.id, 'Needs revision'), 'Rejected')}
+              >
+                Reject
+              </button>
+            </>
+          )}
+          {can('knowledge.publish') && article.status === 'approved' && (
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={() => runAction(() => publishArticle(article.id), 'Published')}
+            >
+              Publish
+            </button>
+          )}
+          {can('knowledge.delete') && article.status === 'published' && (
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              disabled={busy || saving}
+              onClick={() => runAction(() => archiveArticle(article.id), 'Archived')}
+            >
+              Archive
+            </button>
+          )}
+          {can('knowledge.delete') && article.status === 'archived' && (
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={() => runAction(() => restoreArticle(article.id), 'Restored')}
+            >
+              Restore
+            </button>
+          )}
+
           <button type="button" className={styles.cancelBtn} onClick={() => navigate('/ceo/knowledge')}>
             Cancel
           </button>
+
+          {editable && (
+            <button type="submit" className={styles.submitBtn} disabled={saving || busy}>
+              {saving ? 'Saving...' : 'Update Article'}
+            </button>
+          )}
         </div>
       </form>
-
-      <div style={{ marginTop: 24, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={() => runAction(() => submitArticle(article.id), 'Submitted for review')}>
-            Submit for Review
-          </button>
-        )}
-        {can('knowledge.approve') && article.status === 'pending_approval' && (
-          <>
-            <button className={styles.submitBtn} disabled={busy} onClick={() => runAction(() => approveArticle(article.id), 'Approved')}>
-              Approve
-            </button>
-            <button className={styles.cancelBtn} disabled={busy} onClick={() => runAction(() => rejectArticle(article.id, 'Needs revision'), 'Rejected')}>
-              Reject
-            </button>
-          </>
-        )}
-        {can('knowledge.publish') && article.status === 'approved' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={() => runAction(() => publishArticle(article.id), 'Published')}>
-            Publish
-          </button>
-        )}
-        {can('knowledge.delete') && article.status === 'published' && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={() => runAction(() => archiveArticle(article.id), 'Archived')}>
-            Archive
-          </button>
-        )}
-        {can('knowledge.delete') && article.status === 'archived' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={() => runAction(() => restoreArticle(article.id), 'Restored')}>
-            Restore
-          </button>
-        )}
-        {can('knowledge.delete') && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={() => { if (confirm('Delete this article?')) runAction(() => deleteArticle(article.id), 'Deleted').then(() => navigate('/ceo/knowledge')); }}>
-            Delete
-          </button>
-        )}
-      </div>
     </div>
   );
 }

@@ -23,7 +23,7 @@ router.get(
 router.get(
   '/pending',
   authenticate,
-  authorize('knowledge.approve'),
+  authorize('knowledge.approve', 'knowledge.review'),
   knowledgeController.getPendingReview
 );
 
@@ -72,6 +72,7 @@ router.get(
     query('category').optional(),
     query('status').optional(),
     query('search').optional(),
+    query('authorId').optional(),
     validate,
   ],
   knowledgeController.listArticles
@@ -135,7 +136,7 @@ router.put(
 router.post(
   '/:id/submit',
   authenticate,
-  authorize('knowledge.submit'),
+  authorize('knowledge.submit', 'knowledge.create'),
   [param('id').isString().notEmpty(), validate],
   knowledgeController.submitForReview
 );
@@ -144,7 +145,7 @@ router.post(
 router.post(
   '/:id/request-revision',
   authenticate,
-  authorize('knowledge.request_revision'),
+  authorize('knowledge.request_revision', 'knowledge.approve'),
   [param('id').isString().notEmpty(), body('reason').optional(), validate],
   knowledgeController.requestRevision
 );
@@ -161,7 +162,7 @@ router.post(
 router.post(
   '/:id/reject',
   authenticate,
-  authorize('knowledge.reject'),
+  authorize('knowledge.reject', 'knowledge.approve'),
   [param('id').isString().notEmpty(), body('reason').notEmpty(), validate],
   knowledgeController.rejectArticle
 );

@@ -50,18 +50,41 @@ const canViewArticle = async (article, user) => {
   }
 
   if (isStaff(user)) {
-    if (!['published', 'unpublished', 'approved', 'archived', 'restored'].includes(article.status)) {
-      throw FORBIDDEN('This article is not available');
+    // 1. Author can always view their own article
+    if (article.author_id === user.id) return;
+
+    // 2. Department articles (approved, published, or pending approval)
+    const deptIds = await getUserDepartments(user);
+    if (article.department_id && deptIds.includes(article.department_id)) {
+      if (['approved', 'published', 'pending_approval'].includes(article.status)) {
+        return;
+      }
     }
-    return;
+
+    // 3. Organization-wide published articles
+    if (article.status === 'published' && ['public', 'tenant', 'internal'].includes(article.visibility)) {
+      return;
+    }
+
+    throw FORBIDDEN('This article is not available');
   }
 
   if (isManager(user)) {
+    // 1. Author can always view
+    if (article.author_id === user.id) return;
+
+    // 2. Department articles (any status within manager's department)
     const deptIds = await getUserDepartments(user);
-    if (article.department_id && !deptIds.includes(article.department_id)) {
-      throw FORBIDDEN('This article is outside your department');
+    if (article.department_id && deptIds.includes(article.department_id)) {
+      return;
     }
-    return;
+
+    // 3. Organization-wide published articles
+    if (article.status === 'published' && ['public', 'tenant', 'internal'].includes(article.visibility)) {
+      return;
+    }
+
+    throw FORBIDDEN('This article is outside your department');
   }
 
   if (isAdmin(user) || isCeo(user)) {
@@ -91,11 +114,12 @@ const canTransitionTo = (currentStatus, newStatus) => {
 };
 
 const generateSlug = (title) => {
-  return title
+  const base = (title || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .substring(0, 200) || uuidv4().slice(0, 8);
+    .substring(0, 180) || 'article';
+  return `${base}-${uuidv4().slice(0, 6)}`;
 };
 
 const generateReference = async () => {
@@ -120,18 +144,23 @@ export const listArticles = async (filters, user, req) => {
   if (isTenant(user)) {
     f.status = 'published';
     f.visibility = ['tenant', 'public'];
+    f.excludeDeleted = true;
   } else if (isStaff(user)) {
-    f.status = ['published', 'unpublished', 'approved', 'archived', 'restored'];
+    const deptIds = await getUserDepartments(user);
+    f.forStaff = {
+      userId: user.id,
+      departmentIds: deptIds,
+    };
+    f.excludeDeleted = true;
+  } else if (isManager(user)) {
+    const deptIds = await getUserDepartments(user);
+    f.forManager = {
+      userId: user.id,
+      departmentIds: deptIds,
+    };
+    f.excludeDeleted = true;
   } else {
     f.excludeDeleted = true;
-  }
-
-  if (isManager(user)) {
-    const deptIds = await getUserDepartments(user);
-    if (!deptIds.length) {
-      return { data: [], pagination: { total: 0, page: Number(f.page) || 1, limit: Number(f.limit) || 10, totalPages: 0 } };
-    }
-    f.departmentIds = deptIds;
   }
 
   return knowledgeRepo.findAll(f);
@@ -149,6 +178,13 @@ export const listMyDrafts = async (user) => {
 export const listPendingReview = async (user) => {
   if (isAdmin(user)) {
     return knowledgeRepo.findAll({ status: 'pending_approval', page: 1, limit: 100 });
+  }
+  if (isManager(user)) {
+    const deptIds = await getUserDepartments(user);
+    if (!deptIds.length) {
+      return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
+    }
+    return knowledgeRepo.findAll({ status: 'pending_approval', departmentIds: deptIds, page: 1, limit: 100 });
   }
   return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
 };
@@ -297,7 +333,18 @@ export const requestRevision = async (id, reason, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (article.author_id === user.id) throw FORBIDDEN('You cannot request revision on your own article');
-  if (!isAdmin(user)) throw FORBIDDEN('Only admin can request revision for articles');
+  
+  if (!isAdmin(user)) {
+    if (isManager(user)) {
+      const deptIds = await getUserDepartments(user);
+      if (!article.department_id || !deptIds.includes(article.department_id)) {
+        throw FORBIDDEN('You can only request revision for articles belonging to your department');
+      }
+    } else {
+      throw FORBIDDEN('Only department managers or admin can request revision for articles');
+    }
+  }
+
   canTransitionTo(article.status, 'needs_revision');
 
   await knowledgeRepo.update(id, {
@@ -326,8 +373,19 @@ export const requestRevision = async (id, reason, user, req) => {
 export const approveArticle = async (id, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
-  if (article.author_id === user.id) throw FORBIDDEN('You cannot approve your own article');
-  if (!isAdmin(user)) throw FORBIDDEN('Only admin can approve articles');
+  if (article.author_id === user.id && !isAdmin(user)) throw FORBIDDEN('You cannot approve your own article');
+  
+  if (!isAdmin(user)) {
+    if (isManager(user)) {
+      const deptIds = await getUserDepartments(user);
+      if (!article.department_id || !deptIds.includes(article.department_id)) {
+        throw FORBIDDEN('You can only approve articles belonging to your department');
+      }
+    } else {
+      throw FORBIDDEN('Only department managers or admin can approve articles');
+    }
+  }
+
   canTransitionTo(article.status, 'approved');
 
   await knowledgeRepo.update(id, {
@@ -346,8 +404,21 @@ export const approveArticle = async (id, user, req) => {
   if (article.author_id !== user.id) {
     emitToUser(article.author_id, 'notification', {
       title: 'Article Approved',
-      message: `Your article "${article.title}" has been approved.`,
+      message: `Your article "${article.title}" has been approved by your department manager and is ready for Admin to publish.`,
       type: 'knowledge_approval',
+      articleId: id,
+    });
+  }
+
+  // Notify admins that article was approved by manager and is ready to publish to tenants
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  for (const admin of admins) {
+    emitToUser(admin.id, 'notification', {
+      title: 'Article Ready to Publish',
+      message: `Article "${article.title}" (${article.article_reference}) was approved by department manager and is ready to publish.`,
+      type: 'knowledge_approved',
       articleId: id,
     });
   }
@@ -359,7 +430,18 @@ export const rejectArticle = async (id, reason, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (article.author_id === user.id) throw FORBIDDEN('You cannot reject your own article');
-  if (!isAdmin(user)) throw FORBIDDEN('Only admin can reject articles');
+  
+  if (!isAdmin(user)) {
+    if (isManager(user)) {
+      const deptIds = await getUserDepartments(user);
+      if (!article.department_id || !deptIds.includes(article.department_id)) {
+        throw FORBIDDEN('You can only reject articles belonging to your department');
+      }
+    } else {
+      throw FORBIDDEN('Only department managers or admin can reject articles');
+    }
+  }
+
   canTransitionTo(article.status, 'rejected');
   if (!reason || !reason.trim()) throw BAD_REQUEST('Rejection reason is required');
 
@@ -399,6 +481,8 @@ export const publishArticle = async (id, user, req) => {
     status: 'published',
     publishedBy: user.id,
     publishedAt: new Date(),
+    approvedBy: article.approved_by || user.id,
+    approvedAt: article.approved_at || new Date(),
   });
 
   const updated = await knowledgeRepo.findById(id);
@@ -642,13 +726,14 @@ export const getAttachments = async (articleId) => {
 export const createCategory = async (data, user, req) => {
   const id = uuidv4();
   const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const activeVal = data.isActive !== undefined ? (data.isActive ? 1 : 0) : (data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1);
   await pool.query(
     `INSERT INTO knowledge_categories (id, name, slug, description, icon, is_active, parent_id, created_by, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-    [id, data.name, slug, data.description || null, data.icon || null, data.isActive !== false ? 1 : 0, data.parentId || null, user.id]
+    [id, data.name, slug, data.description || null, data.icon || null, activeVal, data.parentId || null, user.id]
   );
   await logAction(user.id, 'CATEGORY_CREATED', 'knowledge_category', id, getIp(req), { name: data.name });
-  return { id, name: data.name, slug };
+  return { id, name: data.name, slug, isActive: Boolean(activeVal) };
 };
 
 export const updateCategory = async (id, data, user, req) => {
@@ -656,12 +741,24 @@ export const updateCategory = async (id, data, user, req) => {
   if (!existing.length) throw NOT_FOUND();
 
   const slug = data.name ? data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : existing[0].slug;
+  const activeVal = data.isActive !== undefined
+    ? (data.isActive ? 1 : 0)
+    : (data.is_active !== undefined ? (data.is_active ? 1 : 0) : existing[0].is_active);
+
   await pool.query(
     `UPDATE knowledge_categories SET name = ?, slug = ?, description = ?, icon = ?, is_active = ?, parent_id = ?, updated_at = NOW() WHERE id = ?`,
-    [data.name || existing[0].name, slug, data.description ?? existing[0].description, data.icon ?? existing[0].icon, data.isActive !== undefined ? (data.isActive ? 1 : 0) : existing[0].is_active, data.parentId ?? existing[0].parent_id, id]
+    [
+      data.name || existing[0].name,
+      slug,
+      data.description ?? existing[0].description,
+      data.icon ?? existing[0].icon,
+      activeVal,
+      data.parentId ?? existing[0].parent_id,
+      id
+    ]
   );
   await logAction(user.id, 'CATEGORY_UPDATED', 'knowledge_category', id, getIp(req), { name: data.name });
-  return { id };
+  return { id, isActive: Boolean(activeVal) };
 };
 
 export const deleteCategory = async (id, user, req) => {
@@ -683,10 +780,13 @@ export const deleteCategory = async (id, user, req) => {
 
 export const listCategories = async () => {
   const [rows] = await pool.query(
-    `SELECT id, name, slug, description, icon, is_active, parent_id, created_at, updated_at
+    `SELECT id, name, slug, description, icon, is_active AS isActive, is_active, parent_id AS parentId, created_at, updated_at
      FROM knowledge_categories ORDER BY name ASC`
   );
-  return rows;
+  return rows.map((r) => ({
+    ...r,
+    isActive: Boolean(r.isActive ?? r.is_active),
+  }));
 };
 
 
@@ -714,3 +814,56 @@ export const getRecentArticles = async (limit = 10) => {
   );
   return rows;
 };
+
+export const getArticleStats = async (user) => {
+  const [statusCounts] = await pool.query(`
+    SELECT status, COUNT(*) as cnt
+    FROM knowledge_base
+    WHERE deleted_at IS NULL
+    GROUP BY status
+  `);
+
+  const [feedbackCounts] = await pool.query(`
+    SELECT 
+      COALESCE(SUM(helpful_count), 0) AS helpfulYes,
+      COALESCE(SUM(not_helpful_count), 0) AS notHelpfulNo,
+      COUNT(*) AS total
+    FROM knowledge_base
+    WHERE deleted_at IS NULL
+  `);
+
+  const [deptCounts] = await pool.query(`
+    SELECT COALESCE(d.name, 'General') AS name, COUNT(kb.id) AS count
+    FROM knowledge_base kb
+    LEFT JOIN departments d ON kb.department_id = d.id
+    WHERE kb.deleted_at IS NULL
+    GROUP BY kb.department_id, d.name
+    ORDER BY count DESC
+    LIMIT 10
+  `);
+
+  const stats = {
+    draft: 0,
+    pending_approval: 0,
+    needs_revision: 0,
+    approved: 0,
+    published: 0,
+    unpublished: 0,
+    rejected: 0,
+    archived: 0,
+    restored: 0,
+    total: Number(feedbackCounts[0]?.total || 0),
+    helpfulYes: Number(feedbackCounts[0]?.helpfulYes || 0),
+    notHelpfulNo: Number(feedbackCounts[0]?.notHelpfulNo || 0),
+    byDepartment: deptCounts.map((d) => ({ name: d.name, count: Number(d.count) }))
+  };
+
+  statusCounts.forEach((row) => {
+    if (stats.hasOwnProperty(row.status)) {
+      stats[row.status] = Number(row.cnt);
+    }
+  });
+
+  return stats;
+};
+

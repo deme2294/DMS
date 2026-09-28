@@ -19,7 +19,7 @@ export default function KnowledgeMyArticles() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role;
-  const basePath = role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
+  const basePath = role === 'staff' ? '/staff/knowledge' : role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

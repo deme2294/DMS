@@ -11,6 +11,7 @@ import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchMyDepartments } from '../../api/reportApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
+import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeCreate.module.css';
 
 interface DeptOption {
@@ -23,7 +24,7 @@ export default function KnowledgeCreate() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role;
-  const basePath = role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
+  const basePath = role === 'staff' ? '/staff/knowledge' : role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<DeptOption[]>([]);
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
@@ -42,7 +43,7 @@ export default function KnowledgeCreate() {
       category: '',
       tags: '',
       visibility: 'internal',
-      departmentId: null,
+      departmentId: '' as any,
     },
   });
 
@@ -50,15 +51,21 @@ export default function KnowledgeCreate() {
     setError('');
     (async () => {
       try {
-        const deptPromise =
-          role === 'manager' || role === 'staff'
-            ? fetchMyDepartments()
-            : fetchActiveDepartments();
-        const [deptRes, catRes] = await Promise.all([
-          deptPromise,
-          fetchAllCategories(),
-        ]);
-        const deptList: DeptOption[] = (deptRes.data.data as DeptOption[]) || [];
+        let deptList: DeptOption[] = [];
+        if (role === 'manager' || role === 'staff') {
+          try {
+            const myDepts = await fetchMyDepartments();
+            deptList = (myDepts.data.data as DeptOption[]) || [];
+          } catch {
+            const allDepts = await fetchActiveDepartments();
+            deptList = (allDepts.data.data as DeptOption[]) || [];
+          }
+        } else {
+          const allDepts = await fetchActiveDepartments();
+          deptList = (allDepts.data.data as DeptOption[]) || [];
+        }
+
+        const catRes = await fetchAllCategories();
         setDepartments(deptList);
         setCategories(catRes.data.data || []);
 
@@ -73,7 +80,7 @@ export default function KnowledgeCreate() {
   }, [role, setValue]);
 
   const onSubmit = async (values: ArticleFormValues) => {
-    if ((role === 'staff' || role === 'manager') && !values.departmentId) {
+    if ((role === 'staff' || role === 'manager') && !values.departmentId && departments.length > 0) {
       setError('Please assign the article to your department');
       return;
     }
@@ -117,7 +124,9 @@ export default function KnowledgeCreate() {
             <select id="category" {...register('category', { required: 'Category is required' })}>
               <option value="">Select category</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                <option key={cat.id} value={cat.name}>
+                  {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
+                </option>
               ))}
             </select>
             {errors.category && <span className={styles.error}>{errors.category.message}</span>}
@@ -149,7 +158,7 @@ export default function KnowledgeCreate() {
 
           <div className={styles.formGroup}>
             <label htmlFor="departmentId">Department</label>
-            <select id="departmentId" {...register('departmentId', { required: role === 'staff' || role === 'manager' })}>
+            <select id="departmentId" {...register('departmentId', { required: (role === 'staff' || role === 'manager') && departments.length > 0 })}>
               <option value="">Select department</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
@@ -169,7 +178,7 @@ export default function KnowledgeCreate() {
         </div>
 
         <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-          Articles submitted for approval will be reviewed and approved by the <strong>Admin</strong> before publishing.
+          Articles submitted for review will be checked and approved by the <strong>Department Manager</strong> before Admin publishes them to tenants.
         </p>
 
         <div className={styles.formActions}>

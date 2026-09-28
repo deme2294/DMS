@@ -109,7 +109,8 @@ export default function TicketList() {
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('accessToken');
-    const socket = io(API_BASE, { withCredentials: true, auth: { token } });
+    // Connect through Vite proxy instead of directly to localhost:5000
+    const socket = io(window.location.origin, { path: '/socket.io', withCredentials: true, auth: { token } });
     socketRef.current = socket;
     socket.on('connect', () => socket.emit('join', { userId: user.id }));
     socket.on('ticket:updated', () => loadTickets());
@@ -122,9 +123,10 @@ export default function TicketList() {
   }, [deptModal, staffModal]);
 
   useEffect(() => {
+    if (!user) return;
     fetchActiveDepartments().then((res) => setDepartments(res.data.data)).catch(() => {});
     fetchCategories().then((res) => setCategories(res.data.data.map((c: any) => ({ id: c.id, name: c.name })))).catch(() => {});
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!staffModal || !assignTicket?.departmentId) return;

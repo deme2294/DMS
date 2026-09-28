@@ -702,6 +702,27 @@ export async function runAutoMigrations() {
        WHERE r.name = 'admin' AND p.code IN ('knowledge.submit','knowledge.review','knowledge.request_revision','knowledge.reject','knowledge.unpublish','knowledge.archive','knowledge.restore','knowledge.manage_categories','knowledge.view_versions','knowledge.manage_versions','knowledge.view_audit','knowledge.view_statistics')`
     );
 
+    // Ensure manager has review and approval permissions for department articles
+    await pool.query(
+      `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+       SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+       WHERE r.name = 'manager' AND p.code IN (
+         'knowledge.read','knowledge.create','knowledge.update','knowledge.submit',
+         'knowledge.review','knowledge.request_revision','knowledge.approve','knowledge.reject',
+         'knowledge.categories','knowledge.view_versions'
+       )`
+    );
+
+    // Ensure staff has submit permission for department articles
+    await pool.query(
+      `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+       SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+       WHERE r.name = 'staff' AND p.code IN (
+         'knowledge.read','knowledge.create','knowledge.update','knowledge.submit',
+         'knowledge.view_versions'
+       )`
+    );
+
     // 23. Add CEO and Executive Analytics permissions
     const ceoPermissions = [
       'ceo.dashboard', 'executive.analytics', 'executive.reports', 'executive.approvals', 'executive.remarks'

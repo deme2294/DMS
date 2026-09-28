@@ -8,9 +8,11 @@ import { validate } from '../middleware/validationMiddleware.js';
 const router = Router();
 
 router.use(authenticate);
-router.use(authorize('reports.read'));
 
+// Allow any authenticated user (staff, manager, admin) to fetch their assigned departments
 router.get('/my-departments', reportController.getMyDepartments);
+
+router.use(authorize('reports.read'));
 router.get('/tickets', reportController.getTicketReports);
 router.get('/departments', reportController.getDepartmentReports);
 router.get('/staff', reportController.getStaffReports);

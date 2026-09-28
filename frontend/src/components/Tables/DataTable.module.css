@@ -84,20 +84,71 @@
   to { transform: rotate(360deg); }
 }
 
-.empty {
-  padding: 56px 24px;
-  text-align: center;
-  color: #94a3b8;
-  font-size: 0.95rem;
-  font-weight: 500;
+/* Empty State */
+.emptyCell {
+  padding: 68px 24px !important;
+  text-align: center !important;
+  background: transparent !important;
+  border-bottom: none !important;
 }
 
-.empty::before {
-  content: '📭';
-  display: block;
-  font-size: 2.2rem;
-  margin-bottom: 10px;
-  opacity: 0.7;
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 420px;
+  text-align: center;
+}
+
+.emptyIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.emptyIconWrapper:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.18);
+}
+
+.emptySvg {
+  width: 34px;
+  height: 34px;
+}
+
+.emptyTitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.emptySubtitle {
+  font-size: 0.86rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Fallback for legacy .empty usage */
+.empty {
+  padding: 68px 24px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 /* Dark mode */
@@ -138,3 +189,19 @@
   border-color: #252e3e;
   border-top-color: #3b82f6;
 }
+
+:global([data-theme="dark"]) .emptyIconWrapper {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border-color: rgba(59, 130, 246, 0.32);
+  color: #60a5fa;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme="dark"]) .emptyTitle {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .emptySubtitle {
+  color: #94a3b8;
+}
+

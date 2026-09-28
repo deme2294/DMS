@@ -91,10 +91,11 @@ export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'ticket' | 'reply' | 'status' | 'assignment' | 'notice' | 'category' | 'sla' | 'escalation' | 'completion' | 'approval' | 'rejection' | 'reopen' | 'merge' | 'note' | 'internal' | 'chat' | 'message';
+  type: 'ticket' | 'reply' | 'status' | 'assignment' | 'notice' | 'category' | 'sla' | 'escalation' | 'completion' | 'approval' | 'rejection' | 'reopen' | 'merge' | 'note' | 'internal' | 'chat' | 'message' | 'knowledge' | string;
   ticketId?: string | null;
   noticeId?: string | null;
   roomId?: string | null;
+  articleId?: string | null;
   readAt?: string | null;
   createdAt?: string;
 }

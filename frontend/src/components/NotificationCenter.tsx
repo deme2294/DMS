@@ -32,12 +32,57 @@ const chatPaths: Record<string, string> = {
   ceo: '/ceo/chat',
 };
 
+const knowledgePaths: Record<string, string> = {
+  admin: '/admin/knowledge',
+  manager: '/manager/knowledge',
+  staff: '/staff/knowledge',
+  tenant: '/tenant/knowledge',
+  ceo: '/admin/knowledge',
+};
+
+const feedbackPaths: Record<string, string> = {
+  admin: '/admin/feedback',
+  manager: '/admin/feedback',
+  staff: '/admin/feedback',
+  tenant: '/tenant/feedback',
+  ceo: '/admin/feedback',
+};
+
 const notificationsPaths: Record<string, string> = {
   admin: '/admin/notifications',
   manager: '/manager/notifications',
   staff: '/staff/notifications',
   tenant: '/tenant/notifications',
   ceo: '/ceo/notifications',
+};
+
+const getModuleBadge = (n: NotificationItem) => {
+  const isKnowledge =
+    n.type === 'knowledge' ||
+    Boolean(n.articleId) ||
+    Boolean(n.title && /article|knowledge|kb-|revision/i.test(n.title)) ||
+    Boolean(n.message && /article|knowledge|kb-/i.test(n.message));
+  if (isKnowledge) {
+    return <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>📚 Knowledge</span>;
+  }
+  const isChat =
+    n.type === 'chat' ||
+    n.type === 'message' ||
+    Boolean(n.roomId) ||
+    Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
+    Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
+  if (isChat) {
+    return <span style={{ background: '#f3e8ff', color: '#6b21a8', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>💬 Chat</span>;
+  }
+  const isNotice = n.type === 'notice' || Boolean(n.noticeId) || Boolean(n.title && /notice|announcement/i.test(n.title));
+  if (isNotice) {
+    return <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>📢 Notice</span>;
+  }
+  const isFeedback = n.type === 'feedback' || Boolean(n.title && /feedback/i.test(n.title));
+  if (isFeedback) {
+    return <span style={{ background: '#fce7f3', color: '#9d174d', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>⭐ Feedback</span>;
+  }
+  return <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>🎫 Ticket</span>;
 };
 
 export default function NotificationCenter() {
@@ -70,11 +115,12 @@ export default function NotificationCenter() {
   };
 
   useEffect(() => {
+    if (!user) return;
     loadUnreadCount();
     const handler = () => loadUnreadCount();
     window.addEventListener('notifications-updated', handler);
     return () => window.removeEventListener('notifications-updated', handler);
-  }, []);
+  }, [user]);
 
   
   useEffect(() => {
@@ -85,7 +131,8 @@ export default function NotificationCenter() {
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('accessToken');
-    const socket = io(API_BASE, { withCredentials: true, auth: { token } });
+    const socketOrigin = window.location.origin;
+    const socket = io(socketOrigin, { withCredentials: true, auth: { token }, path: '/socket.io' });
     socket.on('notification', () => {
       loadUnreadCount();
     });
@@ -122,6 +169,83 @@ export default function NotificationCenter() {
     }
   };
 
+  const handleNavigateNotification = (n: NotificationItem) => {
+    setOpen(false);
+    handleMarkRead(n.id);
+    const role = user?.role || 'admin';
+
+    // 1. Knowledge Base
+    const isKnowledge =
+      n.type === 'knowledge' ||
+      Boolean(n.articleId) ||
+      Boolean(n.title && /article|knowledge|kb-|revision/i.test(n.title)) ||
+      Boolean(n.message && /article|knowledge|kb-/i.test(n.message));
+
+    if (isKnowledge) {
+      const kbBase = knowledgePaths[role] || '/admin/knowledge';
+      if (n.articleId) {
+        navigate(`${kbBase}/${n.articleId}`);
+      } else {
+        navigate(kbBase);
+      }
+      return;
+    }
+
+    // 2. Chat
+    const isChat =
+      n.type === 'chat' ||
+      n.type === 'message' ||
+      Boolean(n.roomId) ||
+      Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
+      Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
+
+    if (isChat) {
+      const chatBase = chatPaths[role] || '/admin/chat';
+      if (n.roomId) {
+        navigate(chatBase, { state: { selectedRoomId: n.roomId } });
+      } else {
+        navigate(chatBase);
+      }
+      return;
+    }
+
+    // 3. Notice
+    const isNotice =
+      n.type === 'notice' ||
+      Boolean(n.noticeId) ||
+      Boolean(n.title && /notice|announcement/i.test(n.title));
+
+    if (isNotice) {
+      navigate(noticePaths[role] || '/admin/notices');
+      return;
+    }
+
+    // 4. Feedback
+    const isFeedback =
+      n.type === 'feedback' ||
+      Boolean(n.title && /feedback/i.test(n.title));
+
+    if (isFeedback) {
+      navigate(feedbackPaths[role] || '/admin/feedback');
+      return;
+    }
+
+    // 5. SLA
+    const isSla = n.type === 'sla' || Boolean(n.title && /\bsla\b/i.test(n.title));
+    if (isSla && (role === 'admin' || role === 'ceo')) {
+      navigate('/admin/sla');
+      return;
+    }
+
+    // 6. Ticket (default)
+    const ticketBase = basePaths[role] || '/admin/tickets';
+    if (n.ticketId) {
+      navigate(`${ticketBase}/${n.ticketId}`);
+    } else {
+      navigate(ticketBase);
+    }
+  };
+
   return (
     <div className={styles.wrapper} ref={dropdownRef}>
       <button className={styles.bell} onClick={() => setOpen(!open)} aria-label="Notifications">
@@ -151,32 +275,12 @@ export default function NotificationCenter() {
                 <li key={n.id} className={styles.item}>
                   <div
                     className={styles.link}
-                    onClick={() => {
-                      setOpen(false);
-                      handleMarkRead(n.id);
-                      const role = user?.role || 'admin';
-                      const isChat =
-                        n.type === 'chat' ||
-                        n.type === 'message' ||
-                        Boolean(n.roomId) ||
-                        Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
-                        Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
-                      if (isChat) {
-                        if (n.roomId) {
-                          navigate(chatPaths[role] || '/admin/chat', { state: { selectedRoomId: n.roomId } });
-                        } else {
-                          navigate(chatPaths[role] || '/admin/chat');
-                        }
-                      } else if (n.type === 'notice' || Boolean(n.noticeId)) {
-                        navigate(noticePaths[role] || '/admin/notices');
-                      } else if (n.ticketId) {
-                        navigate(`${basePaths[role] || '/admin/tickets'}/${n.ticketId}`);
-                      } else {
-                        navigate(basePaths[role] || '/admin/tickets');
-                      }
-                    }}
+                    onClick={() => handleNavigateNotification(n)}
                   >
-                    <strong>{n.title}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <strong style={{ margin: 0 }}>{n.title}</strong>
+                      {getModuleBadge(n)}
+                    </div>
                     <p>{n.message}</p>
                     <time>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</time>
                   </div>

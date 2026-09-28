@@ -787,7 +787,7 @@ JOIN permissions p ON p.code IN (
   'ticket_categories.manage',
   'dashboard.read','departments.read','departments.manage','matrix.manage','reports.read','audit.read',
   'notices.read',
-  'knowledge.read','knowledge.create','knowledge.update','knowledge.categories'
+  'knowledge.read','knowledge.create','knowledge.update','knowledge.submit','knowledge.review','knowledge.request_revision','knowledge.approve','knowledge.reject','knowledge.categories','knowledge.view_versions'
 )
 WHERE r.name = 'manager';
 
@@ -795,7 +795,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN (
   'tickets.read','tickets.assign','tickets.complete','tickets.internal_note','dashboard.read','notices.read',
-  'knowledge.read','knowledge.create','knowledge.update'
+  'knowledge.read','knowledge.create','knowledge.update','knowledge.submit','knowledge.view_versions'
 )
 WHERE r.name = 'staff';
 

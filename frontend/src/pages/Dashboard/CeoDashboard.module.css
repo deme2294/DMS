@@ -307,3 +307,20 @@
     grid-template-columns: 1fr;
   }
 }
+
+.empty {
+  padding: 56px 20px !important;
+  text-align: center !important;
+  color: #64748b !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+}
+
+.empty::before {
+  content: '📁';
+  display: block;
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+

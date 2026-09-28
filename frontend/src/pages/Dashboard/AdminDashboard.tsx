@@ -44,6 +44,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!user) return;
     fetchAdminDashboard()
       .then((r) => setData(r.data.data))
       .catch(() => setError('Failed to load dashboard'))
@@ -51,7 +52,7 @@ export default function AdminDashboard() {
     fetchTicketStats().then((r) => setTicketStats(r.data.data)).catch(() => {});
     fetchTicketCharts().then((r) => setCharts(r.data.data)).catch(() => {});
     fetchAdminSlaDashboard().then((r) => setSlaData(r.data.data)).catch(() => {});
-  }, []);
+  }, [user]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">

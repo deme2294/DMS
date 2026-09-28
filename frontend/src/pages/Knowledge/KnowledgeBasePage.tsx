@@ -13,6 +13,7 @@ import {
 } from '../../api/knowledgeApi';
 import type { Article } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
+import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeBasePage.module.css';
 
 export default function KnowledgeBasePage() {
@@ -113,7 +114,7 @@ export default function KnowledgeBasePage() {
       <h3>{article.title}</h3>
       <p>{article.summary?.slice(0, 150)}{(article.summary && article.summary.length > 150) ? '...' : ''}</p>
       <div className={styles.cardFooter}>
-        <span>{article.category}</span>
+        <span>{resolveCategoryIcon(article.category)} {article.category}</span>
         <span>Views: {article.viewCount || 0}</span>
       </div>
     </div>
@@ -154,7 +155,7 @@ export default function KnowledgeBasePage() {
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">All Categories</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
+            <option key={cat} value={cat}>{resolveCategoryIcon(cat)} {cat}</option>
           ))}
         </select>
       </div>

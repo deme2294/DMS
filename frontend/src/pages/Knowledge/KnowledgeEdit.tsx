@@ -22,6 +22,8 @@ import { fetchActiveDepartments } from '../../api/departmentApi';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
 import Modal from '../../components/Modal/Modal';
+import { TrashIcon } from '@heroicons/react/24/outline';
+import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeEdit.module.css';
 
 interface DeptOption {
@@ -36,7 +38,7 @@ export default function KnowledgeEdit() {
   const { user } = useAuth();
   const { can } = usePermission();
   const role = user?.role;
-  const basePath = role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
+  const basePath = role === 'staff' ? '/staff/knowledge' : role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -60,7 +62,7 @@ export default function KnowledgeEdit() {
     reset,
     formState: { errors },
   } = useForm<ArticleFormValues>({
-    defaultValues: { title: '', summary: '', content: '', category: '', tags: '', visibility: 'internal', departmentId: null },
+    defaultValues: { title: '', summary: '', content: '', category: '', tags: '', visibility: 'internal', departmentId: '' as any },
   });
 
   useEffect(() => {
@@ -75,13 +77,13 @@ export default function KnowledgeEdit() {
         const a: Article = res.data.data;
         setArticle(a);
         reset({
-          title: a.title,
+          title: a.title || '',
           summary: a.summary || '',
-          content: a.content,
-          category: a.category,
+          content: a.content || '',
+          category: a.category || '',
           tags: a.tags || '',
           visibility: a.visibility || 'internal',
-          departmentId: a.departmentId || null,
+          departmentId: (a.departmentId || '') as any,
         });
       })
       .catch(() => setError('Failed to load article'))
@@ -186,7 +188,9 @@ export default function KnowledgeEdit() {
             <select id="category" disabled={!editable} {...register('category', { required: 'Category is required' })}>
               <option value="">Select category</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                <option key={cat.id} value={cat.name}>
+                  {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
+                </option>
               ))}
             </select>
             {errors.category && <span className={styles.error}>{errors.category.message}</span>}
@@ -233,49 +237,108 @@ export default function KnowledgeEdit() {
         </div>
 
         <div className={styles.formActions}>
-          {editable && (
-            <button type="submit" className={styles.submitBtn} disabled={saving}>
-              {saving ? 'Saving...' : 'Update Article'}
+          {can('knowledge.delete') && (
+            <button
+              type="button"
+              className={styles.dangerBtn}
+              disabled={busy || saving}
+              onClick={() => setDeleteTarget(true)}
+            >
+              <TrashIcon style={{ width: 16, height: 16 }} />
+              Delete
             </button>
           )}
+
+          {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
+            <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
+              Submit for Review
+            </button>
+          )}
+          {role === 'staff' && article.authorId === user?.id && article.status === 'needs_revision' && (
+            <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
+              Resubmit for Review
+            </button>
+          )}
+          {/* Admin Draft Controls */}
+          {role === 'admin' && article.status === 'draft' && (
+            <>
+              <button
+                type="button"
+                className={styles.publishBtn}
+                disabled={busy || saving}
+                onClick={handlePublish}
+              >
+                🚀 Publish to Tenants
+              </button>
+              <button
+                type="button"
+                className={styles.approveBtn}
+                disabled={busy || saving}
+                onClick={() => runAction(() => approveArticle(article.id), 'Draft approved')}
+              >
+                ✓ Approve Draft
+              </button>
+            </>
+          )}
+
+          {/* Pending Approval Controls */}
+          {role === 'admin' && article.status === 'pending_approval' && (
+            <button
+              type="button"
+              className={styles.publishBtn}
+              disabled={busy || saving}
+              onClick={handlePublish}
+            >
+              🚀 Publish to Tenants
+            </button>
+          )}
+          {can('knowledge.approve') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+            <button type="button" className={styles.approveBtn} disabled={busy || saving} onClick={() => runAction(() => approveArticle(article.id), 'Approved')}>
+              ✓ Approve
+            </button>
+          )}
+          {can('knowledge.request_revision') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+            <button type="button" className={styles.warningBtn} disabled={busy || saving} onClick={() => setShowRevisionModal(true)}>
+              Request Changes
+            </button>
+          )}
+          {can('knowledge.reject') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+            <button type="button" className={styles.dangerBtn} disabled={busy || saving} onClick={() => setShowRejectModal(true)}>
+              Reject
+            </button>
+          )}
+          {can('knowledge.publish') && article.status === 'approved' && (
+            <button type="button" className={styles.publishBtn} disabled={busy || saving} onClick={handlePublish}>
+              🚀 Publish to Tenants
+            </button>
+          )}
+          {can('knowledge.unpublish') && article.status === 'published' && (
+            <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={() => setShowUnpublishModal(true)}>
+              Unpublish
+            </button>
+          )}
+          {can('knowledge.archive') && article.status === 'published' && (
+            <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={handleArchive}>
+              Archive
+            </button>
+          )}
+          {can('knowledge.archive') && article.status === 'archived' && (
+            <button type="button" className={styles.approveBtn} disabled={busy || saving} onClick={handleRestore}>
+              Restore
+            </button>
+          )}
+
           <button type="button" className={styles.cancelBtn} onClick={() => navigate(basePath)}>
             Cancel
           </button>
+
+          {editable && (
+            <button type="submit" className={styles.submitBtn} disabled={saving || busy}>
+              {saving ? 'Saving...' : 'Update Article'}
+            </button>
+          )}
         </div>
       </form>
-
-      <div style={{ marginTop: 24, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmitForReview}>Submit for Review</button>
-        )}
-        {role === 'staff' && article.authorId === user?.id && article.status === 'needs_revision' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmitForReview}>Resubmit for Review</button>
-        )}
-        {can('knowledge.request_revision') && article.status === 'pending_approval' && article.authorId !== user?.id && (
-          <button className={styles.edit} disabled={busy} onClick={() => setShowRevisionModal(true)}>Request Changes</button>
-        )}
-        {can('knowledge.reject') && article.status === 'pending_approval' && article.authorId !== user?.id && (
-          <button className={styles.danger} disabled={busy} onClick={() => setShowRejectModal(true)}>Reject</button>
-        )}
-        {can('knowledge.approve') && article.status === 'pending_approval' && article.authorId !== user?.id && (
-          <button className={styles.submitBtn} disabled={busy} onClick={() => runAction(() => approveArticle(article.id), 'Approved')}>Approve</button>
-        )}
-        {can('knowledge.publish') && article.status === 'approved' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handlePublish}>Publish</button>
-        )}
-        {can('knowledge.unpublish') && article.status === 'published' && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowUnpublishModal(true)}>Unpublish</button>
-        )}
-        {can('knowledge.archive') && article.status === 'published' && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={handleArchive}>Archive</button>
-        )}
-        {can('knowledge.archive') && article.status === 'archived' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>Restore</button>
-        )}
-        {can('knowledge.delete') && (
-          <button className={styles.danger} disabled={busy} onClick={() => setDeleteTarget(true)}>Delete</button>
-        )}
-      </div>
 
       <Modal open={showRevisionModal} title="Request Changes" onClose={() => { setShowRevisionModal(false); setRevisionReason(''); }}>
         <p>Please provide revision notes:</p>

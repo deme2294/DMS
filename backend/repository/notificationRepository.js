@@ -1,11 +1,11 @@
 import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 
-export const createNotification = async (userId, title, message, type = 'ticket', ticketId = null, noticeId = null, roomId = null) => {
+export const createNotification = async (userId, title, message, type = 'ticket', ticketId = null, noticeId = null, roomId = null, articleId = null) => {
   await pool.query(
-    `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id)
-     VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId)`,
-    { id: uuidv4(), userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null }
+    `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, article_id)
+     VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :articleId)`,
+    { id: uuidv4(), userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, articleId: articleId || null }
   );
 };
 
@@ -29,6 +29,7 @@ export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) 
               ticket_id AS ticketId, 
               notice_id AS noticeId, 
               room_id AS roomId, 
+              article_id AS articleId,
               read_at AS readAt, 
               created_at AS createdAt
        FROM notifications

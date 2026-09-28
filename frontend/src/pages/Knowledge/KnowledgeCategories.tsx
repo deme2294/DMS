@@ -11,6 +11,7 @@ import {
 } from '../../api/knowledgeApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { usePermission } from '../../hooks/usePermission';
+import { resolveCategoryIcon, isEmoji, POPULAR_ICON_PRESETS } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeCategories.module.css';
 
 export default function KnowledgeCategories() {
@@ -23,7 +24,8 @@ export default function KnowledgeCategories() {
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<KnowledgeCategory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeCategory | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', icon: '', isActive: true, parentId: '' });
+  const initialForm = { name: '', description: '', icon: '', isActive: true, parentId: '' };
+  const [form, setForm] = useState(initialForm);
   const [catPage, setCatPage] = useState(1);
   const [catPageSize, setCatPageSize] = useState(10);
   const CAT_PAGE_OPTIONS = [10, 20, 50];
@@ -59,7 +61,7 @@ export default function KnowledgeCategories() {
   const handleCreate = async () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
     await runAction(() => createCategory({ ...form, parentId: form.parentId || null }), 'Category created');
-    setForm({ name: '', description: '', icon: '', isActive: true, parentId: '' });
+    setForm(initialForm);
     setShowCreate(false);
   };
 
@@ -68,7 +70,7 @@ export default function KnowledgeCategories() {
     if (!form.name.trim()) { setError('Name is required'); return; }
     await runAction(() => updateCategory(editTarget.id, { ...form, parentId: form.parentId || null }), 'Category updated');
     setEditTarget(null);
-    setForm({ name: '', description: '', icon: '', isActive: true, parentId: '' });
+    setForm(initialForm);
   };
 
   const handleDelete = async () => {
@@ -79,12 +81,27 @@ export default function KnowledgeCategories() {
 
   const startEdit = (cat: KnowledgeCategory) => {
     setEditTarget(cat);
-    setForm({ name: cat.name, description: cat.description || '', icon: cat.icon || '', isActive: cat.isActive, parentId: cat.parentId || '' });
+    setForm({
+      name: cat.name ?? '',
+      description: cat.description ?? '',
+      icon: cat.icon ?? '',
+      isActive: cat.isActive !== undefined ? Boolean(cat.isActive) : true,
+      parentId: cat.parentId ?? '',
+    });
   };
 
   return (
     <div className={styles.page}>
-      <PageHeader title="Knowledge Base Categories" description="Manage article categories" backTo="/admin/knowledge" actionLabel="+ New Category" onAction={() => setShowCreate(true)} />
+      <PageHeader
+        title="Knowledge Base Categories"
+        description="Manage article categories"
+        backTo="/admin/knowledge"
+        actionLabel="+ New Category"
+        onAction={() => {
+          setForm(initialForm);
+          setShowCreate(true);
+        }}
+      />
 
       {message && <div className={styles.toast}>{message}</div>}
       {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
@@ -109,11 +126,35 @@ export default function KnowledgeCategories() {
           { key: 'name', label: 'Name' },
           { key: 'slug', label: 'Slug' },
           { key: 'description', label: 'Description' },
-          { key: 'icon', label: 'Icon' },
+          {
+            key: 'icon',
+            label: 'Icon',
+            render: (row) => {
+              const resolved = resolveCategoryIcon(row.icon || row.name);
+              const isEnglishWord = Boolean(row.icon && !isEmoji(row.icon));
+              return (
+                <div className={styles.iconCell}>
+                  <span className={styles.iconDisplay} title={row.icon ? `Icon: ${row.icon}` : 'Category icon'}>
+                    {resolved}
+                  </span>
+                  {isEnglishWord && (
+                    <span className={styles.iconNameBadge}>{row.icon}</span>
+                  )}
+                </div>
+              );
+            },
+          },
           {
             key: 'isActive',
             label: 'Status',
-            render: (row) => <span className={`${styles.badge} ${row.isActive ? styles.active : styles.inactive}`}>{row.isActive ? 'Active' : 'Inactive'}</span>
+            render: (row) => {
+              const active = Boolean(row.isActive ?? (row as any).is_active);
+              return (
+                <span className={`${styles.badge} ${active ? styles.active : styles.inactive}`}>
+                  {active ? 'Active' : 'Inactive'}
+                </span>
+              );
+            },
           },
           {
             key: 'actions',
@@ -147,19 +188,79 @@ export default function KnowledgeCategories() {
       <Modal open={showCreate} title="Create Category" onClose={() => setShowCreate(false)}>
         <div className={styles.formGroup}>
           <label>Name</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Category name" />
+          <input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Category name" />
         </div>
         <div className={styles.formGroup}>
           <label>Description</label>
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+          <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
         </div>
         <div className={styles.formGroup}>
-          <label>Icon</label>
-          <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="e.g. 💻" />
+          <label>Icon (English Name or Emoji)</label>
+          <div className={styles.iconInputContainer}>
+            <div className={styles.iconInputRow}>
+              <div
+                className={`${styles.iconPreviewBox} ${form.icon ? styles.iconPreviewBoxActive : ''}`}
+                title="Live icon preview"
+              >
+                {resolveCategoryIcon(form.icon || form.name)}
+              </div>
+              <input
+                value={form.icon ?? ''}
+                onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                placeholder="e.g. gmail, laptop, printer, security, wifi, or 💻"
+                style={{ flex: 1 }}
+              />
+            </div>
+            <div className={styles.iconHelperText}>
+              {form.icon ? (
+                <span>
+                  Visual Preview: <strong>{resolveCategoryIcon(form.icon)}</strong>
+                  {!isEmoji(form.icon) && ` (matched English word "${form.icon.trim()}")`}
+                </span>
+              ) : (
+                <span>Type any English word (e.g. <em>gmail</em>, <em>laptop</em>, <em>printer</em>, <em>wifi</em>, <em>security</em>) or pick from below:</span>
+              )}
+            </div>
+
+            {/* Quick Icon Selector Pills */}
+            <div className={styles.quickPillsWrapper}>
+              <div className={styles.quickPillsLabel}>
+                <span>Popular English Icons</span>
+                <span style={{ fontSize: '0.72rem', textTransform: 'none', color: '#64748b' }}>Click to select</span>
+              </div>
+              <div className={styles.quickPillsList}>
+                {POPULAR_ICON_PRESETS.map((preset) => {
+                  const isSelected = (form.icon || '').toLowerCase().trim() === preset.label.toLowerCase().split('/')[0].trim() || (form.icon || '') === preset.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={preset.label}
+                      className={`${styles.pillBtn} ${isSelected ? styles.pillBtnActive : ''}`}
+                      onClick={() => setForm({ ...form, icon: preset.label.split('/')[0].trim().toLowerCase() })}
+                      title={`Select ${preset.label} (${preset.icon})`}
+                    >
+                      <span>{preset.icon}</span>
+                      <span>{preset.label.split('/')[0].trim()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
         <div className={styles.formGroup}>
-          <label>Active</label>
-          <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+          <label>Status</label>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.isActive)}
+              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              className={styles.checkboxInput}
+            />
+            <span style={{ fontWeight: 600, color: form.isActive ? '#15803d' : '#b91c1c' }}>
+              {form.isActive ? '✓ Active (Available in Knowledge Base)' : '✕ Inactive (Hidden from Knowledge Base)'}
+            </span>
+          </label>
         </div>
         <div className={styles.formActions}>
           <button className={styles.submitBtn} onClick={handleCreate}>Create</button>
@@ -167,26 +268,86 @@ export default function KnowledgeCategories() {
         </div>
       </Modal>
 
-      <Modal open={!!editTarget} title="Edit Category" onClose={() => { setEditTarget(null); setForm({ name: '', description: '', icon: '', isActive: true, parentId: '' }); }}>
+      <Modal open={!!editTarget} title="Edit Category" onClose={() => { setEditTarget(null); setForm(initialForm); }}>
         <div className={styles.formGroup}>
           <label>Name</label>
-          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
         <div className={styles.formGroup}>
           <label>Description</label>
-          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+          <textarea value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
         </div>
         <div className={styles.formGroup}>
-          <label>Icon</label>
-          <input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+          <label>Icon (English Name or Emoji)</label>
+          <div className={styles.iconInputContainer}>
+            <div className={styles.iconInputRow}>
+              <div
+                className={`${styles.iconPreviewBox} ${form.icon ? styles.iconPreviewBoxActive : ''}`}
+                title="Live icon preview"
+              >
+                {resolveCategoryIcon(form.icon || form.name)}
+              </div>
+              <input
+                value={form.icon ?? ''}
+                onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                placeholder="e.g. gmail, laptop, printer, security, wifi, or 💻"
+                style={{ flex: 1 }}
+              />
+            </div>
+            <div className={styles.iconHelperText}>
+              {form.icon ? (
+                <span>
+                  Visual Preview: <strong>{resolveCategoryIcon(form.icon)}</strong>
+                  {!isEmoji(form.icon) && ` (matched English word "${form.icon.trim()}")`}
+                </span>
+              ) : (
+                <span>Type any English word (e.g. <em>gmail</em>, <em>laptop</em>, <em>printer</em>, <em>wifi</em>, <em>security</em>) or pick from below:</span>
+              )}
+            </div>
+
+            {/* Quick Icon Selector Pills */}
+            <div className={styles.quickPillsWrapper}>
+              <div className={styles.quickPillsLabel}>
+                <span>Popular English Icons</span>
+                <span style={{ fontSize: '0.72rem', textTransform: 'none', color: '#64748b' }}>Click to select</span>
+              </div>
+              <div className={styles.quickPillsList}>
+                {POPULAR_ICON_PRESETS.map((preset) => {
+                  const isSelected = (form.icon || '').toLowerCase().trim() === preset.label.toLowerCase().split('/')[0].trim() || (form.icon || '') === preset.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={preset.label}
+                      className={`${styles.pillBtn} ${isSelected ? styles.pillBtnActive : ''}`}
+                      onClick={() => setForm({ ...form, icon: preset.label.split('/')[0].trim().toLowerCase() })}
+                      title={`Select ${preset.label} (${preset.icon})`}
+                    >
+                      <span>{preset.icon}</span>
+                      <span>{preset.label.split('/')[0].trim()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
         <div className={styles.formGroup}>
-          <label>Active</label>
-          <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+          <label>Status</label>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.isActive)}
+              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              className={styles.checkboxInput}
+            />
+            <span style={{ fontWeight: 600, color: form.isActive ? '#15803d' : '#b91c1c' }}>
+              {form.isActive ? '✓ Active (Available in Knowledge Base)' : '✕ Inactive (Hidden from Knowledge Base)'}
+            </span>
+          </label>
         </div>
         <div className={styles.formActions}>
           <button className={styles.submitBtn} onClick={handleUpdate}>Update</button>
-          <button className={styles.cancelBtn} onClick={() => { setEditTarget(null); }}>Cancel</button>
+          <button className={styles.cancelBtn} onClick={() => { setEditTarget(null); setForm(initialForm); }}>Cancel</button>
         </div>
       </Modal>
 

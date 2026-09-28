@@ -12,31 +12,98 @@ import {
   CpuChipIcon,
   CloudIcon,
 } from '@heroicons/react/24/solid';
+import {
+  Cog6ToothIcon,
+  ClipboardDocumentCheckIcon,
+  BuildingOffice2Icon,
+  KeyIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_DASHBOARD } from '../../config/routes';
 import ParticleBackground from '../../components/ParticleBackground/ParticleBackground';
+import './Login.css';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type LoginApiError = {
   response?: { data?: { message?: string }; status?: number };
   message?: string;
 };
 
-// ── Demo accounts ─────────────────────────────────────────────────────────────
+// Sleek vector crown icon for CEO
+const CrownIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 18h18M4 18l2-9.5 4.5 4.5 3.5-6 3.5 6 4.5-4.5 2 9.5H4z" />
+    <circle cx="6" cy="8.5" r="0.75" fill="currentColor" />
+    <circle cx="12" cy="7" r="0.75" fill="currentColor" />
+    <circle cx="18" cy="8.5" r="0.75" fill="currentColor" />
+  </svg>
+);
+
+// Sleek headset / support icon for Staff
+const HeadsetIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+  </svg>
+);
+
 const DEMO_ACCOUNTS = [
-  { role: 'CEO', username: 'ceo', bg: 'from-yellow-500 to-amber-600', icon: '👑' },
-  { role: 'Admin', username: 'admin', bg: 'from-red-500 to-rose-600', icon: '⚙️' },
-  { role: 'Manager', username: 'manager', bg: 'from-amber-500 to-orange-600', icon: '📋' },
-  { role: 'Staff', username: 'staff', bg: 'from-emerald-500 to-teal-600', icon: '🎧' },
-  { role: 'Tenant', username: 'tenant', bg: 'from-violet-500 to-purple-600', icon: '🏢' },
+  {
+    role: 'CEO',
+    username: 'ceo',
+    Icon: CrownIcon,
+    accent: '#f59e0b',
+    glow: 'rgba(245, 158, 11, 0.28)',
+    bg: 'rgba(245, 158, 11, 0.12)',
+    border: 'rgba(245, 158, 11, 0.3)',
+  },
+  {
+    role: 'Admin',
+    username: 'admin',
+    Icon: Cog6ToothIcon,
+    accent: '#f43f5e',
+    glow: 'rgba(244, 63, 94, 0.28)',
+    bg: 'rgba(244, 63, 94, 0.12)',
+    border: 'rgba(244, 63, 94, 0.3)',
+  },
+  {
+    role: 'Manager',
+    username: 'manager',
+    Icon: ClipboardDocumentCheckIcon,
+    accent: '#fb923c',
+    glow: 'rgba(251, 146, 60, 0.28)',
+    bg: 'rgba(251, 146, 60, 0.12)',
+    border: 'rgba(251, 146, 60, 0.3)',
+  },
+  {
+    role: 'Staff',
+    username: 'staff',
+    Icon: HeadsetIcon,
+    accent: '#10b981',
+    glow: 'rgba(16, 185, 129, 0.28)',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.3)',
+  },
+  {
+    role: 'Tenant',
+    username: 'tenant',
+    Icon: BuildingOffice2Icon,
+    accent: '#8b5cf6',
+    glow: 'rgba(139, 92, 246, 0.28)',
+    bg: 'rgba(139, 92, 246, 0.12)',
+    border: 'rgba(139, 92, 246, 0.3)',
+  },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
+const FEATURES = [
+  { icon: ShieldCheckIcon, color: 'from-blue-500 to-blue-600', title: 'Enterprise Security', sub: 'JWT auth, role-based access & audit logging' },
+  { icon: CloudIcon, color: 'from-indigo-500 to-indigo-600', title: 'Multi-Role Access', sub: 'Admin, Manager, Staff & Tenant portals' },
+  { icon: CpuChipIcon, color: 'from-cyan-500 to-cyan-600', title: 'Real-Time Analytics', sub: 'Live dashboards & automated reports' },
+];
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  // form state
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -45,211 +112,168 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLocked, setIsLocked] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-
   const identifierRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { identifierRef.current?.focus(); }, []);
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!identifier.trim()) { setError('Username or email is required'); return; }
     if (!password) { setError('Password is required'); return; }
-
-    setIsLoading(true);
-    setError('');
-    setIsLocked(false);
-
+    setIsLoading(true); setError(''); setIsLocked(false);
     try {
-      // useAuth().login handles token storage + user state update
       await login(identifier.trim(), password, rememberMe);
       const role = localStorage.getItem('role') || 'tenant';
-      const target = ROLE_DASHBOARD[role] ?? '/login';
-      navigate(target, { replace: true });
+      navigate(ROLE_DASHBOARD[role] ?? '/login', { replace: true });
     } catch (err: unknown) {
       const e = err as LoginApiError;
       const msg = e?.response?.data?.message ?? e?.message ?? 'Login failed. Please try again.';
       const status = e?.response?.status;
-
-      if (status === 423 || msg.toLowerCase().includes('lock')) {
-        setIsLocked(true);
-        setError(msg);
-      } else {
-        setError(msg);
-      }
+      if (status === 423 || msg.toLowerCase().includes('lock')) { setIsLocked(true); }
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ── Quick-fill demo ─────────────────────────────────────────────────────────
   const quickFill = (username: string) => {
-    setIdentifier(username);
-    setPassword('password');
-    setError('');
-    setIsLocked(false);
+    setIdentifier(username); setPassword('password'); setError(''); setIsLocked(false);
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="min-h-screen min-h-[100dvh] w-full relative overflow-x-hidden overflow-y-auto flex flex-col justify-between items-center px-4 py-6 sm:px-6 sm:py-8 md:py-10 lg:px-8 lg:py-12"
-      style={{ background: 'linear-gradient(160deg, #030e2b 0%, #041640 40%, #072060 70%, #0b2e9a 100%)' }}
-    >
-      {/* ── Background layer ── */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
+    <div className="login-root">
+      {/* ── Background ── */}
+      <div className="login-bg">
         <ParticleBackground className="absolute inset-0" id="login-particles" />
-        <div className="absolute top-[-15%] left-[-10%] w-[50%] h-[50%] bg-blue-700/10 rounded-full blur-[140px] animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] bg-indigo-600/10 rounded-full blur-[120px] animate-pulse delay-1000" />
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '36px 36px' }}
-        />
+        <div style={{ position: 'absolute', top: '-15%', left: '-10%', width: '50%', height: '50%', background: 'rgba(29,78,216,0.10)', borderRadius: '50%', filter: 'blur(140px)' }} />
+        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '45%', height: '45%', background: 'rgba(79,70,229,0.10)', borderRadius: '50%', filter: 'blur(120px)' }} />
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '36px 36px' }} />
       </div>
 
-      {/* ── Content ── */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center lg:items-center justify-center gap-8 lg:gap-12 xl:gap-16 my-auto">
-
-        {/* ── Left panel / Hero Info Section (Visible on all devices) ───────── */}
+      {/* ── Main Two-Column Body ── */}
+      <div className="login-body">
+        {/* ════════════════════════════════════
+            LEFT PANEL — Info & Branding
+        ════════════════════════════════════ */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="login-left"
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
-          className="w-full lg:w-[54%] xl:w-[56%] flex flex-col justify-center text-center lg:text-left"
         >
-          {/* Top badges */}
-          <div className="flex items-center justify-center lg:justify-start gap-2.5 mb-3 sm:mb-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 flex-shrink-0">
-              <ShieldCheckIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          {/* Badge row */}
+          <div className="login-badges">
+            <div className="login-shield-icon">
+              <ShieldCheckIcon style={{ width: 24, height: 24, color: 'white' }} />
             </div>
-            <div className="flex items-center gap-2 flex-wrap justify-center lg:justify-start">
-              <span className="text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-[0.2em] bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
-                Secure Gateway
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-green-400 font-medium bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                Operational
-              </span>
-            </div>
+            <span className="badge-secure">Secure Gateway</span>
+            <span className="badge-online">
+              <span className="dot-pulse" /> Operational
+            </span>
           </div>
 
           {/* Heading */}
-          <div className="mb-4 sm:mb-6">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl xl:text-6xl font-black tracking-tight text-white leading-[1.05] sm:leading-[0.98] mb-2 sm:mb-3">
+          <div className="login-heading-wrap">
+            <h1 className="login-heading">
               ITPC
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-400">
-                HELP DESK
-              </span>
-              <span className="block text-xl sm:text-2xl xl:text-3xl font-semibold text-slate-300 mt-1 tracking-normal">
-                Management System
-              </span>
+              <span className="login-heading-gradient">HELP DESK</span>
+              <span className="login-heading-sub">Management System</span>
             </h1>
-            <div className="h-1 w-20 sm:w-24 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full mx-auto lg:mx-0" />
+            <div className="login-heading-bar" />
           </div>
 
-          <p className="text-slate-300 text-xs sm:text-sm md:text-base leading-relaxed max-w-lg mb-6 sm:mb-8 mx-auto lg:mx-0">
+          <p className="login-desc">
             Streamline government service delivery with a unified platform for ticket management,
             department coordination, and citizen support.
           </p>
 
-          {/* Responsive Feature Highlights */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2.5 sm:gap-3.5 mb-6 sm:mb-8">
-            {[
-              { icon: ShieldCheckIcon, color: 'from-blue-500 to-blue-600', title: 'Enterprise Security', sub: 'JWT auth, role-based access & audit logging' },
-              { icon: CloudIcon, color: 'from-indigo-500 to-indigo-600', title: 'Multi-Role Access', sub: 'Admin, Manager, Staff & Tenant portals' },
-              { icon: CpuChipIcon, color: 'from-cyan-500 to-cyan-600', title: 'Real-Time Analytics', sub: 'Live dashboards & automated reports' },
-            ].map(({ icon: Icon, color, title, sub }) => (
-              <div
-                key={title}
-                className="flex items-center gap-3.5 p-3 rounded-2xl bg-slate-800/30 border border-slate-700/30 hover:border-blue-500/30 hover:bg-slate-800/50 transition-all duration-200 text-left group"
-              >
-                <div className={`w-10 h-10 bg-gradient-to-br ${color} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200 flex-shrink-0`}>
-                  <Icon className="w-5 h-5 text-white" />
+          {/* Feature cards */}
+          <div className="login-features">
+            {FEATURES.map(({ icon: Icon, color, title, sub }) => (
+              <div key={title} className="login-feature-card">
+                <div className={`login-feature-icon bg-gradient-to-br ${color}`}>
+                  <Icon style={{ width: 20, height: 20, color: 'white' }} />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-white font-semibold text-xs sm:text-sm truncate">{title}</p>
-                  <p className="text-slate-400 text-[11px] sm:text-xs truncate">{sub}</p>
+                <div>
+                  <p className="login-feature-title">{title}</p>
+                  <p className="login-feature-sub">{sub}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* System Status widget */}
-          <div className="p-4 bg-slate-800/35 backdrop-blur-sm rounded-2xl border border-slate-700/40 w-full max-w-md lg:max-w-sm mx-auto lg:mx-0">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-white font-semibold text-xs flex items-center gap-2">
-                <WifiIcon className="w-4 h-4 text-green-400" />
+          {/* System Status */}
+          <div className="login-status-box">
+            <div className="login-status-header">
+              <span className="login-status-label">
+                <WifiIcon style={{ width: 16, height: 16, color: '#4ade80' }} />
                 System Status
               </span>
-              <span className="flex items-center gap-1.5 text-xs text-green-400 font-medium">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                Operational
+              <span className="login-status-ok">
+                <span className="dot-pulse" /> Operational
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-y-2 gap-x-4 text-xs">
+            <div className="login-status-grid">
               {[['API', 'Online'], ['Auth', 'Active'], ['DB', 'Connected'], ['Uptime', '99.9%']].map(([k, v]) => (
-                <div key={k} className="flex justify-between items-center pr-2 py-0.5 border-b border-slate-700/20 sm:border-b-0 lg:border-b">
-                  <span className="text-slate-400">{k}:</span>
-                  <span className="text-white font-mono text-[11px] sm:text-xs">{v}</span>
+                <div key={k} className="login-status-row">
+                  <span className="login-status-key">{k}:</span>
+                  <span className="login-status-val">{v}</span>
                 </div>
               ))}
             </div>
           </div>
         </motion.div>
 
-        {/* ── Right panel — login card ───────────────────────────────────────── */}
+      {/* ════════════════════════════════════
+          RIGHT PANEL — Login Form
+      ════════════════════════════════════ */}
+      <div className="login-right">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
-          className="w-full max-w-[460px] lg:max-w-[420px] xl:max-w-[440px] flex-shrink-0"
+          className="login-card-wrap"
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
         >
-          <div
-            className={`rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-8 transition-all duration-300 ${
-              isFocused ? 'bg-white/[0.07]' : 'bg-white/[0.04]'
-            }`}
-            style={{
-              backdropFilter: 'blur(32px)',
-              WebkitBackdropFilter: 'blur(32px)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              boxShadow: '0 0 0 1px rgba(37,99,235,0.15), 0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
-            }}
-          >
+          {/* Mobile-only brand header */}
+          <div className="login-mobile-brand">
+            <div className="login-shield-icon" style={{ width: 48, height: 48, marginBottom: 12 }}>
+              <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
+            </div>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', textAlign: 'center', margin: 0 }}>
+              ITPC <span style={{ background: 'linear-gradient(to right, #60a5fa, #67e8f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELP DESK</span>
+            </h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: 4 }}>Management System</p>
+          </div>
+
+          {/* Glass card */}
+          <div className={`login-card ${isFocused ? 'login-card-focused' : ''}`}>
             {/* Card header */}
-            <div className="text-center mb-5 sm:mb-7">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-500/80 to-indigo-600/80 border border-blue-400/30 shadow-[0_0_30px_rgba(37,99,235,0.4)] mb-3 sm:mb-4">
-                <ShieldCheckIcon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+            <div className="login-card-header">
+              <div className="login-card-icon">
+                <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Welcome Back</h2>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1">Sign in to your account to continue</p>
+              <h2 className="login-card-title">Welcome Back</h2>
+              <p className="login-card-sub">Sign in to your account to continue</p>
             </div>
 
-            {/* Error / lock banner */}
+            {/* Error banner */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`mb-4 sm:mb-5 p-3 sm:p-3.5 rounded-xl border flex items-start gap-3 text-xs sm:text-sm ${
-                  isLocked
-                    ? 'bg-red-900/30 border-red-500/40 text-red-200'
-                    : 'bg-red-900/20 border-red-500/30 text-red-300'
-                }`}
+                className={`login-error ${isLocked ? 'login-error-locked' : ''}`}
               >
-                <LockClosedIcon className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
-                <span className="leading-snug">{error}</span>
+                <LockClosedIcon style={{ width: 16, height: 16, color: '#f87171', flexShrink: 0, marginTop: 2 }} />
+                <span>{error}</span>
               </motion.div>
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4" noValidate>
-              {/* Username field */}
-              <div>
-                <label htmlFor="identifier" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Username or Email
-                </label>
-                <div className="relative">
-                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <form onSubmit={handleSubmit} noValidate className="login-form">
+              <div className="login-field">
+                <label htmlFor="identifier" className="login-label">Username or Email</label>
+                <div className="login-input-wrap">
+                  <UserIcon className="login-input-icon" />
                   <input
                     ref={identifierRef}
                     id="identifier"
@@ -261,18 +285,15 @@ export default function Login() {
                     onBlur={() => setIsFocused(false)}
                     disabled={isLoading || isLocked}
                     placeholder="Enter your username or email"
-                    className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 transition-all duration-200"
+                    className="login-input"
                   />
                 </div>
               </div>
 
-              {/* Password field */}
-              <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <LockClosedIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <div className="login-field">
+                <label htmlFor="password" className="login-label">Password</label>
+                <div className="login-input-wrap">
+                  <LockClosedIcon className="login-input-icon" />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -283,102 +304,121 @@ export default function Login() {
                     onBlur={() => setIsFocused(false)}
                     disabled={isLoading || isLocked}
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-11 py-2.5 sm:py-3 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 transition-all duration-200"
+                    className="login-input"
+                    style={{ paddingRight: '2.75rem' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((p) => !p)}
                     disabled={isLoading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                    className="login-eye-btn"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword
-                      ? <EyeSlashIcon className="w-4 h-4" />
-                      : <EyeIcon className="w-4 h-4" />}
+                    {showPassword ? <EyeSlashIcon style={{ width: 16, height: 16 }} /> : <EyeIcon style={{ width: 16, height: 16 }} />}
                   </button>
                 </div>
               </div>
 
-              {/* Remember me */}
-              <label className="flex items-center gap-2.5 cursor-pointer select-none pt-0.5">
+              <label className="login-remember">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={isLoading}
-                  className="w-4 h-4 rounded accent-blue-500 cursor-pointer"
+                  style={{ width: 15, height: 15, accentColor: '#3b82f6', cursor: 'pointer' }}
                 />
-                <span className="text-xs sm:text-sm text-slate-300">Remember me for 7 days</span>
+                <span style={{ fontSize: '0.8125rem', color: '#cbd5e1' }}>Remember me for 7 days</span>
               </label>
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={isLoading || isLocked}
-                className="w-full py-3 sm:py-3.5 rounded-xl font-semibold text-white text-sm sm:text-base flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-200 active:scale-[0.98] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
-              >
+              <button type="submit" disabled={isLoading || isLocked} className="login-submit-btn">
                 {isLoading ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Authenticating…
-                  </>
+                  <><span className="login-spinner" />Authenticating…</>
                 ) : isLocked ? (
-                  <>
-                    <LockClosedIcon className="w-4 h-4" />
-                    Account Locked
-                  </>
+                  <><LockClosedIcon style={{ width: 16, height: 16 }} />Account Locked</>
                 ) : (
-                  <>
-                    Sign In
-                    <ArrowRightIcon className="w-4 h-4" />
-                  </>
+                  <>Sign In <ArrowRightIcon style={{ width: 16, height: 16 }} /></>
                 )}
               </button>
             </form>
 
             {/* Divider */}
-            <div className="my-4 sm:my-5 flex items-center gap-3">
-              <div className="flex-1 h-px bg-slate-700/60" />
-              <span className="text-[11px] sm:text-xs text-slate-400 font-medium">Quick demo access</span>
-              <div className="flex-1 h-px bg-slate-700/60" />
+            <div className="login-divider">
+              <div className="login-divider-line" />
+              <span className="login-divider-text">
+                <span className="login-divider-dot" />
+                Quick demo access
+              </span>
+              <div className="login-divider-line" />
             </div>
 
-            {/* Demo account grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map(({ role, username, bg, icon }, idx) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => quickFill(username)}
-                  className={`flex flex-col items-center justify-center gap-1 py-2 sm:py-2.5 px-2 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-700/60 transition-all duration-150 active:scale-95 group cursor-pointer ${
-                    idx === 4 ? 'col-span-2 sm:col-span-1' : ''
-                  }`}
-                >
-                  <span className={`text-xs font-bold text-transparent bg-clip-text bg-gradient-to-br ${bg} flex items-center gap-1`}>
-                    <span>{icon}</span> {role}
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-mono group-hover:text-slate-300">{username}</span>
-                </button>
-              ))}
+            {/* Demo accounts — compact, elegant 5-column row */}
+            <div className="login-demo-grid">
+              {DEMO_ACCOUNTS.map(({ role, username, Icon, accent, glow, bg, border }) => {
+                const isSelected = identifier.toLowerCase() === username.toLowerCase();
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => quickFill(username)}
+                    className={`login-demo-btn ${isSelected ? 'login-demo-btn-active' : ''}`}
+                    style={{
+                      '--demo-accent': accent,
+                      '--demo-glow': glow,
+                      '--demo-bg': bg,
+                      '--demo-border': border,
+                    } as React.CSSProperties}
+                    title={`Click to fill ${role} demo credentials`}
+                  >
+                    {/* Compact Icon Badge */}
+                    <div className="login-demo-icon">
+                      <Icon className="login-demo-svg" />
+                    </div>
+                    {/* Role name */}
+                    <span className="login-demo-role">{role}</span>
+                    {/* Username tag */}
+                    <span className="login-demo-username">{username}</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-center text-[10px] sm:text-[11px] text-slate-500 mt-2">
-              Password for all accounts: <code className="text-slate-300 font-mono">password</code>
-            </p>
+
+            <div className="login-demo-hint">
+              <KeyIcon className="login-demo-hint-key" />
+              <span>Password for all demo accounts:</span>
+              <code className="login-demo-pwd-pill">password</code>
+            </div>
 
             {/* Security notice */}
-            <div className="mt-4 sm:mt-5 p-2.5 sm:p-3 bg-slate-800/30 rounded-xl border border-slate-700/30 flex items-start gap-2">
-              <ShieldCheckIcon className="w-3.5 h-3.5 text-green-400 mt-0.5 flex-shrink-0" />
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed">
-                This is a secure help desk management system. All access attempts are logged and monitored.
-              </p>
+            <div className="login-security-notice">
+              <ShieldCheckIcon className="login-security-icon" />
+              <div className="login-security-content">
+                <span className="login-security-title">Secure Demo Environment</span>
+                <span className="login-security-sub">Enterprise RBAC active • Audit logging enabled</span>
+              </div>
             </div>
           </div>
-
-          <p className="text-center text-slate-500 text-[11px] sm:text-xs mt-3 sm:mt-4">
-            © 2026 ITPC Help Desk Management System
-          </p>
         </motion.div>
       </div>
+    </div>
+
+      {/* ════════════════════════════════════
+          BOTTOM SECTION — Centered & Visible
+      ════════════════════════════════════ */}
+      <footer className="login-bottom-section">
+        <div className="login-footer-pill">
+          <ShieldCheckIcon className="login-footer-icon" />
+          <span className="login-footer-copyright">
+            © 2026 <strong className="login-footer-brand-name">ITPC</strong> Help Desk Management System
+          </span>
+          <span className="login-footer-dot">•</span>
+          <span className="login-footer-status">
+            <span className="login-footer-pulse" />
+            All Systems Operational
+          </span>
+          <span className="login-footer-dot">•</span>
+          <span className="login-footer-badge">Official Portal</span>
+        </div>
+      </footer>
     </div>
   );
 }

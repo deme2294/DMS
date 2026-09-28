@@ -176,9 +176,9 @@ export const rateArticle = async (req, res, next) => {
   }
 };
 
-export const getStats = async (_req, res, next) => {
+export const getStats = async (req, res, next) => {
   try {
-    const data = await knowledgeService.getStats();
+    const data = await knowledgeService.getArticleStats(req.user);
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -315,3 +315,4 @@ export const searchArticles = async (req, res, next) => {
     next(err);
   }
 };
+

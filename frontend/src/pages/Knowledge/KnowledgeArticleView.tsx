@@ -24,6 +24,7 @@ import type { Article, ArticleVersion, KnowledgeAttachment } from '../../types/a
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
 import Modal from '../../components/Modal/Modal';
+import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeArticleView.module.css';
 
 export default function KnowledgeArticleView() {
@@ -32,7 +33,7 @@ export default function KnowledgeArticleView() {
   const { user } = useAuth();
   const { can } = usePermission();
   const role = user?.role;
-  const basePath = role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
+  const basePath = role === 'staff' ? '/staff/knowledge' : role === 'manager' ? '/manager/knowledge' : role === 'tenant' ? '/tenant/knowledge' : '/admin/knowledge';
 
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +118,26 @@ export default function KnowledgeArticleView() {
     runAction(() => deleteArticle(id!), 'Article deleted').then(() => navigate(basePath));
   };
   const handleRate = (helpful: boolean) => runAction(() => rateArticle(id!, helpful), 'Thanks for your feedback');
+  const openVersionModal = () => {
+    if (!article) return;
+    let nextVer = '';
+    if (article.version) {
+      const parts = article.version.replace(/^v/i, '').split('.');
+      if (parts.length === 2 && !isNaN(Number(parts[1]))) {
+        nextVer = `${parts[0]}.${Number(parts[1]) + 1}`;
+      } else if (!isNaN(Number(article.version))) {
+        nextVer = `${Number(article.version) + 1}.0`;
+      }
+    }
+    setVersionForm({
+      versionNumber: nextVer || '1.1',
+      title: article.title || '',
+      content: article.content || '',
+      changeSummary: '',
+    });
+    setShowVersionModal(true);
+  };
+
   const handleCreateVersion = () => {
     setShowVersionModal(false);
     runAction(() => createVersion(id!, versionForm), 'Version created').then(() => {
@@ -148,7 +169,7 @@ export default function KnowledgeArticleView() {
   if (!article) return <div className={styles.page}>Article not found</div>;
 
   const isTenant = role === 'tenant';
-  const canEdit = article.authorId === user?.id && ['draft', 'needs_revision'].includes(article.status) && !isTenant;
+  const canEdit = (role === 'admin' || role === 'manager' || (article.authorId === user?.id && ['draft', 'needs_revision'].includes(article.status))) && !isTenant;
 
   const statusBadgeClass = `${styles.badge} ${styles[article.status] || ''}`;
 
@@ -174,7 +195,10 @@ export default function KnowledgeArticleView() {
         </div>
         <div className={styles.metaItem}>
           <span className={styles.label}>Category</span>
-          <span className={styles.value}>{article.category}</span>
+          <span className={styles.value}>
+            <span style={{ marginRight: 6 }}>{resolveCategoryIcon(article.category)}</span>
+            {article.category}
+          </span>
         </div>
         <div className={styles.metaItem}>
           <span className={styles.label}>Visibility</span>
@@ -294,17 +318,29 @@ export default function KnowledgeArticleView() {
         {!isTenant && can('knowledge.submit') && article.authorId === user?.id && (article.status === 'draft' || article.status === 'needs_revision') && (
           <button className={styles.submitBtn} disabled={busy} onClick={handleSubmit}>Submit for Review</button>
         )}
-        {can('knowledge.request_revision') && article.status === 'pending_approval' && article.authorId !== user?.id && (
+        {/* Admin Draft Controls */}
+        {role === 'admin' && article.status === 'draft' && (
+          <>
+            <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
+            <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>✓ Approve Draft</button>
+          </>
+        )}
+        {/* Pending Approval Controls */}
+        {role === 'admin' && article.status === 'pending_approval' && (
+          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
+        )}
+        {can('knowledge.approve') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+          <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>✓ Approve</button>
+        )}
+        {can('knowledge.request_revision') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
           <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowRevisionModal(true)}>Request Changes</button>
         )}
-        {can('knowledge.reject') && article.status === 'pending_approval' && article.authorId !== user?.id && (
+        {can('knowledge.reject') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
           <button className={styles.danger} disabled={busy} onClick={() => setShowRejectModal(true)}>Reject</button>
         )}
-        {can('knowledge.approve') && article.status === 'pending_approval' && article.authorId !== user?.id && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleApprove}>Approve</button>
-        )}
+        {/* Approved Article - Ready to Publish */}
         {can('knowledge.publish') && article.status === 'approved' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handlePublish}>Publish</button>
+          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
         )}
         {can('knowledge.unpublish') && article.status === 'published' && (
           <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowUnpublishModal(true)}>Unpublish</button>
@@ -316,13 +352,10 @@ export default function KnowledgeArticleView() {
           <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>Restore</button>
         )}
         {can('knowledge.manage_versions') && (
-          <button className={styles.submitBtn} disabled={busy} onClick={() => setShowVersionModal(true)}>New Version</button>
+          <button className={styles.submitBtn} disabled={busy} onClick={openVersionModal}>New Version</button>
         )}
         {can('knowledge.delete') && (
           <button className={styles.danger} disabled={busy} onClick={() => setDeleteTarget(true)}>Delete</button>
-        )}
-        {!isTenant && canEdit && (
-          <button className={styles.edit} onClick={() => navigate(`${basePath}/${id}/edit`)}>Edit</button>
         )}
       </div>
 
@@ -357,79 +390,239 @@ export default function KnowledgeArticleView() {
         </div>
       )}
 
-      <Modal open={showRevisionModal} title="Request Revision" onClose={() => setShowRevisionModal(false)}>
-        <p>Please provide revision notes:</p>
-        <textarea
-          value={revisionReason}
-          onChange={(e) => setRevisionReason(e.target.value)}
-          placeholder="Enter revision notes..."
-          rows={4}
-          style={{ width: '100%', marginTop: 8 }}
-        />
-        <div className={styles.formActions}>
-          <button className={styles.submitBtn} onClick={handleRequestRevision}>Submit</button>
-          <button className={styles.cancelBtn} onClick={() => setShowRevisionModal(false)}>Cancel</button>
+      {/* ── Request Revision Modal ── */}
+      <Modal open={showRevisionModal} title="Request Changes / Revision" onClose={() => setShowRevisionModal(false)} maxWidth="580px">
+        <div className={`${styles.modalNoticeBox} ${styles.warning}`}>
+          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+          <div>
+            <strong>Sending Back to Author</strong>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
+              This article will transition to <strong>Needs Revision</strong> status. The author will be notified to review your notes and make corrections.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>
+            Revision Notes <span className={styles.requiredStar}>*</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={revisionReason}
+            onChange={(e) => setRevisionReason(e.target.value)}
+            placeholder="Explain specifically what details, formatting, or corrections are needed..."
+            rows={4}
+          />
+          <span className={styles.formHint}>Provide actionable guidance so the author can resolve issues quickly.</span>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button type="button" className={styles.secondaryModalBtn} onClick={() => setShowRevisionModal(false)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.primaryModalBtn}
+            style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}
+            disabled={busy || !revisionReason.trim()}
+            onClick={handleRequestRevision}
+          >
+            Submit Request
+          </button>
         </div>
       </Modal>
 
-      <Modal open={showRejectModal} title="Reject Article" onClose={() => setShowRejectModal(false)}>
-        <p>Please provide a rejection reason:</p>
-        <textarea
-          value={rejectReason}
-          onChange={(e) => setRejectReason(e.target.value)}
-          placeholder="Enter rejection reason..."
-          rows={4}
-          style={{ width: '100%', marginTop: 8 }}
-        />
-        <div className={styles.formActions}>
-          <button className={styles.danger} onClick={handleReject}>Reject</button>
-          <button className={styles.cancelBtn} onClick={() => setShowRejectModal(false)}>Cancel</button>
+      {/* ── Reject Article Modal ── */}
+      <Modal open={showRejectModal} title="Reject Article" onClose={() => setShowRejectModal(false)} maxWidth="560px">
+        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
+          <span style={{ fontSize: '1.2rem' }}>🛑</span>
+          <div>
+            <strong>Reject Article Submission</strong>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
+              This article will be marked as <strong>Rejected</strong> and removed from the active approval workflow.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>
+            Rejection Reason <span className={styles.requiredStar}>*</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Provide a clear explanation for rejecting this article..."
+            rows={4}
+          />
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button type="button" className={styles.secondaryModalBtn} onClick={() => setShowRejectModal(false)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.dangerModalBtn}
+            disabled={busy || !rejectReason.trim()}
+            onClick={handleReject}
+          >
+            Reject Article
+          </button>
         </div>
       </Modal>
 
-      <Modal open={showUnpublishModal} title="Unpublish Article" onClose={() => setShowUnpublishModal(false)}>
-        <p>Please provide a reason for unpublishing (optional):</p>
-        <textarea
-          value={unpublishReason}
-          onChange={(e) => setUnpublishReason(e.target.value)}
-          placeholder="Enter reason..."
-          rows={4}
-          style={{ width: '100%', marginTop: 8 }}
-        />
-        <div className={styles.formActions}>
-          <button className={styles.cancelBtn} onClick={handleUnpublish}>Unpublish</button>
-          <button className={styles.submitBtn} onClick={() => setShowUnpublishModal(false)}>Cancel</button>
+      {/* ── Unpublish Article Modal ── */}
+      <Modal open={showUnpublishModal} title="Unpublish Article" onClose={() => setShowUnpublishModal(false)} maxWidth="560px">
+        <div className={`${styles.modalNoticeBox} ${styles.warning}`}>
+          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+          <div>
+            <strong>Remove from Public Knowledge Base</strong>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
+              Tenants will no longer be able to search or view this article once unpublished.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Reason for Unpublishing (Optional)</label>
+          <textarea
+            className={styles.formTextarea}
+            value={unpublishReason}
+            onChange={(e) => setUnpublishReason(e.target.value)}
+            placeholder="e.g. Information is outdated; awaiting new software release..."
+            rows={3}
+          />
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button type="button" className={styles.secondaryModalBtn} onClick={() => setShowUnpublishModal(false)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.dangerModalBtn}
+            disabled={busy}
+            onClick={handleUnpublish}
+          >
+            Unpublish Article
+          </button>
         </div>
       </Modal>
 
-      <Modal open={showVersionModal} title="Create New Version" onClose={() => setShowVersionModal(false)}>
-        <div className={styles.formGroup}>
-          <label>Version Number</label>
-          <input value={versionForm.versionNumber} onChange={(e) => setVersionForm({ ...versionForm, versionNumber: e.target.value })} placeholder="e.g. 1.1" />
+      {/* ── Create New Version Modal ── */}
+      <Modal open={showVersionModal} title="Create New Version" onClose={() => setShowVersionModal(false)} maxWidth="680px">
+        <div className={styles.modalSubheader}>
+          <div className={styles.currentVersionBadge}>
+            Current Version: <strong>v{article.version || '1.0'}</strong>
+          </div>
+          <p className={styles.modalIntro}>
+            Create a new revision for this knowledge base article. The previous version will be preserved and accessible in version history.
+          </p>
         </div>
-        <div className={styles.formGroup}>
-          <label>Title</label>
-          <input value={versionForm.title} onChange={(e) => setVersionForm({ ...versionForm, title: e.target.value })} placeholder="Version title" />
+
+        <div className={styles.formRow}>
+          <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+            <label className={styles.formLabel}>
+              Version Number <span className={styles.requiredStar}>*</span>
+            </label>
+            <div className={styles.versionInputWrapper}>
+              <span className={styles.versionPrefix}>v</span>
+              <input
+                className={styles.formInput}
+                value={versionForm.versionNumber}
+                onChange={(e) => setVersionForm({ ...versionForm, versionNumber: e.target.value })}
+                placeholder="1.1"
+              />
+            </div>
+            <span className={styles.formHint}>e.g. 1.1 or 2.0</span>
+          </div>
+
+          <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+            <label className={styles.formLabel}>
+              Version Title <span className={styles.requiredStar}>*</span>
+            </label>
+            <input
+              className={styles.formInput}
+              value={versionForm.title}
+              onChange={(e) => setVersionForm({ ...versionForm, title: e.target.value })}
+              placeholder="Article version title"
+            />
+            <span className={styles.formHint}>Title displayed for this revision</span>
+          </div>
         </div>
+
         <div className={styles.formGroup}>
-          <label>Content</label>
-          <textarea value={versionForm.content} onChange={(e) => setVersionForm({ ...versionForm, content: e.target.value })} rows={6} />
+          <label className={styles.formLabel}>
+            Article Content <span className={styles.requiredStar}>*</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={versionForm.content}
+            onChange={(e) => setVersionForm({ ...versionForm, content: e.target.value })}
+            rows={8}
+            placeholder="Enter updated article content..."
+          />
+          <span className={styles.formHint}>Provide the updated body text and instructions.</span>
         </div>
+
         <div className={styles.formGroup}>
-          <label>Change Summary</label>
-          <textarea value={versionForm.changeSummary} onChange={(e) => setVersionForm({ ...versionForm, changeSummary: e.target.value })} rows={3} />
+          <label className={styles.formLabel}>
+            Change Summary / Release Notes <span className={styles.requiredStar}>*</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={versionForm.changeSummary}
+            onChange={(e) => setVersionForm({ ...versionForm, changeSummary: e.target.value })}
+            rows={2}
+            placeholder="Briefly describe what changed in this version (e.g. Added troubleshooting steps for Windows 11)"
+          />
+          <span className={styles.formHint}>A concise summary displayed in version comparison logs.</span>
         </div>
-        <div className={styles.formActions}>
-          <button className={styles.submitBtn} onClick={handleCreateVersion}>Create Version</button>
-          <button className={styles.cancelBtn} onClick={() => setShowVersionModal(false)}>Cancel</button>
+
+        <div className={styles.modalFooter}>
+          <button
+            type="button"
+            className={styles.secondaryModalBtn}
+            onClick={() => setShowVersionModal(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.primaryModalBtn}
+            disabled={busy || !versionForm.title.trim() || !versionForm.content.trim()}
+            onClick={handleCreateVersion}
+          >
+            🚀 Create Version
+          </button>
         </div>
       </Modal>
 
-      <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)}>
-        <p>Are you sure you want to delete "{article.title}"? This action cannot be undone.</p>
-        <div className={styles.formActions}>
-          <button className={styles.danger} onClick={handleDelete}>Delete</button>
-          <button className={styles.cancelBtn} onClick={() => setDeleteTarget(false)}>Cancel</button>
+      {/* ── Delete Confirmation Modal ── */}
+      <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)} maxWidth="520px">
+        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
+          <span style={{ fontSize: '1.3rem' }}>🗑️</span>
+          <div>
+            <strong>Permanent Action</strong>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
+              Are you sure you want to delete <strong>"{article.title}"</strong>? This action cannot be undone and will remove all associated feedback and records.
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter}>
+          <button type="button" className={styles.secondaryModalBtn} onClick={() => setDeleteTarget(false)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.dangerModalBtn}
+            disabled={busy}
+            onClick={handleDelete}
+          >
+            Delete Article
+          </button>
         </div>
       </Modal>
     </div>

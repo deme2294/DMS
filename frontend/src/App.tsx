@@ -161,6 +161,7 @@ export default function App() {
           <Route path="/manager/notices" element={<ProtectedRoute roles={['manager']}><ManagerNotices /></ProtectedRoute>} />
           <Route path="/manager/knowledge" element={<ProtectedRoute roles={['manager']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/manager/knowledge/create" element={<ProtectedRoute roles={['manager']}><KnowledgeCreate /></ProtectedRoute>} />
+          <Route path="/manager/knowledge/approval" element={<ProtectedRoute roles={['manager']}><KnowledgeApproval /></ProtectedRoute>} />
           <Route path="/manager/knowledge/my-articles" element={<ProtectedRoute roles={['manager']}><KnowledgeMyArticles /></ProtectedRoute>} />
           <Route path="/manager/knowledge/:id/edit" element={<ProtectedRoute roles={['manager']}><KnowledgeEdit /></ProtectedRoute>} />
           <Route path="/manager/knowledge/:id/versions" element={<ProtectedRoute roles={['manager']}><KnowledgeVersions /></ProtectedRoute>} />
@@ -174,6 +175,12 @@ export default function App() {
           <Route path="/staff/tickets" element={<ProtectedRoute roles={['staff']}><TicketList /></ProtectedRoute>} />
           <Route path="/staff/tickets/:id" element={<ProtectedRoute roles={['staff']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/staff/notices" element={<ProtectedRoute roles={['staff']}><StaffNotices /></ProtectedRoute>} />
+          <Route path="/staff/knowledge" element={<ProtectedRoute roles={['staff']}><KnowledgeList /></ProtectedRoute>} />
+          <Route path="/staff/knowledge/create" element={<ProtectedRoute roles={['staff']}><KnowledgeCreate /></ProtectedRoute>} />
+          <Route path="/staff/knowledge/my-articles" element={<ProtectedRoute roles={['staff']}><KnowledgeMyArticles /></ProtectedRoute>} />
+          <Route path="/staff/knowledge/:id/edit" element={<ProtectedRoute roles={['staff']}><KnowledgeEdit /></ProtectedRoute>} />
+          <Route path="/staff/knowledge/:id/versions" element={<ProtectedRoute roles={['staff']}><KnowledgeVersions /></ProtectedRoute>} />
+          <Route path="/staff/knowledge/:id" element={<ProtectedRoute roles={['staff']}><KnowledgeArticleView /></ProtectedRoute>} />
           <Route path="/staff/chat" element={<ProtectedRoute roles={['staff']}><ChatPage /></ProtectedRoute>} />
           <Route path="/staff/notifications" element={<ProtectedRoute roles={['staff']}><NotificationsPage /></ProtectedRoute>} />
           <Route path="/staff/profile" element={<ProtectedRoute roles={['staff']}><MyProfile /></ProtectedRoute>} />
@@ -183,6 +190,7 @@ export default function App() {
           <Route path="/tenant/tickets/create" element={<ProtectedRoute roles={['tenant']}><TicketCreate /></ProtectedRoute>} />
           <Route path="/tenant/tickets/:id" element={<ProtectedRoute roles={['tenant']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/tenant/knowledge" element={<ProtectedRoute roles={['tenant']}><KnowledgeList /></ProtectedRoute>} />
+          <Route path="/tenant/knowledge/:id" element={<ProtectedRoute roles={['tenant']}><KnowledgeArticleView /></ProtectedRoute>} />
           <Route path="/tenant/feedback" element={<ProtectedRoute roles={['tenant']}><FeedbackList /></ProtectedRoute>} />
           <Route path="/tenant/feedback/create" element={<ProtectedRoute roles={['tenant']}><FeedbackCreate /></ProtectedRoute>} />
           <Route path="/tenant/notices" element={<ProtectedRoute roles={['tenant']}><TenantNotices /></ProtectedRoute>} />
