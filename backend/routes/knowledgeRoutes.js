@@ -11,6 +11,14 @@ const router = Router();
 // Public published articles (no auth required) — tenants & visitors
 router.get('/public', knowledgeController.listPublicArticles);
 
+// Contributor my articles (drafts, pending, approved, published created by staff)
+router.get(
+  '/my-articles',
+  authenticate,
+  authorize('knowledge.create', 'knowledge.read'),
+  knowledgeController.getMyArticles
+);
+
 // Contributor drafts
 router.get(
   '/my-drafts',
@@ -35,8 +43,13 @@ router.get(
   knowledgeController.getNeedsRevision
 );
 
-// Article statistics (admin)
-router.get('/stats', authenticate, authorize('knowledge.view_statistics'), knowledgeController.getStats);
+// Article statistics (admin, manager, staff - scoped to role)
+router.get(
+  '/stats',
+  authenticate,
+  authorize('knowledge.view_statistics', 'knowledge.read', 'knowledge.create'),
+  knowledgeController.getStats
+);
 
 // Categories (any authenticated reader)
 router.get('/categories', authenticate, authorize('knowledge.read'), knowledgeController.getCategories);
@@ -197,9 +210,25 @@ router.post(
 router.post(
   '/:id/restore',
   authenticate,
-  authorize('knowledge.restore'),
+  authorize('knowledge.restore', 'knowledge.archive'),
   [param('id').isString().notEmpty(), validate],
   knowledgeController.restoreArticle
+);
+
+router.post(
+  '/:id/draft',
+  authenticate,
+  authorize('knowledge.update', 'knowledge.create'),
+  [param('id').isString().notEmpty(), validate],
+  knowledgeController.moveToDraft
+);
+
+router.post(
+  '/:id/to-draft',
+  authenticate,
+  authorize('knowledge.update', 'knowledge.create'),
+  [param('id').isString().notEmpty(), validate],
+  knowledgeController.moveToDraft
 );
 
 // Delete (admin only)

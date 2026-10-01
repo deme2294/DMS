@@ -88,7 +88,7 @@ export const fetchRoomById = async (roomId: string) => {
   return api.get<{ success: boolean; data: ChatRoom }>(`/chat/rooms/${roomId}`);
 };
 
-export const createTicketRoom = async (payload: { ticketId: string; name?: string }) => {
+export const createTicketRoom = async (payload: { ticketId: string; name?: string; timing?: 'now' | 'scheduled' }) => {
   return api.post<{ success: boolean; data: ChatRoom }>('/chat/rooms/ticket', payload);
 };
 
@@ -96,7 +96,7 @@ export const createDepartmentRoom = async (payload: { departmentId: string; name
   return api.post<{ success: boolean; data: ChatRoom }>('/chat/rooms/department', payload);
 };
 
-export const createDirectRoom = async (payload: { userId: string; name?: string; initialMode?: 'chat' | 'video' }) => {
+export const createDirectRoom = async (payload: { userId?: string; targetRole?: string; name?: string; initialMode?: 'chat' | 'video' }) => {
   return api.post<{ success: boolean; data: ChatRoom }>('/chat/rooms/direct', payload);
 };
 

@@ -1,5 +1,11 @@
 import api from './axios';
 
+export interface DepartmentRef {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export interface MeResponse {
   id: string;
   username: string;
@@ -8,9 +14,12 @@ export interface MeResponse {
   lastName: string;
   role: 'admin' | 'manager' | 'staff' | 'tenant' | 'ceo';
   tenantId?: string | null;
+  tenantName?: string | null;
   phone?: string | null;
   profileImage?: string | null;
   themePreference?: 'system' | 'light' | 'dark';
+  userCode?: string | null;
+  departments?: DepartmentRef[];
 }
 
 export const login = (payload: { identifier: string; password: string; rememberMe?: boolean }) =>

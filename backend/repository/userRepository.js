@@ -99,9 +99,11 @@ export const findById = async (id) => {
   const [rows] = await pool.query(
     `SELECT u.id, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
             u.first_name, u.last_name, u.phone, u.profile_image, u.status, u.theme_preference,
-            u.user_code, u.last_login_at, u.created_at, u.updated_at
+            u.user_code, u.last_login_at, u.created_at, u.updated_at,
+            t.organization_name AS tenant_name
       FROM users u
       JOIN roles r ON r.id = u.role_id
+      LEFT JOIN tenants t ON t.id = u.tenant_id
       WHERE u.id = :id
       LIMIT 1`,
     { id }

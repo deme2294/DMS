@@ -11,6 +11,7 @@ interface InAppVideoConferenceProps {
   onLeave: () => void;
   onSwitchToChat: () => void;
   onOpenInviteModal?: () => void;
+  onStartNewVideoConference?: () => void;
   isWholePageMode?: boolean;
   onToggleWholePageMode?: () => void;
 }
@@ -127,6 +128,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
   onLeave,
   onSwitchToChat,
   onOpenInviteModal,
+  onStartNewVideoConference,
   isWholePageMode,
   onToggleWholePageMode,
 }) => {
@@ -662,7 +664,11 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               {room.name || 'Help Desk Video Conference'}
             </h4>
             <div className={styles.inAppConferenceMeta}>
-              <span className={styles.inAppHdAudioBadge}>🎙️ HD Audio (Noise Suppression ON)</span>
+              <span className={styles.inAppHdAudioBadge} style={{ background: '#fce7f3', color: '#be185d', borderColor: '#fbcfe8' }}>
+                🗓️ Session: Today ({new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })})
+              </span>
+              <span className={styles.metaDivider}>•</span>
+              <span className={styles.inAppHdAudioBadge}>🎙️ HD Audio ON</span>
               <span className={styles.metaDivider}>•</span>
               <span>🔒 Encrypted WebRTC</span>
               <span className={styles.metaDivider}>•</span>
@@ -678,6 +684,23 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         </div>
 
         <div className={styles.inAppConferenceHeaderActions}>
+          {onStartNewVideoConference && (
+            <button
+              type="button"
+              className={styles.inAppSwitchChatBtn}
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed 0%, #db2777 100%)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+              }}
+              onClick={onStartNewVideoConference}
+              title="Create a new video conference chat session with custom date (default today)"
+            >
+              📹 + New Video Chat
+            </button>
+          )}
+
           <button
             type="button"
             className={styles.inAppSwitchChatBtn}
@@ -991,6 +1014,18 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           >
             <span className={styles.inAppControlIcon}>🗓️</span>
             <span className={styles.inAppControlLabel}>Invite & Time</span>
+          </button>
+        )}
+
+        {onStartNewVideoConference && (
+          <button
+            type="button"
+            onClick={onStartNewVideoConference}
+            className={styles.inAppControlBtn}
+            title="Create or schedule a new video conference chat (default today)"
+          >
+            <span className={styles.inAppControlIcon}>📹</span>
+            <span className={styles.inAppControlLabel}>New Call</span>
           </button>
         )}
 

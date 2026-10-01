@@ -19,6 +19,7 @@ export interface Notice {
   creator_role?: string;
   expiresAt?: string | null;
   createdBy: string;
+  created_by?: string;
   createdByName?: string;
   creator_first_name?: string;
   creator_last_name?: string;

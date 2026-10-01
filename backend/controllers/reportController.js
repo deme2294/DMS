@@ -53,9 +53,12 @@ export const getTicketReports = async (req, res, next) => {
 export const getDepartmentReports = async (req, res, next) => {
   try {
     const rows = await reportService.getDepartmentReports(req.query, req.user);
+    const hasFilter = Boolean(req.query.startDate || req.query.endDate || req.query.departmentId);
     const data = {
       totalDepartments: rows.length,
-      activeDepartments: rows.filter((r) => r.status === 'active').length,
+      activeDepartments: hasFilter
+        ? rows.filter((r) => Number(r.total_tickets || 0) > 0).length
+        : rows.filter((r) => r.status === 'active').length,
       departmentPerformance: rows.map((r) => ({
         id: String(r.id),
         name: r.name,
@@ -76,9 +79,12 @@ export const getDepartmentReports = async (req, res, next) => {
 export const getStaffReports = async (req, res, next) => {
   try {
     const rows = await reportService.getStaffReports(req.query, req.user);
+    const hasFilter = Boolean(req.query.startDate || req.query.endDate || req.query.departmentId);
     const data = {
       totalStaff: rows.length,
-      activeStaff: rows.filter((r) => r.status === 'active').length,
+      activeStaff: hasFilter
+        ? rows.filter((r) => Number(r.total_assigned || 0) > 0).length
+        : rows.filter((r) => r.status === 'active').length,
       staffPerformance: rows.map((r) => ({
         id: String(r.id),
         name: `${r.first_name} ${r.last_name}`,
@@ -97,9 +103,12 @@ export const getStaffReports = async (req, res, next) => {
 export const getTenantReports = async (req, res, next) => {
   try {
     const rows = await reportService.getTenantReports(req.query, req.user);
+    const hasFilter = Boolean(req.query.startDate || req.query.endDate || req.query.tenantId || req.query.departmentId);
     const data = {
       totalTenants: rows.length,
-      activeTenants: rows.filter((r) => r.status === 'active').length,
+      activeTenants: hasFilter
+        ? rows.filter((r) => Number(r.total_tickets || 0) > 0).length
+        : rows.filter((r) => r.status === 'active').length,
       tenantActivity: rows.map((r) => ({
         id: String(r.tenant_id),
         organizationName: r.organization_name,

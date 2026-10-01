@@ -224,8 +224,14 @@ export async function runAutoMigrations() {
 
     // 2d. Table notices -> Add creator_role for tracking who created the notice
     if (!(await columnExists('notices', 'creator_role'))) {
-      await pool.query("ALTER TABLE notices ADD COLUMN creator_role ENUM('admin','manager','ceo') NULL AFTER created_by");
+      await pool.query("ALTER TABLE notices ADD COLUMN creator_role ENUM('admin','manager','ceo','staff') NULL AFTER created_by");
       console.log('[MIGRATION] Added column notices.creator_role');
+    } else {
+      try {
+        await pool.query("ALTER TABLE notices MODIFY COLUMN creator_role ENUM('admin','manager','ceo','staff') NULL");
+      } catch {
+        // ignore if already modified
+      }
     }
 
     // 3. Table tickets -> add tenant confirmation and escalation columns
@@ -628,19 +634,30 @@ export async function runAutoMigrations() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS knowledge_categories (
         id CHAR(36) PRIMARY KEY,
-        name VARCHAR(100) NOT NULL UNIQUE,
-        slug VARCHAR(100) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) NOT NULL,
         description TEXT NULL,
         icon VARCHAR(50) NULL,
         is_active TINYINT(1) NOT NULL DEFAULT 1,
         parent_id CHAR(36) NULL,
+        department_id CHAR(36) NULL,
         created_by CHAR(36) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         KEY idx_kb_category_parent (parent_id),
-        KEY idx_kb_category_active (is_active)
+        KEY idx_kb_category_active (is_active),
+        KEY idx_kb_category_dept (department_id),
+        KEY idx_kb_category_name (name)
       )
     `);
+    try {
+      const [colCheck] = await pool.query("SHOW COLUMNS FROM knowledge_categories LIKE 'department_id'");
+      if (!colCheck.length) {
+        await pool.query("ALTER TABLE knowledge_categories ADD COLUMN department_id CHAR(36) NULL AFTER parent_id, ADD KEY idx_kb_category_dept (department_id)");
+      }
+    } catch {
+      // ignore
+    }
     console.log('[MIGRATION] Created/verified knowledge_categories table');
 
     // 20. Create knowledge_article_versions table
@@ -702,24 +719,25 @@ export async function runAutoMigrations() {
        WHERE r.name = 'admin' AND p.code IN ('knowledge.submit','knowledge.review','knowledge.request_revision','knowledge.reject','knowledge.unpublish','knowledge.archive','knowledge.restore','knowledge.manage_categories','knowledge.view_versions','knowledge.manage_versions','knowledge.view_audit','knowledge.view_statistics')`
     );
 
-    // Ensure manager has review and approval permissions for department articles
+    // Ensure manager has review and approval permissions for department articles and notice manage permissions
     await pool.query(
       `INSERT IGNORE INTO role_permissions (role_id, permission_id)
        SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
        WHERE r.name = 'manager' AND p.code IN (
          'knowledge.read','knowledge.create','knowledge.update','knowledge.submit',
          'knowledge.review','knowledge.request_revision','knowledge.approve','knowledge.reject',
-         'knowledge.categories','knowledge.view_versions'
+         'knowledge.categories','knowledge.view_versions',
+         'notices.read','notices.create','notices.update','notices.delete'
        )`
     );
 
-    // Ensure staff has submit permission for department articles
+    // Ensure staff has submit permission for department articles and notice creation/update/deletion to department head
     await pool.query(
       `INSERT IGNORE INTO role_permissions (role_id, permission_id)
        SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
        WHERE r.name = 'staff' AND p.code IN (
          'knowledge.read','knowledge.create','knowledge.update','knowledge.submit',
-         'knowledge.view_versions'
+         'knowledge.view_versions','notices.read','notices.create','notices.update','notices.delete'
        )`
     );
 

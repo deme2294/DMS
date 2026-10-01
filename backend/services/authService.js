@@ -4,6 +4,8 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import jwtConfig from '../config/jwt.js';
 import * as authRepo from '../repository/authRepository.js';
+import * as userRepo from '../repository/userRepository.js';
+import { sanitizeUser } from '../models/User.js';
 import * as auditService from './auditService.js';
 import { sendAccountLockedEmail } from './emailService.js';
 
@@ -90,16 +92,10 @@ export const login = async ({ identifier, password, rememberMe, ip, userAgent })
   // Audit log
   auditService.logAction(user.id, 'login', 'user', user.id, ip, { username: user.username }).catch(() => { });
 
+  const fullUser = await userRepo.findById(user.id);
+
   return {
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      role: user.role,
-      tenantId: user.tenant_id,
-    },
+    user: sanitizeUser(fullUser || user),
     ...tokens,
     rememberMe: !!rememberMe,
   };

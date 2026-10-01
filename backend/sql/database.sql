@@ -365,7 +365,7 @@ CREATE TABLE notices (
   expires_at DATETIME NULL,
   expiry_warned TINYINT(1) NOT NULL DEFAULT 0,
   created_by CHAR(36) NOT NULL,
-  creator_role ENUM('admin','manager','ceo') NULL,
+  creator_role ENUM('admin','manager','ceo','staff') NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -786,7 +786,7 @@ JOIN permissions p ON p.code IN (
   'tickets.complete','tickets.reassign','tickets.change_priority','tickets.escalate','tickets.internal_note',
   'ticket_categories.manage',
   'dashboard.read','departments.read','departments.manage','matrix.manage','reports.read','audit.read',
-  'notices.read',
+  'notices.read','notices.create','notices.update',
   'knowledge.read','knowledge.create','knowledge.update','knowledge.submit','knowledge.review','knowledge.request_revision','knowledge.approve','knowledge.reject','knowledge.categories','knowledge.view_versions'
 )
 WHERE r.name = 'manager';
@@ -794,7 +794,7 @@ WHERE r.name = 'manager';
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r
 JOIN permissions p ON p.code IN (
-  'tickets.read','tickets.assign','tickets.complete','tickets.internal_note','dashboard.read','notices.read',
+  'tickets.read','tickets.assign','tickets.complete','tickets.internal_note','dashboard.read','notices.read','notices.create',
   'knowledge.read','knowledge.create','knowledge.update','knowledge.submit','knowledge.view_versions'
 )
 WHERE r.name = 'staff';

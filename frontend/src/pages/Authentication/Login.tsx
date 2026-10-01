@@ -145,9 +145,9 @@ export default function Login() {
       {/* ── Background ── */}
       <div className="login-bg">
         <ParticleBackground className="absolute inset-0" id="login-particles" />
-        <div style={{ position: 'absolute', top: '-15%', left: '-10%', width: '50%', height: '50%', background: 'rgba(29,78,216,0.10)', borderRadius: '50%', filter: 'blur(140px)' }} />
-        <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '45%', height: '45%', background: 'rgba(79,70,229,0.10)', borderRadius: '50%', filter: 'blur(120px)' }} />
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '36px 36px' }} />
+        <div className="login-bg-glow-top" />
+        <div className="login-bg-glow-bottom" />
+        <div className="login-grid-texture" />
       </div>
 
       {/* ── Main Two-Column Body ── */}
@@ -161,15 +161,21 @@ export default function Login() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
         >
-          {/* Badge row */}
-          <div className="login-badges">
-            <div className="login-shield-icon">
-              <ShieldCheckIcon style={{ width: 24, height: 24, color: 'white' }} />
+          {/* Organization Logo & Badges */}
+          <div className="login-brand-header">
+            <div className="login-logo-card">
+              <img src="/logo.png" alt="Ethiopian IT Park" className="login-logo-img" />
             </div>
-            <span className="badge-secure">Secure Gateway</span>
-            <span className="badge-online">
-              <span className="dot-pulse" /> Operational
-            </span>
+
+            <div className="login-badges">
+              <span className="badge-secure">
+                <ShieldCheckIcon style={{ width: 15, height: 15, marginRight: 5, verticalAlign: 'middle', display: 'inline' }} />
+                Secure Gateway
+              </span>
+              <span className="badge-online">
+                <span className="dot-pulse" /> Operational
+              </span>
+            </div>
           </div>
 
           {/* Heading */}
@@ -236,8 +242,8 @@ export default function Login() {
         >
           {/* Mobile-only brand header */}
           <div className="login-mobile-brand">
-            <div className="login-shield-icon" style={{ width: 48, height: 48, marginBottom: 12 }}>
-              <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
+            <div className="login-logo-card" style={{ margin: '0 auto 14px' }}>
+              <img src="/logo.png" alt="Ethiopian IT Park" className="login-logo-img" />
             </div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', textAlign: 'center', margin: 0 }}>
               ITPC <span style={{ background: 'linear-gradient(to right, #60a5fa, #67e8f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELP DESK</span>

@@ -24,7 +24,13 @@ export const getRoomById = async (req, res, next) => {
 
 export const createTicketRoom = async (req, res, next) => {
   try {
-    const room = await chatService.createTicketRoom(req.body.ticketId, req.user.id);
+    const io = req.app?.get('io');
+    const room = await chatService.createTicketRoom(
+      req.body.ticketId,
+      req.user.id,
+      req.body.timing || 'now',
+      io
+    );
     res.status(HTTP.CREATED).json({ success: true, data: room });
   } catch (err) {
     next(err);
@@ -43,9 +49,10 @@ export const createDepartmentRoom = async (req, res, next) => {
 export const createDirectRoom = async (req, res, next) => {
   try {
     const io = req.app?.get('io');
+    const targetUserId = req.body.userId || (req.body.targetRole === 'admin' ? 'admin' : null);
     const room = await chatService.createDirectRoom(
       req.user.id,
-      req.body.userId,
+      targetUserId,
       req.user.role,
       req.body.initialMode || 'chat',
       io
@@ -55,6 +62,7 @@ export const createDirectRoom = async (req, res, next) => {
     next(err);
   }
 };
+
 
 export const getRoomParticipants = async (req, res, next) => {
   try {

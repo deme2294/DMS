@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DataTable from '../../components/Tables/DataTable';
-import Modal from '../../components/Modal/Modal';
-import MatrixBulkForm from '../../components/Forms/MatrixBulkForm';
-import {
-  fetchMatrixGrid,
-  fetchAssignments,
-  toggleAssignment,
-  assignUserToDepartment,
-  assignDepartmentToUser,
-  deleteAssignment,
-} from '../../api/matrixApi';
+import { fetchMatrixGrid, fetchAssignments } from '../../api/matrixApi';
 import type { MatrixAssignment, MatrixGridData } from '../../types/matrix';
 import { usePagination } from '../../hooks/usePagination';
 import styles from './Matrix.module.css';
@@ -22,9 +13,6 @@ export default function ManagerMatrixView() {
   const [loadingGrid, setLoadingGrid] = useState(true);
   const [loadingList, setLoadingList] = useState(true);
   const [search, setSearch] = useState('');
-  const [message, setMessage] = useState('');
-  const [bulkModal, setBulkModal] = useState<'user' | 'department' | null>(null);
-  const [savingCell, setSavingCell] = useState<string | null>(null);
 
   const loadGrid = useCallback(async () => {
     setLoadingGrid(true);
@@ -60,66 +48,36 @@ export default function ManagerMatrixView() {
     [grid]
   );
 
-  const handleToggleCell = async (userId: string, departmentId: string, assigned: boolean) => {
-    const key = `${userId}-${departmentId}`;
-    setSavingCell(key);
-    try {
-      await toggleAssignment({ userId, departmentId, assigned });
-      setMessage(assigned ? 'Assignment added' : 'Assignment removed');
-      await Promise.all([loadGrid(), loadAssignments()]);
-    } catch (err) {
-      setMessage((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to toggle assignment');
-    } finally {
-      setSavingCell(null);
-    }
-  };
-
-  const handleDeleteAssignment = async (assignment: MatrixAssignment) => {
-    if (!window.confirm('Remove this assignment?')) return;
-    await deleteAssignment(assignment.id);
-    setMessage('Assignment deleted');
-    await Promise.all([loadGrid(), loadAssignments()]);
-  };
-
-  const handleBulkUser = async ({ id, selectedId }: { id: string; selectedId: string | null }) => {
-    try {
-      await assignUserToDepartment(id, selectedId);
-      setBulkModal(null);
-      setMessage('User department updated');
-      await Promise.all([loadGrid(), loadAssignments()]);
-    } catch (err) {
-      setMessage((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to assign user to department');
-    }
-  };
-
-  const handleBulkDepartment = async ({ id, selectedId }: { id: string; selectedId: string | null }) => {
-    try {
-      await assignDepartmentToUser(id, selectedId);
-      setBulkModal(null);
-      setMessage('Department user updated');
-      await Promise.all([loadGrid(), loadAssignments()]);
-    } catch (err) {
-      setMessage((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to assign department to user');
-    }
-  };
-
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
-          <h1>User–Department Matrix</h1>
-          <p>Assign users in your departments and manage organizational coverage.</p>
+          <h1>Department Roster &amp; Coverage Matrix</h1>
+          <p>View users and staff members assigned to your department. Assignments are managed centrally by the System Administrator.</p>
+          {activeDepartments.length > 0 && (
+            <div className={styles.deptTags}>
+              {activeDepartments.map((dept) => (
+                <span key={dept.id} className={styles.deptTag}>
+                  🏛️ {dept.name} ({dept.code})
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className={styles.headerActions}>
-          <button onClick={() => setBulkModal('user')}>👤 Assign User → Departments</button>
-          <button onClick={() => setBulkModal('department')}>🏢 Assign Department → Users</button>
+          <span className={styles.badgeReadonly}>🔒 View-Only Roster</span>
         </div>
       </div>
 
-      {message && <div className={styles.toast}>{message}</div>}
+      <div className={styles.infoBanner}>
+        <span>ℹ️</span>
+        <div>
+          <strong>Department Coverage:</strong> You are viewing staff and users assigned to your department. User-to-department assignments and reallocations are managed centrally by the <strong>System Administrator</strong> on the Admin Matrix page.
+        </div>
+      </div>
 
       <section className={styles.section}>
-        <h2>Matrix Grid</h2>
+        <h2 className={styles.sectionTitle}>Matrix Grid</h2>
         {loadingGrid || !grid ? (
           <div className={styles.loading}>Loading matrix...</div>
         ) : (
@@ -136,33 +94,41 @@ export default function ManagerMatrixView() {
                 </tr>
               </thead>
               <tbody>
-                {grid.users.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <div className={styles.userCell}>
-                        <strong>{user.firstName} {user.lastName}</strong>
-                        <span>{user.role}</span>
-                      </div>
+                {grid.users.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeDepartments.length + 1} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                      No users currently assigned to your department.
                     </td>
-                    {activeDepartments.map((dept) => {
-                      const assigned = user.departmentId === dept.id;
-                      const cellKey = `${user.id}-${dept.id}`;
-                      return (
-                        <td key={dept.id} className={styles.cell}>
-                          <button
-                            type="button"
-                            className={`${styles.toggle} ${assigned ? styles.on : styles.off}`}
-                            disabled={savingCell === cellKey}
-                            onClick={() => handleToggleCell(user.id, dept.id, !assigned)}
-                            aria-label={`Toggle ${user.username} in ${dept.code}`}
-                          >
-                            {assigned ? '✓' : '—'}
-                          </button>
-                        </td>
-                      );
-                    })}
                   </tr>
-                ))}
+                ) : (
+                  grid.users.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div className={styles.userCell}>
+                          <strong>{user.firstName} {user.lastName}</strong>
+                          <span>{user.role} &bull; {user.email || user.username}</span>
+                        </div>
+                      </td>
+                      {activeDepartments.map((dept) => {
+                        const assigned = user.departmentId === dept.id;
+                        return (
+                          <td key={dept.id} className={styles.cell}>
+                            {assigned ? (
+                              <div
+                                className={styles.assignedIndicator}
+                                title={`${user.firstName} ${user.lastName} is assigned to ${dept.name}`}
+                              >
+                                ✓
+                              </div>
+                            ) : (
+                              <span className={styles.unassignedIndicator}>—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -171,9 +137,14 @@ export default function ManagerMatrixView() {
 
       <section className={styles.section}>
         <div className={styles.listHeader}>
-          <h2>Assignment List</h2>
+          <div>
+            <h2 className={styles.sectionTitle}>Department Team Roster</h2>
+            <p style={{ margin: '0 0 8px', fontSize: '0.82rem', color: '#64748b' }}>
+              Detailed directory of active team members in your department.
+            </p>
+          </div>
           <input
-            placeholder="Search assignments..."
+            placeholder="Search team members..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -189,68 +160,63 @@ export default function ManagerMatrixView() {
             {
               key: 'user',
               label: 'User',
-              render: (row) => `${row.firstName} ${row.lastName} (${row.username})`,
+              render: (row) => (
+                <div className={styles.userCell}>
+                  <strong>{row.firstName} {row.lastName}</strong>
+                  <span>@{row.username} &bull; {row.email}</span>
+                </div>
+              ),
             },
             {
               key: 'department',
               label: 'Department',
               render: (row) => `${row.departmentName} (${row.departmentCode})`,
             },
-            { key: 'userRole', label: 'Role' },
             {
-              key: 'assignedAt',
-              label: 'Assigned',
-              render: (row) =>
-                row.assignedAt ? new Date(row.assignedAt).toLocaleString() : '—',
+              key: 'userRole',
+              label: 'Role',
+              render: (row) => (
+                <span style={{ textTransform: 'capitalize', fontWeight: 500 }}>
+                  {row.userRole}
+                </span>
+              ),
             },
             {
-              key: 'actions',
-              label: 'Actions',
-              render: (row) => (
-                <button className={styles.danger} onClick={() => handleDeleteAssignment(row)}>
-                  Remove
-                </button>
+              key: 'assignedAt',
+              label: 'Assigned Date',
+              render: (row) =>
+                row.assignedAt
+                  ? new Date(row.assignedAt).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : '—',
+            },
+            {
+              key: 'status',
+              label: 'Coverage Status',
+              render: () => (
+                <span className={styles.statusPill}>
+                  ✓ Active Member
+                </span>
               ),
             },
           ]}
         />
 
         <div className={styles.pagination}>
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
-          <span>Page {page} of {totalPages}</span>
-          <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
+          <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
+            Previous
+          </button>
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
+            Next
+          </button>
         </div>
       </section>
-
-      <Modal
-        open={bulkModal === 'user'}
-        title="Assign User to Departments"
-        onClose={() => setBulkModal(null)}
-      >
-        {grid && (
-          <MatrixBulkForm
-            mode="user"
-            users={grid.users}
-            departments={activeDepartments}
-            onSubmit={handleBulkUser}
-          />
-        )}
-      </Modal>
-
-      <Modal
-        open={bulkModal === 'department'}
-        title="Assign Department to Users"
-        onClose={() => setBulkModal(null)}
-      >
-        {grid && (
-          <MatrixBulkForm
-            mode="department"
-            users={grid.users}
-            departments={activeDepartments}
-            onSubmit={handleBulkDepartment}
-          />
-        )}
-      </Modal>
     </div>
   );
 }

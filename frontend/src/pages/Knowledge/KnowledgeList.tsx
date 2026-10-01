@@ -17,6 +17,7 @@ import {
   unpublishArticle,
   archiveArticle,
   restoreArticle,
+  moveToDraft,
   rateArticle,
   fetchAllCategories,
   fetchArticleStats,
@@ -28,7 +29,7 @@ import { useAuth } from '../../context/AuthContext';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeList.module.css';
 
-type Tab = 'all' | 'my-drafts' | 'pending' | 'approved' | 'published' | 'needs-revision';
+type Tab = 'all' | 'my-drafts' | 'pending' | 'approved' | 'published' | 'needs-revision' | 'archived-restored';
 
 export default function KnowledgeList() {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ export default function KnowledgeList() {
   const [rejectReason, setRejectReason] = useState('');
 
   const loadStats = useCallback(async () => {
-    if (isAdmin || isManager) {
+    if (isAdmin || isManager || isStaff) {
       try {
         const res = await fetchArticleStats();
         if (res.data?.success && res.data?.data) {
@@ -79,7 +80,7 @@ export default function KnowledgeList() {
         // ignore
       }
     }
-  }, [isAdmin, isManager]);
+  }, [isAdmin, isManager, isStaff]);
 
   const loadArticles = useCallback(async () => {
     setLoading(true);
@@ -90,13 +91,26 @@ export default function KnowledgeList() {
       if (tab === 'my-drafts') {
         res = await fetchArticles({ ...params, status: 'draft', authorId: user?.id });
       } else if (tab === 'pending') {
-        res = await fetchPendingReview();
+        res = await fetchArticles({
+          ...params,
+          status: 'pending_approval',
+          authorId: isStaff ? user?.id : undefined,
+        });
       } else if (tab === 'approved') {
         res = await fetchArticles({ ...params, status: 'approved' });
       } else if (tab === 'published') {
         res = await fetchArticles({ ...params, status: 'published' });
       } else if (tab === 'needs-revision') {
-        res = await fetchNeedsRevision();
+        res = await fetchArticles({
+          ...params,
+          status: 'needs_revision',
+          authorId: isStaff ? user?.id : undefined,
+        });
+      } else if (tab === 'archived-restored') {
+        res = await fetchArticles({
+          ...params,
+          status: status || 'archived,restored',
+        });
       } else {
         res = await fetchArticles({
           ...params,
@@ -110,7 +124,7 @@ export default function KnowledgeList() {
     } finally {
       setLoading(false);
     }
-  }, [isTenant, tab, search, status, category, page, limit, user?.id]);
+  }, [isTenant, tab, search, status, category, page, limit, user?.id, isStaff]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -166,7 +180,7 @@ export default function KnowledgeList() {
 
   const canEdit = (a: Article) => {
     if (isAdmin || isManager) return true;
-    if (isStaff) return a.authorId === user?.id && ['draft', 'needs_revision'].includes(a.status);
+    if (isStaff) return a.authorId === user?.id && ['draft', 'needs_revision', 'restored'].includes(a.status);
     return false;
   };
 
@@ -275,21 +289,26 @@ export default function KnowledgeList() {
       }
     }
 
-    // Manager review actions (if not admin)
+    // Manager review actions (strictly for department staff articles)
     if (!isAdmin && isManager && a.status === 'pending_approval' && can('knowledge.approve')) {
-      buttons.push(
-        <button
-          key="approve"
-          className={styles.approveBtn}
-          onClick={() => runAction(() => approveArticle(a.id), 'Article approved by Department Manager')}
-        >
-          ✓ Approve
-        </button>
-      );
+      const isOwnArticle = a.authorId === user?.id;
+      if (!isOwnArticle) {
+        buttons.push(
+          <button
+            key="approve"
+            className={styles.approveBtn}
+            title="Approve article and automatically notify Admin to publish"
+            onClick={() => runAction(() => approveArticle(a.id), 'Article approved! Admin has been notified to publish.')}
+          >
+            ✓ Approve (Notify Admin)
+          </button>
+        );
+      }
       buttons.push(
         <button
           key="revision"
           className={styles.revisionBtn}
+          title="Send back to author with guidance notes"
           onClick={() => {
             setRevisionTarget(a);
             setRevisionReason('');
@@ -302,6 +321,7 @@ export default function KnowledgeList() {
         <button
           key="reject"
           className={styles.danger}
+          title="Reject article"
           onClick={() => {
             setRejectTarget(a);
             setRejectReason('');
@@ -312,21 +332,22 @@ export default function KnowledgeList() {
       );
     }
 
-    // Staff submission action
+    // Staff submission action (Staff can ONLY submit draft/revision, never approve or publish)
     if (isStaff && a.authorId === user?.id && (a.status === 'draft' || a.status === 'needs_revision')) {
       buttons.push(
         <button
           key="submit"
           className={styles.approveBtn}
-          onClick={() => runAction(() => submitArticle(a.id), 'Submitted for review')}
+          title="Submit article to your Department Manager for approval"
+          onClick={() => runAction(() => submitArticle(a.id), 'Submitted to Department Manager for review!')}
         >
-          Submit for Review
+          📤 Submit for Review
         </button>
       );
     }
 
-    // Unpublish / Archive / Restore
-    if (can('knowledge.unpublish') && a.status === 'published') {
+    // Unpublish / Archive / Restore (Admin only)
+    if (can('knowledge.unpublish') && a.status === 'published' && isAdmin) {
       buttons.push(
         <button
           key="unpublish"
@@ -338,28 +359,58 @@ export default function KnowledgeList() {
       );
     }
 
-    if (can('knowledge.archive') && a.status === 'published') {
+    if (can('knowledge.archive') && (a.status === 'published' || a.status === 'unpublished') && isAdmin) {
       buttons.push(
         <button
           key="archive"
           className={styles.cancelBtn}
-          onClick={() => runAction(() => archiveArticle(a.id), 'Article archived')}
+          title="Retire article to archive"
+          onClick={() => runAction(() => archiveArticle(a.id), 'Article retired to archive')}
         >
-          Archive
+          📦 Retire
         </button>
       );
     }
 
-    if (can('knowledge.restore') && a.status === 'archived') {
+    if (can('knowledge.restore') && a.status === 'archived' && isAdmin) {
       buttons.push(
         <button
           key="restore"
           className={styles.approveBtn}
-          onClick={() => runAction(() => restoreArticle(a.id), 'Article restored')}
+          title="Admin restores article from archive"
+          onClick={() => runAction(() => restoreArticle(a.id), 'Article restored from archive')}
         >
-          Restore
+          🔄 Restore
         </button>
       );
+    }
+
+    // Actions for Restored articles: Move to Draft or Re-publish
+    if (a.status === 'restored') {
+      if (isAdmin || isManager || (isStaff && a.authorId === user?.id)) {
+        buttons.push(
+          <button
+            key="toDraft"
+            className={styles.approveBtn}
+            title="Move restored article to Draft for editing/revision"
+            onClick={() => runAction(() => moveToDraft(a.id), 'Article moved to Draft')}
+          >
+            📝 Move to Draft
+          </button>
+        );
+      }
+      if (isAdmin) {
+        buttons.push(
+          <button
+            key="republish"
+            className={styles.publishBtn}
+            title="Admin directly re-publishes restored article"
+            onClick={() => runAction(() => publishArticle(a.id), 'Article re-published to tenants!')}
+          >
+            🚀 Re-publish
+          </button>
+        );
+      }
     }
 
     // Edit button
@@ -412,20 +463,62 @@ export default function KnowledgeList() {
         description={
           isTenant
             ? 'Search verified solutions & guides. If none help, raise a support ticket.'
-            : isAdmin
-            ? 'Review, approve, and publish knowledge base articles to empower tenants and staff.'
-            : 'Browse, create, and manage knowledge base articles for your department.'
+            : isStaff
+            ? 'Create draft solutions for your department and browse published department guides.'
+            : isManager
+            ? 'Review and approve knowledge base articles submitted by your department staff.'
+            : 'Review, approve, and publish knowledge base articles to empower tenants and staff.'
         }
         backTo={role ? `/${role}/dashboard` : '/'}
         actionLabel={!isTenant && can('knowledge.create') ? '+ New Article' : undefined}
         onAction={!isTenant && can('knowledge.create') ? () => navigate(`${basePath}/create`) : undefined}
       />
 
-      {message && <div className={styles.toast}>✓ {message}</div>}
-      {error && <div className={`${styles.toast} ${styles.error}`}>⚠ {error}</div>}
+      {message && <div className={styles.toast}>{message}</div>}
+      {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
 
-      {/* ── Admin & Manager Live Overview Metric Cards ── */}
-      {(isAdmin || isManager) && stats && (
+      {/* ── Workflow Division & Role Scope Banner ── */}
+      {!isTenant && (
+        <div className={styles.roleScopeBanner}>
+          <div className={styles.roleScopeLeft}>
+            <div className={styles.roleScopeIcon}>
+              {isStaff ? '✍️' : isManager ? '👔' : '👑'}
+            </div>
+            <div>
+              <div className={styles.roleScopeTitle}>
+                {isStaff && `Staff Workspace · Department Scope`}
+                {isManager && `Department Manager Review Desk · Assigned Department Scope`}
+                {isAdmin && `Admin Publishing Authority · Organization-Wide Desk`}
+              </div>
+              <div className={styles.roleScopeDesc}>
+                {isStaff && 'You can draft knowledge articles and submit them for Department Manager approval. You have access to your drafts and published department guides.'}
+                {isManager && 'Review and approve knowledge base submissions from your department staff. Once approved, Admin is notified for final publication.'}
+                {isAdmin && 'Final publication gatekeeper. Review manager-approved articles and publish them live to tenants across the platform.'}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.workflowDivisionCard}>
+            <div className={`${styles.workflowStep} ${isStaff ? styles.workflowStepActive : ''}`}>
+              <span className={styles.workflowStepNum}>1</span>
+              <span className={styles.workflowStepText}>Staff Creates Draft</span>
+            </div>
+            <span className={styles.workflowArrow}>➔</span>
+            <div className={`${styles.workflowStep} ${isManager ? styles.workflowStepActive : ''}`}>
+              <span className={styles.workflowStepNum}>2</span>
+              <span className={styles.workflowStepText}>Dept Manager Approves</span>
+            </div>
+            <span className={styles.workflowArrow}>➔</span>
+            <div className={`${styles.workflowStep} ${isAdmin ? styles.workflowStepActive : ''}`}>
+              <span className={styles.workflowStepNum}>3</span>
+              <span className={styles.workflowStepText}>Admin Publishes</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Role-Specific Live Overview Metric Cards ── */}
+      {(isAdmin || isManager || isStaff) && stats && (
         <div className={styles.statsGrid}>
           <div
             className={`${styles.statCard} ${tab === 'all' ? styles.statCardActive : ''}`}
@@ -436,7 +529,9 @@ export default function KnowledgeList() {
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.total}</span>
-              <span className={styles.statLabel}>Total Articles</span>
+              <span className={styles.statLabel}>
+                {isStaff ? 'All My & Dept KB' : isManager ? 'Dept Articles' : 'Total Articles'}
+              </span>
             </div>
           </div>
 
@@ -449,7 +544,7 @@ export default function KnowledgeList() {
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.draft}</span>
-              <span className={styles.statLabel}>Drafts</span>
+              <span className={styles.statLabel}>{isStaff ? 'My Drafts' : 'Drafts'}</span>
             </div>
           </div>
 
@@ -462,28 +557,34 @@ export default function KnowledgeList() {
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.pending_approval}</span>
-              <span className={styles.statLabel}>Pending Review</span>
+              <span className={styles.statLabel}>
+                {isStaff ? 'Submitted for Review' : isManager ? 'Pending Dept Review' : 'Pending Review'}
+              </span>
             </div>
             {stats.pending_approval > 0 && (
               <span className={styles.statHighlightAlert}>{stats.pending_approval} Pending</span>
             )}
           </div>
 
-          <div
-            className={`${styles.statCard} ${tab === 'approved' ? styles.statCardActive : ''}`}
-            onClick={() => handleTabChange('approved')}
-          >
-            <div className={styles.statIconWrapper} style={{ background: '#dcfce7', color: '#166534' }}>
-              🚀
+          {(isAdmin || isManager) && (
+            <div
+              className={`${styles.statCard} ${tab === 'approved' ? styles.statCardActive : ''}`}
+              onClick={() => handleTabChange('approved')}
+            >
+              <div className={styles.statIconWrapper} style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+                ✓
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{stats.approved}</span>
+                <span className={styles.statLabel}>
+                  {isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}
+                </span>
+              </div>
+              {stats.approved > 0 && (
+                <span className={styles.statHighlightSuccess}>{stats.approved} Ready</span>
+              )}
             </div>
-            <div className={styles.statInfo}>
-              <span className={styles.statValue}>{stats.approved}</span>
-              <span className={styles.statLabel}>Ready to Publish</span>
-            </div>
-            {stats.approved > 0 && (
-              <span className={styles.statHighlightSuccess}>{stats.approved} Ready</span>
-            )}
-          </div>
+          )}
 
           <div
             className={`${styles.statCard} ${tab === 'published' ? styles.statCardActive : ''}`}
@@ -494,9 +595,26 @@ export default function KnowledgeList() {
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.published}</span>
-              <span className={styles.statLabel}>Published & Live</span>
+              <span className={styles.statLabel}>
+                {isStaff || isManager ? 'Dept Published' : 'Published & Live'}
+              </span>
             </div>
           </div>
+
+          {isAdmin && (
+            <div
+              className={`${styles.statCard} ${tab === 'archived-restored' ? styles.statCardActive : ''}`}
+              onClick={() => handleTabChange('archived-restored')}
+            >
+              <div className={styles.statIconWrapper} style={{ background: '#f8fafc', color: '#475569' }}>
+                📦
+              </div>
+              <div className={styles.statInfo}>
+                <span className={styles.statValue}>{(stats.archived || 0) + (stats.restored || 0)}</span>
+                <span className={styles.statLabel}>Archived / Restored</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -507,40 +625,46 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'all' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('all')}
           >
-            All Articles
+            {isStaff ? 'All Accessible' : isManager ? 'All Dept Articles' : 'All Articles'}
             {stats && <span className={styles.tabBadge}>{stats.total}</span>}
           </button>
 
-          {(isStaff || isAdmin) && (
-            <button
-              className={`${styles.tabBtn} ${tab === 'my-drafts' ? styles.tabBtnActive : ''}`}
-              onClick={() => handleTabChange('my-drafts')}
-            >
-              My Drafts
-              {stats && stats.draft > 0 && <span className={styles.tabBadge}>{stats.draft}</span>}
-            </button>
-          )}
+          <button
+            className={`${styles.tabBtn} ${tab === 'published' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleTabChange('published')}
+          >
+            {isStaff || isManager ? 'Dept Published' : 'Published'}
+            {stats && stats.published > 0 && (
+              <span className={styles.tabBadge}>{stats.published}</span>
+            )}
+          </button>
 
-          {(isManager || isAdmin) && (
-            <button
-              className={`${styles.tabBtn} ${tab === 'pending' ? styles.tabBtnActive : ''}`}
-              onClick={() => handleTabChange('pending')}
-            >
-              Pending Review
-              {stats && stats.pending_approval > 0 && (
-                <span className={`${styles.tabBadge} ${styles.tabBadgeUrgent}`}>
-                  {stats.pending_approval}
-                </span>
-              )}
-            </button>
-          )}
+          <button
+            className={`${styles.tabBtn} ${tab === 'my-drafts' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleTabChange('my-drafts')}
+          >
+            {isStaff ? 'My Drafts' : isManager ? 'Manager Drafts' : 'Drafts'}
+            {stats && stats.draft > 0 && <span className={styles.tabBadge}>{stats.draft}</span>}
+          </button>
+
+          <button
+            className={`${styles.tabBtn} ${tab === 'pending' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleTabChange('pending')}
+          >
+            {isStaff ? 'Submitted for Review' : isManager ? 'Pending Dept Review' : 'Pending Review'}
+            {stats && stats.pending_approval > 0 && (
+              <span className={`${styles.tabBadge} ${styles.tabBadgeUrgent}`}>
+                {stats.pending_approval}
+              </span>
+            )}
+          </button>
 
           {(isAdmin || isManager) && (
             <button
               className={`${styles.tabBtn} ${tab === 'approved' ? styles.tabBtnActive : ''}`}
               onClick={() => handleTabChange('approved')}
             >
-              Ready to Publish
+              {isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}
               {stats && stats.approved > 0 && (
                 <span className={`${styles.tabBadge} ${styles.tabBadgeReady}`}>
                   {stats.approved}
@@ -548,16 +672,6 @@ export default function KnowledgeList() {
               )}
             </button>
           )}
-
-          <button
-            className={`${styles.tabBtn} ${tab === 'published' ? styles.tabBtnActive : ''}`}
-            onClick={() => handleTabChange('published')}
-          >
-            Published
-            {stats && stats.published > 0 && (
-              <span className={styles.tabBadge}>{stats.published}</span>
-            )}
-          </button>
 
           <button
             className={`${styles.tabBtn} ${tab === 'needs-revision' ? styles.tabBtnActive : ''}`}
@@ -570,6 +684,20 @@ export default function KnowledgeList() {
               </span>
             )}
           </button>
+
+          {isAdmin && (
+            <button
+              className={`${styles.tabBtn} ${tab === 'archived-restored' ? styles.tabBtnActive : ''}`}
+              onClick={() => handleTabChange('archived-restored')}
+            >
+              Archived & Restored
+              {stats && ((stats.archived || 0) + (stats.restored || 0) > 0) && (
+                <span className={styles.tabBadge}>
+                  {(stats.archived || 0) + (stats.restored || 0)}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -601,6 +729,7 @@ export default function KnowledgeList() {
             <option value="unpublished">Unpublished</option>
             <option value="rejected">Rejected</option>
             <option value="archived">Archived</option>
+            <option value="restored">Restored</option>
           </select>
         )}
 
@@ -639,7 +768,7 @@ export default function KnowledgeList() {
                 <div className={styles.articleTitle}>{row.title}</div>
                 <div className={styles.metaRow}>
                   <span className={styles.referenceBadge}>{row.articleReference}</span>
-                  {row.departmentName && <span className={styles.deptChip}>{row.departmentName}</span>}
+                  {row.departmentName && <span className={styles.deptChip}>🏢 {row.departmentName}</span>}
                   {row.approvedFirstName && (
                     <span
                       className={styles.approvedChip}
@@ -647,7 +776,7 @@ export default function KnowledgeList() {
                         row.approvedAt ? new Date(row.approvedAt).toLocaleString() : ''
                       }`}
                     >
-                      ✓ Approved by {row.approvedFirstName} {row.approvedLastName || ''}
+                      ✓ Dept Approved by {row.approvedFirstName} {row.approvedLastName || ''}
                     </span>
                   )}
                   <span className={styles.visibilityChip}>{row.visibility}</span>
@@ -668,14 +797,49 @@ export default function KnowledgeList() {
           },
           {
             key: 'status',
-            label: 'Status',
-            render: (row) => (
-              <span className={`${styles.badge} ${styles[row.status] || ''}`}>
-                {row.status === 'approved'
-                  ? 'Approved (Ready to Publish)'
-                  : row.status?.replace(/_/g, ' ')}
-              </span>
-            ),
+            label: 'Workflow Status',
+            render: (row) => {
+              if (row.status === 'draft') {
+                return (
+                  <span className={`${styles.statusWorkflowBadge} ${styles.stageDraft}`}>
+                    📝 Draft
+                  </span>
+                );
+              }
+              if (row.status === 'pending_approval') {
+                return (
+                  <span className={`${styles.statusWorkflowBadge} ${styles.stagePending}`}>
+                    ⏳ Pending Review
+                  </span>
+                );
+              }
+              if (row.status === 'approved') {
+                return (
+                  <span className={`${styles.statusWorkflowBadge} ${styles.stageApproved}`}>
+                    ✓ Approved (Ready to Publish)
+                  </span>
+                );
+              }
+              if (row.status === 'published') {
+                return (
+                  <span className={`${styles.statusWorkflowBadge} ${styles.stagePublished}`}>
+                    🌐 Published & Live
+                  </span>
+                );
+              }
+              if (row.status === 'needs_revision') {
+                return (
+                  <span className={`${styles.statusWorkflowBadge} ${styles.stageRevision}`}>
+                    ⚠️ Needs Revision
+                  </span>
+                );
+              }
+              return (
+                <span className={`${styles.badge} ${styles[row.status] || ''}`}>
+                  {row.status?.replace(/_/g, ' ')}
+                </span>
+              );
+            },
           },
           {
             key: 'author',

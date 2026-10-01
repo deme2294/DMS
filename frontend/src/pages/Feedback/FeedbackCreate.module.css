@@ -266,3 +266,57 @@
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   DARK THEME OVERRIDES — FEEDBACK CREATE
+   ========================================================================== */
+:global([data-theme="dark"]) .card {
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .cardTitle {
+  color: #f8fafc !important;
+  border-bottom-color: #1e2638 !important;
+}
+
+:global([data-theme="dark"]) .field label {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .field input,
+:global([data-theme="dark"]) .field select,
+:global([data-theme="dark"]) .field textarea {
+  background: #0f1420 !important;
+  border-color: #2e384d !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .cancelBtn {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .cancelBtn:hover {
+  background: #27354f !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .focusOption {
+  background: #101522 !important;
+  border-color: #252e3e !important;
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .focusOption:hover {
+  background: #182236 !important;
+  border-color: #3b82f6 !important;
+}
+
+:global([data-theme="dark"]) .ticketInfo {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #86efac !important;
+}

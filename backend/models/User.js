@@ -24,5 +24,6 @@ export const sanitizeUser = (row) => {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     departments: row.departments || [],
+    tenantName: row.tenant_name || row.tenantName || null,
   };
 };

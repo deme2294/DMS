@@ -19,7 +19,11 @@ export interface Department {
 export interface Ticket {
   id: string;
   title: string;
-  ticket_number: string;
+  ticket_number?: string;
+  reference_number?: string;
+  category?: string;
+  department_id?: string;
+  department_name?: string;
   priority?: string;
   status?: string;
 }
@@ -35,9 +39,37 @@ export interface ParsedMeetingInfo {
   passcode?: string;
   notes?: string;
   scheduledTime?: string;
+  formattedScheduledTime?: string;
   durationMinutes?: number;
   createdAt?: string;
 }
+
+export const formatEventDateDisplay = (isoString?: string): string => {
+  if (!isoString) return 'Today (Active Now)';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return 'Today (Active Now)';
+
+  const now = new Date();
+  const isToday = now.toDateString() === date.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = tomorrow.toDateString() === date.toDateString();
+
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) {
+    return `Today at ${timeStr}`;
+  }
+  if (isTomorrow) {
+    return `Tomorrow at ${timeStr}`;
+  }
+  return date.toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export type MeetingTimeStatus = 'upcoming' | 'live' | 'ended' | 'immediate';
 
@@ -133,6 +165,13 @@ export const parseMeetingMessage = (text: string): ParsedMeetingInfo | null => {
 
   const eventTimeMatch = text.match(/Event Time:\s*([^\n]+)/i) || text.match(/Scheduled Time:\s*([^\n]+)/i);
   const scheduledTime = eventTimeMatch ? eventTimeMatch[1].trim() : undefined;
+
+  const scheduledForMatch = text.match(/Scheduled For:\s*([^\n]+)/i);
+  const formattedScheduledTime = scheduledForMatch
+    ? scheduledForMatch[1].trim()
+    : scheduledTime
+    ? formatEventDateDisplay(scheduledTime)
+    : 'Today (Active Now)';
 
   const durationMatch = text.match(/Duration:\s*(\d+)/i);
   const durationMinutes = durationMatch ? parseInt(durationMatch[1], 10) : 30;

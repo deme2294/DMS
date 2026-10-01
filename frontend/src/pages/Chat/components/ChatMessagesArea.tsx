@@ -17,7 +17,8 @@ interface ChatMessagesAreaProps {
   messageGroups: { date: string; items: ChatMessage[] }[];
   typingUsers: Set<string>;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
-  onJoinInAppVideo: (meetingUrl?: string) => void;
+  onJoinInAppVideo: (meetingUrl?: string, sessionInfo?: any) => void;
+  onSelectScreenShare?: (sessionInfo: any) => void;
   onDeleteMessage?: (msg: ChatMessage) => void;
 }
 
@@ -28,6 +29,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
   typingUsers,
   messagesEndRef,
   onJoinInAppVideo,
+  onSelectScreenShare,
   onDeleteMessage,
 }) => {
   return (
@@ -106,7 +108,19 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                           );
 
                           return (
-                            <div className={styles.meetMessageCard}>
+                            <div
+                              className={styles.meetMessageCard}
+                              onClick={() => {
+                                onSelectScreenShare?.({
+                                  ...meetingInfo,
+                                  statusObj: eventStatus,
+                                  senderName: `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
+                                  messageId: msg.id,
+                                });
+                              }}
+                              style={{ cursor: 'pointer' }}
+                              title="Click to view and connect screen share session"
+                            >
                               <div className={styles.meetCardHeader}>
                                 <span
                                   className={`${styles.meetBadge} ${
@@ -295,7 +309,12 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                   className={styles.meetJoinBtn}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    onJoinInAppVideo(meetingInfo.meetingUrl);
+                                    onJoinInAppVideo(meetingInfo.meetingUrl, {
+                                      ...meetingInfo,
+                                      statusObj: eventStatus,
+                                      senderName: `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
+                                      messageId: msg.id,
+                                    });
                                   }}
                                   style={
                                     eventStatus.status === 'live'

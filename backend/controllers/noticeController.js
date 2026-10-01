@@ -32,7 +32,7 @@ export const createNotice = async (req, res, next) => {
 
 export const updateNotice = async (req, res, next) => {
   try {
-    const notice = await noticeService.updateNotice(req.params.id, req.body, req.user.id);
+    const notice = await noticeService.updateNotice(req.params.id, req.body, req.user.id, req.user.role);
     res.status(HTTP.OK).json({ success: true, message: 'Notice updated', data: notice });
   } catch (err) {
     next(err);
@@ -41,7 +41,7 @@ export const updateNotice = async (req, res, next) => {
 
 export const deleteNotice = async (req, res, next) => {
   try {
-    await noticeService.deleteNotice(req.params.id);
+    await noticeService.deleteNotice(req.params.id, req.user.id, req.user.role);
     res.status(HTTP.OK).json({ success: true, message: 'Notice deleted' });
   } catch (err) {
     next(err);
@@ -171,6 +171,27 @@ export const updateTargetedNotice = async (req, res, next) => {
       success: true, 
       message: 'Notice updated successfully', 
       data: notice 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Update notice expiration date (manager, admin, or creator)
+ */
+export const updateNoticeExpiry = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { expiresAt } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const notice = await noticeService.updateNoticeExpiry(id, expiresAt, userId, userRole);
+    res.status(HTTP.OK).json({
+      success: true,
+      message: 'Notice expiration updated successfully',
+      data: notice,
     });
   } catch (err) {
     next(err);
@@ -368,3 +389,23 @@ export const deleteNoticeReply = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * Route notice to System Admin (Department Head action)
+ */
+export const routeNoticeToAdmin = async (req, res, next) => {
+  try {
+    const noticeId = req.params.id;
+    const managerId = req.user.id;
+    const remarks = req.body.remarks || '';
+    const result = await noticeService.routeNoticeToAdmin(noticeId, managerId, remarks);
+    res.status(HTTP.OK).json({
+      success: true,
+      message: 'Notice routed to System Admin successfully',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

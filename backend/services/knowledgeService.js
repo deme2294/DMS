@@ -50,37 +50,27 @@ const canViewArticle = async (article, user) => {
   }
 
   if (isStaff(user)) {
-    // 1. Author can always view their own article
+    // 1. Author can always view their own created article (draft, submitted, needs_revision, approved, published)
     if (article.author_id === user.id) return;
 
-    // 2. Department articles (approved, published, or pending approval)
+    // 2. Department articles: ONLY if PUBLISHED and related to staff's department
     const deptIds = await getUserDepartments(user);
     if (article.department_id && deptIds.includes(article.department_id)) {
-      if (['approved', 'published', 'pending_approval'].includes(article.status)) {
+      if (article.status === 'published') {
         return;
       }
     }
 
-    // 3. Organization-wide published articles
-    if (article.status === 'published' && ['public', 'tenant', 'internal'].includes(article.visibility)) {
-      return;
-    }
-
-    throw FORBIDDEN('This article is not available');
+    throw FORBIDDEN('This article is not available to your department');
   }
 
   if (isManager(user)) {
     // 1. Author can always view
     if (article.author_id === user.id) return;
 
-    // 2. Department articles (any status within manager's department)
+    // 2. Department articles (only within manager's assigned department)
     const deptIds = await getUserDepartments(user);
     if (article.department_id && deptIds.includes(article.department_id)) {
-      return;
-    }
-
-    // 3. Organization-wide published articles
-    if (article.status === 'published' && ['public', 'tenant', 'internal'].includes(article.visibility)) {
       return;
     }
 
@@ -99,7 +89,7 @@ const canEditArticle = (article, user) => {
   if (isAdmin(user)) return true;
   if (isManager(user)) return true;
   if (isStaff(user)) {
-    if (article.author_id === user.id && ['draft', 'needs_revision'].includes(article.status)) {
+    if (article.author_id === user.id && ['draft', 'needs_revision', 'restored'].includes(article.status)) {
       return true;
     }
   }
@@ -168,6 +158,19 @@ export const listArticles = async (filters, user, req) => {
 
 export const listPublicArticles = async (filters) => knowledgeRepo.findPublic(filters);
 
+export const listMyArticles = async (user, query = {}) => {
+  const page = parseInt(query.page, 10) || 1;
+  const limit = parseInt(query.limit, 10) || 20;
+  return knowledgeRepo.findAll({
+    authorId: user.id,
+    status: query.status || undefined,
+    search: query.search || undefined,
+    category: query.category || undefined,
+    page,
+    limit,
+  });
+};
+
 export const listMyDrafts = async (user) => {
   if (isAdmin(user)) {
     return knowledgeRepo.findAll({ status: 'draft', page: 1, limit: 100 });
@@ -175,16 +178,30 @@ export const listMyDrafts = async (user) => {
   return knowledgeRepo.findAll({ status: 'draft', authorId: user.id, page: 1, limit: 100 });
 };
 
-export const listPendingReview = async (user) => {
+export const listPendingReview = async (user, statusFilter = null) => {
+  let targetStatus;
+  if (statusFilter && statusFilter !== 'all') {
+    targetStatus = statusFilter;
+  } else if (statusFilter === 'all') {
+    targetStatus = isAdmin(user)
+      ? ['pending_approval', 'approved', 'needs_revision']
+      : ['pending_approval', 'needs_revision'];
+  } else {
+    targetStatus = 'pending_approval';
+  }
+
   if (isAdmin(user)) {
-    return knowledgeRepo.findAll({ status: 'pending_approval', page: 1, limit: 100 });
+    return knowledgeRepo.findAll({ status: targetStatus, page: 1, limit: 100 });
   }
   if (isManager(user)) {
     const deptIds = await getUserDepartments(user);
     if (!deptIds.length) {
       return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
     }
-    return knowledgeRepo.findAll({ status: 'pending_approval', departmentIds: deptIds, page: 1, limit: 100 });
+    return knowledgeRepo.findAll({ status: targetStatus, departmentIds: deptIds, page: 1, limit: 100 });
+  }
+  if (isStaff(user)) {
+    return knowledgeRepo.findAll({ status: targetStatus, authorId: user.id, page: 1, limit: 100 });
   }
   return { data: [], pagination: { total: 0, page: 1, limit: 100, totalPages: 0 } };
 };
@@ -222,10 +239,17 @@ export const getArticleByReference = async (reference, user) => {
 export const createArticle = async (data, user, req) => {
   let departmentId = data.departmentId || null;
 
-  if (isStaff(user) || isManager(user)) {
+  if (isStaff(user)) {
     const deptIds = await getUserDepartments(user);
-    if (!departmentId && deptIds.length === 1) departmentId = deptIds[0];
-    if (!departmentId || !deptIds.includes(departmentId)) {
+    if (deptIds.length > 0) {
+      if (!departmentId || !deptIds.includes(departmentId)) {
+        departmentId = deptIds[0];
+      }
+    }
+  } else if (isManager(user)) {
+    const deptIds = await getUserDepartments(user);
+    if (!departmentId && deptIds.length > 0) departmentId = deptIds[0];
+    if (departmentId && deptIds.length > 0 && !deptIds.includes(departmentId)) {
       throw FORBIDDEN('You must assign the article to one of your departments');
     }
   }
@@ -289,11 +313,16 @@ export const updateArticle = async (id, data, user, req) => {
   }
   updateData.updatedBy = user.id;
 
+  // [ Restored ] ──(Edit / Update)──▶ [ Draft ]
+  if (article.status === 'restored') {
+    updateData.status = 'draft';
+  }
+
   if (Object.keys(updateData).length) {
     await knowledgeRepo.update(id, updateData);
     await logAction(user.id, 'ARTICLE_EDITED', 'knowledge_article', id, getIp(req), {
       reference: article.article_reference, fields: Object.keys(updateData)
-    }, { oldValue: { status: oldStatus }, newValue: { status: oldStatus } });
+    }, { oldValue: { status: oldStatus }, newValue: { status: updateData.status || oldStatus } });
   }
 
   return knowledgeRepo.findById(id);
@@ -475,6 +504,17 @@ export const publishArticle = async (id, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
   if (!isAdmin(user)) throw FORBIDDEN('Only admin can publish articles');
+
+  // If article was created by staff, it must be approved by the Department Manager before publish
+  const [authorRows] = await pool.query(
+    `SELECT u.id, r.name as role FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ? LIMIT 1`,
+    [article.author_id]
+  );
+  const authorRole = authorRows[0]?.role;
+  if (authorRole === 'staff' && article.status !== 'approved' && article.status !== 'unpublished' && article.status !== 'restored') {
+    throw BAD_REQUEST('This article was created by staff and must be approved by the Department Manager before it can be published by Admin.');
+  }
+
   canTransitionTo(article.status, 'published');
 
   await knowledgeRepo.update(id, {
@@ -571,6 +611,27 @@ export const restoreArticle = async (id, user, req) => {
   return updated;
 };
 
+export const moveToDraft = async (id, user, req) => {
+  const article = await knowledgeRepo.findById(id);
+  if (!article) throw NOT_FOUND();
+  if (!isAdmin(user) && !isManager(user) && article.author_id !== user.id) {
+    throw FORBIDDEN('You do not have permission to move this article to draft');
+  }
+  canTransitionTo(article.status, 'draft');
+
+  await knowledgeRepo.update(id, {
+    status: 'draft',
+    updatedBy: user.id,
+  });
+
+  const updated = await knowledgeRepo.findById(id);
+  await logAction(user.id, 'ARTICLE_MOVED_TO_DRAFT', 'knowledge_article', id, getIp(req), {
+    reference: article.article_reference, from: article.status, to: 'draft'
+  });
+
+  return updated;
+};
+
 export const deleteArticle = async (id, user, req) => {
   const article = await knowledgeRepo.findById(id);
   if (!article) throw NOT_FOUND();
@@ -622,11 +683,23 @@ export const searchRelatedToTicket = async (query, excludeId, user, limit = 5) =
 // ─────────────────────────────────────────────
 export const getStats = async () => knowledgeRepo.getStats();
 
-export const getCategories = async () => {
+export const getCategories = async (user, departmentId) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT DISTINCT name FROM knowledge_categories WHERE is_active = 1 ORDER BY name ASC`
-    );
+    let targetDeptId = departmentId;
+    if (!targetDeptId && user && isStaff(user)) {
+      const depts = await getUserDepartments(user);
+      if (depts.length) targetDeptId = depts[0];
+    }
+
+    let sql = `SELECT DISTINCT name FROM knowledge_categories WHERE is_active = 1`;
+    const params = [];
+    if (targetDeptId) {
+      sql += ` AND (department_id = ? OR department_id IS NULL)`;
+      params.push(targetDeptId);
+    }
+    sql += ` ORDER BY name ASC`;
+
+    const [rows] = await pool.query(sql, params);
     if (rows && rows.length > 0) {
       return rows.map((r) => r.name);
     }
@@ -727,13 +800,15 @@ export const createCategory = async (data, user, req) => {
   const id = uuidv4();
   const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   const activeVal = data.isActive !== undefined ? (data.isActive ? 1 : 0) : (data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1);
+  const departmentId = data.departmentId || data.department_id || null;
+
   await pool.query(
-    `INSERT INTO knowledge_categories (id, name, slug, description, icon, is_active, parent_id, created_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-    [id, data.name, slug, data.description || null, data.icon || null, activeVal, data.parentId || null, user.id]
+    `INSERT INTO knowledge_categories (id, name, slug, description, icon, is_active, parent_id, department_id, created_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [id, data.name, slug, data.description || null, data.icon || null, activeVal, data.parentId || null, departmentId, user.id]
   );
-  await logAction(user.id, 'CATEGORY_CREATED', 'knowledge_category', id, getIp(req), { name: data.name });
-  return { id, name: data.name, slug, isActive: Boolean(activeVal) };
+  await logAction(user.id, 'CATEGORY_CREATED', 'knowledge_category', id, getIp(req), { name: data.name, departmentId });
+  return { id, name: data.name, slug, isActive: Boolean(activeVal), departmentId };
 };
 
 export const updateCategory = async (id, data, user, req) => {
@@ -744,9 +819,10 @@ export const updateCategory = async (id, data, user, req) => {
   const activeVal = data.isActive !== undefined
     ? (data.isActive ? 1 : 0)
     : (data.is_active !== undefined ? (data.is_active ? 1 : 0) : existing[0].is_active);
+  const departmentId = data.departmentId !== undefined ? (data.departmentId || null) : existing[0].department_id;
 
   await pool.query(
-    `UPDATE knowledge_categories SET name = ?, slug = ?, description = ?, icon = ?, is_active = ?, parent_id = ?, updated_at = NOW() WHERE id = ?`,
+    `UPDATE knowledge_categories SET name = ?, slug = ?, description = ?, icon = ?, is_active = ?, parent_id = ?, department_id = ?, updated_at = NOW() WHERE id = ?`,
     [
       data.name || existing[0].name,
       slug,
@@ -754,11 +830,12 @@ export const updateCategory = async (id, data, user, req) => {
       data.icon ?? existing[0].icon,
       activeVal,
       data.parentId ?? existing[0].parent_id,
+      departmentId,
       id
     ]
   );
-  await logAction(user.id, 'CATEGORY_UPDATED', 'knowledge_category', id, getIp(req), { name: data.name });
-  return { id, isActive: Boolean(activeVal) };
+  await logAction(user.id, 'CATEGORY_UPDATED', 'knowledge_category', id, getIp(req), { name: data.name, departmentId });
+  return { id, isActive: Boolean(activeVal), departmentId };
 };
 
 export const deleteCategory = async (id, user, req) => {
@@ -778,14 +855,54 @@ export const deleteCategory = async (id, user, req) => {
   return { success: true };
 };
 
-export const listCategories = async () => {
-  const [rows] = await pool.query(
-    `SELECT id, name, slug, description, icon, is_active AS isActive, is_active, parent_id AS parentId, created_at, updated_at
-     FROM knowledge_categories ORDER BY name ASC`
-  );
+export const listCategories = async (user, queryParams = {}) => {
+  let deptFilter = queryParams?.departmentId || null;
+  if (!deptFilter && user && !isAdmin(user) && (isStaff(user) || isManager(user))) {
+    const depts = await getUserDepartments(user);
+    if (depts.length) {
+      deptFilter = depts;
+    }
+  }
+
+  let sql = `
+    SELECT kc.id, kc.name, kc.slug, kc.description, kc.icon, kc.is_active AS isActive,
+           kc.is_active, kc.parent_id AS parentId, kc.department_id AS departmentId,
+           d.name AS departmentName, kc.created_at, kc.updated_at
+    FROM knowledge_categories kc
+    LEFT JOIN departments d ON d.id = kc.department_id
+  `;
+  const whereClauses = [];
+  const params = [];
+
+  if (Array.isArray(deptFilter)) {
+    if (deptFilter.length > 0) {
+      whereClauses.push(`(kc.department_id IN (?) OR kc.department_id IS NULL)`);
+      params.push(deptFilter);
+    }
+  } else if (deptFilter) {
+    whereClauses.push(`(kc.department_id = ? OR kc.department_id IS NULL)`);
+    params.push(deptFilter);
+  }
+
+  if (whereClauses.length > 0) {
+    sql += ` WHERE ` + whereClauses.join(' AND ');
+  }
+
+  sql += ` ORDER BY kc.name ASC`;
+
+  const [rows] = await pool.query(sql, params);
   return rows.map((r) => ({
-    ...r,
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    description: r.description,
+    icon: r.icon,
     isActive: Boolean(r.isActive ?? r.is_active),
+    parentId: r.parentId,
+    departmentId: r.departmentId,
+    departmentName: r.departmentName,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   }));
 };
 
@@ -816,31 +933,57 @@ export const getRecentArticles = async (limit = 10) => {
 };
 
 export const getArticleStats = async (user) => {
-  const [statusCounts] = await pool.query(`
-    SELECT status, COUNT(*) as cnt
-    FROM knowledge_base
-    WHERE deleted_at IS NULL
-    GROUP BY status
-  `);
+  let whereScope = 'kb.deleted_at IS NULL';
+  let scopeParams = [];
 
-  const [feedbackCounts] = await pool.query(`
-    SELECT 
-      COALESCE(SUM(helpful_count), 0) AS helpfulYes,
-      COALESCE(SUM(not_helpful_count), 0) AS notHelpfulNo,
-      COUNT(*) AS total
-    FROM knowledge_base
-    WHERE deleted_at IS NULL
-  `);
+  if (isManager(user)) {
+    const deptIds = await getUserDepartments(user);
+    if (deptIds.length > 0) {
+      whereScope += ` AND (kb.department_id IN (?) OR kb.author_id = ?)`;
+      scopeParams = [deptIds, user.id];
+    } else {
+      whereScope += ` AND kb.author_id = ?`;
+      scopeParams = [user.id];
+    }
+  } else if (isStaff(user)) {
+    const deptIds = await getUserDepartments(user);
+    if (deptIds.length > 0) {
+      whereScope += ` AND (kb.author_id = ? OR (kb.department_id IN (?) AND kb.status = 'published'))`;
+      scopeParams = [user.id, deptIds];
+    } else {
+      whereScope += ` AND kb.author_id = ?`;
+      scopeParams = [user.id];
+    }
+  }
 
-  const [deptCounts] = await pool.query(`
-    SELECT COALESCE(d.name, 'General') AS name, COUNT(kb.id) AS count
-    FROM knowledge_base kb
-    LEFT JOIN departments d ON kb.department_id = d.id
-    WHERE kb.deleted_at IS NULL
-    GROUP BY kb.department_id, d.name
-    ORDER BY count DESC
-    LIMIT 10
-  `);
+  const [statusCounts] = await pool.query(
+    `SELECT kb.status, COUNT(*) as cnt
+     FROM knowledge_base kb
+     WHERE ${whereScope}
+     GROUP BY kb.status`,
+    scopeParams
+  );
+
+  const [feedbackCounts] = await pool.query(
+    `SELECT 
+       COALESCE(SUM(kb.helpful_count), 0) AS helpfulYes,
+       COALESCE(SUM(kb.not_helpful_count), 0) AS notHelpfulNo,
+       COUNT(*) AS total
+     FROM knowledge_base kb
+     WHERE ${whereScope}`,
+    scopeParams
+  );
+
+  const [deptCounts] = await pool.query(
+    `SELECT COALESCE(d.name, 'General') AS name, COUNT(kb.id) AS count
+     FROM knowledge_base kb
+     LEFT JOIN departments d ON kb.department_id = d.id
+     WHERE ${whereScope}
+     GROUP BY kb.department_id, d.name
+     ORDER BY count DESC
+     LIMIT 10`,
+    scopeParams
+  );
 
   const stats = {
     draft: 0,

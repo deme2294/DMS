@@ -177,28 +177,28 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </button>
         </div>
 
-        {/* Direct Call Button for 1-on-1 Direct Room */}
-        {isDirect && !isVideoActive && (
+        {/* Quick Video Call Action for Active Room (Direct, Department, or Ticket) */}
+        {!isVideoActive && (
           <button
             type="button"
             className={styles.headerQuickCallBtn}
             onClick={() => onSetViewMode('video')}
-            title={`Start instant direct video conference with ${partnerName}`}
+            title={`Start instant video conference today in ${isDirect ? partnerName : selectedRoom.name}`}
           >
-            <PhoneIcon style={{ width: '15px', height: '15px' }} />
-            <span>Direct Call</span>
+            <VideoCameraIcon style={{ width: '15px', height: '15px' }} />
+            <span>{isDirect ? 'Direct Call' : 'Video Call (Today)'}</span>
           </button>
         )}
 
-        {/* Invite Registered Users */}
+        {/* Invite Registered Users / Schedule Event Time */}
         <button
           type="button"
           className={styles.headerActionBtn}
           onClick={onOpenMeetModal}
-          title="Invite registered users via Email and Chat Card"
+          title="Schedule conference date and invite registered users"
         >
           <EnvelopeIcon style={{ width: '15px', height: '15px' }} />
-          <span>Invite</span>
+          <span>Invite & Schedule</span>
         </button>
 
         {/* Members Roster Toggle */}

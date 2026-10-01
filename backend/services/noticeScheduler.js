@@ -1,4 +1,5 @@
 import * as noticeService from './noticeService.js';
+import * as noticeRepo from '../repository/noticeRepository.js';
 
 let timer = null;
 
@@ -8,16 +9,17 @@ let timer = null;
  * acknowledged it, then archives the notice. The `expiry_warned` flag on the
  * notice guarantees each notice is processed only once.
  *
- * @param {number} intervalMs  how often to run (default 60s)
+ * @param {number} intervalMs  how often to run (default 30s)
  */
-export const startNoticeScheduler = (intervalMs = 60 * 1000) => {
+export const startNoticeScheduler = (intervalMs = 30 * 1000) => {
   if (timer) return;
 
   const tick = async () => {
     try {
       const processed = await noticeService.processExpirations();
-      if (processed > 0) {
-        console.log(`[NOTICES] Expiry job processed ${processed} notice(s).`);
+      const archived = await noticeRepo.archiveExpiredNotices();
+      if (processed > 0 || archived > 0) {
+        console.log(`[NOTICES] Expiry job: ${processed} warned/archived, ${archived} automatically archived.`);
       }
     } catch (err) {
       console.error('[NOTICES] Expiry job failed:', err.message);
@@ -27,7 +29,7 @@ export const startNoticeScheduler = (intervalMs = 60 * 1000) => {
   // Run once shortly after boot, then on the interval.
   timer = setInterval(tick, intervalMs);
   timer.unref?.();
-  setTimeout(tick, 5000);
+  setTimeout(tick, 2000);
   console.log(`[NOTICES] Expiry scheduler started (every ${intervalMs / 1000}s).`);
 };
 

@@ -10,6 +10,7 @@ import {
   unpublishArticle,
   archiveArticle,
   restoreArticle,
+  moveToDraft,
   deleteArticle,
   requestRevision,
   rateArticle,
@@ -95,7 +96,13 @@ export default function KnowledgeArticleView() {
   };
 
   const handleSubmit = () => runAction(() => submitArticle(id!), 'Submitted for review');
-  const handleApprove = () => runAction(() => approveArticle(id!), 'Article approved');
+  const handleApprove = () =>
+    runAction(
+      () => approveArticle(id!),
+      role === 'manager'
+        ? 'Article approved! Admin has been notified to publish.'
+        : 'Article approved'
+    );
   const handleReject = () => {
     if (!rejectReason.trim()) { setError('Rejection reason is required'); return; }
     setShowRejectModal(false);
@@ -113,6 +120,7 @@ export default function KnowledgeArticleView() {
   };
   const handleArchive = () => runAction(() => archiveArticle(id!), 'Article archived');
   const handleRestore = () => runAction(() => restoreArticle(id!), 'Article restored');
+  const handleMoveToDraft = () => runAction(() => moveToDraft(id!), 'Article moved to draft');
   const handleDelete = () => {
     setDeleteTarget(false);
     runAction(() => deleteArticle(id!), 'Article deleted').then(() => navigate(basePath));
@@ -169,7 +177,7 @@ export default function KnowledgeArticleView() {
   if (!article) return <div className={styles.page}>Article not found</div>;
 
   const isTenant = role === 'tenant';
-  const canEdit = (role === 'admin' || role === 'manager' || (article.authorId === user?.id && ['draft', 'needs_revision'].includes(article.status))) && !isTenant;
+  const canEdit = (role === 'admin' || role === 'manager' || (article.authorId === user?.id && ['draft', 'needs_revision', 'restored'].includes(article.status))) && !isTenant;
 
   const statusBadgeClass = `${styles.badge} ${styles[article.status] || ''}`;
 
@@ -179,6 +187,63 @@ export default function KnowledgeArticleView() {
 
       {message && <div className={styles.toast}>{message}</div>}
       {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
+
+      {/* ── Workflow Division Lifecycle Card ── */}
+      {!isTenant && article.status === 'pending_approval' && (
+        <div className={`${styles.workflowStatusCard} ${styles.workflowStatusPending}`}>
+          <div className={styles.workflowStatusContent}>
+            <div className={styles.workflowStatusIcon}>⏳</div>
+            <div>
+              <div className={styles.workflowStatusTitle}>Stage 2: Pending Department Manager Review</div>
+              <div className={styles.workflowStatusDesc}>
+                Submitted by {article.authorFirstName || 'Staff'} {article.authorLastName || ''}. Awaiting Department Manager review & approval before Admin can publish.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isTenant && article.status === 'approved' && (
+        <div className={`${styles.workflowStatusCard} ${styles.workflowStatusApproved}`}>
+          <div className={styles.workflowStatusContent}>
+            <div className={styles.workflowStatusIcon}>✓</div>
+            <div>
+              <div className={styles.workflowStatusTitle}>Stage 3: Approved by Department Manager — Ready for Admin to Publish</div>
+              <div className={styles.workflowStatusDesc}>
+                Approved by {article.approvedFirstName || 'Manager'} {article.approvedLastName || ''} {article.approvedAt ? `on ${new Date(article.approvedAt).toLocaleDateString()}` : ''}. Admin has been notified to publish this article.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isTenant && article.status === 'published' && (
+        <div className={`${styles.workflowStatusCard} ${styles.workflowStatusPublished}`}>
+          <div className={styles.workflowStatusContent}>
+            <div className={styles.workflowStatusIcon}>🌐</div>
+            <div>
+              <div className={styles.workflowStatusTitle}>Live Knowledge Base Article</div>
+              <div className={styles.workflowStatusDesc}>
+                Published and active for tenant search and department self-service resolution.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isTenant && article.status === 'needs_revision' && (
+        <div className={`${styles.workflowStatusCard} ${styles.workflowStatusRevision}`}>
+          <div className={styles.workflowStatusContent}>
+            <div className={styles.workflowStatusIcon}>⚠️</div>
+            <div>
+              <div className={styles.workflowStatusTitle}>Workflow Revision Requested</div>
+              <div className={styles.workflowStatusDesc}>
+                The manager has requested updates. Please review the revision notes below, edit the article, and resubmit.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={styles.meta}>
         <div className={styles.metaItem}>
@@ -316,45 +381,70 @@ export default function KnowledgeArticleView() {
           <button className={styles.submitBtn} onClick={() => navigate(`${basePath}/${id}/edit`)}>Edit</button>
         )}
         {!isTenant && can('knowledge.submit') && article.authorId === user?.id && (article.status === 'draft' || article.status === 'needs_revision') && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmit}>Submit for Review</button>
+          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmit}>
+            📤 Submit for Review
+          </button>
         )}
-        {/* Admin Draft Controls */}
+        {/* Admin Direct Draft Controls */}
         {role === 'admin' && article.status === 'draft' && (
           <>
             <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
             <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>✓ Approve Draft</button>
           </>
         )}
-        {/* Pending Approval Controls */}
+        {/* Pending Approval Controls for Admin */}
         {role === 'admin' && article.status === 'pending_approval' && (
           <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
         )}
-        {can('knowledge.approve') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
-          <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>✓ Approve</button>
+        {/* Department Manager & Admin Approval Buttons */}
+        {role !== 'staff' && can('knowledge.approve') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+          <button
+            className={styles.approveBtn}
+            disabled={busy}
+            onClick={handleApprove}
+            title={role === 'manager' ? 'Approve and notify Admin to publish' : 'Approve article'}
+          >
+            {role === 'manager' ? '✓ Approve (Notify Admin)' : '✓ Approve'}
+          </button>
         )}
-        {can('knowledge.request_revision') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+        {role !== 'staff' && can('knowledge.request_revision') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
           <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowRevisionModal(true)}>Request Changes</button>
         )}
-        {can('knowledge.reject') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
+        {role !== 'staff' && can('knowledge.reject') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
           <button className={styles.danger} disabled={busy} onClick={() => setShowRejectModal(true)}>Reject</button>
         )}
-        {/* Approved Article - Ready to Publish */}
-        {can('knowledge.publish') && article.status === 'approved' && (
+        {/* Approved Article - Admin Publish Authority Only */}
+        {can('knowledge.publish') && role === 'admin' && article.status === 'approved' && (
           <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
         )}
-        {can('knowledge.unpublish') && article.status === 'published' && (
+        {/* Unpublish / Archive / Restore (Admin Only) */}
+        {can('knowledge.unpublish') && role === 'admin' && article.status === 'published' && (
           <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowUnpublishModal(true)}>Unpublish</button>
         )}
-        {can('knowledge.archive') && article.status === 'published' && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={handleArchive}>Archive</button>
+        {can('knowledge.archive') && role === 'admin' && (article.status === 'published' || article.status === 'unpublished') && (
+          <button className={styles.cancelBtn} disabled={busy} onClick={handleArchive}>📦 Retire (Archive)</button>
         )}
-        {can('knowledge.archive') && article.status === 'archived' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>Restore</button>
+        {can('knowledge.restore') && role === 'admin' && article.status === 'archived' && (
+          <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>🔄 Restore Article</button>
+        )}
+        {article.status === 'restored' && (
+          <>
+            {(role === 'admin' || role === 'manager' || article.authorId === user?.id) && (
+              <button className={styles.approveBtn} disabled={busy} onClick={handleMoveToDraft} title="Move back to draft to edit and re-enter publishing cycle">
+                📝 Move to Draft
+              </button>
+            )}
+            {role === 'admin' && (
+              <button className={styles.publishBtn} disabled={busy} onClick={handlePublish} title="Directly re-publish to tenants">
+                🚀 Re-publish to Tenants
+              </button>
+            )}
+          </>
         )}
         {can('knowledge.manage_versions') && (
           <button className={styles.submitBtn} disabled={busy} onClick={openVersionModal}>New Version</button>
         )}
-        {can('knowledge.delete') && (
+        {((can('knowledge.delete') && role === 'admin') || (role === 'staff' && article.authorId === user?.id && article.status === 'draft')) && (
           <button className={styles.danger} disabled={busy} onClick={() => setDeleteTarget(true)}>Delete</button>
         )}
       </div>

@@ -11,6 +11,7 @@ input[type="radio"] {
 }
 
 :root {
+  --sidebar-width: 275px;
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
   --bg-surface: #f1f5f9;
@@ -1172,3 +1173,151 @@ code {
 [data-theme="dark"] .analytics-filter-label {
   color: var(--text-secondary) !important;
 }
+
+/* ==========================================================================
+   ENTERPRISE CENTERED ACTION ALERTS & TOAST NOTIFICATIONS
+   Displays all action feedbacks (creating, updating, deleting, approving, etc.)
+   prominently centered on the page in a sleek, floating alert pill.
+   ========================================================================== */
+
+[class*="toast"],
+[class*="Toast"],
+.toast,
+.toastSuccess,
+.toastError {
+  position: fixed !important;
+  top: 28px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 999999 !important;
+  width: auto !important;
+  min-width: 300px !important;
+  max-width: min(680px, 92vw) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  padding: 13px 28px !important;
+  border-radius: 999px !important;
+  font-size: 0.94rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.4 !important;
+  text-align: center !important;
+  pointer-events: auto !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  box-shadow: 
+    0 20px 48px -10px rgba(0, 0, 0, 0.28),
+    0 8px 24px -6px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset !important;
+  animation: slideToastCentered 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  transition: all 0.25s ease !important;
+  margin: 0 !important;
+}
+
+/* Success Action Alerts (Creating, Updating, Deleting, Approving, Publishing) */
+[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]),
+[class*="toastSuccess"],
+[class*="ToastSuccess"] {
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.96) 100%) !important;
+  color: #065f46 !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 
+    0 20px 48px -10px rgba(16, 185, 129, 0.35),
+    0 8px 20px -6px rgba(16, 185, 129, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
+}
+
+/* Error / Rejection / Failure Action Alerts */
+[class*="toast"][class*="error"],
+[class*="toast"][class*="Error"],
+[class*="toastError"],
+[class*="ToastError"],
+[class*="toast"][class*="danger"] {
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.98) 0%, rgba(254, 226, 226, 0.96) 100%) !important;
+  color: #991b1b !important;
+  border: 1.5px solid #ef4444 !important;
+  box-shadow: 
+    0 20px 48px -10px rgba(239, 68, 68, 0.35),
+    0 8px 20px -6px rgba(239, 68, 68, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
+}
+
+/* Success Icon Badge */
+[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"])::before,
+[class*="toastSuccess"]::before,
+[class*="ToastSuccess"]::before {
+  content: '✓' !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #10b981 !important;
+  color: #ffffff !important;
+  font-size: 0.75rem !important;
+  font-weight: 900 !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* Error Icon Badge */
+[class*="toast"][class*="error"]::before,
+[class*="toast"][class*="Error"]::before,
+[class*="toastError"]::before,
+[class*="ToastError"]::before,
+[class*="toast"][class*="danger"]::before {
+  content: '✕' !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45) !important;
+}
+
+/* Dark Theme Overrides for Centered Action Alerts */
+[data-theme="dark"] [class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]),
+[data-theme="dark"] [class*="toastSuccess"],
+[data-theme="dark"] [class*="ToastSuccess"] {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 47, 46, 0.98) 100%) !important;
+  color: #a7f3d0 !important;
+  border: 1.5px solid #059669 !important;
+  box-shadow: 
+    0 24px 50px -10px rgba(0, 0, 0, 0.75),
+    0 0 24px rgba(16, 185, 129, 0.35),
+    0 0 0 1px rgba(52, 211, 153, 0.25) inset !important;
+}
+
+[data-theme="dark"] [class*="toast"][class*="error"],
+[data-theme="dark"] [class*="toast"][class*="Error"],
+[data-theme="dark"] [class*="toastError"],
+[data-theme="dark"] [class*="ToastError"],
+[data-theme="dark"] [class*="toast"][class*="danger"] {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.96) 0%, rgba(69, 10, 10, 0.98) 100%) !important;
+  color: #fecaca !important;
+  border: 1.5px solid #dc2626 !important;
+  box-shadow: 
+    0 24px 50px -10px rgba(0, 0, 0, 0.75),
+    0 0 24px rgba(239, 68, 68, 0.35),
+    0 0 0 1px rgba(248, 113, 113, 0.25) inset !important;
+}
+
+@keyframes slideToastCentered {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -36px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}

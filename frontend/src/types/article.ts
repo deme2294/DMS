@@ -110,9 +110,11 @@ export interface KnowledgeCategory {
   icon?: string | null;
   isActive: boolean;
   parentId?: string | null;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface KnowledgeAttachment {
@@ -143,3 +145,5 @@ export interface ArticleVersion {
   creatorFirstName?: string | null;
   creatorLastName?: string | null;
 }
+
+

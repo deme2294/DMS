@@ -13,6 +13,7 @@ import {
   unpublishArticle,
   archiveArticle,
   restoreArticle,
+  moveToDraft,
   deleteArticle,
   requestRevision,
   fetchAllCategories,
@@ -92,7 +93,7 @@ export default function KnowledgeArticleEdit() {
     !!article &&
     (role === 'admin' ||
       (role === 'manager') ||
-      (role === 'staff' && article.authorId === user?.id && ['draft', 'needs_revision'].includes(article.status)));
+      (role === 'staff' && article.authorId === user?.id && ['draft', 'needs_revision', 'restored'].includes(article.status)));
 
   const runAction = async (fn: () => Promise<unknown>, successMsg: string) => {
     setBusy(true);
@@ -155,6 +156,7 @@ export default function KnowledgeArticleEdit() {
   };
   const handleArchive = () => runAction(() => archiveArticle(article.id), 'Article archived');
   const handleRestore = () => runAction(() => restoreArticle(article.id), 'Article restored');
+  const handleMoveToDraft = () => runAction(() => moveToDraft(article.id), 'Article moved to draft');
   const handleDelete = () => {
     setDeleteTarget(false);
     runAction(() => deleteArticle(article.id), 'Article deleted').then(() => navigate('/admin/knowledge'));
@@ -281,15 +283,41 @@ export default function KnowledgeArticleEdit() {
               Unpublish
             </button>
           )}
-          {can('knowledge.archive') && article.status === 'published' && (
+          {can('knowledge.archive') && (article.status === 'published' || article.status === 'unpublished') && (
             <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={handleArchive}>
-              Archive
+              📦 Retire (Archive)
             </button>
           )}
           {can('knowledge.archive') && article.status === 'archived' && (
             <button type="button" className={styles.approveBtn} disabled={busy || saving} onClick={handleRestore}>
-              Restore
+              🔄 Restore
             </button>
+          )}
+          {article.status === 'restored' && (
+            <>
+              {(role === 'admin' || role === 'manager' || article.authorId === user?.id) && (
+                <button
+                  type="button"
+                  className={styles.approveBtn}
+                  disabled={busy || saving}
+                  onClick={handleMoveToDraft}
+                  title="Move restored article to Draft"
+                >
+                  📝 Move to Draft
+                </button>
+              )}
+              {role === 'admin' && (
+                <button
+                  type="button"
+                  className={styles.publishBtn}
+                  disabled={busy || saving}
+                  onClick={handlePublish}
+                  title="Directly re-publish to tenants"
+                >
+                  🚀 Re-publish to Tenants
+                </button>
+              )}
+            </>
           )}
 
           <button type="button" className={styles.cancelBtn} onClick={() => navigate('/admin/knowledge')}>

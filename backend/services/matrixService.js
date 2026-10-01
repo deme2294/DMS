@@ -3,8 +3,8 @@ import * as matrixRepo from '../repository/matrixRepository.js';
 import { sanitizeAssignment } from '../models/UserDepartment.js';
 import pool from '../config/db.js';
 
-export const listAssignments = async (query, managerDepartmentIds = null, isManager = false) => {
-  const result = await matrixRepo.findAssignments(query, managerDepartmentIds, isManager);
+export const listAssignments = async (query) => {
+  const result = await matrixRepo.findAssignments(query);
   return {
     ...result,
     data: result.data.map(sanitizeAssignment),
@@ -22,48 +22,54 @@ export const getMatrixGrid = async (managerDepartmentIds = null) => {
   let users;
   let assignments;
 
-  if (managerDepartmentIds && managerDepartmentIds.length > 0) {
-    const placeholders = managerDepartmentIds.map(() => '?').join(',');
-    const [rows] = await pool.query(
-      `SELECT id, name, code, status
-       FROM departments
-       WHERE id IN (${placeholders})
-       ORDER BY name ASC`,
-      managerDepartmentIds
-    );
-    departments = rows;
-
-    const [userRows] = await pool.query(
-      `SELECT DISTINCT ud.user_id
-       FROM user_departments ud
-       WHERE ud.department_id IN (${placeholders})`,
-      managerDepartmentIds
-    );
-    const userIdsInDepts = userRows.map((r) => r.user_id);
-
-    if (userIdsInDepts.length > 0) {
-      const uPlaceholders = userIdsInDepts.map(() => '?').join(',');
-      const [uRows] = await pool.query(
-        `SELECT u.id, u.username, u.first_name, u.last_name, u.email, r.name AS role
-         FROM users u
-         JOIN roles r ON r.id = u.role_id
-         WHERE u.status = 'active'
-           AND r.name IN ('admin', 'manager', 'staff')
-           AND u.id IN (${uPlaceholders})
-         ORDER BY u.first_name, u.last_name`,
-        userIdsInDepts
+  if (Array.isArray(managerDepartmentIds)) {
+    if (managerDepartmentIds.length > 0) {
+      const placeholders = managerDepartmentIds.map(() => '?').join(',');
+      const [rows] = await pool.query(
+        `SELECT id, name, code, status
+         FROM departments
+         WHERE id IN (${placeholders})
+         ORDER BY name ASC`,
+        managerDepartmentIds
       );
-      users = uRows;
-    } else {
-      users = [];
-    }
+      departments = rows;
 
-    [assignments] = await pool.query(
-      `SELECT user_id, department_id
-       FROM user_departments
-       WHERE department_id IN (${placeholders})`,
-      managerDepartmentIds
-    );
+      const [userRows] = await pool.query(
+        `SELECT DISTINCT ud.user_id
+         FROM user_departments ud
+         WHERE ud.department_id IN (${placeholders})`,
+        managerDepartmentIds
+      );
+      const userIdsInDepts = userRows.map((r) => r.user_id);
+
+      if (userIdsInDepts.length > 0) {
+        const uPlaceholders = userIdsInDepts.map(() => '?').join(',');
+        const [uRows] = await pool.query(
+          `SELECT u.id, u.username, u.first_name, u.last_name, u.email, r.name AS role
+           FROM users u
+           JOIN roles r ON r.id = u.role_id
+           WHERE u.status = 'active'
+             AND r.name IN ('admin', 'manager', 'staff')
+             AND u.id IN (${uPlaceholders})
+           ORDER BY u.first_name, u.last_name`,
+          userIdsInDepts
+        );
+        users = uRows;
+      } else {
+        users = [];
+      }
+
+      [assignments] = await pool.query(
+        `SELECT user_id, department_id
+         FROM user_departments
+         WHERE department_id IN (${placeholders})`,
+        managerDepartmentIds
+      );
+    } else {
+      departments = [];
+      users = [];
+      assignments = [];
+    }
   } else {
     // Admin / unrestricted view: return ALL active departments, active users, and assignments
     const [dRows] = await pool.query(

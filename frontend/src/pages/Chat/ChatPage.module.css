@@ -832,6 +832,60 @@
   color: #92400e !important;
 }
 
+.sidebarActionsGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.newConferenceBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.newConferenceBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.5);
+  background: linear-gradient(135deg, #6d28d9 0%, #4338ca 100%);
+}
+
+.filterActiveVideo {
+  background: #fdf2f8 !important;
+  border-color: #f472b6 !important;
+  color: #db2777 !important;
+  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.15);
+}
+
+.filterActiveVideo .pillCount {
+  background: #fce7f3 !important;
+  color: #be185d !important;
+}
+
+.videoRoomBadge {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #fdf2f8;
+  color: #db2777;
+  border: 1px solid #fbcfe8;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .filterActiveTicket {
   background: #f5f3ff !important;
   border-color: #c4b5fd !important;
@@ -2742,9 +2796,215 @@
   border: 1px solid #fde68a;
 }
 
+.typeIconVideo {
+  background: #fdf2f8;
+  color: #db2777;
+  border: 1px solid #fbcfe8;
+}
+
 .typeIconSvg {
   width: 22px;
   height: 22px;
+}
+
+/* Video Conference Creation Form inside NewChatModal */
+.videoFormBanner {
+  background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
+  border: 1px solid #fbcfe8;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.videoFormBannerToday {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.videoFormBannerTitle {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #9d174d;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.videoFormBannerDesc {
+  font-size: 0.74rem;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+.videoTodayBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #fce7f3;
+  color: #be185d;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid #fbcfe8;
+}
+
+.videoScheduleToggleGroup {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.videoScheduleToggleBtn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.videoScheduleToggleBtnActive {
+  background: #fdf2f8 !important;
+  border-color: #ec4899 !important;
+  color: #be185d !important;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.18);
+}
+
+.videoPresetRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.videoPresetBtn {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.videoPresetBtn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.videoPresetBtnActive {
+  background: #fdf2f8 !important;
+  border-color: #ec4899 !important;
+  color: #be185d !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(236, 72, 153, 0.2) !important;
+}
+
+.videoScheduleGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 640px) {
+  .videoScheduleGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.videoTimeNeededBox {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.videoScheduleSummaryCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
+  border: 1px solid #fbcfe8;
+  margin-top: 8px;
+}
+
+.videoOptionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.videoOptionToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.76rem;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.videoOptionToggle:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.videoTargetTabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.videoTargetTabBtn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.videoTargetTabBtnActive {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 700;
 }
 
 .typeInfo {

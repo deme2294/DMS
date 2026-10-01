@@ -50,6 +50,7 @@ export default function Reports() {
   const [myDepts, setMyDepts] = useState<MyDepartment[]>([]);
   const [allDepartments, setAllDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
   const [filter, setFilter] = useState<ReportFilter>({});
+  const [activePreset, setActivePreset] = useState<'all' | 'today' | '7d' | '30d' | 'month' | 'last_month' | 'custom'>('all');
   const [exportingType, setExportingType] = useState<string | null>(null);
 
   const isManager = user?.role === 'manager';
@@ -69,6 +70,10 @@ export default function Reports() {
       setTenantReport(tenants.data.data);
     } catch (err) {
       console.error('[Reports] Error fetching reports:', err);
+      setTicketReport(null);
+      setDepartmentReport(null);
+      setStaffReport(null);
+      setTenantReport(null);
     } finally {
       setLoading(false);
     }
@@ -110,14 +115,21 @@ export default function Reports() {
     window.print();
   };
 
-  const setQuickDateRange = (preset: 'all' | 'today' | '7d' | '30d' | 'month') => {
+  const formatLocalDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const setQuickDateRange = (preset: 'all' | 'today' | '7d' | '30d' | 'month' | 'last_month') => {
     const now = new Date();
     if (preset === 'all') {
+      setActivePreset('all');
       setFilter((prev) => ({ ...prev, startDate: undefined, endDate: undefined }));
       return;
     }
-    const format = (d: Date) => d.toISOString().split('T')[0];
-    const endDate = format(now);
+    const endDate = formatLocalDate(now);
     let startDate = '';
 
     if (preset === 'today') {
@@ -125,19 +137,31 @@ export default function Reports() {
     } else if (preset === '7d') {
       const d = new Date();
       d.setDate(d.getDate() - 7);
-      startDate = format(d);
+      startDate = formatLocalDate(d);
     } else if (preset === '30d') {
       const d = new Date();
       d.setDate(d.getDate() - 30);
-      startDate = format(d);
+      startDate = formatLocalDate(d);
     } else if (preset === 'month') {
       const d = new Date(now.getFullYear(), now.getMonth(), 1);
-      startDate = format(d);
+      startDate = formatLocalDate(d);
+    } else if (preset === 'last_month') {
+      const startOfLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLast = new Date(now.getFullYear(), now.getMonth(), 0);
+      setActivePreset('last_month');
+      setFilter((prev) => ({
+        ...prev,
+        startDate: formatLocalDate(startOfLast),
+        endDate: formatLocalDate(endOfLast),
+      }));
+      return;
     }
+    setActivePreset(preset);
     setFilter((prev) => ({ ...prev, startDate, endDate }));
   };
 
   const clearFilters = () => {
+    setActivePreset('all');
     setFilter({});
   };
 
@@ -246,38 +270,45 @@ export default function Reports() {
           <div className={styles.quickPresets}>
             <button
               type="button"
-              className={`${styles.presetBtn} ${!filter.startDate && !filter.endDate ? styles.presetBtnActive : ''}`}
+              className={`${styles.presetBtn} ${activePreset === 'all' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('all')}
             >
               All Time
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === 'today' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('today')}
             >
               Today
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === '7d' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('7d')}
             >
               Last 7 Days
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === '30d' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('30d')}
             >
               Last 30 Days
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === 'month' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('month')}
             >
               This Month
+            </button>
+            <button
+              type="button"
+              className={`${styles.presetBtn} ${activePreset === 'last_month' ? styles.presetBtnActive : ''}`}
+              onClick={() => setQuickDateRange('last_month')}
+            >
+              Last Month
             </button>
           </div>
 
@@ -288,7 +319,10 @@ export default function Reports() {
                 type="date"
                 className={styles.dateInput}
                 value={filter.startDate ?? ''}
-                onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
+                onChange={(e) => {
+                  setActivePreset('custom');
+                  setFilter((prev) => ({ ...prev, startDate: e.target.value || undefined }));
+                }}
                 title="Start Date"
               />
             </div>
@@ -301,7 +335,10 @@ export default function Reports() {
                 type="date"
                 className={styles.dateInput}
                 value={filter.endDate ?? ''}
-                onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
+                onChange={(e) => {
+                  setActivePreset('custom');
+                  setFilter((prev) => ({ ...prev, endDate: e.target.value || undefined }));
+                }}
                 title="End Date"
               />
             </div>
@@ -312,7 +349,7 @@ export default function Reports() {
                 <select
                   className={styles.deptSelect}
                   value={filter.departmentId ?? ''}
-                  onChange={(e) => setFilter({ ...filter, departmentId: e.target.value || undefined })}
+                  onChange={(e) => setFilter((prev) => ({ ...prev, departmentId: e.target.value || undefined }))}
                 >
                   <option value="">All Departments</option>
                   {allDepartments.map((d) => (
@@ -336,6 +373,31 @@ export default function Reports() {
         </div>
       </div>
 
+      {/* Filter Status Notice Banner */}
+      {hasActiveFilters && (
+        <div className={`${styles.activeFilterNotice} ${totalTickets === 0 ? styles.activeFilterNoticeEmpty : ''}`}>
+          <div className={styles.activeFilterNoticeLeft}>
+            <FunnelIcon className={styles.activeFilterNoticeIcon} />
+            <span>
+              {totalTickets === 0 ? (
+                <>
+                  No tickets found for filter range: <strong>{filter.startDate || 'Beginning'}</strong> to <strong>{filter.endDate || 'Present'}</strong>
+                  {filter.departmentId ? ' (department scoped)' : ''}. Displaying empty metrics for this period.
+                </>
+              ) : (
+                <>
+                  Filtered by: <strong>{filter.startDate || 'Beginning'}</strong> to <strong>{filter.endDate || 'Present'}</strong>
+                  {filter.departmentId ? ' (department scoped)' : ''} &bull; <strong>{totalTickets}</strong> ticket(s) found.
+                </>
+              )}
+            </span>
+          </div>
+          <button type="button" className={styles.resetFilterLink} onClick={clearFilters}>
+            Reset to All Time
+          </button>
+        </div>
+      )}
+
       {/* KPI Stats Overview Grid */}
       <div className={styles.statsGrid}>
         <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
@@ -347,7 +409,13 @@ export default function Reports() {
           </div>
           <div className={styles.statValue}>{totalTickets.toLocaleString()}</div>
           <div className={styles.statSubtext}>
-            <span style={{ color: '#2563eb', fontWeight: 600 }}>{inProgressTickets} in progress</span> • {pendingTickets} pending
+            {totalTickets === 0 && hasActiveFilters ? (
+              <span style={{ color: '#64748b' }}>0 in progress • 0 pending</span>
+            ) : (
+              <>
+                <span style={{ color: '#2563eb', fontWeight: 600 }}>{inProgressTickets} in progress</span> • {pendingTickets} pending
+              </>
+            )}
           </div>
         </div>
 
@@ -358,7 +426,7 @@ export default function Reports() {
               <CheckCircleIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue} style={{ color: '#16a34a' }}>{resolutionRate}%</div>
+          <div className={styles.statValue} style={{ color: totalTickets === 0 ? '#64748b' : '#16a34a' }}>{resolutionRate}%</div>
           <div className={styles.statSubtext}>
             <span>{resolvedTickets} resolved / closed tickets</span>
           </div>
@@ -371,12 +439,12 @@ export default function Reports() {
               <ClockIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue} style={{ color: '#d97706' }}>
-            {ticketReport?.avgResolutionHours ? Number(ticketReport.avgResolutionHours).toFixed(1) : '0.0'}
+          <div className={styles.statValue} style={{ color: totalTickets === 0 ? '#64748b' : '#d97706' }}>
+            {ticketReport?.avgResolutionHours && totalTickets > 0 ? Number(ticketReport.avgResolutionHours).toFixed(1) : '0.0'}
             <span className={styles.statUnit}>hrs</span>
           </div>
           <div className={styles.statSubtext}>
-            <span>Average turnaround per ticket</span>
+            <span>{totalTickets === 0 ? 'No resolved tickets in period' : 'Average turnaround per ticket'}</span>
           </div>
         </div>
 
@@ -387,9 +455,11 @@ export default function Reports() {
               <BuildingOffice2Icon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>{departmentReport?.activeDepartments ?? departmentReport?.totalDepartments ?? 0}</div>
+          <div className={styles.statValue}>
+            {hasActiveFilters && totalTickets === 0 ? 0 : (departmentReport?.activeDepartments ?? departmentReport?.departmentPerformance?.length ?? 0)}
+          </div>
           <div className={styles.statSubtext}>
-            <span>Operational units</span>
+            <span>{hasActiveFilters ? 'Active in selected range' : 'Operational units'}</span>
           </div>
         </div>
 
@@ -400,9 +470,11 @@ export default function Reports() {
               <UserGroupIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>{staffReport?.totalStaff ?? 0}</div>
+          <div className={styles.statValue}>
+            {hasActiveFilters && totalTickets === 0 ? 0 : (staffReport?.activeStaff ?? staffReport?.staffPerformance?.length ?? 0)}
+          </div>
           <div className={styles.statSubtext}>
-            <span>Support agents</span>
+            <span>{hasActiveFilters ? 'Assigned in selected range' : 'Support agents'}</span>
           </div>
         </div>
 
@@ -414,9 +486,11 @@ export default function Reports() {
                 <BuildingStorefrontIcon className={styles.statIcon} />
               </div>
             </div>
-            <div className={styles.statValue}>{tenantReport?.totalTenants ?? tenantReport?.activeTenants ?? 0}</div>
+            <div className={styles.statValue}>
+              {hasActiveFilters && totalTickets === 0 ? 0 : (tenantReport?.activeTenants ?? tenantReport?.tenantActivity?.length ?? 0)}
+            </div>
             <div className={styles.statSubtext}>
-              <span>Registered organizations</span>
+              <span>{hasActiveFilters ? 'With tickets in range' : 'Registered organizations'}</span>
             </div>
           </div>
         )}
@@ -608,18 +682,18 @@ export default function Reports() {
       </div>
 
       {/* Monthly Trend Activity */}
-      {(ticketReport?.monthlyTrend ?? []).length > 0 && (
-        <div className={styles.sectionCard}>
-          <div className={styles.sectionHeader}>
-            <div className={styles.sectionTitleGroup}>
-              <ChartBarIcon className={styles.sectionTitleIcon} style={{ color: '#10b981' }} />
-              <div>
-                <h2 className={styles.sectionHeading}>Monthly Inflow Trend</h2>
-                <span className={styles.sectionSub}>Historical monthly volume trajectory</span>
-              </div>
+      <div className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionTitleGroup}>
+            <ChartBarIcon className={styles.sectionTitleIcon} style={{ color: '#10b981' }} />
+            <div>
+              <h2 className={styles.sectionHeading}>Monthly Inflow Trend</h2>
+              <span className={styles.sectionSub}>Historical monthly volume trajectory</span>
             </div>
           </div>
+        </div>
 
+        {(ticketReport?.monthlyTrend ?? []).length > 0 ? (
           <div className={styles.monthlyTrendContainer}>
             {(ticketReport?.monthlyTrend ?? []).map((m) => {
               const maxCount = Math.max(...(ticketReport?.monthlyTrend ?? []).map((x) => x.count), 1);
@@ -635,8 +709,10 @@ export default function Reports() {
               );
             })}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className={styles.emptyNotice}>No ticket inflow activity recorded for this period.</div>
+        )}
+      </div>
 
       {/* Department Performance Table */}
       <div className={styles.sectionCard}>

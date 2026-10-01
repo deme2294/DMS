@@ -1,5 +1,5 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import type { ArticleFormValues } from '../../types/article';
@@ -34,6 +34,7 @@ export default function KnowledgeCreate() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ArticleFormValues>({
     defaultValues: {
@@ -47,6 +48,9 @@ export default function KnowledgeCreate() {
     },
   });
 
+  const selectedDepartmentId = watch('departmentId');
+
+  // Load department options
   useEffect(() => {
     setError('');
     (async () => {
@@ -65,22 +69,46 @@ export default function KnowledgeCreate() {
           deptList = (allDepts.data.data as DeptOption[]) || [];
         }
 
-        const catRes = await fetchAllCategories();
         setDepartments(deptList);
-        setCategories(catRes.data.data || []);
 
-        if (deptList.length === 1) {
-          setValue('departmentId', deptList[0].id);
+        // Auto-assign department for staff and manager
+        if (deptList.length > 0) {
+          setValue('departmentId', deptList[0].id, { shouldValidate: true, shouldDirty: true });
         }
       } catch {
         setDepartments([]);
-        setCategories([]);
       }
     })();
   }, [role, setValue]);
 
+  // Load categories filtered for the assigned/selected department
+  const loadCategoriesForDepartment = useCallback(async (deptId?: string) => {
+    try {
+      const res = await fetchAllCategories(deptId ? { departmentId: deptId } : undefined);
+      const allCats = res.data.data || [];
+      setCategories(allCats);
+    } catch {
+      setCategories([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      loadCategoriesForDepartment(selectedDepartmentId);
+    } else {
+      loadCategoriesForDepartment();
+    }
+  }, [selectedDepartmentId, loadCategoriesForDepartment]);
+
+  // Split categories: department-specific categories first, then global
+  const departmentCategories = categories.filter((c) => c.departmentId === selectedDepartmentId);
+  const globalCategories = categories.filter((c) => !c.departmentId);
+  const activeDeptObj = departments.find((d) => d.id === selectedDepartmentId) || departments[0];
+
   const onSubmit = async (values: ArticleFormValues) => {
-    if ((role === 'staff' || role === 'manager') && !values.departmentId && departments.length > 0) {
+    const finalDeptId = values.departmentId || (departments.length > 0 ? departments[0].id : null);
+
+    if ((role === 'staff' || role === 'manager') && !finalDeptId && departments.length > 0) {
       setError('Please assign the article to your department');
       return;
     }
@@ -92,7 +120,7 @@ export default function KnowledgeCreate() {
         category: values.category,
         tags: values.tags || null,
         visibility: values.visibility || 'internal',
-        departmentId: values.departmentId || null,
+        departmentId: finalDeptId || null,
         submitForApproval,
       });
       navigate(basePath);
@@ -114,16 +142,41 @@ export default function KnowledgeCreate() {
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.formRow}>
           <div className={styles.formGroup}>
-            <label htmlFor="title">Title</label>
+            <label htmlFor="title">Title *</label>
             <input id="title" type="text" {...register('title', { required: 'Title is required' })} placeholder="Enter article title" />
             {errors.title && <span className={styles.error}>{errors.title.message}</span>}
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor="category">Category</label>
+            <label htmlFor="category">
+              Category *
+              {activeDeptObj && (
+                <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 500, marginLeft: 6 }}>
+                  (Showing for {activeDeptObj.name})
+                </span>
+              )}
+            </label>
             <select id="category" {...register('category', { required: 'Category is required' })}>
               <option value="">Select category</option>
-              {categories.map((cat) => (
+              {departmentCategories.length > 0 && (
+                <optgroup label={`🏢 ${activeDeptObj?.name || 'Department'} Categories`}>
+                  {departmentCategories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {globalCategories.length > 0 && (
+                <optgroup label="🌐 Organization-Wide Categories">
+                  {globalCategories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {departmentCategories.length === 0 && globalCategories.length === 0 && categories.map((cat) => (
                 <option key={cat.id} value={cat.name}>
                   {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
                 </option>
@@ -139,7 +192,7 @@ export default function KnowledgeCreate() {
         </div>
 
         <div className={styles.formGroup}>
-          <label htmlFor="content">Content</label>
+          <label htmlFor="content">Content *</label>
           <textarea id="content" {...register('content', { required: 'Content is required' })} placeholder="Write the article content here..." rows={10} />
           {errors.content && <span className={styles.error}>{errors.content.message}</span>}
         </div>
@@ -157,18 +210,47 @@ export default function KnowledgeCreate() {
           </div>
 
           <div className={styles.formGroup}>
-            <label htmlFor="departmentId">Department</label>
-            <select id="departmentId" {...register('departmentId', { required: (role === 'staff' || role === 'manager') && departments.length > 0 })}>
-              <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-            {(role === 'staff' || role === 'manager') && (
-              <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4, display: 'block' }}>
-                Assigned to your department
-              </span>
+            <label htmlFor="departmentId">Department *</label>
+            {role === 'staff' && departments.length <= 1 ? (
+              <>
+                <select
+                  id="departmentId"
+                  disabled
+                  value={departments[0]?.id || ''}
+                  style={{ background: '#f8fafc', color: '#0f172a', fontWeight: 600, cursor: 'default' }}
+                >
+                  <option value={departments[0]?.id || ''}>
+                    🏢 {departments[0]?.name || 'Your Assigned Department'}
+                  </option>
+                </select>
+                <input type="hidden" {...register('departmentId')} value={departments[0]?.id || ''} />
+                <span style={{ fontSize: '0.8rem', color: '#15803d', marginTop: 4, display: 'block', fontWeight: 500 }}>
+                  ✓ Automatically assigned to your department ({departments[0]?.name || 'Department'})
+                </span>
+              </>
+            ) : (
+              <>
+                <select
+                  id="departmentId"
+                  {...register('departmentId', { required: (role === 'staff' || role === 'manager') && departments.length > 0 })}
+                  value={selectedDepartmentId || (departments.length > 0 ? departments[0].id : '')}
+                  onChange={(e) => setValue('departmentId', e.target.value, { shouldValidate: true, shouldDirty: true })}
+                >
+                  {departments.length === 0 && <option value="">No departments available</option>}
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      🏢 {d.name} {role === 'staff' ? '(Your Department)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '0.8rem', color: '#2563eb', marginTop: 4, display: 'block', fontWeight: 500 }}>
+                  {role === 'staff'
+                    ? 'Assigned to your staff department'
+                    : 'Articles will be managed within this department scope'}
+                </span>
+              </>
             )}
+            {errors.departmentId && <span className={styles.error}>{errors.departmentId.message}</span>}
           </div>
         </div>
 
@@ -178,7 +260,7 @@ export default function KnowledgeCreate() {
         </div>
 
         <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-          Articles submitted for review will be checked and approved by the <strong>Department Manager</strong> before Admin publishes them to tenants.
+          Articles submitted for review will be checked and approved by your <strong>Department Manager</strong> before Admin publishes them to tenants.
         </p>
 
         <div className={styles.formActions}>

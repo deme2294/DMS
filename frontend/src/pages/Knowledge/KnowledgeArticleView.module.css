@@ -327,16 +327,9 @@
 }
 
 .toast {
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.toast.error {
-  background: #fee2e2;
-  color: #991b1b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .rejectionBox {
@@ -591,4 +584,111 @@
   border-color: #fecaca;
   color: #991b1b;
 }
+
+/* ── Workflow Division Status Banner ── */
+.workflowStatusCard {
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid;
+}
+
+.workflowStatusPending {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.workflowStatusApproved {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+
+.workflowStatusPublished {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.workflowStatusRevision {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
+.workflowStatusContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflowStatusIcon {
+  font-size: 1.4rem;
+}
+
+.workflowStatusTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.workflowStatusDesc {
+  font-size: 0.78rem;
+  margin-top: 2px;
+  opacity: 0.88;
+}
+
+/* ==========================================================================
+   DARK THEME OVERRIDES — KNOWLEDGE ARTICLE VIEW
+   ========================================================================== */
+:global([data-theme="dark"]) .content,
+:global([data-theme="dark"]) .section {
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .summary {
+  background: #101726 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #1e293b !important;
+}
+
+:global([data-theme="dark"]) .value {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .label {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .workflowStatusPending {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fde68a !important;
+}
+
+:global([data-theme="dark"]) .workflowStatusApproved {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .workflowStatusPublished {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #6ee7b7 !important;
+}
+
+:global([data-theme="dark"]) .workflowStatusRevision {
+  background: rgba(234, 88, 12, 0.18) !important;
+  border-color: rgba(234, 88, 12, 0.35) !important;
+  color: #fdba74 !important;
+}
+
 

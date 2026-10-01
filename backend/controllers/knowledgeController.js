@@ -40,6 +40,15 @@ export const getArticleByReference = async (req, res, next) => {
   }
 };
 
+export const getMyArticles = async (req, res, next) => {
+  try {
+    const result = await knowledgeService.listMyArticles(req.user, req.query);
+    res.status(HTTP.OK).json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getMyDrafts = async (req, res, next) => {
   try {
     const result = await knowledgeService.listMyDrafts(req.user);
@@ -51,7 +60,7 @@ export const getMyDrafts = async (req, res, next) => {
 
 export const getPendingReview = async (req, res, next) => {
   try {
-    const result = await knowledgeService.listPendingReview(req.user);
+    const result = await knowledgeService.listPendingReview(req.user, req.query?.status);
     res.status(HTTP.OK).json({ success: true, ...result });
   } catch (err) {
     next(err);
@@ -157,6 +166,15 @@ export const restoreArticle = async (req, res, next) => {
   }
 };
 
+export const moveToDraft = async (req, res, next) => {
+  try {
+    const article = await knowledgeService.moveToDraft(req.params.id, req.user, req);
+    res.status(HTTP.OK).json({ success: true, message: 'Article moved to draft', data: article });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const deleteArticle = async (req, res, next) => {
   try {
     const result = await knowledgeService.deleteArticle(req.params.id, req.user, req);
@@ -185,18 +203,18 @@ export const getStats = async (req, res, next) => {
   }
 };
 
-export const getCategories = async (_req, res, next) => {
+export const getCategories = async (req, res, next) => {
   try {
-    const data = await knowledgeService.getCategories();
+    const data = await knowledgeService.getCategories(req.user, req.query?.departmentId);
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
   }
 };
 
-export const listCategories = async (_req, res, next) => {
+export const listCategories = async (req, res, next) => {
   try {
-    const data = await knowledgeService.listCategories();
+    const data = await knowledgeService.listCategories(req.user, req.query);
     res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);

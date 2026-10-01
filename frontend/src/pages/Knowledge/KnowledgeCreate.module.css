@@ -1,3 +1,29 @@
+/* ==========================================================================
+   KNOWLEDGE CREATE / EDIT MODULE — ENTERPRISE THEME SYSTEM
+   Complete Light & Dark theme toggle support
+   ========================================================================== */
+
+:root {
+  --kc-bg-card: #ffffff;
+  --kc-border: #e2e8f0;
+  --kc-label: #1e293b;
+  --kc-input-bg: #f8fafc;
+  --kc-input-border: #cbd5e1;
+  --kc-input-text: #0f172a;
+  --kc-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+:global([data-theme="dark"]),
+[data-theme="dark"] {
+  --kc-bg-card: #151b28;
+  --kc-border: #252e3e;
+  --kc-label: #f1f5f9;
+  --kc-input-bg: #0f1420;
+  --kc-input-border: #2e384d;
+  --kc-input-text: #f8fafc;
+  --kc-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
 .page {
   padding: 24px;
   max-width: 920px;
@@ -5,11 +31,12 @@
 }
 
 .form {
-  background: #ffffff;
+  background: var(--kc-bg-card);
   padding: 32px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--kc-border);
+  box-shadow: var(--kc-shadow);
+  transition: all 0.2s ease;
 }
 
 .formRow {
@@ -28,7 +55,7 @@
   font-size: 0.875rem;
   font-weight: 600;
   margin-bottom: 6px;
-  color: #1e293b;
+  color: var(--kc-label);
 }
 
 .formGroup input,
@@ -36,11 +63,11 @@
 .formGroup select {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--kc-input-border);
   border-radius: 10px;
-  background: #f8fafc;
+  background: var(--kc-input-bg);
   font-size: 0.925rem;
-  color: #0f172a;
+  color: var(--kc-input-text);
   font-family: inherit;
   transition: all 0.2s ease;
 }
@@ -50,8 +77,8 @@
 .formGroup select:focus {
   outline: none;
   border-color: #2563eb;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  background: var(--kc-input-bg);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
 }
 
 .formGroup textarea {
@@ -73,7 +100,7 @@
   justify-content: flex-end;
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--kc-border);
 }
 
 .submitBtn {
@@ -104,9 +131,9 @@
 
 .cancelBtn {
   padding: 12px 20px;
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: var(--kc-bg-card);
+  color: #64748b;
+  border: 1px solid var(--kc-input-border);
   border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
@@ -115,16 +142,16 @@
 }
 
 .cancelBtn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--kc-input-bg);
+  color: var(--kc-input-text);
   border-color: #94a3b8;
 }
 
 .draftBtn {
   padding: 12px 20px;
-  background: #f8fafc;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: var(--kc-input-bg);
+  color: var(--kc-input-text);
+  border: 1px solid var(--kc-input-border);
   border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
@@ -133,9 +160,8 @@
 }
 
 .draftBtn:hover:not(:disabled) {
-  background: #e2e8f0;
-  color: #0f172a;
-  border-color: #94a3b8;
+  background: var(--kc-border);
+  color: var(--kc-input-text);
 }
 
 .draftBtn:disabled {
@@ -143,3 +169,45 @@
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   EXPLICIT DARK THEME OVERRIDES
+   ========================================================================== */
+:global([data-theme="dark"]) .form {
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .formGroup label {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .formGroup input,
+:global([data-theme="dark"]) .formGroup textarea,
+:global([data-theme="dark"]) .formGroup select {
+  background: #0f1420 !important;
+  border-color: #2e384d !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .cancelBtn {
+  background: #151b28 !important;
+  color: #94a3b8 !important;
+  border-color: #2e384d !important;
+}
+
+:global([data-theme="dark"]) .cancelBtn:hover {
+  background: #1c2436 !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .draftBtn {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+:global([data-theme="dark"]) .draftBtn:hover:not(:disabled) {
+  background: #27354f !important;
+  color: #ffffff !important;
+}

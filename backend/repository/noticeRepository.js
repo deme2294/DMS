@@ -20,7 +20,7 @@ export const findById = async (id) => {
   return rows[0] || null;
 };
 
-export const findAll = async ({ search, status, priority, targetAudience, departmentId, page = 1, limit = 10 }) => {
+export const findAll = async ({ search, status, priority, targetAudience, departmentId, includeExpired = false, page = 1, limit = 10 }) => {
   const offset = (page - 1) * limit;
   let where = 'WHERE 1=1';
   const params = [];
@@ -32,6 +32,11 @@ export const findAll = async ({ search, status, priority, targetAudience, depart
   if (status) {
     where += ' AND notices.status = ?';
     params.push(status);
+    if (status === 'published' && !includeExpired) {
+      where += ' AND (notices.expires_at IS NULL OR notices.expires_at > NOW())';
+    }
+  } else if (!includeExpired) {
+    where += " AND notices.status != 'archived' AND (notices.expires_at IS NULL OR notices.expires_at > NOW())";
   }
   if (priority) {
     where += ' AND notices.priority = ?';
@@ -329,12 +334,19 @@ export const findNoticesForUser = async (userId, userRole, userDepartmentIds = [
 /**
  * Find notices created by a specific user (for managers)
  */
-export const findNoticesByCreator = async (creatorId, { page = 1, limit = 10 } = {}) => {
+export const findNoticesByCreator = async (creatorId, { page = 1, limit = 10, includeExpired = false } = {}) => {
   const offset = (page - 1) * limit;
   
+  let where = 'WHERE notices.created_by = ?';
+  const params = [creatorId];
+
+  if (!includeExpired) {
+    where += " AND notices.status != 'archived' AND (notices.expires_at IS NULL OR notices.expires_at > NOW())";
+  }
+
   const [countRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM notices WHERE created_by = ?`,
-    [creatorId]
+    `SELECT COUNT(*) AS total FROM notices ${where}`,
+    params
   );
   
   const [rows] = await pool.query(
@@ -348,10 +360,10 @@ export const findNoticesByCreator = async (creatorId, { page = 1, limit = 10 } =
      FROM notices
      LEFT JOIN departments d ON d.id = notices.department_id
      LEFT JOIN users assigned_user ON assigned_user.id = notices.assigned_to
-     WHERE notices.created_by = ?
+     ${where}
      ORDER BY notices.created_at DESC
      LIMIT ? OFFSET ?`,
-    [creatorId, Number(limit), Number(offset)]
+    [...params, Number(limit), Number(offset)]
   );
 
   return {

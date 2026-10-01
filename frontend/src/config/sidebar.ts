@@ -112,7 +112,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
             { label: 'Notifications', path: '/staff/notifications', icon: '🔔' },
             { label: 'Notices', path: '/staff/notices', icon: '📢', permission: 'notices.read' },
           { label: 'Knowledge Base', path: '/staff/knowledge', icon: '📚', permission: 'knowledge.read' },
-          { label: 'My Articles', path: '/staff/knowledge/my-articles', icon: '📝', permission: 'knowledge.create' },
+          { label: 'My Articles', path: '/staff/knowledge/my-articles', icon: '📝', permission: 'knowledge.read' },
           { label: 'My Profile', path: '/staff/profile', icon: '👤' },
         ],
       },

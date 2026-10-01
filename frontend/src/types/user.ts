@@ -24,6 +24,7 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
   departments?: DepartmentRef[];
+  tenantName?: string | null;
 }
 
 export interface RoleOption {

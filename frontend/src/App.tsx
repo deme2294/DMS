@@ -126,7 +126,7 @@ export default function App() {
           <Route path="/admin/departments" element={<ProtectedRoute roles={['admin', 'manager']}><DepartmentList /></ProtectedRoute>} />
           <Route path="/admin/departments/create" element={<ProtectedRoute roles={['admin', 'manager']}><DepartmentCreate /></ProtectedRoute>} />
           <Route path="/admin/departments/:id/edit" element={<ProtectedRoute roles={['admin', 'manager']}><DepartmentEdit /></ProtectedRoute>} />
-          <Route path="/admin/matrix" element={<ProtectedRoute roles={['admin', 'manager']}><MatrixView /></ProtectedRoute>} />
+          <Route path="/admin/matrix" element={<ProtectedRoute roles={['admin']}><MatrixView /></ProtectedRoute>} />
           <Route path="/admin/tickets" element={<ProtectedRoute roles={['admin']}><TicketList /></ProtectedRoute>} />
           <Route path="/admin/tickets/:id" element={<ProtectedRoute roles={['admin']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/admin/notices" element={<ProtectedRoute roles={['admin']}><NoticesList /></ProtectedRoute>} />

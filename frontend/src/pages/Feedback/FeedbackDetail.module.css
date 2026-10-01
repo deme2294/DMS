@@ -536,132 +536,133 @@
 }
 
 /* Dark mode support */
-[data-theme="dark"] .card {
+:global([data-theme="dark"]) .card {
   background: var(--bg-card, #181c24);
   border-color: var(--border-color, #252b38);
 }
 
-[data-theme="dark"] .card h3 {
+:global([data-theme="dark"]) .card h3 {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .card h3::before {
+:global([data-theme="dark"]) .card h3::before {
   background: linear-gradient(135deg, #3b82f6, #60a5fa);
 }
 
-[data-theme="dark"] .card p {
+:global([data-theme="dark"]) .card p {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .card p strong {
+:global([data-theme="dark"]) .card p strong {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .description {
+:global([data-theme="dark"]) .description {
   background: var(--bg-app, #0f1117);
   border-color: var(--border-color, #252b38);
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .assessmentItem {
+:global([data-theme="dark"]) .assessmentItem {
   background: var(--bg-app, #0f1117);
   border-color: var(--border-color, #252b38);
 }
 
-[data-theme="dark"] .assessmentItem strong {
+:global([data-theme="dark"]) .assessmentItem strong {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .assessmentItem p {
+:global([data-theme="dark"]) .assessmentItem p {
   color: var(--text-muted, #8892a4);
 }
 
-[data-theme="dark"] .responseMessage {
+:global([data-theme="dark"]) .responseMessage {
   color: #bbf7d0;
 }
 
-[data-theme="dark"] .responseMeta {
+:global([data-theme="dark"]) .responseMeta {
   color: var(--text-muted, #8892a4);
 }
 
-[data-theme="dark"] .adminResponse {
+:global([data-theme="dark"]) .adminResponse {
   background: linear-gradient(135deg, #052e16, #14532d);
   border-color: #166534;
 }
 
-[data-theme="dark"] .adminResponse::before {
+:global([data-theme="dark"]) .adminResponse::before {
   background: linear-gradient(135deg, #22c55e, #4ade80);
 }
 
-[data-theme="dark"] .replyForm textarea {
+:global([data-theme="dark"]) .replyForm textarea {
   background: var(--bg-card, #181c24);
   border-color: var(--border-color, #252b38);
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .replyForm label {
+:global([data-theme="dark"]) .replyForm label {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .timeline li {
+:global([data-theme="dark"]) .timeline li {
   border-color: var(--border-color, #252b38);
 }
 
-[data-theme="dark"] .timeline li::after {
+:global([data-theme="dark"]) .timeline li::after {
   background: var(--border-color, #252b38);
 }
 
-[data-theme="dark"] .timeline li p {
+:global([data-theme="dark"]) .timeline li p {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .timelineHeader strong {
+:global([data-theme="dark"]) .timelineHeader strong {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .timestamp {
+:global([data-theme="dark"]) .timestamp {
   color: var(--text-muted, #8892a4);
 }
 
-[data-theme="dark"] .emptyState {
+:global([data-theme="dark"]) .emptyState {
   color: var(--text-muted, #8892a4);
 }
 
-[data-theme="dark"] .modalForm label {
+:global([data-theme="dark"]) .modalForm label {
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .modalForm select {
+:global([data-theme="dark"]) .modalForm select {
   background: var(--bg-card, #181c24);
   border-color: var(--border-color, #252b38);
   color: var(--text-main, #e8eaf0);
 }
 
-[data-theme="dark"] .badge.pending {
+:global([data-theme="dark"]) .badge.pending {
   background: #451a03;
   color: #fcd34d;
   border-color: #78350f;
 }
 
-[data-theme="dark"] .badge.read {
+:global([data-theme="dark"]) .badge.read {
   background: #172554;
   color: #93c5fd;
   border-color: #1e3a8a;
 }
 
-[data-theme="dark"] .badge.resolved {
+:global([data-theme="dark"]) .badge.resolved {
   background: #022c22;
   color: #6ee7b7;
   border-color: #064e3b;
 }
 
-[data-theme="dark"] .badge.in_progress {
+:global([data-theme="dark"]) .badge.in_progress {
   background: #451a03;
   color: #fcd34d;
   border-color: #78350f;
 }
 
-[data-theme="dark"] .ratingStars {
+:global([data-theme="dark"]) .ratingStars {
   color: #fbbf24;
   text-shadow: 0 1px 2px rgba(251, 191, 36, 0.4);
 }
+

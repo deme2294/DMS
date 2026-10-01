@@ -6,15 +6,22 @@ import {
   createTargetedNotice,
   getAssignableNotices,
   assignNoticeToStaff,
+  routeNoticeToAdmin,
   getDepartmentStaff,
   getMyDepartments,
   acknowledgeNotice,
   getNoticeReplies,
   createNoticeReply,
   deleteNoticeReply,
+  updateNoticeExpiry,
+  updateNotice,
+  deleteNotice,
 } from '../../api/noticeApi';
+import { useAuth } from '../../context/AuthContext';
+import Modal from '../../components/Modal/Modal';
 import { buildAttachmentUrl } from '../../utils/attachmentUtils';
 import styles from './Notices.module.css';
+import { button } from 'framer-motion/client';
 
 interface Notice {
   id: string;
@@ -24,9 +31,12 @@ interface Notice {
   status: string;
   target_audience: string;
   department_name: string | null;
+  department_id?: string | null;
   creatorName: string;
   creator_role: string;
+  created_by?: string;
   assignedToName: string | null;
+  assigned_to?: string | null;
   isAcknowledged: boolean;
   acknowledgedAt: string | null;
   created_at: string;
@@ -98,6 +108,33 @@ export default function ManagerNotices() {
   const [replyVisibility, setReplyVisibility] = useState<'all' | 'internal'>('all');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState(false);
+
+  const { user } = useAuth();
+
+  // Central feedback alert state
+  const [centerAlert, setCenterAlert] = useState<{
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  } | null>(null);
+
+  // Delete notice modal state
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Edit notice modal state
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    priority: 'medium' as 'low' | 'medium' | 'high',
+    targetAudience: 'staff',
+    departmentId: '',
+    assignedTo: '',
+    expiresAt: '',
+    status: 'published',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Load bookmarks from localStorage
   useEffect(() => {
@@ -222,7 +259,12 @@ export default function ManagerNotices() {
         ...(formData.expiresAt ? { expiresAt: formData.expiresAt } : {}),
       };
       await createTargetedNotice(payload);
-      alert('Notice created and routed to staff team successfully!');
+      const isRouteToAdmin = formData.targetAudience === 'admin';
+      alert(
+        isRouteToAdmin
+          ? 'Notice created and routed directly to System Administrator!'
+          : 'Notice created and routed to staff team successfully!'
+      );
       setFormData({
         title: '',
         description: '',
@@ -245,10 +287,62 @@ export default function ManagerNotices() {
   const handleAssignNotice = async (noticeId: string, staffUserId: string) => {
     try {
       await assignNoticeToStaff(noticeId, staffUserId);
-      alert('Notice assigned successfully!');
+      alert('Notice assigned to staff member successfully!');
       loadNotices();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to assign notice');
+    }
+  };
+
+  const handleRouteToAdmin = async (noticeId: string) => {
+    const remarks = window.prompt('Route notice to System Administrator? Enter optional escalation note or remarks:');
+    if (remarks === null) return;
+    try {
+      await routeNoticeToAdmin(noticeId, remarks || undefined);
+      alert('Notice successfully routed to System Admin!');
+      loadNotices();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to route notice to Admin');
+    }
+  };
+
+  // Expiry modal state & handlers
+  const [expiryModalNotice, setExpiryModalNotice] = useState<any | null>(null);
+  const [expiryValue, setExpiryValue] = useState<string>('');
+  const [savingExpiry, setSavingExpiry] = useState(false);
+
+  const openExpiryModal = (notice: any) => {
+    setExpiryModalNotice(notice);
+    if (notice.expires_at) {
+      const d = new Date(notice.expires_at);
+      const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      setExpiryValue(localIso);
+    } else {
+      setExpiryValue('');
+    }
+  };
+
+  const handleSaveExpiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expiryModalNotice) return;
+    setSavingExpiry(true);
+    try {
+      const payload = expiryValue ? new Date(expiryValue).toISOString() : null;
+      await updateNoticeExpiry(expiryModalNotice.id, payload);
+      if (expiryValue && new Date(expiryValue).getTime() <= Date.now()) {
+        alert('Notice expiration date reached. The notice has been automatically archived and removed.');
+      } else {
+        alert('Notice expiration updated successfully!');
+      }
+      setExpiryModalNotice(null);
+      loadNotices();
+      if (activeTab === 'created') {
+        loadCreatedNotices();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update notice expiration');
+    } finally {
+      setSavingExpiry(false);
     }
   };
 
@@ -301,6 +395,100 @@ export default function ManagerNotices() {
     }
   };
 
+  const handleOpenEdit = (notice: any) => {
+    let formattedExpiresAt = '';
+    if (notice.expires_at) {
+      try {
+        const d = new Date(notice.expires_at);
+        formattedExpiresAt = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+      } catch {
+        formattedExpiresAt = '';
+      }
+    }
+
+    setEditFormData({
+      title: notice.title || '',
+      description: notice.description || '',
+      priority: (notice.priority as any) || 'medium',
+      targetAudience: notice.target_audience || 'staff',
+      departmentId: notice.department_id || (departments.length > 0 ? departments[0].id : ''),
+      assignedTo: notice.assigned_to || '',
+      expiresAt: formattedExpiresAt,
+      status: notice.status || 'published',
+    });
+    setEditTarget(notice);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget || savingEdit) return;
+
+    setSavingEdit(true);
+    try {
+      await updateNotice(editTarget.id, {
+        title: editFormData.title.trim(),
+        description: editFormData.description.trim(),
+        priority: editFormData.priority,
+        targetAudience: editFormData.targetAudience,
+        departmentId: editFormData.departmentId || null,
+        assignedTo: editFormData.assignedTo || null,
+        expiresAt: editFormData.expiresAt ? new Date(editFormData.expiresAt).toISOString() : null,
+        status: editFormData.status,
+      });
+
+      setEditTarget(null);
+      await loadNotices();
+      await loadCreatedNotices();
+      setCenterAlert({
+        title: 'Notice Updated',
+        message: `Notice "${editFormData.title}" has been updated successfully.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to update notice';
+      setCenterAlert({
+        title: 'Update Failed',
+        message: msg,
+        type: 'error',
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleOpenDelete = (notice: any) => {
+    setDeleteTarget(notice);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+
+    setDeleting(true);
+    try {
+      await deleteNotice(deleteTarget.id);
+      const deletedTitle = deleteTarget.title;
+      setDeleteTarget(null);
+      await loadNotices();
+      await loadCreatedNotices();
+      setCenterAlert({
+        title: 'Notice Deleted',
+        message: `Notice "${deletedTitle}" was deleted successfully.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to delete notice';
+      setCenterAlert({
+        title: 'Delete Failed',
+        message: msg,
+        type: 'error',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getPriorityBadge = (priority: string) => {
     const badges = {
       low: styles.badgeLow,
@@ -330,6 +518,14 @@ export default function ManagerNotices() {
 
   const selectedNotice = notices.find((n) => n.id === selectedNoticeId);
 
+  const isExpired = (expiresAt: string | null | undefined) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt).getTime() <= Date.now();
+  };
+
+  const filteredNotices = notices.filter((notice) => !isExpired(notice.expires_at));
+  const visibleCreatedNotices = createdNotices.filter((notice) => !isExpired(notice.expires_at));
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -342,19 +538,22 @@ export default function ManagerNotices() {
           className={`${styles.tab} ${activeTab === 'notices' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('notices')}
         >
-          📬 Notices & Assignments
+          <span className={styles.tabIcon}>📬</span>
+          <span className={styles.tabText}>Notices &amp; Assignments</span>
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'created' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('created')}
         >
-          📝 My Created Notices
+          <span className={styles.tabIcon}>📝</span>
+          <span className={styles.tabText}>My Created Notices</span>
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'create' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('create')}
         >
-          ➕ Create Notice
+          <span className={styles.tabIcon}>➕</span>
+          <span className={styles.tabText}>Create Notice</span>
         </button>
       </div>
 
@@ -363,16 +562,17 @@ export default function ManagerNotices() {
         <div className={styles.tabContent}>
           {loading ? (
             <div className={styles.loading}>Loading notices...</div>
-          ) : notices.length === 0 ? (
+          ) : filteredNotices.length === 0 ? (
             <div className={styles.empty}>
-              <p>No notices found</p>
+              <p>No active notices found</p>
             </div>
           ) : (
             <>
               <div className={styles.noticesList}>
-                {notices.map((notice: any) => {
+                {filteredNotices.map((notice: any) => {
                   const isFromAdmin = notice.creator_role === 'admin';
-                  const canAssign = isFromAdmin && staff.length > 0;
+                  const isFromStaff = notice.creator_role === 'staff';
+                  const canAssign = staff.length > 0;
 
                   return (
                     <div
@@ -393,6 +593,20 @@ export default function ManagerNotices() {
                           {isFromAdmin && (
                             <span className={`${styles.badge} ${styles.badgeLow}`}>
                               From Admin
+                            </span>
+                          )}
+                          {isFromStaff && (
+                            <span className={styles.badgeTargetStaff}>
+                              From Staff
+                            </span>
+                          )}
+                          {notice.assignedToName ? (
+                            <span className={styles.badgeAssigned}>
+                              👤 Assigned: {notice.assignedToName}
+                            </span>
+                          ) : (
+                            <span className={styles.badgeUnassignedNotice}>
+                              ⚠️ Unassigned
                             </span>
                           )}
                         </div>
@@ -454,27 +668,68 @@ export default function ManagerNotices() {
                             💬 Replies
                           </button>
 
-                          {/* Assignment dropdown for admin notices */}
+                          {/* Assignment dropdown for department staff */}
                           {canAssign && (
                             <div className={styles.assignSection}>
                               <select
                                 className={styles.select}
+                                value={notice.assigned_to || ''}
                                 onChange={(e) => {
                                   if (e.target.value) {
                                     handleAssignNotice(notice.id, e.target.value);
-                                    e.target.value = '';
                                   }
                                 }}
-                                defaultValue=""
                               >
-                                <option value="">Assign to staff...</option>
+                                <option value="">{notice.assigned_to ? 'Reassign staff...' : 'Assign to staff...'}</option>
                                 {staff.map((s) => (
                                   <option key={s.id} value={s.id}>
-                                    {s.name}
+                                    {s.name} ({s.email})
                                   </option>
                                 ))}
                               </select>
                             </div>
+                          )}
+
+                          {/* Route to Admin button */}
+                          <button
+                            type="button"
+                            onClick={() => handleRouteToAdmin(notice.id)}
+                            className={styles.btnRouteAdmin}
+                            title="Route / escalate this notice to System Admin"
+                          >
+                            🚀 Route to Admin
+                          </button>
+
+                          {/* Set or edit expiration date */}
+                          <button
+                            type="button"
+                            onClick={() => openExpiryModal(notice)}
+                            className={styles.btnSecondary}
+                            title="Set or update notice expiration date"
+                          >
+                            ⏱️ {notice.expires_at ? 'Edit Expiry' : 'Set Expiry'}
+                          </button>
+
+                          {/* Edit and Delete actions if creator or admin */}
+                          {((notice as any).created_by === user?.id || (notice as any).creator_id === user?.id || user?.role === 'admin') && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(notice)}
+                                className={styles.btnEdit}
+                                title="Edit this notice"
+                              >
+                                ✏️ Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDelete(notice)}
+                                className={styles.btnDelete}
+                                title="Delete this notice"
+                              >
+                                🗑️ Delete
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -514,14 +769,14 @@ export default function ManagerNotices() {
         <div className={styles.tabContent}>
           {loadingCreated ? (
             <div className={styles.loading}>Loading created notices...</div>
-          ) : createdNotices.length === 0 ? (
+          ) : visibleCreatedNotices.length === 0 ? (
             <div className={styles.empty}>
-              <p>You haven't created any notices yet</p>
+              <p>You haven't created any active notices yet</p>
             </div>
           ) : (
             <>
               <div className={styles.noticesList}>
-                {createdNotices.map((notice: any) => {
+                {visibleCreatedNotices.map((notice: any) => {
                   const isBookmarked = bookmarks.has(notice.id);
                   const rc = notice.recipientCounts || { total: 0, acknowledged: 0 };
                   const readLabel = rc.total > 0 ? `${rc.acknowledged}/${rc.total} read` : 'No recipients';
@@ -541,6 +796,18 @@ export default function ManagerNotices() {
                             <span className={`${styles.badge} ${getPriorityBadge(notice.priority)}`}>
                               {notice.priority}
                             </span>
+                            {notice.target_audience === 'admin' ? (
+                              <span className={styles.badgeTargetAdmin}>To: Admin</span>
+                            ) : notice.target_audience === 'staff' ? (
+                              <span className={styles.badgeTargetStaff}>To: Staff</span>
+                            ) : (
+                              <span className={styles.badgeTargetStaff}>To: Department</span>
+                            )}
+                            {notice.assignedToName && (
+                              <span className={styles.badgeAssigned}>
+                                👤 Assigned: {notice.assignedToName}
+                              </span>
+                            )}
                             {notice.replyCount > 0 && (
                               <span className={`${styles.badge} ${styles.badgeLow}`}>
                                 💬 {notice.replyCount}
@@ -578,8 +845,8 @@ export default function ManagerNotices() {
                           {notice.expires_at && (
                             <div className={styles.infoItem}>
                               <span className={styles.infoLabel}>Expires:</span>
-                              <span className={styles.infoValue}>
-                                {new Date(notice.expires_at).toLocaleDateString()}
+                              <span className={styles.infoValue} style={{ color: '#dc2626', fontWeight: 600 }}>
+                                ⏳ {new Date(notice.expires_at).toLocaleString()}
                               </span>
                             </div>
                           )}
@@ -595,6 +862,44 @@ export default function ManagerNotices() {
                             className={styles.btnSecondary}
                           >
                             💬 Replies
+                          </button>
+
+                          {notice.target_audience !== 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => handleRouteToAdmin(notice.id)}
+                              className={styles.btnRouteAdmin}
+                              title="Route / escalate this notice to System Admin"
+                            >
+                              🚀 Route to Admin
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => openExpiryModal(notice)}
+                            className={styles.btnSecondary}
+                            title="Set or update notice expiration date"
+                          >
+                            ⏱️ {notice.expires_at ? 'Edit Expiry' : 'Set Expiry'}
+                          </button>
+
+                          {/* Edit and Delete notice actions */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(notice)}
+                            className={styles.btnEdit}
+                            title="Edit this notice"
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDelete(notice)}
+                            className={styles.btnDelete}
+                            title="Delete this notice"
+                          >
+                            🗑️ Delete
                           </button>
                         </div>
                       </div>
@@ -633,9 +938,9 @@ export default function ManagerNotices() {
       {activeTab === 'create' && (
         <div className={styles.tabContent}>
           <div className={styles.sectionHeader}>
-            <h2>Create Notice for Staff Team</h2>
+            <h2>Create Notice for Staff Team or Route to Admin</h2>
             <p>
-              Notices created here route directly to staff members in your department. (Notices for other departments are managed and published by Admin).
+              Create and dispatch notices for your department staff team, or escalate/route notices directly to the System Administrator.
             </p>
           </div>
 
@@ -660,7 +965,7 @@ export default function ManagerNotices() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className={styles.textarea}
                 rows={4}
-                placeholder="Enter notice content for staff..."
+                placeholder="Enter notice content for staff or admin escalation..."
               />
             </div>
 
@@ -681,7 +986,7 @@ export default function ManagerNotices() {
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label}>Target Audience</label>
+                <label className={styles.label}>Target Audience *</label>
                 <select
                   value={formData.targetAudience}
                   onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
@@ -689,6 +994,7 @@ export default function ManagerNotices() {
                 >
                   <option value="staff">Staff Team (My Department)</option>
                   <option value="department">All Department Members</option>
+                  <option value="admin">System Administrator (Route / Notice to Admin)</option>
                 </select>
               </div>
 
@@ -722,21 +1028,23 @@ export default function ManagerNotices() {
                 </div>
               ) : null}
 
-              <div className={styles.formGroup}>
-                <label className={styles.label}>Direct Staff Assignment (Optional)</label>
-                <select
-                  value={formData.assignedTo}
-                  onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-                  className={styles.select}
-                >
-                  <option value="">All Staff in Department</option>
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {formData.targetAudience !== 'admin' && (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Direct Staff Assignment (Optional)</label>
+                  <select
+                    value={formData.assignedTo}
+                    onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                    className={styles.select}
+                  >
+                    <option value="">All Staff in Department</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className={styles.formGroup}>
                 <label className={styles.label}>Expires At (Optional)</label>
@@ -749,9 +1057,18 @@ export default function ManagerNotices() {
               </div>
             </div>
 
-            <p className={styles.hint} style={{ marginTop: 8, fontSize: '0.85rem', color: '#6b7280' }}>
-              💡 This notice will be immediately delivered to the staff in your department. Staff will receive notifications and will be able to acknowledge and reply.
-            </p>
+            {formData.targetAudience === 'admin' ? (
+              <div className={styles.infoNoticeBox}>
+                <span>📢</span>
+                <div>
+                  <strong>Route to System Administrator:</strong> This notice will be published and routed directly to the System Administrator for organizational oversight and action.
+                </div>
+              </div>
+            ) : (
+              <p className={styles.hint} style={{ marginTop: 8, fontSize: '0.85rem', color: '#6b7280' }}>
+                💡 This notice will be immediately delivered to the staff in your department. Staff will receive notifications and will be able to acknowledge and reply.
+              </p>
+            )}
 
             <div className={styles.formActions}>
               <button
@@ -759,7 +1076,11 @@ export default function ManagerNotices() {
                 disabled={submitting}
                 className={styles.btnSubmit}
               >
-                {submitting ? 'Publishing...' : '🚀 Create & Route to Staff Team'}
+                {submitting
+                  ? 'Dispatching Notice...'
+                  : formData.targetAudience === 'admin'
+                  ? '🚀 Dispatch Notice to Admin'
+                  : '📢 Publish & Route Notice to Staff'}
               </button>
             </div>
           </form>
@@ -861,6 +1182,269 @@ export default function ManagerNotices() {
                 </div>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expiry Modal */}
+      {expiryModalNotice && (
+        <div className={styles.modalOverlay} onClick={() => setExpiryModalNotice(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className={styles.modalHeader}>
+              <h2>Set Notice Expiration</h2>
+              <button className={styles.closeBtn} onClick={() => setExpiryModalNotice(null)}>
+                ✕
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: '#64748b', lineHeight: 1.5 }}>
+                Notice: <strong>{expiryModalNotice.title}</strong>
+                <br />
+                When this expiration date is reached, the notice is automatically archived and removed from all active views.
+              </p>
+
+              <form onSubmit={handleSaveExpiry}>
+                <div className={styles.formGroup} style={{ marginBottom: 18 }}>
+                  <label className={styles.label}>Expiration Date &amp; Time</label>
+                  <input
+                    type="datetime-local"
+                    value={expiryValue}
+                    onChange={(e) => setExpiryValue(e.target.value)}
+                    className={styles.input}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 4 }}>
+                    Leave empty or clear to keep notice active indefinitely.
+                  </span>
+                </div>
+
+                <div className={styles.formActions}>
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => setExpiryModalNotice(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={styles.btnPrimary}
+                    disabled={savingExpiry}
+                  >
+                    {savingExpiry ? 'Saving...' : '💾 Save Expiration'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Notice Modal ── */}
+      {editTarget && (
+        <Modal
+          open={Boolean(editTarget)}
+          title={`Edit Notice: ${editTarget.title}`}
+          maxWidth="640px"
+          onClose={() => !savingEdit && setEditTarget(null)}
+          footer={
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setEditTarget(null)}
+                disabled={savingEdit}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={handleSaveEdit}
+                disabled={savingEdit}
+              >
+                {savingEdit ? 'Saving Changes...' : '💾 Save Changes'}
+              </button>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveEdit} className={styles.form} style={{ padding: 0 }}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Title *</label>
+              <input
+                type="text"
+                required
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                className={styles.input}
+                placeholder="Notice title"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Description *</label>
+              <textarea
+                required
+                rows={4}
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                className={styles.textarea}
+                placeholder="Notice content..."
+              />
+            </div>
+
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Priority</label>
+                <select
+                  value={editFormData.priority}
+                  onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value as any })}
+                  className={styles.select}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Target Audience</label>
+                <select
+                  value={editFormData.targetAudience}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetAudience: e.target.value })}
+                  className={styles.select}
+                >
+                  <option value="staff">Staff Team (Department)</option>
+                  <option value="department">All Department Members</option>
+                  <option value="admin">System Administrator</option>
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Status</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                  className={styles.select}
+                >
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+            </div>
+
+            <div className={styles.formRow}>
+              {departments.length > 1 && (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Department</label>
+                  <select
+                    value={editFormData.departmentId}
+                    onChange={(e) => setEditFormData({ ...editFormData, departmentId: e.target.value })}
+                    className={styles.select}
+                  >
+                    <option value="">Select department...</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {editFormData.targetAudience !== 'admin' && (
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Assigned Staff (Optional)</label>
+                  <select
+                    value={editFormData.assignedTo}
+                    onChange={(e) => setEditFormData({ ...editFormData, assignedTo: e.target.value })}
+                    className={styles.select}
+                  >
+                    <option value="">All Staff in Department</option>
+                    {staff.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Expiration Date &amp; Time (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={editFormData.expiresAt}
+                  onChange={(e) => setEditFormData({ ...editFormData, expiresAt: e.target.value })}
+                  className={styles.input}
+                />
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* ── Confirm Delete Modal ── */}
+      {deleteTarget && (
+        <Modal
+          open={Boolean(deleteTarget)}
+          title="Delete Notice"
+          maxWidth="460px"
+          onClose={() => !deleting && setDeleteTarget(null)}
+          footer={
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.btnDeleteConfirm}
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : '🗑️ Delete Notice'}
+              </button>
+            </div>
+          }
+        >
+          <div style={{ padding: '8px 0' }}>
+            <p style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b' }}>
+              Are you sure you want to permanently delete <strong>"{deleteTarget.title}"</strong>?
+            </p>
+            <p style={{ marginTop: 8, fontSize: '0.85rem', color: '#64748b' }}>
+              This notice and all associated discussion replies and acknowledgements will be deleted.
+            </p>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Centered Alert Feedback Modal / Toast ── */}
+      {centerAlert && (
+        <div className={styles.centerAlertOverlay} onClick={() => setCenterAlert(null)}>
+          <div
+            className={styles.centerAlertCard}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.centerAlertIcon}>
+              {centerAlert.type === 'success' ? '✅' : centerAlert.type === 'error' ? '❌' : 'ℹ️'}
+            </div>
+            <div className={styles.centerAlertContent}>
+              <h4 className={styles.centerAlertTitle}>{centerAlert.title}</h4>
+              <p className={styles.centerAlertMessage}>{centerAlert.message}</p>
+            </div>
+            <button
+              className={styles.centerAlertClose}
+              onClick={() => setCenterAlert(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
           </div>
         </div>
       )}

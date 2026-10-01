@@ -186,7 +186,7 @@ export default function CeoNoticesList() {
       label: 'Actions',
       render: (row: Notice) => (
         <div className={styles.actions}>
-          {can('notices.manage') && (
+          {(can('notices.manage') || user?.role === 'ceo' || row.createdBy === user?.id || row.created_by === user?.id || (row as any).creator_id === user?.id) && (
             <>
               <button onClick={() => navigate(`/ceo/notices/${row.id}/edit`)}>Edit</button>
               <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>

@@ -9,22 +9,30 @@ import {
   updateCategory,
   deleteCategory,
 } from '../../api/knowledgeApi';
+import { fetchActiveDepartments } from '../../api/departmentApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { usePermission } from '../../hooks/usePermission';
 import { resolveCategoryIcon, isEmoji, POPULAR_ICON_PRESETS } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeCategories.module.css';
 
+interface DeptItem {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export default function KnowledgeCategories() {
   const navigate = useNavigate();
   const { can } = usePermission();
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
+  const [departments, setDepartments] = useState<DeptItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<KnowledgeCategory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeCategory | null>(null);
-  const initialForm = { name: '', description: '', icon: '', isActive: true, parentId: '' };
+  const initialForm = { name: '', description: '', icon: '', isActive: true, parentId: '', departmentId: '' };
   const [form, setForm] = useState(initialForm);
   const [catPage, setCatPage] = useState(1);
   const [catPageSize, setCatPageSize] = useState(10);
@@ -36,8 +44,12 @@ export default function KnowledgeCategories() {
   const loadCategories = async () => {
     setLoading(true);
     try {
-      const res = await fetchAllCategories();
+      const [res, deptRes] = await Promise.all([
+        fetchAllCategories(),
+        fetchActiveDepartments().catch(() => ({ data: { data: [] } })),
+      ]);
       setCategories(res.data.data || []);
+      setDepartments((deptRes.data?.data as DeptItem[]) || []);
     } catch {
       setError('Failed to load categories');
     } finally {
@@ -60,7 +72,7 @@ export default function KnowledgeCategories() {
 
   const handleCreate = async () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
-    await runAction(() => createCategory({ ...form, parentId: form.parentId || null }), 'Category created');
+    await runAction(() => createCategory({ ...form, parentId: form.parentId || null, departmentId: form.departmentId || null }), 'Category created');
     setForm(initialForm);
     setShowCreate(false);
   };
@@ -68,7 +80,7 @@ export default function KnowledgeCategories() {
   const handleUpdate = async () => {
     if (!editTarget) return;
     if (!form.name.trim()) { setError('Name is required'); return; }
-    await runAction(() => updateCategory(editTarget.id, { ...form, parentId: form.parentId || null }), 'Category updated');
+    await runAction(() => updateCategory(editTarget.id, { ...form, parentId: form.parentId || null, departmentId: form.departmentId || null }), 'Category updated');
     setEditTarget(null);
     setForm(initialForm);
   };
@@ -87,6 +99,7 @@ export default function KnowledgeCategories() {
       icon: cat.icon ?? '',
       isActive: cat.isActive !== undefined ? Boolean(cat.isActive) : true,
       parentId: cat.parentId ?? '',
+      departmentId: cat.departmentId ?? '',
     });
   };
 
@@ -94,7 +107,7 @@ export default function KnowledgeCategories() {
     <div className={styles.page}>
       <PageHeader
         title="Knowledge Base Categories"
-        description="Manage article categories"
+        description="Manage article categories and department scoping"
         backTo="/admin/knowledge"
         actionLabel="+ New Category"
         onAction={() => {
@@ -125,6 +138,19 @@ export default function KnowledgeCategories() {
         columns={[
           { key: 'name', label: 'Name' },
           { key: 'slug', label: 'Slug' },
+          {
+            key: 'department',
+            label: 'Department Scope',
+            render: (row) => row.departmentName ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 600, color: '#1d4ed8', background: '#eff6ff', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem' }}>
+                🏢 {row.departmentName}
+              </span>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500, color: '#475569', background: '#f1f5f9', padding: '3px 8px', borderRadius: 6, fontSize: '0.78rem' }}>
+                🌐 Global (All Departments)
+              </span>
+            )
+          },
           { key: 'description', label: 'Description' },
           {
             key: 'icon',
@@ -249,6 +275,24 @@ export default function KnowledgeCategories() {
           </div>
         </div>
         <div className={styles.formGroup}>
+          <label>Department Scope</label>
+          <select
+            value={form.departmentId ?? ''}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+          >
+            <option value="">🌐 All Departments (Global / Organization-Wide)</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                🏢 {d.name} ({d.code})
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 4, display: 'block' }}>
+            Choose a specific department or leave as Global so all departments can use this category.
+          </span>
+        </div>
+        <div className={styles.formGroup}>
           <label>Status</label>
           <label className={styles.checkboxLabel}>
             <input
@@ -330,6 +374,24 @@ export default function KnowledgeCategories() {
               </div>
             </div>
           </div>
+        </div>
+        <div className={styles.formGroup}>
+          <label>Department Scope</label>
+          <select
+            value={form.departmentId ?? ''}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+          >
+            <option value="">🌐 All Departments (Global / Organization-Wide)</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                🏢 {d.name} ({d.code})
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 4, display: 'block' }}>
+            Choose a specific department or leave as Global so all departments can use this category.
+          </span>
         </div>
         <div className={styles.formGroup}>
           <label>Status</label>

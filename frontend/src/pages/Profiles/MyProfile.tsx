@@ -17,6 +17,8 @@ import {
   ComputerDesktopIcon,
   IdentificationIcon,
   BuildingOfficeIcon,
+  BuildingOffice2Icon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, ThemePreference } from '../../context/ThemeContext';
@@ -159,14 +161,39 @@ export default function MyProfile() {
     },
   ];
 
+  const hasAssignedDepartments = Boolean(user.departments && user.departments.length > 0);
+  const departmentDisplayText = hasAssignedDepartments
+    ? user.departments!.map((d) => d.name).join(', ')
+    : user.role === 'admin'
+    ? 'Central Administration (All Departments)'
+    : user.role === 'ceo'
+    ? 'Executive Suite (All Departments)'
+    : user.tenantName
+    ? `${user.tenantName} (Client Organization)`
+    : 'Not Assigned';
+
   return (
     <div className={styles.page}>
       {/* Profile Hero Header Card */}
       <div className={styles.heroCard}>
         <div className={styles.heroBanner}>
-          <div className={styles.heroRoleBadge}>
-            <ShieldCheckIcon className={styles.heroBadgeIcon} />
-            <span>{roleLabel}</span>
+          <div className={styles.heroBannerBadges}>
+            <div className={styles.heroDeptBadge} title="Organizational / Departmental Unit">
+              <BuildingOffice2Icon className={styles.heroBadgeIcon} />
+              <span>
+                {hasAssignedDepartments
+                  ? user.departments![0].name + (user.departments!.length > 1 ? ` (+${user.departments!.length - 1})` : '')
+                  : user.role === 'admin'
+                  ? 'Central Administration'
+                  : user.role === 'ceo'
+                  ? 'Executive Suite'
+                  : user.tenantName || 'IT Park Tenant'}
+              </span>
+            </div>
+            <div className={styles.heroRoleBadge}>
+              <ShieldCheckIcon className={styles.heroBadgeIcon} />
+              <span>{roleLabel}</span>
+            </div>
           </div>
         </div>
 
@@ -218,6 +245,10 @@ export default function MyProfile() {
               <span className={styles.metaTag}>
                 <ShieldCheckIcon className={styles.metaIcon} />
                 Role: {roleLabel}
+              </span>
+              <span className={styles.deptMetaTag} title="Department / Organization">
+                <BuildingOffice2Icon className={styles.deptMetaIcon} />
+                <span>Dept: {departmentDisplayText}</span>
               </span>
             </div>
           </div>
@@ -350,7 +381,86 @@ export default function MyProfile() {
           </div>
         </div>
 
-        {/* Section 2: Theme & Appearance Preferences */}
+        {/* Section 2: Department & Organizational Placement */}
+        <div className={styles.sectionCard}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionTitleGroup}>
+              <div className={styles.sectionIconWrap} style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                <BuildingOffice2Icon className={styles.sectionIcon} />
+              </div>
+              <div>
+                <h2 className={styles.sectionTitle}>Department & Organizational Scope</h2>
+                <p className={styles.sectionSub}>Your assigned organizational unit, department access, and workflow scope</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.cardBody}>
+            <div className={styles.deptGridDisplay}>
+              <div className={styles.deptDisplayItem}>
+                <span className={styles.deptItemLabel}>Operational Department</span>
+                <div className={styles.deptItemValue}>
+                  <BuildingOffice2Icon style={{ width: 18, height: 18, color: '#2563eb', flexShrink: 0 }} />
+                  <span>{departmentDisplayText}</span>
+                </div>
+              </div>
+
+              <div className={styles.deptDisplayItem}>
+                <span className={styles.deptItemLabel}>Workflow Gate & Scope</span>
+                <div className={styles.deptItemValue}>
+                  <ShieldCheckIcon style={{ width: 18, height: 18, color: '#10b981', flexShrink: 0 }} />
+                  <span>
+                    {user.role === 'admin'
+                      ? 'Full System & Central Compliance'
+                      : user.role === 'manager'
+                      ? 'Department Approval & Staff Routing'
+                      : user.role === 'staff'
+                      ? 'Department Operations & Ticket Resolution'
+                      : user.role === 'ceo'
+                      ? 'Executive Governance & Enterprise Oversight'
+                      : 'Tenant Portal Requester'}
+                  </span>
+                </div>
+              </div>
+
+              {user.userCode && (
+                <div className={styles.deptDisplayItem}>
+                  <span className={styles.deptItemLabel}>Employee / User Code</span>
+                  <div className={styles.deptItemValue}>
+                    <IdentificationIcon style={{ width: 18, height: 18, color: '#f59e0b', flexShrink: 0 }} />
+                    <span style={{ fontFamily: 'monospace' }}>{user.userCode}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {hasAssignedDepartments && (
+              <div style={{ marginTop: 16 }}>
+                <span className={styles.deptItemLabel} style={{ display: 'block', marginBottom: 8 }}>
+                  Assigned Department Units ({user.departments!.length})
+                </span>
+                <div className={styles.deptBadgesList}>
+                  {user.departments!.map((dept) => (
+                    <div key={dept.id} className={styles.deptPill}>
+                      <span className={styles.deptCodeBadge}>{dept.code}</span>
+                      <span>{dept.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.deptPolicyNote}>
+              <InformationCircleIcon className={styles.deptPolicyIcon} />
+              <span>
+                Department allocations and authorization boundaries are managed centrally by System Administrators.
+                Contact the IT Help Desk Administration if your department assignment requires updates.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Theme & Appearance Preferences */}
         <div className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionTitleGroup}>

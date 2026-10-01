@@ -617,24 +617,37 @@ const getTicketAccessibleUserIds = async (ticket) => {
 };
 
 export const notifyKnowledgeSubmitted = async (article, submittedByUser) => {
-  const [admins] = await pool.query(
-    `SELECT u.id, u.email, u.first_name FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin','manager') AND u.status = 'active' AND u.id != :submittedBy`,
-    { submittedBy: submittedByUser.id }
-  );
-  for (const admin of admins) {
+  // Find department managers for this article's department
+  let query = `SELECT DISTINCT u.id, u.email, u.first_name 
+               FROM users u 
+               JOIN roles r ON r.id = u.role_id 
+               WHERE r.name = 'manager' AND u.status = 'active' AND u.id != :submittedBy`;
+  let params = { submittedBy: submittedByUser.id };
+
+  if (article.department_id) {
+    query = `SELECT DISTINCT u.id, u.email, u.first_name 
+             FROM users u 
+             JOIN roles r ON r.id = u.role_id 
+             JOIN user_departments ud ON ud.user_id = u.id
+             WHERE r.name = 'manager' AND ud.department_id = :deptId AND u.status = 'active' AND u.id != :submittedBy`;
+    params = { submittedBy: submittedByUser.id, deptId: article.department_id };
+  }
+
+  const [managers] = await pool.query(query, params);
+  for (const mgr of managers) {
     await notificationRepo.createNotification(
-      admin.id,
-      'Article Submitted for Review',
-      `Article "${truncate(article.title, 80)}" (${article.article_reference}) has been submitted for review.`,
+      mgr.id,
+      'Staff Article Submitted for Approval',
+      `Staff member ${submittedByUser.first_name || 'Staff'} submitted article "${truncate(article.title, 80)}" (${article.article_reference}) for your department review.`,
       'knowledge',
       null,
       null,
       null,
       article.id
     );
-    emitToUser(admin.id, 'notification', {
-      title: 'Article Submitted for Review',
-      message: `"${truncate(article.title, 60)}" needs review.`,
+    emitToUser(mgr.id, 'notification', {
+      title: 'Staff Article Submitted for Approval',
+      message: `"${truncate(article.title, 60)}" requires your department review and approval.`,
       type: 'knowledge',
       articleId: article.id,
     });
@@ -642,11 +655,12 @@ export const notifyKnowledgeSubmitted = async (article, submittedByUser) => {
 };
 
 export const notifyKnowledgeApproved = async (article, approvedByUser) => {
+  // 1. Notify Staff author
   if (article.author_id && article.author_id !== approvedByUser.id) {
     await notificationRepo.createNotification(
       article.author_id,
-      'Article Approved',
-      `Your article "${truncate(article.title, 80)}" (${article.article_reference}) has been approved.`,
+      'Article Approved by Department Manager',
+      `Your article "${truncate(article.title, 80)}" (${article.article_reference}) has been approved by your department manager and is pending Admin publishment.`,
       'knowledge',
       null,
       null,
@@ -654,9 +668,32 @@ export const notifyKnowledgeApproved = async (article, approvedByUser) => {
       article.id
     );
     emitToUser(article.author_id, 'notification', {
-      title: 'Article Approved',
-      message: `"${truncate(article.title, 60)}" was approved.`,
+      title: 'Article Approved by Department Manager',
+      message: `"${truncate(article.title, 60)}" was approved by your department manager and is pending Admin publishment.`,
       type: 'knowledge',
+      articleId: article.id,
+    });
+  }
+
+  // 2. Notify all Admins to publish the article
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  for (const admin of admins) {
+    await notificationRepo.createNotification(
+      admin.id,
+      'Article Approved — Ready to Publish',
+      `Article "${truncate(article.title, 80)}" (${article.article_reference}) was approved by department manager and is ready for Admin to publish.`,
+      'knowledge',
+      null,
+      null,
+      null,
+      article.id
+    );
+    emitToUser(admin.id, 'notification', {
+      title: 'Article Approved — Ready to Publish',
+      message: `"${truncate(article.title, 60)}" was approved by department manager and is ready to publish.`,
+      type: 'knowledge_approved',
       articleId: article.id,
     });
   }

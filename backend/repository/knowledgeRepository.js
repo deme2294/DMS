@@ -53,10 +53,11 @@ const buildWhere = ({
     params.push(category);
   }
   if (status) {
-    if (Array.isArray(status)) {
-      const placeholders = status.map(() => '?').join(',');
+    const statusArr = Array.isArray(status) ? status : (typeof status === 'string' && status.includes(',') ? status.split(',').map((s) => s.trim()) : null);
+    if (statusArr) {
+      const placeholders = statusArr.map(() => '?').join(',');
       where += ` AND kb.status IN (${placeholders})`;
-      params.push(...status);
+      params.push(...statusArr);
     } else {
       where += ' AND kb.status = ?';
       params.push(status);
@@ -72,19 +73,16 @@ const buildWhere = ({
     const staffConditions = [];
     const staffParams = [];
 
-    // 1. Staff's own articles (any status)
+    // 1. Staff's own created articles (drafts, pending_approval, needs_revision, etc.)
     staffConditions.push('kb.author_id = ?');
     staffParams.push(userId);
 
-    // 2. Department articles (approved, published, or pending review)
+    // 2. Published articles related to staff's department only
     if (Array.isArray(departmentIds) && departmentIds.length > 0) {
       const deptPlaceholders = departmentIds.map(() => '?').join(',');
-      staffConditions.push(`(kb.department_id IN (${deptPlaceholders}) AND kb.status IN ('published', 'approved', 'pending_approval'))`);
+      staffConditions.push(`(kb.department_id IN (${deptPlaceholders}) AND kb.status = 'published')`);
       staffParams.push(...departmentIds);
     }
-
-    // 3. Organization-wide published articles
-    staffConditions.push(`(kb.status = 'published' AND kb.visibility IN ('public', 'tenant', 'internal'))`);
 
     where += ` AND (${staffConditions.join(' OR ')})`;
     params.push(...staffParams);
@@ -93,19 +91,16 @@ const buildWhere = ({
     const managerConditions = [];
     const managerParams = [];
 
-    // 1. Manager's own articles
+    // 1. Manager's own created articles
     managerConditions.push('kb.author_id = ?');
     managerParams.push(userId);
 
-    // 2. Department articles (any status within manager's department)
+    // 2. Articles related to manager's departments only (staff submissions, drafts, approved, published)
     if (Array.isArray(departmentIds) && departmentIds.length > 0) {
       const deptPlaceholders = departmentIds.map(() => '?').join(',');
       managerConditions.push(`kb.department_id IN (${deptPlaceholders})`);
       managerParams.push(...departmentIds);
     }
-
-    // 3. Organization-wide published articles
-    managerConditions.push(`(kb.status = 'published' AND kb.visibility IN ('public', 'tenant', 'internal'))`);
 
     where += ` AND (${managerConditions.join(' OR ')})`;
     params.push(...managerParams);

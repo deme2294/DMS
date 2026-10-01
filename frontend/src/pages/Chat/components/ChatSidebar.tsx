@@ -9,7 +9,7 @@ interface ChatSidebarProps {
   selectedRoom: ChatRoom | null;
   loading: boolean;
   searchTerm: string;
-  activeFilter: 'all' | 'direct' | 'department' | 'ticket';
+  activeFilter: 'all' | 'direct' | 'department' | 'ticket' | 'video';
   unreadCount: number;
   mobileSidebarOpen: boolean;
   isSidebarCollapsed?: boolean;
@@ -18,11 +18,13 @@ interface ChatSidebarProps {
     direct: number;
     department: number;
     ticket: number;
+    video: number;
   };
   onSelectRoom: (room: ChatRoom) => void;
   onSearchChange: (val: string) => void;
-  onFilterChange: (filter: 'all' | 'direct' | 'department' | 'ticket') => void;
+  onFilterChange: (filter: 'all' | 'direct' | 'department' | 'ticket' | 'video') => void;
   onStartNewChat: () => void;
+  onStartVideoConference: () => void;
   onCloseMobileSidebar: () => void;
 }
 
@@ -41,6 +43,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSearchChange,
   onFilterChange,
   onStartNewChat,
+  onStartVideoConference,
   onCloseMobileSidebar,
 }) => {
   return (
@@ -55,15 +58,26 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <span className={styles.sidebarIcon}>💬</span>
             <h2>Conversations</h2>
           </div>
-          <button
-            type="button"
-            className={styles.newChatBtn}
-            onClick={onStartNewChat}
-            title="Start new conversation"
-          >
-            <span>➕</span>
-            <span className={styles.newChatBtnText}>New Chat</span>
-          </button>
+          <div className={styles.sidebarActionsGroup}>
+            <button
+              type="button"
+              className={styles.newConferenceBtn}
+              onClick={onStartVideoConference}
+              title="Start or schedule Video Conference (Today or custom date)"
+            >
+              <span>📹</span>
+              <span className={styles.newChatBtnText}>Video Call</span>
+            </button>
+            <button
+              type="button"
+              className={styles.newChatBtn}
+              onClick={onStartNewChat}
+              title="Start new conversation"
+            >
+              <span>➕</span>
+              <span className={styles.newChatBtnText}>New Chat</span>
+            </button>
+          </div>
         </div>
 
         {unreadCount > 0 && (
@@ -108,6 +122,17 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
           <button
             type="button"
+            className={`${styles.filterPill} ${styles.filterPillVideo} ${
+              activeFilter === 'video' ? styles.filterActiveVideo : ''
+            }`}
+            onClick={() => onFilterChange('video')}
+            title="Video conferences & active call channels"
+          >
+            <span>📹 Video</span>
+            <span className={styles.pillCount}>{roomTypeCounts.video}</span>
+          </button>
+          <button
+            type="button"
             className={`${styles.filterPill} ${styles.filterPillDirect} ${
               activeFilter === 'direct' ? styles.filterActiveDirect : ''
             }`}
@@ -148,20 +173,36 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>
         ) : displayRooms.length === 0 ? (
           <div className={styles.emptyState}>
-            <div className={styles.emptyStateIcon}>💬</div>
-            <h4>No conversations found</h4>
+            <div className={styles.emptyStateIcon}>
+              {activeFilter === 'video' ? '📹' : '💬'}
+            </div>
+            <h4>
+              {activeFilter === 'video' ? 'No video conferences found' : 'No conversations found'}
+            </h4>
             <p>
               {searchTerm
                 ? 'No chats match your search query.'
+                : activeFilter === 'video'
+                ? 'Start a video conference today or schedule one with your team.'
                 : 'Start a direct chat, department channel, or ticket discussion.'}
             </p>
-            <button
-              type="button"
-              className={styles.startChatBtn}
-              onClick={onStartNewChat}
-            >
-              ➕ Start First Chat
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className={styles.newConferenceBtn}
+                onClick={onStartVideoConference}
+                style={{ padding: '8px 14px' }}
+              >
+                📹 Start Video Conference
+              </button>
+              <button
+                type="button"
+                className={styles.startChatBtn}
+                onClick={onStartNewChat}
+              >
+                ➕ Start First Chat
+              </button>
+            </div>
           </div>
         ) : (
           displayRooms.map((room) => {
@@ -170,6 +211,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             const isDirect = room.room_type === 'direct';
             const isDirectOnline = Boolean(room.other_user_online);
             const onlineCount = room.online_members_count ?? 0;
+            const isVideoRoom = Boolean(
+              room.last_message?.includes('[VIDEO_CONFERENCE]') ||
+              room.last_message?.includes('[GOOGLE_MEET_CALL]') ||
+              room.last_message?.toLowerCase().includes('video conference') ||
+              room.name?.toLowerCase().includes('conference')
+            );
 
             return (
               <div
@@ -220,6 +267,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       >
                         {room.room_type}
                       </span>
+                      {isVideoRoom && (
+                        <span className={styles.videoRoomBadge}>
+                          📹 Video
+                        </span>
+                      )}
                     </div>
                     {room.last_message_at && (
                       <span className={styles.roomTime}>

@@ -94,6 +94,92 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
 }) => {
   if (!show) return null;
 
+  const nowIsoLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
+  const getEndTimeLocal = (startIso?: string, durationMins = 30): string => {
+    if (!startIso) return '';
+    const d = new Date(startIso);
+    if (isNaN(d.getTime())) return '';
+    const end = new Date(d.getTime() + (durationMins || 30) * 60000);
+    return new Date(end.getTime() - end.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+  };
+
+  const formatTimeLabel = (isoStr?: string): string => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  const formatDateLabel = (isoStr?: string): string => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatDurationHuman = (mins = 30): string => {
+    if (!mins || mins <= 0) return '0 min';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h} hr${h > 1 ? 's' : ''}`;
+    return `${m} mins`;
+  };
+
+  const handleEndTimeChange = (newEndIso: string) => {
+    if (!meetingScheduledTime || !newEndIso) return;
+    const start = new Date(meetingScheduledTime).getTime();
+    const end = new Date(newEndIso).getTime();
+    if (end > start) {
+      const diffMins = Math.round((end - start) / 60000);
+      if (diffMins > 0) {
+        onSetMeetingDurationMinutes(diffMins);
+      }
+    }
+  };
+
+  const applyQuickTimeOffset = (minsToAdd: number) => {
+    const baseTime = meetingScheduledTime ? new Date(meetingScheduledTime).getTime() : Date.now();
+    const target = new Date(baseTime + minsToAdd * 60 * 1000);
+    const isoLocal = new Date(target.getTime() - target.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    onSetMeetingScheduledTime(isoLocal);
+  };
+
+  const applyTomorrow = () => {
+    const d = meetingScheduledTime ? new Date(meetingScheduledTime) : new Date();
+    d.setDate(d.getDate() + 1);
+    const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    onSetMeetingScheduledTime(isoLocal);
+  };
+
+  const applyNow = () => {
+    const d = new Date();
+    const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    onSetMeetingScheduledTime(isoLocal);
+  };
+
+  const endTimeLocal = getEndTimeLocal(meetingScheduledTime, meetingDurationMinutes);
+
   return (
     <div className={styles.inviteDrawerBackdrop} onClick={onClose}>
       <div
@@ -269,7 +355,7 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
                       color: meetingScheduleMode === 'now' ? '#15803d' : '#64748b',
                     }}
                   >
-                    ⚡ Start Now
+                    ⚡ Start Today (Now - Default)
                   </button>
                   <button
                     type="button"
@@ -302,16 +388,42 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
                 </div>
               </div>
 
-              {meetingScheduleMode === 'scheduled' ? (
-                <div>
-                  <div
+              {meetingScheduleMode === 'now' && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: '#dcfce7',
+                    border: '1px solid #86efac',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.78rem',
+                    color: '#15803d',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>
+                    🗓️ Session Date: <strong>Today ({new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })})</strong> (Immediate Launch)
+                  </span>
+                  <span
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(200px, 1fr) 140px',
-                      gap: '10px',
-                      marginBottom: '8px',
+                      background: '#16a34a',
+                      color: '#ffffff',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
                     }}
                   >
+                    Default Today
+                  </span>
+                </div>
+              )}
+
+              {meetingScheduleMode === 'scheduled' ? (
+                <div>
+                  <div className={styles.videoScheduleGrid}>
                     <div>
                       <label
                         style={{
@@ -322,14 +434,12 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
                           marginBottom: '4px',
                         }}
                       >
-                        Event Date & Time
+                        📅 Event Start Date & Time
                       </label>
                       <input
                         type="datetime-local"
                         value={meetingScheduledTime}
-                        min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16)}
+                        min={nowIsoLocal}
                         onChange={(e) => onSetMeetingScheduledTime(e.target.value)}
                         className={styles.modalTextInput}
                         style={{ fontSize: '0.82rem', padding: '6px 10px' }}
@@ -346,35 +456,37 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
                           marginBottom: '4px',
                         }}
                       >
-                        Duration
+                        🏁 Estimated End Date & Time (Dynamic)
                       </label>
-                      <select
-                        value={meetingDurationMinutes}
-                        onChange={(e) => onSetMeetingDurationMinutes(Number(e.target.value))}
+                      <input
+                        type="datetime-local"
+                        value={endTimeLocal}
+                        min={meetingScheduledTime || nowIsoLocal}
+                        onChange={(e) => handleEndTimeChange(e.target.value)}
                         className={styles.modalTextInput}
                         style={{ fontSize: '0.82rem', padding: '6px 10px' }}
-                      >
-                        <option value={15}>15 Minutes</option>
-                        <option value={30}>30 Minutes</option>
-                        <option value={45}>45 Minutes</option>
-                        <option value={60}>1 Hour</option>
-                        <option value={90}>1.5 Hours</option>
-                        <option value={120}>2 Hours</option>
-                      </select>
+                      />
                     </div>
                   </div>
 
-                  {/* Quick Preset Buttons */}
+                  {/* Quick Dynamic Time Adjust Buttons */}
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
                       flexWrap: 'wrap',
-                      marginBottom: '6px',
+                      marginBottom: '8px',
                     }}
                   >
-                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Quick Presets:</span>
+                    <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Quick Time Adjust:</span>
+                    <button
+                      type="button"
+                      className={styles.videoPresetBtn}
+                      onClick={applyNow}
+                    >
+                      ⚡ Now
+                    </button>
                     {[
                       { label: '+15m', mins: 15 },
                       { label: '+30m', mins: 30 },
@@ -384,50 +496,113 @@ export const MeetingInviteModal: React.FC<MeetingInviteModalProps> = ({
                       <button
                         key={preset.label}
                         type="button"
-                        onClick={() => {
-                          const d = new Date(Date.now() + preset.mins * 60 * 1000);
-                          const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                            .toISOString()
-                            .slice(0, 16);
-                          onSetMeetingScheduledTime(isoLocal);
-                        }}
-                        style={{
-                          fontSize: '0.7rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          cursor: 'pointer',
-                          color: '#334155',
-                        }}
+                        className={styles.videoPresetBtn}
+                        onClick={() => applyQuickTimeOffset(preset.mins)}
                       >
                         {preset.label}
                       </button>
                     ))}
                     <button
                       type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        d.setHours(10, 0, 0, 0);
-                        const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16);
-                        onSetMeetingScheduledTime(isoLocal);
-                      }}
-                      style={{
-                        fontSize: '0.7rem',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        border: '1px solid #cbd5e1',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        color: '#334155',
-                      }}
+                      className={styles.videoPresetBtn}
+                      onClick={applyTomorrow}
                     >
-                      Tomorrow 10 AM
+                      Tomorrow (+24h)
                     </button>
                   </div>
+
+                  {/* Time Needed (Duration) Box */}
+                  <div className={styles.videoTimeNeededBox} style={{ margin: '8px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.76rem', fontWeight: 700, color: '#166534' }}>
+                        ⏳ Time Needed for Event (Duration):
+                      </label>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '10px' }}>
+                        {formatDurationHuman(meetingDurationMinutes)}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <input
+                          type="number"
+                          min={5}
+                          max={720}
+                          step={5}
+                          value={meetingDurationMinutes}
+                          onChange={(e) => {
+                            const val = Math.max(5, Math.min(720, Number(e.target.value) || 5));
+                            onSetMeetingDurationMinutes(val);
+                          }}
+                          className={styles.modalTextInput}
+                          style={{ width: '80px', padding: '5px 8px', textAlign: 'center', fontWeight: 700, fontSize: '0.82rem' }}
+                        />
+                        <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>Minutes Needed</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginLeft: 'auto' }}>
+                        {[15, 30, 45, 60, 90, 120, 180].map((mins) => {
+                          const isSelected = meetingDurationMinutes === mins;
+                          return (
+                            <button
+                              key={mins}
+                              type="button"
+                              className={`${styles.videoPresetBtn} ${isSelected ? styles.videoPresetBtnActive : ''}`}
+                              onClick={() => onSetMeetingDurationMinutes(mins)}
+                              style={
+                                isSelected
+                                  ? { background: '#dcfce7', borderColor: '#16a34a', color: '#15803d', fontWeight: 700 }
+                                  : {}
+                              }
+                            >
+                              {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Event Schedule Preview Card */}
+                  {meetingScheduledTime && (
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        background: '#f0fdf4',
+                        border: '1px solid #86efac',
+                        borderRadius: '8px',
+                        marginBottom: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.78rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🗓️</span>
+                        <div>
+                          <strong style={{ display: 'block', fontSize: '0.8rem' }}>
+                            {formatDateLabel(meetingScheduledTime)}
+                          </strong>
+                          <span style={{ fontSize: '0.74rem', color: '#15803d' }}>
+                            ⏰ {formatTimeLabel(meetingScheduledTime)} → {formatTimeLabel(endTimeLocal)}
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          background: '#16a34a',
+                          color: '#ffffff',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                        }}
+                      >
+                        ⏱️ {formatDurationHuman(meetingDurationMinutes)}
+                      </span>
+                    </div>
+                  )}
 
                   <div
                     style={{

@@ -102,6 +102,19 @@ export const assignNoticeToStaff = (noticeId: string, staffUserId: string) =>
   api.post(`/notices/${noticeId}/assign`, { staffUserId });
 
 /**
+ * Route / escalate notice to System Admin (by Department Head)
+ */
+export const routeNoticeToAdmin = (noticeId: string, remarks?: string) =>
+  api.post<{ success: boolean; message: string; data: any }>(`/notices/${noticeId}/route-to-admin`, { remarks });
+
+/**
+ * Update notice expiration date (by Manager, Admin, or Creator)
+ */
+export const updateNoticeExpiry = (noticeId: string, expiresAt: string | null) =>
+  api.patch<{ success: boolean; message: string; data: any }>(`/notices/${noticeId}/expiry`, { expiresAt });
+
+
+/**
  * Get notices that can be assigned by manager
  * Admin notices targeted to managers
  */

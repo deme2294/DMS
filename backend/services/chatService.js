@@ -48,7 +48,49 @@ export const getUserRooms = async (userId) => {
   });
 };
 
-export const createTicketRoom = async (ticketId, createdBy) => {
+export const resolveDepartmentForTicket = async (ticket) => {
+  if (ticket.department_id) {
+    const [dept] = await pool.query(`SELECT * FROM departments WHERE id = ? LIMIT 1`, [ticket.department_id]);
+    if (dept.length > 0) return dept[0];
+  }
+  
+  if (ticket.category) {
+    const [catRows] = await pool.query(
+      `SELECT tc.department_id, d.id, d.name, d.code 
+       FROM ticket_categories tc
+       LEFT JOIN departments d ON d.id = tc.department_id
+       WHERE (tc.name = ? OR tc.id = ?) AND tc.department_id IS NOT NULL
+       LIMIT 1`,
+      [ticket.category, ticket.category]
+    );
+    if (catRows.length > 0 && catRows[0].id) {
+      return { id: catRows[0].id, name: catRows[0].name, code: catRows[0].code };
+    }
+  }
+
+  // Fallback by category keyword
+  const catLower = (ticket.category || '').toLowerCase();
+  if (
+    catLower.includes('hr') ||
+    catLower.includes('human') ||
+    catLower.includes('payroll') ||
+    catLower.includes('leave') ||
+    catLower.includes('benefit') ||
+    catLower.includes('employee')
+  ) {
+    const [hrDepts] = await pool.query(`SELECT * FROM departments WHERE code = 'HR' OR name LIKE '%Human Resources%' LIMIT 1`);
+    if (hrDepts.length > 0) return hrDepts[0];
+  }
+
+  // Default to IT Support
+  const [itDepts] = await pool.query(`SELECT * FROM departments WHERE code = 'IT' OR name LIKE '%IT%' LIMIT 1`);
+  if (itDepts.length > 0) return itDepts[0];
+
+  const [anyDepts] = await pool.query(`SELECT * FROM departments WHERE status = 'active' LIMIT 1`);
+  return anyDepts[0] || null;
+};
+
+export const createTicketRoom = async (ticketId, createdBy, timing = 'now', io = null) => {
   // Check if room already exists
   const existing = await chatRepo.findRoomByTicket(ticketId);
   if (existing) {
@@ -60,6 +102,22 @@ export const createTicketRoom = async (ticketId, createdBy) => {
   if (!ticket) {
     throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   }
+
+  // Resolve department based on ticket category / ticket department
+  const resolvedDept = await resolveDepartmentForTicket(ticket);
+  const departmentId = resolvedDept ? resolvedDept.id : null;
+
+  // If ticket didn't have department_id, update ticket in database for consistency
+  if (!ticket.department_id && departmentId) {
+    try {
+      await pool.query(
+        `UPDATE tickets SET department_id = ?, auto_department_id = ? WHERE id = ?`,
+        [departmentId, departmentId, ticketId]
+      );
+    } catch (updateErr) {
+      console.warn('[createTicketRoom] Could not update ticket department_id:', updateErr.message);
+    }
+  }
   
   // Create room
   const roomId = uuidv4();
@@ -67,26 +125,32 @@ export const createTicketRoom = async (ticketId, createdBy) => {
     id: roomId,
     roomType: 'ticket',
     ticketId,
-    departmentId: null,
-    name: `Ticket: ${ticket.reference_number}`,
+    departmentId,
+    name: `Ticket: ${ticket.reference_number || ticket.id.substring(0, 8)}`,
     createdBy,
   });
   
-  // Add participants
+  // Add participants: creator, ticket creator, assigned agent
   const participants = new Set([ticket.created_by, createdBy]);
   if (ticket.assigned_to) participants.add(ticket.assigned_to);
   
-  // Get department manager if exists
-  if (ticket.department_id) {
-    const [managers] = await pool.query(
-      `SELECT u.id FROM users u
+  // If department exists, add all department staff and department managers to participants
+  if (departmentId) {
+    const [deptUsers] = await pool.query(
+      `SELECT DISTINCT u.id, r.name AS role_name FROM users u
        INNER JOIN roles r ON r.id = u.role_id
        INNER JOIN user_departments ud ON ud.user_id = u.id
-       WHERE r.name = 'manager' AND ud.department_id = ? AND u.status = 'active'`,
-      [ticket.department_id]
+       WHERE ud.department_id = ? AND u.status = 'active'`,
+      [departmentId]
     );
-    managers.forEach(m => participants.add(m.id));
+    deptUsers.forEach((u) => participants.add(u.id));
   }
+
+  // Also include system admins so they can oversee or assist
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u INNER JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+  admins.forEach((a) => participants.add(a.id));
   
   // Add participants to room
   for (const userId of participants) {
@@ -96,8 +160,43 @@ export const createTicketRoom = async (ticketId, createdBy) => {
       userId,
     });
   }
-  
-  return chatRepo.findRoomById(roomId);
+
+  // If timing is 'now', post initial routing system announcement
+  if (timing === 'now') {
+    const deptName = resolvedDept ? resolvedDept.name : 'Technical Support';
+    const categoryName = ticket.category || 'General';
+    const routingAnnouncement =
+      `📢 [TICKET CHAT ROUTED TO ${deptName.toUpperCase()}]\n` +
+      `Ticket #${ticket.reference_number || ticket.id.substring(0, 8)}: "${ticket.title}"\n` +
+      `Category: ${categoryName} ➔ Department: ${deptName}\n` +
+      `Department staff and managers are automatically connected for immediate support.`;
+
+    try {
+      const systemMsg = await chatRepo.createMessage({
+        id: uuidv4(),
+        roomId,
+        senderId: createdBy,
+        message: routingAnnouncement,
+        messageType: 'system',
+      });
+      if (io && systemMsg) {
+        io.to(`room:${roomId}`).emit('new-message', systemMsg);
+      }
+    } catch (msgErr) {
+      console.warn('[createTicketRoom] Could not create initial routing message:', msgErr.message);
+    }
+  }
+
+  const enrichedRoom = await getEnrichedRoomForUser(roomId, createdBy);
+
+  // Broadcast to all participants via socket
+  if (io) {
+    for (const userId of participants) {
+      io.to(`user:${userId}`).emit('ticket-room-created', enrichedRoom);
+    }
+  }
+
+  return enrichedRoom;
 };
 
 export const createDepartmentRoom = async (departmentId, createdBy) => {
@@ -156,11 +255,28 @@ export const getEnrichedRoomForUser = async (roomId, userId) => {
 };
 
 export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialMode = 'chat', io = null) => {
-  console.log(`[createDirectRoom] Creating/opening room between ${user1Id} and ${user2Id} (mode: ${initialMode})`);
+  let targetUser2Id = user2Id;
+  // If target user is unspecified or 'admin', find the active registered admin
+  if (!targetUser2Id || targetUser2Id === 'admin') {
+    const [adminRows] = await pool.query(
+      `SELECT u.id, u.first_name, u.last_name, u.username, u.email, r.name AS role
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE r.name = 'admin' AND u.status = 'active'
+       ORDER BY u.created_at ASC
+       LIMIT 1`
+    );
+    if (!adminRows || adminRows.length === 0) {
+      throw Object.assign(new Error('Registered Admin user not found in system'), { statusCode: 404 });
+    }
+    targetUser2Id = adminRows[0].id;
+  }
+
+  console.log(`[createDirectRoom] Creating/opening room between ${user1Id} and ${targetUser2Id} (mode: ${initialMode})`);
   
   // Get both users
   const user1 = await userRepo.findById(user1Id);
-  const user2 = await userRepo.findById(user2Id);
+  const user2 = await userRepo.findById(targetUser2Id);
   
   if (!user1 || !user2) {
     console.error(`[createDirectRoom] User not found: user1=${!!user1}, user2=${!!user2}`);
@@ -170,20 +286,20 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
   // Enforce role-based contact hierarchy
   if (!canContact(initiatorRole, user2.role)) {
     throw Object.assign(
-      new Error('You can only start a direct conversation through your department manager'),
+      new Error(`You (${initiatorRole}) cannot start a direct conversation with a ${user2.role}`),
       { statusCode: 403 }
     );
   }
 
   let roomId;
   // If a direct room already exists, reuse it and ensure both users are active participants
-  const existing = await chatRepo.findDirectRoom(user1Id, user2Id);
+  const existing = await chatRepo.findDirectRoom(user1Id, targetUser2Id);
   if (existing) {
     console.log(`[createDirectRoom] Existing direct room found:`, existing.id);
     roomId = existing.id;
     // Auto-accept & reactivate both registered users as active participants
     await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user1Id });
-    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user2Id });
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: targetUser2Id });
   } else {
     // Create new direct room
     roomId = uuidv4();
@@ -198,7 +314,7 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
     
     // Auto-accept both registered participants
     await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user1Id });
-    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: user2Id });
+    await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: targetUser2Id });
     console.log(`[createDirectRoom] Created new direct room: ${roomId}`);
   }
 
@@ -223,7 +339,7 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
     }
 
     if (io) {
-      io.to(`user:${user2Id}`).emit('meeting-invite-received', {
+      io.to(`user:${targetUser2Id}`).emit('meeting-invite-received', {
         id: uuidv4(),
         senderId: user1Id,
         senderName: `${user1.first_name} ${user1.last_name}`.trim(),
@@ -242,9 +358,9 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
   // Real-time update for recipient sidebar
   if (io) {
     try {
-      const recipientRoom = await getEnrichedRoomForUser(roomId, user2Id);
+      const recipientRoom = await getEnrichedRoomForUser(roomId, targetUser2Id);
       if (recipientRoom) {
-        io.to(`user:${user2Id}`).emit('direct-room-created', recipientRoom);
+        io.to(`user:${targetUser2Id}`).emit('direct-room-created', recipientRoom);
       }
     } catch (socketErr) {
       console.warn('[createDirectRoom] Error notifying recipient socket:', socketErr);
@@ -726,25 +842,30 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
     notes?.toLowerCase().includes('screen')
   );
 
-  let formattedScheduledTime = '';
-  if (scheduledTime) {
-    try {
-      const d = new Date(scheduledTime);
-      if (!isNaN(d.getTime())) {
-        formattedScheduledTime = d.toLocaleString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-        });
-      }
-    } catch {
-      formattedScheduledTime = String(scheduledTime);
-    }
+  const effectiveScheduledTime = scheduledTime || new Date().toISOString();
+  let sessionDate = new Date(effectiveScheduledTime);
+  if (isNaN(sessionDate.getTime())) {
+    sessionDate = new Date();
   }
+
+  const isTodaySession = new Date().toDateString() === sessionDate.toDateString();
+  let formattedScheduledTime = '';
+  try {
+    formattedScheduledTime = sessionDate.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    formattedScheduledTime = String(sessionDate);
+  }
+
+  const dateDisplay = isTodaySession ? `Today (${formattedScheduledTime})` : formattedScheduledTime;
+  const isScheduledForFuture = Boolean(sessionDate.getTime() - Date.now() > 5 * 60 * 1000);
 
   const createdTimeStr = new Date().toLocaleString('en-US', {
     month: 'short',
@@ -756,13 +877,10 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
   });
 
   let meetingMessageText = `🎥 ${tag}\nTitle: ${meetingTitle}\nLink: ${meetingUrl}`;
-  if (scheduledTime) {
-    meetingMessageText += `\nEvent Time: ${scheduledTime}`;
-    if (formattedScheduledTime) {
-      meetingMessageText += `\nScheduled For: ${formattedScheduledTime}`;
-    }
-    meetingMessageText += `\nDuration: ${durationMinutes || 30} mins`;
-  }
+  meetingMessageText += `\nEvent Time: ${sessionDate.toISOString()}`;
+  meetingMessageText += `\nScheduled For: ${dateDisplay}`;
+  meetingMessageText += `\nDuration: ${durationMinutes || 30} mins`;
+  meetingMessageText += `\nStatus: ${isScheduledForFuture ? 'Scheduled' : 'Live / Ready'}`;
   meetingMessageText += `\nCreated: ${new Date().toISOString()}`;
   meetingMessageText += `\nInvited: ${recipientSummary}\nRoles: ${rolesSummary}`;
   if (isScreenShare) {
@@ -790,7 +908,7 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
     const notifTitle = isScreenShare
       ? `🖥️ Screen Share & Video Event: ${meetingTitle}`
       : `📹 Video Conference: ${meetingTitle}`;
-    const timeDisplay = formattedScheduledTime || (scheduledTime ? new Date(scheduledTime).toLocaleString() : 'Immediate Session');
+    const timeDisplay = dateDisplay;
     const notifMsg = `${sender.first_name} ${sender.last_name} (${sender.role}) invited you to a video & screen share session scheduled for ${timeDisplay}.`;
 
     await notificationRepo.createNotification(
@@ -808,7 +926,9 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
       message: notifMsg,
       type: 'chat',
       roomId: targetRoomId,
-      scheduledTime: scheduledTime || null,
+      scheduledTime: sessionDate.toISOString(),
+      formattedScheduledTime: dateDisplay,
+      isToday: isTodaySession,
       createdAt: new Date().toISOString(),
     });
 
@@ -823,8 +943,8 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
       roomName,
       notes,
       webAppUrl: data.origin || '',
-      scheduledTime: scheduledTime || null,
-      formattedScheduledTime,
+      scheduledTime: sessionDate.toISOString(),
+      formattedScheduledTime: dateDisplay,
       createdTime: createdTimeStr,
       durationMinutes: durationMinutes ? Number(durationMinutes) : 30,
       isScreenShare,
@@ -848,8 +968,9 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
         roomId: targetRoomId,
         customSettings,
         notes,
-        scheduledTime: scheduledTime || null,
-        formattedScheduledTime,
+        scheduledTime: sessionDate.toISOString(),
+        formattedScheduledTime: dateDisplay,
+        isToday: isTodaySession,
         durationMinutes: durationMinutes ? Number(durationMinutes) : 30,
         createdAt: new Date().toISOString(),
       });
@@ -865,6 +986,9 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
     meetingUrl,
     meetingTitle,
     meetingType,
+    scheduledTime: sessionDate.toISOString(),
+    formattedScheduledTime: dateDisplay,
+    isToday: isTodaySession,
   };
 };
 

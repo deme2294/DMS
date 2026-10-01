@@ -37,7 +37,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'direct' | 'department' | 'ticket'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'direct' | 'department' | 'ticket' | 'video'>('all');
   const [unreadCount, setUnreadCount] = useState(0);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showMembersPanel, setShowMembersPanel] = useState(false);
@@ -60,8 +60,8 @@ export default function ChatPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [modalUserTab, setModalUserTab] = useState<'all' | 'online'>('all');
-  const [chatType, setChatType] = useState<'direct' | 'department' | 'ticket'>('direct');
+  const [modalUserTab, setModalUserTab] = useState<'all' | 'online' | 'admin'>('all');
+  const [chatType, setChatType] = useState<'direct' | 'department' | 'ticket' | 'video_conference'>('direct');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState('');
@@ -69,6 +69,16 @@ export default function ChatPage() {
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [modalMembers, setModalMembers] = useState<ChatMember[]>([]);
   const [loadingModalMembers, setLoadingModalMembers] = useState(false);
+
+  // Video Conference Creation in New Chat Modal
+  const [videoConferenceTarget, setVideoConferenceTarget] = useState<'user' | 'department' | 'ticket'>('user');
+  const [conferenceTitle, setConferenceTitle] = useState('');
+  const [conferenceScheduleMode, setConferenceScheduleMode] = useState<'now' | 'scheduled'>('now');
+  const [conferenceScheduledTime, setConferenceScheduledTime] = useState<string>('');
+  const [conferenceDurationMinutes, setConferenceDurationMinutes] = useState<number>(30);
+  const [conferenceScreenShare, setConferenceScreenShare] = useState<boolean>(true);
+  const [conferenceStartAudioMuted, setConferenceStartAudioMuted] = useState<boolean>(false);
+  const [conferenceStartVideoMuted, setConferenceStartVideoMuted] = useState<boolean>(false);
 
   // Customizable Meeting Invitation State
   const [showMeetModal, setShowMeetModal] = useState(false);
@@ -428,12 +438,29 @@ export default function ChatPage() {
       direct: rooms.filter((r) => r.room_type === 'direct').length,
       department: rooms.filter((r) => r.room_type === 'department').length,
       ticket: rooms.filter((r) => r.room_type === 'ticket').length,
+      video: rooms.filter((r) =>
+        Boolean(
+          r.last_message?.includes('[VIDEO_CONFERENCE]') ||
+          r.last_message?.includes('[GOOGLE_MEET_CALL]') ||
+          r.last_message?.toLowerCase().includes('video conference') ||
+          r.name?.toLowerCase().includes('conference')
+        )
+      ).length,
     };
   }, [rooms]);
 
   const displayRooms = useMemo(() => {
     let list = rooms;
-    if (activeFilter !== 'all') {
+    if (activeFilter === 'video') {
+      list = list.filter((r) =>
+        Boolean(
+          r.last_message?.includes('[VIDEO_CONFERENCE]') ||
+          r.last_message?.includes('[GOOGLE_MEET_CALL]') ||
+          r.last_message?.toLowerCase().includes('video conference') ||
+          r.name?.toLowerCase().includes('conference')
+        )
+      );
+    } else if (activeFilter !== 'all') {
       list = list.filter((r) => r.room_type === activeFilter);
     }
     if (searchTerm.trim()) {
@@ -651,10 +678,166 @@ export default function ChatPage() {
     }
   };
 
+  const handleOpenVideoConferenceModal = async () => {
+    setChatType('video_conference');
+    setVideoConferenceTarget('user');
+    setConferenceTitle('');
+    setConferenceScheduleMode('now');
+    const defaultDate = new Date(Date.now() + 15 * 60 * 1000);
+    const isoLocal = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    setConferenceScheduledTime(isoLocal);
+    setConferenceDurationMinutes(30);
+    setConferenceScreenShare(true);
+    setConferenceStartAudioMuted(false);
+    setConferenceStartVideoMuted(false);
+
+    setShowNewChatModal(true);
+    setLoadingUsers(true);
+    try {
+      const [usersRes, deptsRes, ticketsRes] = await Promise.all([
+        chatApi.fetchChatUsers(),
+        chatApi.fetchChatDepartments(),
+        api.get('/tickets'),
+      ]);
+      setAllUsers(usersRes.data.data || []);
+      setDepartments(deptsRes.data.data || []);
+      setTickets(ticketsRes.data.data || []);
+    } catch (err) {
+      console.error('Failed to load new chat data:', err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleCreateVideoConference = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingRoom(true);
+
+    try {
+      let targetEmails: string[] = [];
+      let targetRoomId: string | undefined = undefined;
+
+      if (videoConferenceTarget === 'user') {
+        const targetUser = allUsers.find((u) => u.id === selectedUserId);
+        if (!targetUser?.email) {
+          alert('Please select a registered user to invite to the video conference.');
+          setCreatingRoom(false);
+          return;
+        }
+        targetEmails = [targetUser.email.toLowerCase()];
+      } else if (videoConferenceTarget === 'department') {
+        if (!selectedDepartmentId) {
+          alert('Please select a department channel.');
+          setCreatingRoom(false);
+          return;
+        }
+        const existingDeptRoom = rooms.find(
+          (r) => r.room_type === 'department' && r.department_id === selectedDepartmentId
+        );
+        if (existingDeptRoom) {
+          targetRoomId = existingDeptRoom.id;
+        } else {
+          const deptRoomRes = await chatApi.createDepartmentRoom({ departmentId: selectedDepartmentId });
+          targetRoomId = deptRoomRes.data.data.id;
+        }
+        try {
+          const membersRes = await chatApi.fetchDepartmentChatMembers(selectedDepartmentId);
+          const members = membersRes.data.data || [];
+          targetEmails = members.map((m: any) => m.email).filter(Boolean);
+        } catch {}
+        if (targetEmails.length === 0 && currentUser.email) {
+          targetEmails = [currentUser.email];
+        }
+      } else if (videoConferenceTarget === 'ticket') {
+        if (!selectedTicketId) {
+          alert('Please select a support ticket.');
+          setCreatingRoom(false);
+          return;
+        }
+        const existingTicketRoom = rooms.find(
+          (r) => r.room_type === 'ticket' && r.ticket_id === selectedTicketId
+        );
+        if (existingTicketRoom) {
+          targetRoomId = existingTicketRoom.id;
+        } else {
+          const ticketRoomRes = await chatApi.createTicketRoom({ ticketId: selectedTicketId });
+          targetRoomId = ticketRoomRes.data.data.id;
+        }
+        try {
+          const membersRes = await chatApi.fetchTicketChatMembers(selectedTicketId);
+          const members = membersRes.data.data || [];
+          targetEmails = members.map((m: any) => m.email).filter(Boolean);
+        } catch {}
+        if (targetEmails.length === 0 && currentUser.email) {
+          targetEmails = [currentUser.email];
+        }
+      }
+
+      const effectiveDate =
+        conferenceScheduleMode === 'scheduled' && conferenceScheduledTime
+          ? conferenceScheduledTime
+          : new Date().toISOString();
+
+      const inviteRes = await chatApi.sendMeetingInvite({
+        recipientEmails: targetEmails,
+        meetingUrl: `https://meet.dms.gov/room/${targetRoomId || 'general'}`,
+        roomId: targetRoomId,
+        title: conferenceTitle.trim() || 'Help Desk Video Conference & Screen Walkthrough',
+        notes: `Conference initiated ${
+          conferenceScheduleMode === 'now' ? 'Today' : `for ${new Date(effectiveDate).toLocaleString()}`
+        }`,
+        meetingType: 'dms_conference',
+        scheduledTime: effectiveDate,
+        durationMinutes: conferenceDurationMinutes,
+        customSettings: {
+          screenShareEnabled: conferenceScreenShare,
+          startAudioMuted: conferenceStartAudioMuted,
+          startVideoMuted: conferenceStartVideoMuted,
+          requireRegisteredOnly: true,
+        },
+      });
+
+      const returnedRoomId = inviteRes.data?.data?.roomId || targetRoomId;
+      setShowNewChatModal(false);
+
+      const refreshedRooms = await loadRooms();
+      let foundRoom = refreshedRooms.find((r) => r.id === returnedRoomId);
+      if (!foundRoom && returnedRoomId) {
+        try {
+          const rRes = await chatApi.fetchRoomById(returnedRoomId);
+          foundRoom = rRes.data.data;
+          if (foundRoom) {
+            setRooms((prev) => [foundRoom!, ...prev.filter((r) => r.id !== foundRoom!.id)]);
+          }
+        } catch {}
+      }
+
+      if (foundRoom) {
+        setSelectedRoom(foundRoom);
+      }
+
+      if (conferenceScheduleMode === 'now') {
+        setIsVideoActive(true);
+        setActiveViewMode('video');
+      } else {
+        setActiveViewMode('chat');
+      }
+    } catch (err: any) {
+      console.error('Failed to create video conference:', err);
+      alert(err.response?.data?.message || 'Failed to start video conference');
+    } finally {
+      setCreatingRoom(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     let list = allUsers.filter((u) => u.id !== currentUser.id && canContact(currentUser.role, u.role));
     if (modalUserTab === 'online') {
       list = list.filter((u) => u.is_online);
+    } else if (modalUserTab === 'admin') {
+      list = list.filter((u) => u.role?.toLowerCase() === 'admin');
     }
     if (userSearchQuery.trim()) {
       const q = userSearchQuery.toLowerCase().trim();
@@ -669,11 +852,17 @@ export default function ChatPage() {
     return list;
   }, [allUsers, currentUser, modalUserTab, userSearchQuery]);
 
-  // 1-Click Auto-Accept Direct Chat with a registered user (Text or Video)
+  // 1-Click Auto-Accept Direct Chat with a registered user or Admin (Text or Video)
   const handleStartDirectUserChat = async (userId: string, initialMode: 'chat' | 'video' = 'chat') => {
     setCreatingRoom(true);
     try {
-      const res = await chatApi.createDirectRoom({ userId, initialMode });
+      const payload: { userId?: string; targetRole?: string; initialMode?: 'chat' | 'video' } = { initialMode };
+      if (userId === 'admin') {
+        payload.targetRole = 'admin';
+      } else {
+        payload.userId = userId;
+      }
+      const res = await chatApi.createDirectRoom(payload);
       const createdRoom = res.data.data;
       if (createdRoom) {
         setSelectedRoom(createdRoom);
@@ -702,7 +891,13 @@ export default function ChatPage() {
     try {
       let createdRoom: ChatRoom | null = null;
       if (chatType === 'direct') {
-        const res = await chatApi.createDirectRoom({ userId: selectedUserId, initialMode: 'chat' });
+        const payload: { userId?: string; targetRole?: string; initialMode?: 'chat' | 'video' } = { initialMode: 'chat' };
+        if (selectedUserId === 'admin') {
+          payload.targetRole = 'admin';
+        } else {
+          payload.userId = selectedUserId;
+        }
+        const res = await chatApi.createDirectRoom(payload);
         createdRoom = res.data.data;
       } else if (chatType === 'department') {
         const res = await chatApi.createDepartmentRoom({
@@ -714,6 +909,7 @@ export default function ChatPage() {
         const res = await chatApi.createTicketRoom({
           ticketId: selectedTicketId,
           name: newChatName.trim() || undefined,
+          timing: 'now',
         });
         createdRoom = res.data.data;
       }
@@ -743,20 +939,34 @@ export default function ChatPage() {
     setActiveViewMode('chat');
   };
 
-  const latestScheduledMeeting = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const info = parseMeetingMessage(messages[i].message);
-      if (info?.isMeeting && info.scheduledTime) {
-        const statusObj = getMeetingEventStatus(info.scheduledTime, info.durationMinutes || 30);
-        return {
-          ...info,
-          statusObj,
-          senderName: `${messages[i].first_name} ${messages[i].last_name}`,
-        };
+  // Clicked Screen Share Session state - only displayed when clicked and not yet entered
+  const [clickedScreenShareSession, setClickedScreenShareSession] = useState<any | null>(null);
+  const [consumedMeetingKeys, setConsumedMeetingKeys] = useState<Set<string>>(new Set());
+
+  // Reset clicked screen share session on room change
+  useEffect(() => {
+    setClickedScreenShareSession(null);
+  }, [selectedRoom?.id]);
+
+  const handleJoinScreenShare = (sessionInfo?: any) => {
+    const targetSession = sessionInfo || clickedScreenShareSession;
+    if (targetSession) {
+      const key = targetSession.meetingUrl || targetSession.title || targetSession.scheduledTime;
+      if (key) {
+        setConsumedMeetingKeys((prev) => new Set(prev).add(key));
       }
     }
-    return null;
-  }, [messages]);
+    // Remove the screen share banner immediately
+    setClickedScreenShareSession(null);
+    handleStartInAppVideo();
+  };
+
+  const handleSelectScreenShare = (sessionInfo: any) => {
+    const key = sessionInfo.meetingUrl || sessionInfo.title || sessionInfo.scheduledTime;
+    if (!consumedMeetingKeys.has(key) && activeViewMode !== 'video' && !isVideoActive) {
+      setClickedScreenShareSession(sessionInfo);
+    }
+  };
 
   return (
     <div
@@ -876,6 +1086,7 @@ export default function ChatPage() {
           onSearchChange={(q) => setSearchTerm(q)}
           onFilterChange={(f) => setActiveFilter(f)}
           onStartNewChat={handleStartNewChat}
+          onStartVideoConference={handleOpenVideoConferenceModal}
           onCloseMobileSidebar={() => setMobileSidebarOpen(false)}
         />
 
@@ -909,106 +1120,144 @@ export default function ChatPage() {
                 onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               />
 
-              {/* Event Timing Banner for Scheduled Video & Screen Share Session */}
-              {latestScheduledMeeting && activeViewMode !== 'video' && (
-                <div
-                  style={{
-                    background:
-                      latestScheduledMeeting.statusObj.status === 'live'
-                        ? 'rgba(16, 185, 129, 0.12)'
-                        : 'var(--bg-hover)',
-                    borderBottom: `1px solid ${
-                      latestScheduledMeeting.statusObj.status === 'live' ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-light)'
-                    }`,
-                    padding: '10px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '1.25rem' }}>
-                      {latestScheduledMeeting.screenShareEnabled ? '🖥️' : '📹'}
-                    </span>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: '0.84rem',
-                          fontWeight: 700,
-                          color: 'var(--text-main)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        <span>{latestScheduledMeeting.title}</span>
-                        <span
+              {/* Event Timing Banner for Scheduled Video & Screen Share Session - Shown ONLY when clicked and not yet in video conference */}
+              {clickedScreenShareSession &&
+                !consumedMeetingKeys.has(
+                  clickedScreenShareSession.meetingUrl ||
+                    clickedScreenShareSession.title ||
+                    clickedScreenShareSession.scheduledTime
+                ) &&
+                activeViewMode !== 'video' &&
+                !isVideoActive && (
+                  <div
+                    style={{
+                      background:
+                        clickedScreenShareSession.statusObj?.status === 'live'
+                          ? 'rgba(16, 185, 129, 0.12)'
+                          : 'var(--bg-hover)',
+                      borderBottom: `1px solid ${
+                        clickedScreenShareSession.statusObj?.status === 'live' ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-light)'
+                      }`,
+                      padding: '10px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.25rem' }}>
+                        {clickedScreenShareSession.screenShareEnabled ? '🖥️' : '📹'}
+                      </span>
+                      <div>
+                        <div
                           style={{
-                            fontSize: '0.68rem',
+                            fontSize: '0.84rem',
                             fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            background:
-                              latestScheduledMeeting.statusObj.status === 'live'
-                                ? 'rgba(16, 185, 129, 0.2)'
-                                : 'rgba(37, 99, 235, 0.15)',
-                            color: latestScheduledMeeting.statusObj.badgeColor,
-                            border: `1px solid ${latestScheduledMeeting.statusObj.badgeColor}40`,
+                            color: 'var(--text-main)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
                           }}
                         >
-                          {latestScheduledMeeting.statusObj.label}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Scheduled Event Time:{' '}
-                        <strong style={{ color: 'var(--text-main)' }}>
-                          {latestScheduledMeeting.scheduledTime
-                            ? new Date(latestScheduledMeeting.scheduledTime).toLocaleString([], {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'Upcoming'}
-                        </strong>{' '}
-                        • Host: {latestScheduledMeeting.senderName}
-                        {latestScheduledMeeting.screenShareEnabled && (
-                          <span style={{ color: '#0284c7', marginLeft: '6px', fontWeight: 600 }}>
-                            • 🖥️ Screen Sharing Enabled
+                          <span>{clickedScreenShareSession.title}</span>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              background:
+                                clickedScreenShareSession.statusObj?.status === 'live'
+                                  ? 'rgba(16, 185, 129, 0.2)'
+                                  : 'rgba(37, 99, 235, 0.15)',
+                              color: clickedScreenShareSession.statusObj?.badgeColor,
+                              border: `1px solid ${clickedScreenShareSession.statusObj?.badgeColor}40`,
+                            }}
+                          >
+                            {clickedScreenShareSession.statusObj?.label}
                           </span>
-                        )}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Scheduled Event Time:{' '}
+                          <strong style={{ color: 'var(--text-main)' }}>
+                            {clickedScreenShareSession.scheduledTime
+                              ? new Date(clickedScreenShareSession.scheduledTime).toLocaleString([], {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Upcoming'}
+                          </strong>{' '}
+                          • Host: {clickedScreenShareSession.senderName}
+                          {clickedScreenShareSession.screenShareEnabled && (
+                            <span style={{ color: '#0284c7', marginLeft: '6px', fontWeight: 600 }}>
+                              • 🖥️ Screen Sharing Enabled
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleStartInAppVideo()}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        border: 'none',
-                        background:
-                          latestScheduledMeeting.statusObj.status === 'live'
-                            ? 'linear-gradient(135deg, #16a34a 0%, #059669 100%)'
-                            : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      }}
-                    >
-                      {latestScheduledMeeting.statusObj.status === 'live'
-                        ? '🚀 Join Screen Share Call (Live)'
-                        : '🗓️ Join / Enter Conference Room'}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleJoinScreenShare(clickedScreenShareSession)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          border: 'none',
+                          background:
+                            clickedScreenShareSession.statusObj?.status === 'live'
+                              ? 'linear-gradient(135deg, #16a34a 0%, #059669 100%)'
+                              : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        }}
+                      >
+                        {clickedScreenShareSession.statusObj?.status === 'live'
+                          ? '🚀 Join Screen Share Call (Live)'
+                          : '🗓️ Join / Enter Conference Room'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const key =
+                            clickedScreenShareSession.meetingUrl ||
+                            clickedScreenShareSession.title ||
+                            clickedScreenShareSession.scheduledTime;
+                          if (key) {
+                            setConsumedMeetingKeys((prev) => new Set(prev).add(key));
+                          }
+                          setClickedScreenShareSession(null);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--border-light)',
+                          color: 'var(--text-muted)',
+                          borderRadius: '6px',
+                          width: '28px',
+                          height: '28px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                        }}
+                        title="Remove screen share banner"
+                        aria-label="Remove screen share banner"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                </div>
               )}
 
               {/* VIEW 1: Pure Text Chat Mode */}
@@ -1020,9 +1269,10 @@ export default function ChatPage() {
                     messageGroups={messageGroups}
                     typingUsers={typingUsers}
                     messagesEndRef={messagesEndRef}
-                    onJoinInAppVideo={() => {
-                      handleStartInAppVideo();
+                    onJoinInAppVideo={(_url, sessionInfo) => {
+                      handleJoinScreenShare(sessionInfo);
                     }}
+                    onSelectScreenShare={handleSelectScreenShare}
                     onDeleteMessage={handleRequestDeleteMessage}
                   />
                   <ChatInputArea
@@ -1045,6 +1295,7 @@ export default function ChatPage() {
                   onLeave={handleLeaveInAppVideo}
                   onSwitchToChat={() => setActiveViewMode('chat')}
                   onOpenInviteModal={openMeetModal}
+                  onStartNewVideoConference={handleOpenVideoConferenceModal}
                   isWholePageMode={isWholePageMode}
                   onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
                 />
@@ -1061,6 +1312,7 @@ export default function ChatPage() {
                       onLeave={handleLeaveInAppVideo}
                       onSwitchToChat={() => setActiveViewMode('chat')}
                       onOpenInviteModal={openMeetModal}
+                      onStartNewVideoConference={handleOpenVideoConferenceModal}
                       isWholePageMode={isWholePageMode}
                       onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
                     />
@@ -1094,13 +1346,23 @@ export default function ChatPage() {
               <div className={styles.noRoomGraphic}>💬</div>
               <h3>No Conversation Selected</h3>
               <p>Choose a conversation from the sidebar or start a new chat channel.</p>
-              <button
-                type="button"
-                className={styles.startChatBtn}
-                onClick={handleStartNewChat}
-              >
-                ➕ Start New Conversation
-              </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className={styles.newConferenceBtn}
+                  onClick={handleOpenVideoConferenceModal}
+                  style={{ padding: '9px 18px', fontSize: '0.85rem' }}
+                >
+                  📹 Start Video Conference (Today)
+                </button>
+                <button
+                  type="button"
+                  className={styles.startChatBtn}
+                  onClick={handleStartNewChat}
+                >
+                  ➕ Start New Conversation
+                </button>
+              </div>
             </div>
           )}
         </main>
@@ -1115,7 +1377,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      {/* New Conversation Modal */}
+      {/* New Conversation Modal (Text Chat & Video Conference) */}
       <NewChatModal
         show={showNewChatModal}
         chatType={chatType}
@@ -1132,6 +1394,23 @@ export default function ChatPage() {
         departments={departments}
         tickets={tickets}
         modalMembers={modalMembers}
+        videoConferenceTarget={videoConferenceTarget}
+        conferenceTitle={conferenceTitle}
+        conferenceScheduleMode={conferenceScheduleMode}
+        conferenceScheduledTime={conferenceScheduledTime}
+        conferenceDurationMinutes={conferenceDurationMinutes}
+        conferenceScreenShare={conferenceScreenShare}
+        conferenceStartAudioMuted={conferenceStartAudioMuted}
+        conferenceStartVideoMuted={conferenceStartVideoMuted}
+        onSetVideoConferenceTarget={(t) => setVideoConferenceTarget(t)}
+        onSetConferenceTitle={(title) => setConferenceTitle(title)}
+        onSetConferenceScheduleMode={(m) => setConferenceScheduleMode(m)}
+        onSetConferenceScheduledTime={(time) => setConferenceScheduledTime(time)}
+        onSetConferenceDurationMinutes={(mins) => setConferenceDurationMinutes(mins)}
+        onSetConferenceScreenShare={(s) => setConferenceScreenShare(s)}
+        onSetConferenceStartAudioMuted={(a) => setConferenceStartAudioMuted(a)}
+        onSetConferenceStartVideoMuted={(v) => setConferenceStartVideoMuted(v)}
+        onCreateVideoConference={handleCreateVideoConference}
         onClose={() => setShowNewChatModal(false)}
         onSetChatType={(t) => setChatType(t)}
         onSetModalUserTab={(tab) => setModalUserTab(tab)}

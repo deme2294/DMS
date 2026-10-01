@@ -78,9 +78,38 @@ export const getDepartmentMembersWithStatus = async (departmentId) => {
 };
 
 export const getTicketMembersWithStatus = async (ticketId) => {
-  const [ticketRows] = await pool.query(`SELECT created_by, assigned_to, department_id FROM tickets WHERE id = ? LIMIT 1`, [ticketId]);
+  const [ticketRows] = await pool.query(
+    `SELECT created_by, assigned_to, department_id, category FROM tickets WHERE id = ? LIMIT 1`,
+    [ticketId]
+  );
   if (!ticketRows || ticketRows.length === 0) return [];
   const ticket = ticketRows[0];
+
+  let departmentId = ticket.department_id;
+  if (!departmentId && ticket.category) {
+    const [catRows] = await pool.query(
+      `SELECT department_id FROM ticket_categories WHERE (name = ? OR id = ?) AND department_id IS NOT NULL LIMIT 1`,
+      [ticket.category, ticket.category]
+    );
+    if (catRows.length > 0 && catRows[0].department_id) {
+      departmentId = catRows[0].department_id;
+    } else {
+      const catLower = (ticket.category || '').toLowerCase();
+      if (
+        catLower.includes('hr') ||
+        catLower.includes('human') ||
+        catLower.includes('payroll') ||
+        catLower.includes('leave') ||
+        catLower.includes('benefit')
+      ) {
+        const [hrDepts] = await pool.query(`SELECT id FROM departments WHERE code = 'HR' OR name LIKE '%Human Resources%' LIMIT 1`);
+        if (hrDepts.length > 0) departmentId = hrDepts[0].id;
+      } else {
+        const [itDepts] = await pool.query(`SELECT id FROM departments WHERE code = 'IT' OR name LIKE '%IT%' LIMIT 1`);
+        if (itDepts.length > 0) departmentId = itDepts[0].id;
+      }
+    }
+  }
 
   const [rows] = await pool.query(
     `SELECT DISTINCT u.id, u.first_name, u.last_name, u.username, u.email,
@@ -102,7 +131,7 @@ export const getTicketMembersWithStatus = async (ticketId) => {
     [
       ticket.created_by, ticket.assigned_to,
       ticket.created_by, ticket.assigned_to, ticket.assigned_to,
-      ticket.department_id, ticket.department_id
+      departmentId, departmentId
     ]
   );
   return rows;

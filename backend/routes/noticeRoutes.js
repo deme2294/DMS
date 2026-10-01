@@ -33,7 +33,7 @@ router.get(
 // Get notices created by current user (manager's created notices)
 router.get(
   '/my/created',
-  authorize('notices.create'),
+  authorize('notices.read', 'notices.create'),
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
@@ -59,7 +59,7 @@ router.get(
 // Get staff in specific department (with department ID)
 router.get(
   '/department/:departmentId/staff',
-  authorize('notices.create'),
+  authorize('notices.read', 'notices.create'),
   noticeController.getDepartmentStaff
 );
 
@@ -94,7 +94,7 @@ router.post(
 // Update targeted notice
 router.put(
   '/targeted/:id',
-  authorize('notices.update'),
+  authorize('notices.update', 'notices.create'),
   [
     idParam(),
     body('title').optional().trim().notEmpty(),
@@ -103,6 +103,18 @@ router.put(
     validate,
   ],
   noticeController.updateTargetedNotice
+);
+
+// Update notice expiration date (manager, admin, or creator)
+router.patch(
+  '/:id/expiry',
+  authorize('notices.read'),
+  [
+    idParam(),
+    body('expiresAt').optional({ nullable: true }),
+    validate,
+  ],
+  noticeController.updateNoticeExpiry
 );
 
 // Assign notice to staff member (manager action)
@@ -115,6 +127,18 @@ router.post(
     validate,
   ],
   noticeController.assignNoticeToStaff
+);
+
+// Route notice to System Admin (manager action)
+router.post(
+  '/:id/route-to-admin',
+  authorize('notices.read', 'notices.create'),
+  [
+    idParam(),
+    body('remarks').optional().trim(),
+    validate,
+  ],
+  noticeController.routeNoticeToAdmin
 );
 
 // Get notice with full details (creator, assignment info)
@@ -190,8 +214,8 @@ router.get('/me/acknowledgements', authorize('notices.read'), noticeController.g
 
 router.get('/:id', authorize('notices.read'), noticeController.getNoticeById);
 router.post('/', authorize('notices.create'), noticeController.createNotice);
-router.put('/:id', authorize('notices.update'), noticeController.updateNotice);
-router.delete('/:id', authorize('notices.delete'), noticeController.deleteNotice);
+router.put('/:id', authorize('notices.update', 'notices.create'), noticeController.updateNotice);
+router.delete('/:id', authorize('notices.delete', 'notices.create', 'notices.read'), noticeController.deleteNotice);
 
 // Recipient acknowledgement + admin oversight (authenticated)
 router.post('/:id/acknowledge', authorize('notices.read'), noticeController.acknowledgeNotice);

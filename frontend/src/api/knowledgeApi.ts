@@ -31,8 +31,11 @@ export const getPublicArticles = (params?: ArticleListParams) =>
 export const fetchMyDrafts = () =>
   api.get<{ success: boolean; data: Article[]; pagination: PaginationMeta }>('/knowledge/my-drafts');
 
-export const fetchPendingReview = () =>
-  api.get<{ success: boolean; data: Article[]; pagination: PaginationMeta }>('/knowledge/pending');
+export const fetchMyArticles = (params?: ArticleListParams) =>
+  api.get<{ success: boolean; data: Article[]; pagination: PaginationMeta }>('/knowledge/my-articles', { params });
+
+export const fetchPendingReview = (params?: { status?: string }) =>
+  api.get<{ success: boolean; data: Article[]; pagination: PaginationMeta }>('/knowledge/pending', { params });
 
 export const fetchNeedsRevision = () =>
   api.get<{ success: boolean; data: Article[]; pagination: PaginationMeta }>('/knowledge/needs-revision');
@@ -70,16 +73,19 @@ export const archiveArticle = (id: string) =>
 export const restoreArticle = (id: string) =>
   api.post(`/knowledge/${id}/restore`);
 
+export const moveToDraft = (id: string) =>
+  api.post(`/knowledge/${id}/to-draft`);
+
 export const deleteArticle = (id: string) => api.delete(`/knowledge/${id}`);
 
 export const rateArticle = (id: string, helpful: boolean) =>
   api.post(`/knowledge/${id}/feedback`, { helpful });
 
-export const fetchArticleCategories = () =>
-  api.get<{ success: boolean; data: string[] }>('/knowledge/categories');
+export const fetchArticleCategories = (params?: { departmentId?: string }) =>
+  api.get<{ success: boolean; data: string[] }>('/knowledge/categories', { params });
 
-export const fetchAllCategories = () =>
-  api.get<{ success: boolean; data: KnowledgeCategory[] }>('/knowledge/categories/all');
+export const fetchAllCategories = (params?: { departmentId?: string }) =>
+  api.get<{ success: boolean; data: KnowledgeCategory[] }>('/knowledge/categories/all', { params });
 
 export const getPopularArticles = (limit = 10) =>
   api.get<{ success: boolean; data: Article[] }>('/knowledge/popular', { params: { limit } });
@@ -87,10 +93,10 @@ export const getPopularArticles = (limit = 10) =>
 export const getRecentArticles = (limit = 10) =>
   api.get<{ success: boolean; data: Article[] }>('/knowledge/recent', { params: { limit } });
 
-export const createCategory = (payload: { name: string; description?: string; icon?: string; isActive?: boolean; parentId?: string | null }) =>
+export const createCategory = (payload: { name: string; description?: string; icon?: string; isActive?: boolean; parentId?: string | null; departmentId?: string | null }) =>
   api.post('/knowledge/categories', payload);
 
-export const updateCategory = (id: string, payload: { name?: string; description?: string; icon?: string; isActive?: boolean; parentId?: string | null }) =>
+export const updateCategory = (id: string, payload: { name?: string; description?: string; icon?: string; isActive?: boolean; parentId?: string | null; departmentId?: string | null }) =>
   api.put(`/knowledge/categories/${id}`, payload);
 
 export const deleteCategory = (id: string) =>

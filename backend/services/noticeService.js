@@ -72,6 +72,7 @@ export const publishNotice = async (notice) => {
 };
 
 export const listNotices = async (filters) => {
+  await noticeRepo.archiveExpiredNotices();
   const result = await noticeRepo.findAll(filters);
   const data = result.data.map((n) => ({
     ...n,
@@ -159,9 +160,17 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
   return await noticeRepo.findById(notice.id);
 };
 
-export const updateNotice = async (id, data, updaterId = null) => {
+export const updateNotice = async (id, data, updaterId = null, updaterRole = null) => {
   const existing = await noticeRepo.findById(id);
   if (!existing) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+
+  // Authorization check - creator, admin, or ceo can update
+  if (updaterRole && updaterRole !== 'admin' && updaterRole !== 'ceo' && existing.created_by !== updaterId) {
+    throw Object.assign(
+      new Error('You can only update notices you created'),
+      { statusCode: 403 }
+    );
+  }
 
   const effectiveAudience = data.targetAudience !== undefined ? data.targetAudience : existing.target_audience;
   if (effectiveAudience === 'department') {
@@ -228,9 +237,18 @@ export const updateNotice = async (id, data, updaterId = null) => {
   return updated;
 };
 
-export const deleteNotice = async (id) => {
+export const deleteNotice = async (id, userId = null, userRole = null) => {
   const notice = await noticeRepo.findById(id);
   if (!notice) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+
+  // Authorization check - creator, admin, or ceo can delete
+  if (userRole && userRole !== 'admin' && userRole !== 'ceo' && notice.created_by !== userId) {
+    throw Object.assign(
+      new Error('You can only delete notices you created'),
+      { statusCode: 403 }
+    );
+  }
+
   await noticeRepo.remove(id);
 };
 
@@ -281,15 +299,22 @@ export const processExpirations = async () => {
   let processed = 0;
 
   for (const notice of expiring) {
-    const unacknowledged = await noticeRepo.getUnacknowledgedRecipients(notice.id);
-    if (unacknowledged.length) {
-      await notificationService.notifyNoticeExpiryWarning(notice, unacknowledged);
+    try {
+      const unacknowledged = await noticeRepo.getUnacknowledgedRecipients(notice.id);
+      if (unacknowledged.length) {
+        await notificationService.notifyNoticeExpiryWarning(notice, unacknowledged);
+      }
+    } catch (notifyErr) {
+      console.error(`[NOTICES] Expiry warning notification error for "${notice.title}":`, notifyErr.message);
     }
     await noticeRepo.setExpiryWarned(notice.id);
     await noticeRepo.archiveNotice(notice.id);
     processed += 1;
-    console.log(`[NOTICES] Expired notice "${notice.title}" — warned ${unacknowledged.length} unacknowledged recipient(s), archived.`);
+    console.log(`[NOTICES] Expired notice "${notice.title}" — archived.`);
   }
+
+  // Also clean up any lingering expired published notices
+  await noticeRepo.archiveExpiredNotices();
 
   return processed;
 };
@@ -303,6 +328,7 @@ export const processExpirations = async () => {
  * Used by staff/manager to see notices targeted to them
  */
 export const getNoticesForUser = async (userId, userRole, userDepartmentId, filters = {}) => {
+  await noticeRepo.archiveExpiredNotices();
   const result = await noticeRepo.findNoticesForUser(userId, userRole, userDepartmentId, filters);
   
   return {
@@ -322,13 +348,30 @@ export const getNoticesForUser = async (userId, userRole, userDepartmentId, filt
 };
 
 /**
- * Create targeted notice (used by admin or manager)
- * Admin can target anyone, manager can only target staff in their department
+ * Create targeted notice (used by admin, manager, or staff)
+ * - Admin can target anyone
+ * - Manager can target staff in their department, all department members, or Admin
+ * - Staff can target their Department Head (manager)
  */
 export const createTargetedNotice = async (data, creatorId, creatorRole) => {
-  if (creatorRole === 'manager' && data.targetAudience !== 'staff' && data.targetAudience !== 'department') {
+  if (creatorRole === 'manager') {
+    if (data.targetAudience !== 'staff' && data.targetAudience !== 'department' && data.targetAudience !== 'admin') {
+      throw Object.assign(
+        new Error('Managers can only create notices for staff, their department, or System Admin'),
+        { statusCode: 403 }
+      );
+    }
+  } else if (creatorRole === 'staff') {
+    if (data.targetAudience && data.targetAudience !== 'manager') {
+      throw Object.assign(
+        new Error('Staff members can only create notices for their Department Head'),
+        { statusCode: 403 }
+      );
+    }
+    data.targetAudience = 'manager';
+  } else if (creatorRole !== 'admin') {
     throw Object.assign(
-      new Error('Managers can only create notices for staff or their department'),
+      new Error('Unauthorized to create notices'),
       { statusCode: 403 }
     );
   }
@@ -336,7 +379,21 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
   let departmentId = data.departmentId || null;
   let assignedTo = data.assignedTo || null;
 
-  if (data.targetAudience === 'department') {
+  if (creatorRole === 'staff') {
+    const staffDeptIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (!staffDeptIds || staffDeptIds.length === 0) {
+      throw Object.assign(
+        new Error('You must be assigned to a department to send notices to your Department Head'),
+        { statusCode: 400 }
+      );
+    }
+    departmentId = staffDeptIds[0];
+  } else if (creatorRole === 'manager' && data.targetAudience === 'admin') {
+    const managerDepartmentIds = await departmentService.getMyDepartmentIds(creatorId);
+    if (managerDepartmentIds.length > 0) {
+      departmentId = data.departmentId || managerDepartmentIds[0];
+    }
+  } else if (data.targetAudience === 'department') {
     const creatorDeptIds = await departmentService.getMyDepartmentIds(creatorId);
     if (!creatorDeptIds || creatorDeptIds.length === 0) {
       throw Object.assign(
@@ -402,7 +459,7 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
     attachment: data.attachment || null,
     attachmentName: data.attachmentName || null,
     priority: data.priority || 'medium',
-    status: data.status || 'draft',
+    status: data.status || 'published',
     targetAudience: data.targetAudience || 'staff',
     departmentId,
     assignedTo,
@@ -453,8 +510,22 @@ const publishTargetedNotice = async (notice) => {
       recipients = await userRepo.getAudienceUsers('staff');
     }
   } else if (notice.targetAudience === 'manager') {
-    // All managers
-    recipients = await userRepo.getAudienceUsers('manager');
+    if (notice.departmentId) {
+      const [mgrUsers] = await pool.query(
+        `SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, u.username, r.name AS role
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+         LEFT JOIN user_departments ud ON ud.user_id = u.id
+         LEFT JOIN departments d ON d.head_user_id = u.id
+         WHERE (ud.department_id = ? OR d.id = ?) AND r.name = 'manager' AND u.status = 'active'`,
+        [notice.departmentId, notice.departmentId]
+      );
+      recipients = mgrUsers;
+    } else {
+      recipients = await userRepo.getAudienceUsers('manager');
+    }
+  } else if (notice.targetAudience === 'admin') {
+    recipients = await userRepo.getAudienceUsers('admin');
   } else if (notice.targetAudience === 'all') {
     // All users
     recipients = await userRepo.getAudienceUsers('all');
@@ -471,6 +542,48 @@ const publishTargetedNotice = async (notice) => {
   }
 
   return userIds.length;
+};
+
+/**
+ * Route / forward a notice to System Admin (by department manager)
+ */
+export const routeNoticeToAdmin = async (noticeId, managerId, remarks = '') => {
+  const notice = await noticeRepo.findByIdWithDetails(noticeId);
+  if (!notice) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+
+  const manager = await userRepo.findById(managerId);
+  const managerName = manager ? `${manager.first_name} ${manager.last_name}` : 'Department Head';
+
+  const adminUsers = await userRepo.getAudienceUsers('admin');
+  const adminIds = adminUsers.map((a) => a.id);
+
+  if (adminIds.length > 0) {
+    await noticeRepo.addRecipients(noticeId, adminIds);
+  }
+
+  const remarkMessage = remarks?.trim()
+    ? `[Routed to System Admin] Department Head (${managerName}): ${remarks.trim()}`
+    : `[Routed to System Admin] Notice routed to System Administrator by Department Head (${managerName}).`;
+
+  await noticeRepo.createNoticeReply({
+    id: uuidv4(),
+    noticeId,
+    userId: managerId,
+    message: remarkMessage,
+    visibility: 'all',
+    attachmentPath: null,
+    attachmentName: null,
+    attachmentSize: null,
+  });
+
+  if (adminUsers.length > 0) {
+    await notificationService.notifyNoticePublished(
+      { ...notice, title: `[Department Notice Routed] ${notice.title}` },
+      adminUsers
+    );
+  }
+
+  return await noticeRepo.findByIdWithDetails(noticeId);
 };
 
 /**
@@ -555,6 +668,7 @@ export const updateTargetedNotice = async (id, data, updaterId, updaterRole) => 
  * Get notices created by a specific user (for managers to see their notices)
  */
 export const getNoticesByCreator = async (creatorId, filters = {}) => {
+  await noticeRepo.archiveExpiredNotices();
   const result = await noticeRepo.findNoticesByCreator(creatorId, filters);
   
   return {
@@ -571,6 +685,47 @@ export const getNoticesByCreator = async (creatorId, filters = {}) => {
     })),
     pagination: result.pagination
   };
+};
+
+/**
+ * Update expiration date for an existing notice (manager, admin, or creator)
+ * If the entered expiration date is already in the past, automatically archive it immediately.
+ */
+export const updateNoticeExpiry = async (noticeId, expiresAt, userId, userRole) => {
+  const notice = await noticeRepo.findByIdWithDetails(noticeId);
+  if (!notice) throw Object.assign(new Error('Notice not found'), { statusCode: 404 });
+
+  if (userRole !== 'admin' && userRole !== 'ceo' && notice.created_by !== userId) {
+    if (userRole === 'manager') {
+      const managerDeptIds = await departmentService.getMyDepartmentIds(userId);
+      const isDeptNotice = notice.department_id && managerDeptIds.includes(notice.department_id);
+      const isAssigned = notice.assigned_to === userId || notice.assigned_by === userId;
+      if (!isDeptNotice && !isAssigned) {
+        throw Object.assign(new Error('You can only update expiration for notices in your department'), { statusCode: 403 });
+      }
+    } else {
+      throw Object.assign(new Error('Unauthorized to update notice expiration'), { statusCode: 403 });
+    }
+  }
+
+  let formattedExpiry = null;
+  let isPast = false;
+  if (expiresAt) {
+    const d = new Date(expiresAt);
+    if (!isNaN(d.getTime())) {
+      formattedExpiry = d.toISOString().slice(0, 19).replace('T', ' ');
+      isPast = d.getTime() <= Date.now();
+    }
+  }
+
+  const newStatus = isPast ? 'archived' : notice.status;
+
+  await noticeRepo.updateTargetedNotice(noticeId, {
+    expiresAt: formattedExpiry,
+    status: newStatus,
+  });
+
+  return await noticeRepo.findByIdWithDetails(noticeId);
 };
 
 /**
