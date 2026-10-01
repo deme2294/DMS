@@ -403,17 +403,17 @@ export default function Reports() {
         <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Total Tickets</span>
-            <div className={styles.statIconBox} style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxBlue}`}>
               <TicketIcon className={styles.statIcon} />
             </div>
           </div>
           <div className={styles.statValue}>{totalTickets.toLocaleString()}</div>
           <div className={styles.statSubtext}>
             {totalTickets === 0 && hasActiveFilters ? (
-              <span style={{ color: '#64748b' }}>0 in progress • 0 pending</span>
+              <span className={styles.statSubMuted}>0 in progress • 0 pending</span>
             ) : (
               <>
-                <span style={{ color: '#2563eb', fontWeight: 600 }}>{inProgressTickets} in progress</span> • {pendingTickets} pending
+                <span className={styles.statSubHighlight}>{inProgressTickets} in progress</span> • {pendingTickets} pending
               </>
             )}
           </div>
@@ -422,11 +422,11 @@ export default function Reports() {
         <div className={`${styles.statCard} ${styles.statCardSuccess}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Resolution Rate</span>
-            <div className={styles.statIconBox} style={{ background: '#ecfdf5', color: '#16a34a' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxGreen}`}>
               <CheckCircleIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue} style={{ color: totalTickets === 0 ? '#64748b' : '#16a34a' }}>{resolutionRate}%</div>
+          <div className={`${styles.statValue} ${totalTickets === 0 ? styles.statSubMuted : styles.statValueGreen}`}>{resolutionRate}%</div>
           <div className={styles.statSubtext}>
             <span>{resolvedTickets} resolved / closed tickets</span>
           </div>
@@ -435,11 +435,11 @@ export default function Reports() {
         <div className={`${styles.statCard} ${styles.statCardAmber}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Avg Resolution Time</span>
-            <div className={styles.statIconBox} style={{ background: '#fffbeb', color: '#d97706' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxAmber}`}>
               <ClockIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue} style={{ color: totalTickets === 0 ? '#64748b' : '#d97706' }}>
+          <div className={`${styles.statValue} ${totalTickets === 0 ? styles.statSubMuted : styles.statValueAmber}`}>
             {ticketReport?.avgResolutionHours && totalTickets > 0 ? Number(ticketReport.avgResolutionHours).toFixed(1) : '0.0'}
             <span className={styles.statUnit}>hrs</span>
           </div>
@@ -451,7 +451,7 @@ export default function Reports() {
         <div className={styles.statCard}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>{isManager ? 'Active Sections' : 'Active Departments'}</span>
-            <div className={styles.statIconBox} style={{ background: '#f0fdf4', color: '#15803d' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxEmerald}`}>
               <BuildingOffice2Icon className={styles.statIcon} />
             </div>
           </div>
@@ -466,7 +466,7 @@ export default function Reports() {
         <div className={styles.statCard}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Active Staff</span>
-            <div className={styles.statIconBox} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxPurple}`}>
               <UserGroupIcon className={styles.statIcon} />
             </div>
           </div>
@@ -482,7 +482,7 @@ export default function Reports() {
           <div className={styles.statCard}>
             <div className={styles.statTop}>
               <span className={styles.statLabel}>Active Tenants</span>
-              <div className={styles.statIconBox} style={{ background: '#fdf2f8', color: '#db2777' }}>
+              <div className={`${styles.statIconBox} ${styles.iconBoxPink}`}>
                 <BuildingStorefrontIcon className={styles.statIcon} />
               </div>
             </div>
@@ -758,15 +758,15 @@ export default function Reports() {
               ),
             },
             { key: 'totalTickets', label: 'Total', render: (row) => <span className={styles.tableNumberBold}>{row.totalTickets}</span> },
-            { key: 'openTickets', label: 'Open', render: (row) => <span style={{ color: '#ef4444', fontWeight: 600 }}>{row.openTickets}</span> },
-            { key: 'inProgressTickets', label: 'In Progress', render: (row) => <span style={{ color: '#f59e0b', fontWeight: 600 }}>{row.inProgressTickets}</span> },
-            { key: 'resolvedTickets', label: 'Resolved', render: (row) => <span style={{ color: '#16a34a', fontWeight: 600 }}>{row.resolvedTickets}</span> },
-            { key: 'closedTickets', label: 'Closed', render: (row) => <span style={{ color: '#64748b' }}>{row.closedTickets}</span> },
+            { key: 'openTickets', label: 'Open', render: (row) => <span className={styles.statusOpenText}>{row.openTickets}</span> },
+            { key: 'inProgressTickets', label: 'In Progress', render: (row) => <span className={styles.statusProgText}>{row.inProgressTickets}</span> },
+            { key: 'resolvedTickets', label: 'Resolved', render: (row) => <span className={styles.statusResText}>{row.resolvedTickets}</span> },
+            { key: 'closedTickets', label: 'Closed', render: (row) => <span className={styles.statusClosedText}>{row.closedTickets}</span> },
             {
               key: 'resolutionRate',
               label: 'Efficiency Rate',
               render: (row) => (
-                <span className={styles.efficiencyTag} style={{ background: row.resolutionRate >= 70 ? '#ecfdf5' : '#fef3c7', color: row.resolutionRate >= 70 ? '#15803d' : '#b45309' }}>
+                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyLow}`}>
                   {row.resolutionRate}%
                 </span>
               ),
@@ -826,13 +826,13 @@ export default function Reports() {
               ),
             },
             { key: 'ticketCount', label: 'Assigned', render: (row) => <span className={styles.tableNumberBold}>{row.ticketCount}</span> },
-            { key: 'inProgressCount', label: 'In Progress', render: (row) => <span style={{ color: '#f59e0b', fontWeight: 600 }}>{row.inProgressCount}</span> },
-            { key: 'resolvedCount', label: 'Resolved', render: (row) => <span style={{ color: '#16a34a', fontWeight: 600 }}>{row.resolvedCount}</span> },
+            { key: 'inProgressCount', label: 'In Progress', render: (row) => <span className={styles.statusProgText}>{row.inProgressCount}</span> },
+            { key: 'resolvedCount', label: 'Resolved', render: (row) => <span className={styles.statusResText}>{row.resolvedCount}</span> },
             {
               key: 'resolutionRate',
               label: 'Completion',
               render: (row) => (
-                <span className={styles.efficiencyTag} style={{ background: row.resolutionRate >= 70 ? '#ecfdf5' : '#f8fafc', color: row.resolutionRate >= 70 ? '#15803d' : '#475569' }}>
+                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyNeutral}`}>
                   {row.resolutionRate}%
                 </span>
               ),
@@ -891,4 +891,6 @@ export default function Reports() {
     </div>
   );
 }
+
+
 

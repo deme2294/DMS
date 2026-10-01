@@ -289,7 +289,7 @@ export default function TicketCategories() {
                         placeholder="Review notes (optional)"
                         value={reviewNotes}
                         onChange={(e) => setReviewNotes(e.target.value)}
-                        style={{ marginTop: 8, width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #e2e8f0' }}
+                        className={styles.reviewNotesInput}
                     />
                 </div>
             )}
@@ -389,7 +389,7 @@ export default function TicketCategories() {
                                     <p className={styles.catDesc}>{cat.description}</p>
                                 )}
                                 {cat.slaPolicyName && (
-                                    <div style={{ margin: '8px 0', fontSize: '0.82rem', color: '#0369a1', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div className={styles.defaultSlaBox}>
                                         <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
                                     </div>
                                 )}
@@ -425,9 +425,9 @@ export default function TicketCategories() {
             )}
 
             {!loading && totalCatPages > 1 && (
-                <div className={styles.pagination} style={{ marginTop: 20 }}>
+                <div className={styles.pagination}>
                     <button onClick={() => setCatPage(p => Math.max(1, p - 1))} disabled={catPage <= 1} className={styles.paginationBtn}>← Previous</button>
-                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary, #334155)' }}>Page {catPage} of {totalCatPages} &bull; {filteredCategories.length} total</span>
+                    <span className={styles.paginationInfo}>Page {catPage} of {totalCatPages} &bull; {filteredCategories.length} total</span>
                     <button onClick={() => setCatPage(p => Math.min(totalCatPages, p + 1))} disabled={catPage >= totalCatPages} className={styles.paginationBtn}>Next →</button>
                 </div>
             )}

@@ -28,6 +28,44 @@ import Modal from '../../components/Modal/Modal';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeArticleView.module.css';
 
+import {
+  DocumentTextIcon,
+  PaperClipIcon,
+  ArrowUpTrayIcon,
+  PencilSquareIcon,
+  PaperAirplaneIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ArrowPathIcon,
+  TrashIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  BuildingOffice2Icon,
+  UserIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  HashtagIcon,
+  InformationCircleIcon,
+  BookmarkSquareIcon,
+  ArrowRightIcon,
+  DocumentDuplicateIcon,
+  ExclamationTriangleIcon,
+  ShieldCheckIcon,
+  ArchiveBoxIcon,
+  SparklesIcon,
+  ClockIcon,
+  TagIcon,
+  CheckIcon,
+  ArrowUturnLeftIcon,
+  DocumentIcon,
+} from '@heroicons/react/24/outline';
+
+const getStatusBadgeClass = (status: string) => {
+  const normalized = (status || '').toLowerCase().replace(/[\s-]+/g, '_');
+  const key = `badge_${normalized}` as keyof typeof styles;
+  return `${styles.badge} ${styles[key] || styles.badge_draft}`;
+};
+
 export default function KnowledgeArticleView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -45,7 +83,6 @@ export default function KnowledgeArticleView() {
   const [attachments, setAttachments] = useState<KnowledgeAttachment[]>([]);
   const [related, setRelated] = useState<Article[]>([]);
   const [showVersions, setShowVersions] = useState(false);
-  const [showAttachments, setShowAttachments] = useState(false);
   const [revisionReason, setRevisionReason] = useState('');
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -152,13 +189,14 @@ export default function KnowledgeArticleView() {
       setVersionForm({ versionNumber: '', title: '', content: '', changeSummary: '' });
     });
   };
+
   const handleUploadAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
     try {
       await uploadAttachment(id!, file);
-      setMessage('Attachment uploaded');
+      setMessage('Attachment uploaded successfully');
       const aRes = await fetchAttachments(id!);
       setAttachments(aRes.data.data || []);
     } catch {
@@ -167,26 +205,40 @@ export default function KnowledgeArticleView() {
       setBusy(false);
     }
   };
+
   const handleDeleteAttachment = async (attachmentId: string) => {
     await runAction(() => deleteAttachment(id!, attachmentId), 'Attachment deleted');
     const aRes = await fetchAttachments(id!);
     setAttachments(aRes.data.data || []);
   };
 
-  if (loading) return <div className={styles.page}>Loading...</div>;
-  if (!article) return <div className={styles.page}>Article not found</div>;
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
+        <span className={styles.loadingText}>Loading Knowledge Article...</span>
+      </div>
+    );
+  }
+
+  if (!article) {
+    return (
+      <div className={styles.page}>
+        <div className={`${styles.toast} ${styles.error}`}>Article not found</div>
+      </div>
+    );
+  }
 
   const isTenant = role === 'tenant';
   const canEdit = (role === 'admin' || role === 'manager' || (article.authorId === user?.id && ['draft', 'needs_revision', 'restored'].includes(article.status))) && !isTenant;
-
-  const statusBadgeClass = `${styles.badge} ${styles[article.status] || ''}`;
+  const statusBadgeClass = getStatusBadgeClass(article.status);
 
   return (
     <div className={styles.page}>
       <PageHeader title={article.title} backTo={basePath} />
 
-      {message && <div className={styles.toast}>{message}</div>}
-      {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
+      {message && <div className={styles.toast}>✓ {message}</div>}
+      {error && <div className={`${styles.toast} ${styles.error}`}>⚠ {error}</div>}
 
       {/* ── Workflow Division Lifecycle Card ── */}
       {!isTenant && article.status === 'pending_approval' && (
@@ -245,157 +297,312 @@ export default function KnowledgeArticleView() {
         </div>
       )}
 
-      <div className={styles.meta}>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Reference</span>
-          <span className={styles.value}>{article.articleReference}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Status</span>
-          <span className={statusBadgeClass}>{article.status?.replace(/_/g, ' ')}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Version</span>
-          <span className={styles.value}>{article.version}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Category</span>
-          <span className={styles.value}>
-            <span style={{ marginRight: 6 }}>{resolveCategoryIcon(article.category)}</span>
-            {article.category}
+      {/* ── Metadata Hero Card ── */}
+      <div className={styles.metaCard}>
+        <div className={styles.metaHeader}>
+          <div className={styles.metaHeaderTitle}>
+            <InformationCircleIcon style={{ width: '18px', height: '18px', color: '#3b82f6' }} />
+            <span>Article Specifications</span>
+          </div>
+          <span className={statusBadgeClass}>
+            {article.status === 'restored' && <ArrowPathIcon style={{ width: '13px', height: '13px' }} />}
+            {article.status === 'published' && <CheckCircleIcon style={{ width: '13px', height: '13px' }} />}
+            {article.status === 'pending_approval' && <ClockIcon style={{ width: '13px', height: '13px' }} />}
+            {article.status === 'needs_revision' && <ExclamationTriangleIcon style={{ width: '13px', height: '13px' }} />}
+            {article.status?.replace(/_/g, ' ')}
           </span>
         </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Visibility</span>
-          <span className={styles.value}>{article.visibility}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Department</span>
-          <span className={styles.value}>{article.departmentName || '—'}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Author</span>
-          <span className={styles.value}>
-            {[article.authorFirstName, article.authorLastName].filter(Boolean).join(' ') || article.authorId?.slice(0, 8)}
-          </span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Views</span>
-          <span className={styles.value}>{article.viewCount || 0}</span>
-        </div>
-        <div className={styles.metaItem}>
-          <span className={styles.label}>Feedback</span>
-          <span className={styles.value}>👍 {(article.helpfulCount || 0)} 👎 {(article.notHelpfulCount || 0)}</span>
-        </div>
-        {!isTenant && article.approvedAt && (
+
+        <div className={styles.metaGrid}>
           <div className={styles.metaItem}>
-            <span className={styles.label}>Approved</span>
-            <span className={styles.value}>{new Date(article.approvedAt).toLocaleString()} {article.approvedFirstName ? `by ${article.approvedFirstName} ${article.approvedLastName}` : ''}</span>
+            <span className={styles.label}>
+              <HashtagIcon className={styles.labelIcon} />
+              Reference
+            </span>
+            <span className={styles.value}>{article.articleReference}</span>
           </div>
-        )}
-        {!isTenant && article.rejectedAt && (
+
           <div className={styles.metaItem}>
-            <span className={styles.label}>Rejected</span>
-            <span className={styles.value}>{new Date(article.rejectedAt).toLocaleString()} {article.rejectedFirstName ? `by ${article.rejectedFirstName} ${article.rejectedLastName}` : ''}</span>
+            <span className={styles.label}>
+              <TagIcon className={styles.labelIcon} />
+              Version
+            </span>
+            <span className={styles.value}>v{article.version || '1.0'}</span>
           </div>
-        )}
-        {!isTenant && article.unpublishedAt && (
+
           <div className={styles.metaItem}>
-            <span className={styles.label}>Unpublished</span>
-            <span className={styles.value}>{new Date(article.unpublishedAt).toLocaleString()} {article.unpublishedFirstName ? `by ${article.unpublishedFirstName} ${article.unpublishedLastName}` : ''}</span>
+            <span className={styles.label}>
+              <SparklesIcon className={styles.labelIcon} />
+              Category
+            </span>
+            <span className={styles.value}>
+              <span style={{ marginRight: 4 }}>{resolveCategoryIcon(article.category)}</span>
+              {article.category}
+            </span>
           </div>
-        )}
-        {!isTenant && article.archivedAt && (
+
           <div className={styles.metaItem}>
-            <span className={styles.label}>Archived</span>
-            <span className={styles.value}>{new Date(article.archivedAt).toLocaleString()} {article.archivedFirstName ? `by ${article.archivedFirstName} ${article.archivedLastName}` : ''}</span>
+            <span className={styles.label}>
+              <EyeIcon className={styles.labelIcon} />
+              Visibility
+            </span>
+            <span className={styles.value} style={{ textTransform: 'capitalize' }}>
+              {article.visibility}
+            </span>
           </div>
-        )}
-        {!isTenant && article.unpublishReason && (
+
           <div className={styles.metaItem}>
-            <span className={styles.label}>Unpublish Reason</span>
-            <span className={styles.value}>{article.unpublishReason}</span>
+            <span className={styles.label}>
+              <BuildingOffice2Icon className={styles.labelIcon} />
+              Department
+            </span>
+            <span className={styles.value}>{article.departmentName || '—'}</span>
           </div>
-        )}
+
+          <div className={styles.metaItem}>
+            <span className={styles.label}>
+              <UserIcon className={styles.labelIcon} />
+              Author
+            </span>
+            <span className={styles.value}>
+              {[article.authorFirstName, article.authorLastName].filter(Boolean).join(' ') || article.authorId?.slice(0, 8)}
+            </span>
+          </div>
+
+          <div className={styles.metaItem}>
+            <span className={styles.label}>
+              <EyeIcon className={styles.labelIcon} />
+              Views
+            </span>
+            <span className={styles.value}>{article.viewCount || 0}</span>
+          </div>
+
+          <div className={styles.metaItem}>
+            <span className={styles.label}>
+              <HandThumbUpIcon className={styles.labelIcon} />
+              Feedback
+            </span>
+            <span className={styles.value}>
+              👍 {article.helpfulCount || 0} &nbsp; 👎 {article.notHelpfulCount || 0}
+            </span>
+          </div>
+
+          {!isTenant && article.approvedAt && (
+            <div className={styles.metaItem}>
+              <span className={styles.label}>
+                <ShieldCheckIcon className={styles.labelIcon} style={{ color: '#10b981' }} />
+                Approved
+              </span>
+              <span className={styles.value} style={{ fontSize: '0.82rem' }}>
+                {new Date(article.approvedAt).toLocaleDateString()} {article.approvedFirstName ? `(${article.approvedFirstName})` : ''}
+              </span>
+            </div>
+          )}
+
+          {!isTenant && article.rejectedAt && (
+            <div className={styles.metaItem}>
+              <span className={styles.label}>
+                <XCircleIcon className={styles.labelIcon} style={{ color: '#ef4444' }} />
+                Rejected
+              </span>
+              <span className={styles.value} style={{ fontSize: '0.82rem' }}>
+                {new Date(article.rejectedAt).toLocaleDateString()} {article.rejectedFirstName ? `(${article.rejectedFirstName})` : ''}
+              </span>
+            </div>
+          )}
+
+          {!isTenant && article.unpublishedAt && (
+            <div className={styles.metaItem}>
+              <span className={styles.label}>
+                <EyeSlashIcon className={styles.labelIcon} style={{ color: '#f59e0b' }} />
+                Unpublished
+              </span>
+              <span className={styles.value} style={{ fontSize: '0.82rem' }}>
+                {new Date(article.unpublishedAt).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+
+          {!isTenant && article.archivedAt && (
+            <div className={styles.metaItem}>
+              <span className={styles.label}>
+                <ArchiveBoxIcon className={styles.labelIcon} style={{ color: '#64748b' }} />
+                Archived
+              </span>
+              <span className={styles.value} style={{ fontSize: '0.82rem' }}>
+                {new Date(article.archivedAt).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+
+          {!isTenant && article.unpublishReason && (
+            <div className={styles.metaItem} style={{ gridColumn: '1 / -1' }}>
+              <span className={styles.label}>
+                <InformationCircleIcon className={styles.labelIcon} />
+                Unpublish Reason
+              </span>
+              <span className={styles.value}>{article.unpublishReason}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {article.summary && <div className={styles.summary}>{article.summary}</div>}
+      {/* ── Summary Callout ── */}
+      {article.summary && (
+        <div className={styles.summary}>
+          <InformationCircleIcon className={styles.summaryIcon} />
+          <div>{article.summary}</div>
+        </div>
+      )}
 
-      <div className={styles.content}>
-        <h3>Content</h3>
-        <div style={{ whiteSpace: 'pre-wrap' }}>{article.content}</div>
-      </div>
+      {/* ── Content Card ── */}
+      <section className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionTitleGroup}>
+            <DocumentTextIcon className={styles.sectionTitleIcon} />
+            <h3 className={styles.sectionHeading}>Article Content</h3>
+          </div>
+          <span className={styles.sectionCountBadge}>Procedures & Instructions</span>
+        </div>
+        <div className={styles.articleBody}>{article.content}</div>
+      </section>
 
+      {/* ── Rejection & Revision Notes ── */}
       {!isTenant && article.rejectionReason && (
         <div className={styles.rejectionBox}>
-          <strong>Rejection Reason:</strong> {article.rejectionReason}
+          <XCircleIcon style={{ width: '20px', height: '20px', flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <strong>Rejection Reason:</strong> {article.rejectionReason}
+          </div>
         </div>
       )}
       {!isTenant && article.revisionNotes && (
         <div className={styles.revisionBox}>
-          <strong>Revision Notes:</strong> {article.revisionNotes}
+          <ExclamationTriangleIcon style={{ width: '20px', height: '20px', flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <strong>Revision Notes:</strong> {article.revisionNotes}
+          </div>
         </div>
       )}
 
-      <div className={styles.section}>
-        <h4>Attachments ({attachments.length})</h4>
+      {/* ── Attachments Stream ── */}
+      <section className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionTitleGroup}>
+            <PaperClipIcon className={styles.sectionTitleIcon} style={{ color: '#6366f1' }} />
+            <h4 className={styles.sectionHeading}>Attachments ({attachments.length})</h4>
+          </div>
+          {can('knowledge.create') && (
+            <label className={styles.uploadBtn}>
+              <ArrowUpTrayIcon className={styles.uploadIcon} />
+              <span>Upload Attachment</span>
+              <input type="file" hidden onChange={handleUploadAttachment} />
+            </label>
+          )}
+        </div>
+
         <div className={styles.attachmentList}>
           {attachments.map((att) => (
             <div key={att.id} className={styles.attachmentItem}>
-              <a href={att.filePath} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink}>
-                {att.fileName}
-              </a>
-              <span className={styles.attachmentSize}>
-                {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : ''}
-              </span>
-              {can('knowledge.create') && (
-                <button className={styles.danger} onClick={() => handleDeleteAttachment(att.id)}>Delete</button>
-              )}
+              <div className={styles.attachmentInfo}>
+                <DocumentIcon className={styles.attachmentFileIcon} />
+                <a href={att.filePath} target="_blank" rel="noopener noreferrer" className={styles.attachmentLink}>
+                  {att.fileName}
+                </a>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className={styles.attachmentSize}>
+                  {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : ''}
+                </span>
+                {can('knowledge.create') && (
+                  <button
+                    className={styles.danger}
+                    style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                    onClick={() => handleDeleteAttachment(att.id)}
+                  >
+                    <TrashIcon style={{ width: '13px', height: '13px' }} />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
-          {!attachments.length && <span className={styles.empty}>No attachments</span>}
+          {!attachments.length && (
+            <div className={styles.emptyState}>
+              <PaperClipIcon className={styles.emptyStateIcon} />
+              <span className={styles.emptyStateText}>No attachments uploaded for this article</span>
+            </div>
+          )}
         </div>
-        {can('knowledge.create') && (
-          <label className={styles.uploadBtn}>
-            Upload Attachment
-            <input type="file" hidden onChange={handleUploadAttachment} />
-          </label>
-        )}
-      </div>
+      </section>
 
-      <div className={styles.section}>
-        <h4>Related Articles</h4>
+      {/* ── Related Articles Section ── */}
+      <section className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <div className={styles.sectionTitleGroup}>
+            <BookmarkSquareIcon className={styles.sectionTitleIcon} style={{ color: '#06b6d4' }} />
+            <h4 className={styles.sectionHeading}>Related Articles</h4>
+          </div>
+          <span className={styles.sectionCountBadge}>{related.length} Recommended</span>
+        </div>
+
         <div className={styles.relatedList}>
           {related.map((r) => (
             <div key={r.id} className={styles.relatedItem} onClick={() => navigate(`${basePath}/${r.id}`)}>
-              <strong>{r.title}</strong>
-              <span className={styles.relatedRef}>{r.articleReference}</span>
+              <div className={styles.relatedItemContent}>
+                <span className={styles.relatedTitle}>{r.title}</span>
+                <span className={styles.relatedRef}>{r.articleReference}</span>
+              </div>
+              <ArrowRightIcon className={styles.relatedArrow} />
             </div>
           ))}
-          {!related.length && <span className={styles.empty}>No related articles found</span>}
+          {!related.length && (
+            <div className={styles.emptyState} style={{ gridColumn: '1 / -1' }}>
+              <BookmarkSquareIcon className={styles.emptyStateIcon} />
+              <span className={styles.emptyStateText}>No related articles found</span>
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
-      <div className={styles.actions}>
+      {/* ── Modern Actions Command Toolbar ── */}
+      <div className={styles.actionsBar}>
         {!isTenant && canEdit && (
-          <button className={styles.submitBtn} onClick={() => navigate(`${basePath}/${id}/edit`)}>Edit</button>
-        )}
-        {!isTenant && can('knowledge.submit') && article.authorId === user?.id && (article.status === 'draft' || article.status === 'needs_revision') && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmit}>
-            📤 Submit for Review
+          <button className={styles.editBtn} onClick={() => navigate(`${basePath}/${id}/edit`)}>
+            <PencilSquareIcon className={styles.btnIcon} />
+            <span>Edit Article</span>
           </button>
         )}
+
+        {!isTenant && can('knowledge.submit') && article.authorId === user?.id && (article.status === 'draft' || article.status === 'needs_revision') && (
+          <button className={styles.submitBtn} disabled={busy} onClick={handleSubmit}>
+            <PaperAirplaneIcon className={styles.btnIcon} />
+            <span>Submit for Review</span>
+          </button>
+        )}
+
         {/* Admin Direct Draft Controls */}
         {role === 'admin' && article.status === 'draft' && (
           <>
-            <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
-            <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>✓ Approve Draft</button>
+            <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>
+              <CheckCircleIcon className={styles.btnIcon} />
+              <span>Publish to Tenants</span>
+            </button>
+            <button className={styles.approveBtn} disabled={busy} onClick={handleApprove}>
+              <CheckIcon className={styles.btnIcon} />
+              <span>Approve Draft</span>
+            </button>
           </>
         )}
+
         {/* Pending Approval Controls for Admin */}
         {role === 'admin' && article.status === 'pending_approval' && (
-          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
+          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Publish to Tenants</span>
+          </button>
         )}
+
         {/* Department Manager & Admin Approval Buttons */}
         {role !== 'staff' && can('knowledge.approve') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
           <button
@@ -404,78 +611,146 @@ export default function KnowledgeArticleView() {
             onClick={handleApprove}
             title={role === 'manager' ? 'Approve and notify Admin to publish' : 'Approve article'}
           >
-            {role === 'manager' ? '✓ Approve (Notify Admin)' : '✓ Approve'}
+            <CheckIcon className={styles.btnIcon} />
+            <span>{role === 'manager' ? 'Approve (Notify Admin)' : 'Approve Article'}</span>
           </button>
         )}
+
         {role !== 'staff' && can('knowledge.request_revision') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowRevisionModal(true)}>Request Changes</button>
+          <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowRevisionModal(true)}>
+            <ExclamationTriangleIcon className={styles.btnIcon} style={{ color: '#f59e0b' }} />
+            <span>Request Changes</span>
+          </button>
         )}
+
         {role !== 'staff' && can('knowledge.reject') && article.status === 'pending_approval' && (article.authorId !== user?.id || role === 'admin') && (
-          <button className={styles.danger} disabled={busy} onClick={() => setShowRejectModal(true)}>Reject</button>
+          <button className={styles.danger} disabled={busy} onClick={() => setShowRejectModal(true)}>
+            <XCircleIcon className={styles.btnIcon} />
+            <span>Reject Article</span>
+          </button>
         )}
+
         {/* Approved Article - Admin Publish Authority Only */}
         {can('knowledge.publish') && role === 'admin' && article.status === 'approved' && (
-          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>🚀 Publish to Tenants</button>
+          <button className={styles.publishBtn} disabled={busy} onClick={handlePublish}>
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Publish to Tenants</span>
+          </button>
         )}
+
         {/* Unpublish / Archive / Restore (Admin Only) */}
         {can('knowledge.unpublish') && role === 'admin' && article.status === 'published' && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowUnpublishModal(true)}>Unpublish</button>
+          <button className={styles.cancelBtn} disabled={busy} onClick={() => setShowUnpublishModal(true)}>
+            <EyeSlashIcon className={styles.btnIcon} />
+            <span>Unpublish</span>
+          </button>
         )}
+
         {can('knowledge.archive') && role === 'admin' && (article.status === 'published' || article.status === 'unpublished') && (
-          <button className={styles.cancelBtn} disabled={busy} onClick={handleArchive}>📦 Retire (Archive)</button>
+          <button className={styles.cancelBtn} disabled={busy} onClick={handleArchive}>
+            <ArchiveBoxIcon className={styles.btnIcon} />
+            <span>Retire (Archive)</span>
+          </button>
         )}
+
         {can('knowledge.restore') && role === 'admin' && article.status === 'archived' && (
-          <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>🔄 Restore Article</button>
+          <button className={styles.submitBtn} disabled={busy} onClick={handleRestore}>
+            <ArrowPathIcon className={styles.btnIcon} />
+            <span>Restore Article</span>
+          </button>
         )}
+
         {article.status === 'restored' && (
           <>
             {(role === 'admin' || role === 'manager' || article.authorId === user?.id) && (
-              <button className={styles.approveBtn} disabled={busy} onClick={handleMoveToDraft} title="Move back to draft to edit and re-enter publishing cycle">
-                📝 Move to Draft
+              <button
+                className={styles.approveBtn}
+                disabled={busy}
+                onClick={handleMoveToDraft}
+                title="Move back to draft to edit and re-enter publishing cycle"
+              >
+                <ArrowUturnLeftIcon className={styles.btnIcon} />
+                <span>Move to Draft</span>
               </button>
             )}
             {role === 'admin' && (
-              <button className={styles.publishBtn} disabled={busy} onClick={handlePublish} title="Directly re-publish to tenants">
-                🚀 Re-publish to Tenants
+              <button
+                className={styles.publishBtn}
+                disabled={busy}
+                onClick={handlePublish}
+                title="Directly re-publish to tenants"
+              >
+                <CheckCircleIcon className={styles.btnIcon} />
+                <span>Re-publish to Tenants</span>
               </button>
             )}
           </>
         )}
+
         {can('knowledge.manage_versions') && (
-          <button className={styles.submitBtn} disabled={busy} onClick={openVersionModal}>New Version</button>
+          <button className={styles.newVersionBtn} disabled={busy} onClick={openVersionModal}>
+            <DocumentDuplicateIcon className={styles.btnIcon} />
+            <span>New Version</span>
+          </button>
         )}
+
         {((can('knowledge.delete') && role === 'admin') || (role === 'staff' && article.authorId === user?.id && article.status === 'draft')) && (
-          <button className={styles.danger} disabled={busy} onClick={() => setDeleteTarget(true)}>Delete</button>
+          <button className={styles.danger} disabled={busy} onClick={() => setDeleteTarget(true)}>
+            <TrashIcon className={styles.btnIcon} />
+            <span>Delete</span>
+          </button>
         )}
       </div>
 
+      {/* ── Versions Accordion Section ── */}
       {!isTenant && can('knowledge.view_versions') && (
-        <div className={styles.section}>
-          <h4>Versions</h4>
-          <button className={styles.submitBtn} onClick={() => setShowVersions(!showVersions)}>
-            {showVersions ? 'Hide' : 'Show'} Versions ({versions.length})
-          </button>
+        <section className={styles.sectionCard}>
+          <div className={styles.sectionHeader}>
+            <div className={styles.sectionTitleGroup}>
+              <TagIcon className={styles.sectionTitleIcon} style={{ color: '#8b5cf6' }} />
+              <h4 className={styles.sectionHeading}>Version History ({versions.length})</h4>
+            </div>
+            <button className={styles.cancelBtn} onClick={() => setShowVersions(!showVersions)}>
+              <span>{showVersions ? 'Hide Versions' : 'View Versions'}</span>
+            </button>
+          </div>
+
           {showVersions && (
             <div className={styles.versionList}>
               {versions.map((v) => (
                 <div key={v.id} className={styles.versionItem}>
-                  <strong>v{v.versionNumber}</strong> - {v.title}
-                  <span className={styles.versionDate}>{new Date(v.createdAt).toLocaleDateString()}</span>
+                  <div className={styles.versionHeader}>
+                    <span className={styles.versionBadge}>v{v.versionNumber}</span>
+                    <span className={styles.versionDate}>{new Date(v.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <strong style={{ color: 'var(--kb-text-primary)', fontSize: '0.92rem' }}>{v.title}</strong>
                   {v.changeSummary && <span className={styles.versionSummary}>{v.changeSummary}</span>}
                 </div>
               ))}
-              {!versions.length && <span className={styles.empty}>No versions</span>}
+              {!versions.length && (
+                <div className={styles.emptyState}>
+                  <TagIcon className={styles.emptyStateIcon} />
+                  <span className={styles.emptyStateText}>No previous versions recorded</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </section>
       )}
 
+      {/* ── Tenant Feedback Section ── */}
       {isTenant && (
         <div className={styles.feedbackSection}>
-          <h4>Was this article helpful?</h4>
+          <h4 className={styles.feedbackHeading}>Was this article helpful?</h4>
           <div className={styles.feedbackBtns}>
-            <button className={styles.submitBtn} onClick={() => handleRate(true)}>👍 Helpful</button>
-            <button className={styles.cancelBtn} onClick={() => handleRate(false)}>👎 Not Helpful</button>
+            <button className={styles.feedbackThumbBtn} onClick={() => handleRate(true)}>
+              <HandThumbUpIcon className={styles.btnIcon} style={{ color: '#10b981' }} />
+              <span>Yes, Helpful</span>
+            </button>
+            <button className={styles.feedbackThumbBtn} onClick={() => handleRate(false)}>
+              <HandThumbDownIcon className={styles.btnIcon} style={{ color: '#ef4444' }} />
+              <span>Not Helpful</span>
+            </button>
           </div>
         </div>
       )}

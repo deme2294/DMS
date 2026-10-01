@@ -12,9 +12,11 @@ input[type="radio"] {
 
 :root {
   --sidebar-width: 275px;
+  --sidebar-collapsed-width: 76px;
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
   --bg-surface: #f1f5f9;
+  --bg-secondary: #f1f5f9;
   --bg-topbar: #ffffff;
   --text-main: #0f172a;
   --text-primary: #0f172a;
@@ -53,6 +55,7 @@ input[type="radio"] {
   --bg-app: #0b0f17;
   --bg-card: #151b28;
   --bg-surface: #111827;
+  --bg-secondary: #1e293b;
   --bg-topbar: #101522;
   --text-main: #f8fafc;
   --text-primary: #f1f5f9;
@@ -117,13 +120,32 @@ input[type="radio"] {
 }
 
 [data-theme="dark"] [class*="topBarTitle"],
-[data-theme="dark"] [class*="userName"],
+[data-theme="dark"] [class*="systemHeaderTitle"],
 [data-theme="dark"] [class*="pageTitle"] {
   color: #f8fafc !important;
 }
 
+[data-theme="dark"] [class*="systemHeaderBrand"] {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] [class*="systemHeaderAccent"] {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] [class*="systemHeaderDivider"] {
+  color: #64748b !important;
+}
+
+[data-theme="dark"] [class*="systemHeaderSub"] {
+  color: #94a3b8 !important;
+}
+
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
-[data-theme="dark"] [class*="sidebar"] {
+[data-theme="dark"] aside[class*="sidebar"],
+[data-theme="dark"] aside[class*="Sidebar"] {
   background: linear-gradient(180deg, #090d14 0%, #101522 100%) !important;
   border-right: 1px solid var(--border-color) !important;
 }
@@ -249,12 +271,6 @@ input[type="radio"] {
   background-color: #252b38 !important;
 }
 
-/* ── User role badge in topbar ───────────────────────────────────────────── */
-[data-theme="dark"] [class*="userRole"] {
-  background-color: #1e2330 !important;
-  border-color: var(--input-border) !important;
-  color: #8892a4 !important;
-}
 
 /* ── User dropdown / menu items ─────────────────────────────────────────── */
 [data-theme="dark"] [class*="UserDropdown_menu"],

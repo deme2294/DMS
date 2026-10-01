@@ -1,4 +1,5 @@
 import React from 'react';
+import { VideoCameraIcon } from '@heroicons/react/24/solid';
 import type { ChatRoom } from '../../../api/chatApi';
 import { getAvatarGradient, formatTimeOnly } from '../types';
 import styles from '../ChatPage.module.css';
@@ -268,8 +269,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         {room.room_type}
                       </span>
                       {isVideoRoom && (
-                        <span className={styles.videoRoomBadge}>
-                          📹 Video
+                        <span className={styles.videoRoomBadge} title="Video Conference Available">
+                          <VideoCameraIcon className={styles.videoBadgeIcon} />
+                          <span>Video</span>
                         </span>
                       )}
                     </div>

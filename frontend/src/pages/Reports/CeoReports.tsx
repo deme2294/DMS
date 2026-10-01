@@ -361,79 +361,79 @@ export default function CeoReports() {
 
       {/* KPI Stats Overview Cards */}
       <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+        <div className={`${styles.statCard} ${styles.statCardPrimary}`}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Total Tickets Volume</span>
-            <div className={styles.statIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxBlue}`}>
               <TicketIcon className={styles.statIcon} />
             </div>
           </div>
           <div className={styles.statValue}>{totalTickets.toLocaleString()}</div>
-          <div className={styles.statSub}>
+          <div className={styles.statSubtext}>
             {totalTickets === 0 && hasActiveFilters ? (
-              <span>0 in progress • 0 pending</span>
+              <span className={styles.statSubMuted}>0 in progress • 0 pending</span>
             ) : (
               <>
-                <span>{resolvedTickets} resolved</span> • <span>{pendingTickets + inProgressTickets} active</span>
+                <span className={styles.statSubHighlight}>{resolvedTickets} resolved</span> • <span>{pendingTickets + inProgressTickets} active</span>
               </>
             )}
           </div>
         </div>
 
-        <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+        <div className={`${styles.statCard} ${styles.statCardSuccess}`}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Resolved Tickets</span>
-            <div className={styles.statIconWrap} style={{ background: '#ecfdf5', color: '#16a34a' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxGreen}`}>
               <CheckCircleIcon className={styles.statIcon} />
             </div>
           </div>
           <div className={styles.statValue}>{resolvedTickets.toLocaleString()}</div>
-          <div className={styles.statSub}>
-            <span style={{ color: totalTickets === 0 ? '#64748b' : '#16a34a', fontWeight: 700 }}>{resolutionRate}%</span> resolution rate
+          <div className={styles.statSubtext}>
+            <span className={totalTickets === 0 ? styles.statSubMuted : styles.statValueGreen}>{resolutionRate}%</span> resolution rate
           </div>
         </div>
 
-        <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+        <div className={`${styles.statCard} ${styles.statCardAmber}`}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Open & In-Progress</span>
-            <div className={styles.statIconWrap} style={{ background: '#fffbeb', color: '#d97706' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxAmber}`}>
               <ClockIcon className={styles.statIcon} />
             </div>
           </div>
           <div className={styles.statValue}>{(inProgressTickets + pendingTickets).toLocaleString()}</div>
-          <div className={styles.statSub}>
-            <span>{inProgressTickets} being handled</span> • <span>{pendingTickets} pending</span>
+          <div className={styles.statSubtext}>
+            <span className={styles.statSubHighlight}>{inProgressTickets} being handled</span> • <span>{pendingTickets} pending</span>
           </div>
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Resolution Efficiency</span>
-            <div className={styles.statIconWrap} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxPurple}`}>
               <ChartBarIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>{resolutionRate}%</div>
-          <div className={styles.statSub}>Turnaround target: ≥ 85%</div>
+          <div className={`${styles.statValue} ${resolutionRate >= 70 ? styles.statValueGreen : styles.statValueAmber}`}>{resolutionRate}%</div>
+          <div className={styles.statSubtext}>Turnaround target: ≥ 85%</div>
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Avg Turnaround Time</span>
-            <div className={styles.statIconWrap} style={{ background: '#fdf2f8', color: '#db2777' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxPink}`}>
               <FireIcon className={styles.statIcon} />
             </div>
           </div>
           <div className={styles.statValue}>
             {ticketReport?.avgResolutionHours && totalTickets > 0 ? `${ticketReport.avgResolutionHours.toFixed(1)}h` : '0.0h'}
           </div>
-          <div className={styles.statSub}>{totalTickets === 0 ? 'No resolved tickets in period' : 'Average hours to resolution'}</div>
+          <div className={styles.statSubtext}>{totalTickets === 0 ? 'No resolved tickets in period' : 'Average hours to resolution'}</div>
         </div>
 
         <div className={styles.statCard}>
-          <div className={styles.statCardHeader}>
+          <div className={styles.statTop}>
             <span className={styles.statLabel}>Active Entities</span>
-            <div className={styles.statIconWrap} style={{ background: '#f1f5f9', color: '#475569' }}>
+            <div className={`${styles.statIconBox} ${styles.iconBoxEmerald}`}>
               <BuildingStorefrontIcon className={styles.statIcon} />
             </div>
           </div>
@@ -443,7 +443,7 @@ export default function CeoReports() {
               : (departmentReport?.activeDepartments ?? departmentReport?.departmentPerformance?.length ?? 0) +
                 (staffReport?.activeStaff ?? staffReport?.staffPerformance?.length ?? 0)}
           </div>
-          <div className={styles.statSub}>
+          <div className={styles.statSubtext}>
             <span>
               {hasActiveFilters && totalTickets === 0
                 ? '0 depts • 0 staff'
@@ -621,15 +621,15 @@ export default function CeoReports() {
               ),
             },
             { key: 'totalTickets', label: 'Total', render: (row) => <span className={styles.tableNumberBold}>{row.totalTickets}</span> },
-            { key: 'openTickets', label: 'Open', render: (row) => <span style={{ color: '#ef4444', fontWeight: 600 }}>{row.openTickets}</span> },
-            { key: 'inProgressTickets', label: 'In Progress', render: (row) => <span style={{ color: '#f59e0b', fontWeight: 600 }}>{row.inProgressTickets}</span> },
-            { key: 'resolvedTickets', label: 'Resolved', render: (row) => <span style={{ color: '#16a34a', fontWeight: 600 }}>{row.resolvedTickets}</span> },
-            { key: 'closedTickets', label: 'Closed', render: (row) => <span style={{ color: '#64748b' }}>{row.closedTickets}</span> },
+            { key: 'openTickets', label: 'Open', render: (row) => <span className={styles.statusOpenText}>{row.openTickets}</span> },
+            { key: 'inProgressTickets', label: 'In Progress', render: (row) => <span className={styles.statusProgText}>{row.inProgressTickets}</span> },
+            { key: 'resolvedTickets', label: 'Resolved', render: (row) => <span className={styles.statusResText}>{row.resolvedTickets}</span> },
+            { key: 'closedTickets', label: 'Closed', render: (row) => <span className={styles.statusClosedText}>{row.closedTickets}</span> },
             {
               key: 'resolutionRate',
               label: 'Efficiency Rate',
               render: (row) => (
-                <span className={styles.efficiencyTag} style={{ background: row.resolutionRate >= 70 ? '#ecfdf5' : '#fef3c7', color: row.resolutionRate >= 70 ? '#15803d' : '#b45309' }}>
+                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyLow}`}>
                   {row.resolutionRate}%
                 </span>
               ),
@@ -689,13 +689,13 @@ export default function CeoReports() {
               ),
             },
             { key: 'ticketCount', label: 'Assigned', render: (row) => <span className={styles.tableNumberBold}>{row.ticketCount}</span> },
-            { key: 'inProgressCount', label: 'In Progress', render: (row) => <span style={{ color: '#f59e0b', fontWeight: 600 }}>{row.inProgressCount}</span> },
-            { key: 'resolvedCount', label: 'Resolved', render: (row) => <span style={{ color: '#16a34a', fontWeight: 600 }}>{row.resolvedCount}</span> },
+            { key: 'inProgressCount', label: 'In Progress', render: (row) => <span className={styles.statusProgText}>{row.inProgressCount}</span> },
+            { key: 'resolvedCount', label: 'Resolved', render: (row) => <span className={styles.statusResText}>{row.resolvedCount}</span> },
             {
               key: 'resolutionRate',
               label: 'Completion',
               render: (row) => (
-                <span className={styles.efficiencyTag} style={{ background: row.resolutionRate >= 70 ? '#ecfdf5' : '#f8fafc', color: row.resolutionRate >= 70 ? '#15803d' : '#475569' }}>
+                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyNeutral}`}>
                   {row.resolutionRate}%
                 </span>
               ),

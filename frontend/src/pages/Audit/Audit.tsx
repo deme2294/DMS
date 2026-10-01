@@ -37,6 +37,7 @@ export default function Audit() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState<AuditFilter>({});
+  const [activePreset, setActivePreset] = useState<'all' | 'today' | '7d' | '30d' | 'custom'>('all');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -107,6 +108,7 @@ export default function Audit() {
   };
 
   const setQuickDateRange = (preset: 'all' | 'today' | '7d' | '30d') => {
+    setActivePreset(preset);
     const now = new Date();
     if (preset === 'all') {
       setFilter((prev) => ({ ...prev, startDate: undefined, endDate: undefined }));
@@ -134,6 +136,7 @@ export default function Audit() {
 
   const clearFilters = () => {
     setFilter({});
+    setActivePreset('all');
     resetPage();
   };
 
@@ -254,7 +257,7 @@ export default function Audit() {
         <div className={styles.statCard}>
           <div className={styles.statCardHeader}>
             <span className={styles.statLabel}>Total Matched Logs</span>
-            <div className={styles.statIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
+            <div className={`${styles.statIconWrap} ${styles.statIconBlue}`}>
               <DocumentTextIcon className={styles.statIcon} />
             </div>
           </div>
@@ -265,7 +268,7 @@ export default function Audit() {
         <div className={styles.statCard}>
           <div className={styles.statCardHeader}>
             <span className={styles.statLabel}>Auth & Security Events</span>
-            <div className={styles.statIconWrap} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+            <div className={`${styles.statIconWrap} ${styles.statIconPurple}`}>
               <KeyIcon className={styles.statIcon} />
             </div>
           </div>
@@ -276,7 +279,7 @@ export default function Audit() {
         <div className={styles.statCard}>
           <div className={styles.statCardHeader}>
             <span className={styles.statLabel}>Ticket Operations</span>
-            <div className={styles.statIconWrap} style={{ background: '#f0fdf4', color: '#16a34a' }}>
+            <div className={`${styles.statIconWrap} ${styles.statIconGreen}`}>
               <CheckCircleIcon className={styles.statIcon} />
             </div>
           </div>
@@ -287,7 +290,7 @@ export default function Audit() {
         <div className={styles.statCard}>
           <div className={styles.statCardHeader}>
             <span className={styles.statLabel}>Mutations & Changes</span>
-            <div className={styles.statIconWrap} style={{ background: '#fffbeb', color: '#d97706' }}>
+            <div className={`${styles.statIconWrap} ${styles.statIconAmber}`}>
               <CubeIcon className={styles.statIcon} />
             </div>
           </div>
@@ -316,28 +319,28 @@ export default function Audit() {
           <div className={styles.quickPresets}>
             <button
               type="button"
-              className={`${styles.presetBtn} ${!filter.startDate && !filter.endDate ? styles.presetBtnActive : ''}`}
+              className={`${styles.presetBtn} ${activePreset === 'all' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('all')}
             >
               All Time
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === 'today' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('today')}
             >
               Today
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === '7d' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('7d')}
             >
               Last 7 Days
             </button>
             <button
               type="button"
-              className={styles.presetBtn}
+              className={`${styles.presetBtn} ${activePreset === '30d' ? styles.presetBtnActive : ''}`}
               onClick={() => setQuickDateRange('30d')}
             >
               Last 30 Days
@@ -394,7 +397,10 @@ export default function Audit() {
                 type="date"
                 className={styles.dateInput}
                 value={filter.startDate ?? ''}
-                onChange={(e) => handleFilterChange({ startDate: e.target.value || undefined })}
+                onChange={(e) => {
+                  setActivePreset('custom');
+                  handleFilterChange({ startDate: e.target.value || undefined });
+                }}
                 title="Start Date"
               />
             </div>
@@ -407,7 +413,10 @@ export default function Audit() {
                 type="date"
                 className={styles.dateInput}
                 value={filter.endDate ?? ''}
-                onChange={(e) => handleFilterChange({ endDate: e.target.value || undefined })}
+                onChange={(e) => {
+                  setActivePreset('custom');
+                  handleFilterChange({ endDate: e.target.value || undefined });
+                }}
                 title="End Date"
               />
             </div>

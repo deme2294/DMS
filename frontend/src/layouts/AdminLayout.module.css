@@ -19,13 +19,19 @@
   transition: margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1), width 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.mainCollapsed {
+  margin-left: var(--sidebar-collapsed-width, 76px);
+  width: calc(100% - var(--sidebar-collapsed-width, 76px));
+  max-width: calc(100% - var(--sidebar-collapsed-width, 76px));
+}
+
 .topBar {
   background: var(--bg-topbar, #fff);
   border-bottom: 1px solid var(--border-color, #e2e8f0);
-  padding: 14px 28px;
-  display: flex;
+  padding: 10px 24px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   position: sticky;
@@ -38,13 +44,73 @@
 .topBarLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topBarCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 8px;
+}
+
+.systemHeaderBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface, #f8fafc);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
+  max-width: 100%;
+}
+
+.systemHeaderBrand:hover {
+  border-color: #cbd5e1;
+  background: var(--bg-card, #ffffff);
+}
+
+.systemHeaderTitle {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.systemHeaderAccent {
+  color: #2563eb;
+  font-weight: 900;
+}
+
+.systemHeaderDivider {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.systemHeaderSub {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .topBarRight {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .hamburgerBtn {
@@ -133,9 +199,20 @@
   min-width: 0;
 }
 
+@media (max-width: 1280px) {
+  .systemHeaderSub,
+  .systemHeaderDivider {
+    display: none;
+  }
+  .systemHeaderBrand {
+    padding: 5px 12px;
+  }
+}
+
 @media (max-width: 1024px) {
   .topBar {
-    padding: 12px 20px;
+    padding: 10px 18px;
+    gap: 12px;
   }
   .content {
     padding: 20px;
@@ -143,7 +220,8 @@
 }
 
 @media (max-width: 768px) {
-  .main {
+  .main,
+  .mainCollapsed {
     margin-left: 0;
     width: 100%;
     max-width: 100%;
@@ -154,11 +232,18 @@
   }
 
   .topBar {
-    padding: 10px 16px;
+    padding: 8px 12px;
+    gap: 10px;
     min-height: 56px;
   }
 
   .content {
     padding: 16px 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .topBarCenter {
+    display: none;
   }
 }

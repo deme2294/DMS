@@ -5,10 +5,6 @@ import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import {
   fetchArticles,
-  fetchArticle,
-  fetchPendingReview,
-  fetchNeedsRevision,
-  deleteArticle,
   submitArticle,
   approveArticle,
   rejectArticle,
@@ -19,6 +15,7 @@ import {
   restoreArticle,
   moveToDraft,
   rateArticle,
+  deleteArticle,
   fetchAllCategories,
   fetchArticleStats,
 } from '../../api/knowledgeApi';
@@ -28,6 +25,26 @@ import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeList.module.css';
+
+import {
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  CheckIcon,
+  PaperAirplaneIcon,
+  PencilSquareIcon,
+  EyeIcon,
+  TrashIcon,
+  ArrowPathIcon,
+  ArrowUturnLeftIcon,
+  EyeSlashIcon,
+  ArchiveBoxIcon,
+  BuildingOffice2Icon,
+  HashtagIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/outline';
 
 type Tab = 'all' | 'my-drafts' | 'pending' | 'approved' | 'published' | 'needs-revision' | 'archived-restored';
 
@@ -120,51 +137,37 @@ export default function KnowledgeList() {
       setArticles(res.data.data || []);
       setTotalPages(res.data.pagination?.totalPages || 1);
     } catch {
-      setArticles([]);
+      setError('Failed to load articles');
     } finally {
       setLoading(false);
     }
-  }, [isTenant, tab, search, status, category, page, limit, user?.id, isStaff]);
-
-  const loadCategories = useCallback(async () => {
-    try {
-      const res = await fetchAllCategories();
-      setCategories(res.data.data || []);
-    } catch {
-      setCategories([]);
-    }
-  }, []);
+  }, [search, status, category, tab, page, limit, user?.id, isStaff, isTenant]);
 
   useEffect(() => {
     loadArticles();
   }, [loadArticles]);
 
   useEffect(() => {
-    loadCategories();
+    fetchAllCategories()
+      .then((r) => setCategories(r.data.data || []))
+      .catch(() => {});
     loadStats();
-  }, [loadCategories, loadStats]);
-
-  useEffect(() => {
-    if (message || error) {
-      const timer = setTimeout(() => {
-        setMessage('');
-        setError('');
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [message, error]);
+  }, [loadStats]);
 
   const runAction = async (fn: () => Promise<unknown>, successMsg: string) => {
+    setError('');
     try {
       await fn();
       setMessage(successMsg);
       await loadArticles();
       await loadStats();
+      setTimeout(() => setMessage(''), 4000);
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
           'Action failed'
       );
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -184,11 +187,86 @@ export default function KnowledgeList() {
     return false;
   };
 
+  const renderWorkflowStatusBadge = (articleStatus: string) => {
+    switch (articleStatus) {
+      case 'draft':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusDraft}`}>
+            <PencilSquareIcon className={styles.statusBadgeIcon} />
+            <span>Draft</span>
+          </span>
+        );
+      case 'pending_approval':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusPending}`}>
+            <ClockIcon className={styles.statusBadgeIcon} />
+            <span>Pending Review</span>
+          </span>
+        );
+      case 'approved':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusApproved}`}>
+            <CheckIcon className={styles.statusBadgeIcon} />
+            <span>Approved</span>
+          </span>
+        );
+      case 'published':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusPublished}`}>
+            <CheckCircleIcon className={styles.statusBadgeIcon} />
+            <span>Published</span>
+          </span>
+        );
+      case 'needs_revision':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusRevision}`}>
+            <ExclamationTriangleIcon className={styles.statusBadgeIcon} />
+            <span>Needs Revision</span>
+          </span>
+        );
+      case 'restored':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusRestored}`}>
+            <ArrowPathIcon className={styles.statusBadgeIcon} />
+            <span>Restored</span>
+          </span>
+        );
+      case 'archived':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusArchived}`}>
+            <ArchiveBoxIcon className={styles.statusBadgeIcon} />
+            <span>Archived</span>
+          </span>
+        );
+      case 'unpublished':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusUnpublished}`}>
+            <EyeSlashIcon className={styles.statusBadgeIcon} />
+            <span>Unpublished</span>
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusRejected}`}>
+            <XCircleIcon className={styles.statusBadgeIcon} />
+            <span>Rejected</span>
+          </span>
+        );
+      default:
+        return (
+          <span className={`${styles.statusBadge} ${styles.statusDraft}`}>
+            <span>{articleStatus?.replace(/_/g, ' ') || 'Unknown'}</span>
+          </span>
+        );
+    }
+  };
+
   const renderActions = (a: Article) => {
     if (isTenant) {
       return (
-        <button className={styles.view} onClick={() => navigate(`${basePath}/${a.id}`)}>
-          Read
+        <button className={styles.viewBtn} onClick={() => navigate(`${basePath}/${a.id}`)}>
+          <EyeIcon className={styles.btnIcon} />
+          <span>Read</span>
         </button>
       );
     }
@@ -204,7 +282,8 @@ export default function KnowledgeList() {
             title="Publish this approved article to tenants"
             onClick={() => runAction(() => publishArticle(a.id), 'Article published to tenants!')}
           >
-            🚀 Publish to Tenants
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Publish to Tenants</span>
           </button>
         );
       } else if (a.status === 'draft') {
@@ -215,7 +294,8 @@ export default function KnowledgeList() {
             title="Directly publish draft to tenants"
             onClick={() => runAction(() => publishArticle(a.id), 'Draft published directly to tenants!')}
           >
-            🚀 Publish
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Publish</span>
           </button>
         );
         buttons.push(
@@ -225,7 +305,8 @@ export default function KnowledgeList() {
             title="Approve draft"
             onClick={() => runAction(() => approveArticle(a.id), 'Draft approved')}
           >
-            ✓ Approve
+            <CheckIcon className={styles.btnIcon} />
+            <span>Approve</span>
           </button>
         );
       } else if (a.status === 'pending_approval') {
@@ -236,7 +317,8 @@ export default function KnowledgeList() {
             title="Directly publish to tenants"
             onClick={() => runAction(() => publishArticle(a.id), 'Article published directly to tenants!')}
           >
-            🚀 Publish
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Publish</span>
           </button>
         );
         buttons.push(
@@ -246,7 +328,8 @@ export default function KnowledgeList() {
             title="Approve article"
             onClick={() => runAction(() => approveArticle(a.id), 'Article approved')}
           >
-            ✓ Approve
+            <CheckIcon className={styles.btnIcon} />
+            <span>Approve</span>
           </button>
         );
         buttons.push(
@@ -259,20 +342,22 @@ export default function KnowledgeList() {
               setRevisionReason('');
             }}
           >
-            Request Changes
+            <ExclamationTriangleIcon className={styles.btnIcon} />
+            <span>Request Changes</span>
           </button>
         );
         buttons.push(
           <button
             key="reject"
-            className={styles.danger}
+            className={styles.deleteBtn}
             title="Reject article"
             onClick={() => {
               setRejectTarget(a);
               setRejectReason('');
             }}
           >
-            Reject
+            <XCircleIcon className={styles.btnIcon} />
+            <span>Reject</span>
           </button>
         );
       } else if (a.status === 'unpublished') {
@@ -283,7 +368,8 @@ export default function KnowledgeList() {
             title="Re-publish to tenants"
             onClick={() => runAction(() => publishArticle(a.id), 'Article re-published to tenants!')}
           >
-            🚀 Re-publish
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Re-publish</span>
           </button>
         );
       }
@@ -300,7 +386,8 @@ export default function KnowledgeList() {
             title="Approve article and automatically notify Admin to publish"
             onClick={() => runAction(() => approveArticle(a.id), 'Article approved! Admin has been notified to publish.')}
           >
-            ✓ Approve (Notify Admin)
+            <CheckIcon className={styles.btnIcon} />
+            <span>Approve</span>
           </button>
         );
       }
@@ -314,20 +401,22 @@ export default function KnowledgeList() {
             setRevisionReason('');
           }}
         >
-          Request Changes
+          <ExclamationTriangleIcon className={styles.btnIcon} />
+          <span>Request Changes</span>
         </button>
       );
       buttons.push(
         <button
           key="reject"
-          className={styles.danger}
+          className={styles.deleteBtn}
           title="Reject article"
           onClick={() => {
             setRejectTarget(a);
             setRejectReason('');
           }}
         >
-          Reject
+          <XCircleIcon className={styles.btnIcon} />
+          <span>Reject</span>
         </button>
       );
     }
@@ -337,11 +426,12 @@ export default function KnowledgeList() {
       buttons.push(
         <button
           key="submit"
-          className={styles.approveBtn}
+          className={styles.submitBtn}
           title="Submit article to your Department Manager for approval"
           onClick={() => runAction(() => submitArticle(a.id), 'Submitted to Department Manager for review!')}
         >
-          📤 Submit for Review
+          <PaperAirplaneIcon className={styles.btnIcon} />
+          <span>Submit for Review</span>
         </button>
       );
     }
@@ -354,7 +444,8 @@ export default function KnowledgeList() {
           className={styles.cancelBtn}
           onClick={() => runAction(() => unpublishArticle(a.id, ''), 'Article unpublished')}
         >
-          Unpublish
+          <EyeSlashIcon className={styles.btnIcon} />
+          <span>Unpublish</span>
         </button>
       );
     }
@@ -367,7 +458,8 @@ export default function KnowledgeList() {
           title="Retire article to archive"
           onClick={() => runAction(() => archiveArticle(a.id), 'Article retired to archive')}
         >
-          📦 Retire
+          <ArchiveBoxIcon className={styles.btnIcon} />
+          <span>Retire</span>
         </button>
       );
     }
@@ -376,11 +468,12 @@ export default function KnowledgeList() {
       buttons.push(
         <button
           key="restore"
-          className={styles.approveBtn}
+          className={styles.restoreBtn}
           title="Admin restores article from archive"
           onClick={() => runAction(() => restoreArticle(a.id), 'Article restored from archive')}
         >
-          🔄 Restore
+          <ArrowPathIcon className={styles.btnIcon} />
+          <span>Restore</span>
         </button>
       );
     }
@@ -391,11 +484,12 @@ export default function KnowledgeList() {
         buttons.push(
           <button
             key="toDraft"
-            className={styles.approveBtn}
+            className={styles.draftBtn}
             title="Move restored article to Draft for editing/revision"
             onClick={() => runAction(() => moveToDraft(a.id), 'Article moved to Draft')}
           >
-            📝 Move to Draft
+            <ArrowUturnLeftIcon className={styles.btnIcon} />
+            <span>Move to Draft</span>
           </button>
         );
       }
@@ -407,7 +501,8 @@ export default function KnowledgeList() {
             title="Admin directly re-publishes restored article"
             onClick={() => runAction(() => publishArticle(a.id), 'Article re-published to tenants!')}
           >
-            🚀 Re-publish
+            <CheckCircleIcon className={styles.btnIcon} />
+            <span>Re-publish</span>
           </button>
         );
       }
@@ -416,24 +511,27 @@ export default function KnowledgeList() {
     // Edit button
     if (canEdit(a)) {
       buttons.push(
-        <button key="edit" className={styles.edit} onClick={() => navigate(`${basePath}/${a.id}/edit`)}>
-          Edit
+        <button key="edit" className={styles.editBtn} title="Edit Article" onClick={() => navigate(`${basePath}/${a.id}/edit`)}>
+          <PencilSquareIcon className={styles.btnIcon} />
+          <span>Edit</span>
         </button>
       );
     }
 
     // View button
     buttons.push(
-      <button key="view" className={styles.view} onClick={() => navigate(`${basePath}/${a.id}`)}>
-        View
+      <button key="view" className={styles.viewBtn} title="View Article" onClick={() => navigate(`${basePath}/${a.id}`)}>
+        <EyeIcon className={styles.btnIcon} />
+        <span>View</span>
       </button>
     );
 
     // Delete button
     if (can('knowledge.delete') || (isStaff && a.authorId === user?.id && a.status === 'draft')) {
       buttons.push(
-        <button key="delete" className={styles.danger} onClick={() => setDeleteTarget(a)}>
-          Delete
+        <button key="delete" className={styles.deleteBtn} title="Delete Article" onClick={() => setDeleteTarget(a)}>
+          <TrashIcon className={styles.btnIcon} />
+          <span>Delete</span>
         </button>
       );
     }
@@ -474,8 +572,8 @@ export default function KnowledgeList() {
         onAction={!isTenant && can('knowledge.create') ? () => navigate(`${basePath}/create`) : undefined}
       />
 
-      {message && <div className={styles.toast}>{message}</div>}
-      {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
+      {message && <div className={styles.toast}>✓ {message}</div>}
+      {error && <div className={`${styles.toast} ${styles.error}`}>⚠ {error}</div>}
 
       {/* ── Workflow Division & Role Scope Banner ── */}
       {!isTenant && (
@@ -618,14 +716,14 @@ export default function KnowledgeList() {
         </div>
       )}
 
-      {/* ── Modern Navigation Tabs ── */}
+      {/* ── Modern Navigation Tabs (Clean, Scrollbar-Free) ── */}
       {!isTenant && (
         <div className={styles.tabBar}>
           <button
             className={`${styles.tabBtn} ${tab === 'all' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('all')}
           >
-            {isStaff ? 'All Accessible' : isManager ? 'All Dept Articles' : 'All Articles'}
+            <span>{isStaff ? 'All Accessible' : isManager ? 'All Dept Articles' : 'All Articles'}</span>
             {stats && <span className={styles.tabBadge}>{stats.total}</span>}
           </button>
 
@@ -633,7 +731,7 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'published' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('published')}
           >
-            {isStaff || isManager ? 'Dept Published' : 'Published'}
+            <span>{isStaff || isManager ? 'Dept Published' : 'Published'}</span>
             {stats && stats.published > 0 && (
               <span className={styles.tabBadge}>{stats.published}</span>
             )}
@@ -643,7 +741,7 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'my-drafts' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('my-drafts')}
           >
-            {isStaff ? 'My Drafts' : isManager ? 'Manager Drafts' : 'Drafts'}
+            <span>{isStaff ? 'My Drafts' : isManager ? 'Manager Drafts' : 'Drafts'}</span>
             {stats && stats.draft > 0 && <span className={styles.tabBadge}>{stats.draft}</span>}
           </button>
 
@@ -651,7 +749,7 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'pending' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('pending')}
           >
-            {isStaff ? 'Submitted for Review' : isManager ? 'Pending Dept Review' : 'Pending Review'}
+            <span>{isStaff ? 'Submitted for Review' : isManager ? 'Pending Dept Review' : 'Pending Review'}</span>
             {stats && stats.pending_approval > 0 && (
               <span className={`${styles.tabBadge} ${styles.tabBadgeUrgent}`}>
                 {stats.pending_approval}
@@ -664,7 +762,7 @@ export default function KnowledgeList() {
               className={`${styles.tabBtn} ${tab === 'approved' ? styles.tabBtnActive : ''}`}
               onClick={() => handleTabChange('approved')}
             >
-              {isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}
+              <span>{isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}</span>
               {stats && stats.approved > 0 && (
                 <span className={`${styles.tabBadge} ${styles.tabBadgeReady}`}>
                   {stats.approved}
@@ -677,7 +775,7 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'needs-revision' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('needs-revision')}
           >
-            Needs Revision
+            <span>Needs Revision</span>
             {stats && stats.needs_revision > 0 && (
               <span className={`${styles.tabBadge} ${styles.tabBadgeUrgent}`}>
                 {stats.needs_revision}
@@ -690,7 +788,7 @@ export default function KnowledgeList() {
               className={`${styles.tabBtn} ${tab === 'archived-restored' ? styles.tabBtnActive : ''}`}
               onClick={() => handleTabChange('archived-restored')}
             >
-              Archived & Restored
+              <span>Archived & Restored</span>
               {stats && ((stats.archived || 0) + (stats.restored || 0) > 0) && (
                 <span className={styles.tabBadge}>
                   {(stats.archived || 0) + (stats.restored || 0)}
@@ -703,54 +801,65 @@ export default function KnowledgeList() {
 
       {/* ── Search & Filter Controls ── */}
       <div className={styles.filters}>
-        <input
-          placeholder="Search by title, reference, or content..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            resetPage();
-          }}
-        />
+        <div className={styles.searchWrapper}>
+          <MagnifyingGlassIcon className={styles.searchIcon} />
+          <input
+            className={styles.searchInput}
+            placeholder="Search by title, reference, or content..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPage();
+            }}
+          />
+        </div>
 
         {!isTenant && tab === 'all' && (
+          <div className={styles.selectWrapper}>
+            <select
+              className={styles.selectInput}
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                resetPage();
+              }}
+            >
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="pending_approval">Pending Approval</option>
+              <option value="needs_revision">Needs Revision</option>
+              <option value="approved">Approved (Ready to Publish)</option>
+              <option value="published">Published</option>
+              <option value="unpublished">Unpublished</option>
+              <option value="rejected">Rejected</option>
+              <option value="archived">Archived</option>
+              <option value="restored">Restored</option>
+            </select>
+          </div>
+        )}
+
+        <div className={styles.selectWrapper}>
           <select
-            value={status}
+            className={styles.selectInput}
+            value={category}
             onChange={(e) => {
-              setStatus(e.target.value);
+              setCategory(e.target.value);
               resetPage();
             }}
           >
-            <option value="">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="pending_approval">Pending Approval</option>
-            <option value="needs_revision">Needs Revision</option>
-            <option value="approved">Approved (Ready to Publish)</option>
-            <option value="published">Published</option>
-            <option value="unpublished">Unpublished</option>
-            <option value="rejected">Rejected</option>
-            <option value="archived">Archived</option>
-            <option value="restored">Restored</option>
+            <option value="">All Categories</option>
+            {uniqueCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {resolveCategoryIcon(cat)} {cat}
+              </option>
+            ))}
           </select>
-        )}
-
-        <select
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            resetPage();
-          }}
-        >
-          <option value="">All Categories</option>
-          {uniqueCategories.map((cat) => (
-            <option key={cat} value={cat}>
-              {resolveCategoryIcon(cat)} {cat}
-            </option>
-          ))}
-        </select>
+        </div>
 
         {(search || status || category) && (
           <button className={styles.clearFiltersBtn} onClick={handleClearFilters}>
-            ✕ Clear Filters
+            <XMarkIcon style={{ width: '15px', height: '15px' }} />
+            <span>Clear Filters</span>
           </button>
         )}
       </div>
@@ -767,8 +876,16 @@ export default function KnowledgeList() {
               <div>
                 <div className={styles.articleTitle}>{row.title}</div>
                 <div className={styles.metaRow}>
-                  <span className={styles.referenceBadge}>{row.articleReference}</span>
-                  {row.departmentName && <span className={styles.deptChip}>🏢 {row.departmentName}</span>}
+                  <span className={styles.referenceBadge}>
+                    <HashtagIcon style={{ width: '12px', height: '12px', display: 'inline', marginRight: '2px' }} />
+                    {row.articleReference}
+                  </span>
+                  {row.departmentName && (
+                    <span className={styles.deptChip}>
+                      <BuildingOffice2Icon style={{ width: '12px', height: '12px' }} />
+                      <span>{row.departmentName}</span>
+                    </span>
+                  )}
                   {row.approvedFirstName && (
                     <span
                       className={styles.approvedChip}
@@ -776,7 +893,8 @@ export default function KnowledgeList() {
                         row.approvedAt ? new Date(row.approvedAt).toLocaleString() : ''
                       }`}
                     >
-                      ✓ Dept Approved by {row.approvedFirstName} {row.approvedLastName || ''}
+                      <CheckCircleIcon style={{ width: '12px', height: '12px' }} />
+                      <span>Dept Approved by {row.approvedFirstName} {row.approvedLastName || ''}</span>
                     </span>
                   )}
                   <span className={styles.visibilityChip}>{row.visibility}</span>
@@ -789,7 +907,7 @@ export default function KnowledgeList() {
             key: 'category',
             label: 'Category',
             render: (row) => (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                 <span style={{ fontSize: '1rem' }}>{resolveCategoryIcon(row.category)}</span>
                 <span>{row.category}</span>
               </span>
@@ -798,48 +916,7 @@ export default function KnowledgeList() {
           {
             key: 'status',
             label: 'Workflow Status',
-            render: (row) => {
-              if (row.status === 'draft') {
-                return (
-                  <span className={`${styles.statusWorkflowBadge} ${styles.stageDraft}`}>
-                    📝 Draft
-                  </span>
-                );
-              }
-              if (row.status === 'pending_approval') {
-                return (
-                  <span className={`${styles.statusWorkflowBadge} ${styles.stagePending}`}>
-                    ⏳ Pending Review
-                  </span>
-                );
-              }
-              if (row.status === 'approved') {
-                return (
-                  <span className={`${styles.statusWorkflowBadge} ${styles.stageApproved}`}>
-                    ✓ Approved (Ready to Publish)
-                  </span>
-                );
-              }
-              if (row.status === 'published') {
-                return (
-                  <span className={`${styles.statusWorkflowBadge} ${styles.stagePublished}`}>
-                    🌐 Published & Live
-                  </span>
-                );
-              }
-              if (row.status === 'needs_revision') {
-                return (
-                  <span className={`${styles.statusWorkflowBadge} ${styles.stageRevision}`}>
-                    ⚠️ Needs Revision
-                  </span>
-                );
-              }
-              return (
-                <span className={`${styles.badge} ${styles[row.status] || ''}`}>
-                  {row.status?.replace(/_/g, ' ')}
-                </span>
-              );
-            },
+            render: (row) => renderWorkflowStatusBadge(row.status),
           },
           {
             key: 'author',
@@ -876,7 +953,6 @@ export default function KnowledgeList() {
       </div>
 
       {/* ── Modals ── */}
-      {/* ── Modals ── */}
       <Modal open={!!deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(null)} maxWidth="520px">
         <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
           <span style={{ fontSize: '1.3rem' }}>🗑️</span>
@@ -891,8 +967,9 @@ export default function KnowledgeList() {
           <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)}>
             Cancel
           </button>
-          <button className={styles.danger} onClick={handleDelete}>
-            Delete Article
+          <button className={styles.deleteBtn} onClick={handleDelete}>
+            <TrashIcon className={styles.btnIcon} />
+            <span>Delete Article</span>
           </button>
         </div>
       </Modal>
@@ -935,7 +1012,8 @@ export default function KnowledgeList() {
               setRevisionTarget(null);
             }}
           >
-            Submit Request
+            <ExclamationTriangleIcon className={styles.btnIcon} />
+            <span>Submit Request</span>
           </button>
         </div>
       </Modal>
@@ -967,7 +1045,7 @@ export default function KnowledgeList() {
             Cancel
           </button>
           <button
-            className={styles.danger}
+            className={styles.deleteBtn}
             disabled={!rejectReason.trim()}
             onClick={async () => {
               if (!rejectTarget || !rejectReason.trim()) return;
@@ -975,7 +1053,8 @@ export default function KnowledgeList() {
               setRejectTarget(null);
             }}
           >
-            Reject Article
+            <XCircleIcon className={styles.btnIcon} />
+            <span>Reject Article</span>
           </button>
         </div>
       </Modal>
@@ -983,13 +1062,13 @@ export default function KnowledgeList() {
       <Modal open={!!viewTarget} title={viewTarget?.title || ''} onClose={() => setViewTarget(null)}>
         {viewTarget && (
           <div>
-            <div className={styles.date} style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, fontSize: '0.86rem', color: 'var(--kb-text-muted)' }}>
               Category: {viewTarget.category} · {viewTarget.articleReference}
             </div>
             {viewTarget.summary && (
-              <p style={{ fontWeight: 500, marginBottom: 8 }}>{viewTarget.summary}</p>
+              <p style={{ fontWeight: 600, marginBottom: 8, color: 'var(--kb-text-primary)' }}>{viewTarget.summary}</p>
             )}
-            <p style={{ whiteSpace: 'pre-wrap' }}>{viewTarget.content}</p>
+            <p style={{ whiteSpace: 'pre-wrap', color: 'var(--kb-text-secondary)', lineHeight: 1.6 }}>{viewTarget.content}</p>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button
                 className={styles.submitBtn}

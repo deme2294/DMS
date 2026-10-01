@@ -11,28 +11,47 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('dms_sidebar_collapsed') === 'true';
+  });
 
   // Close mobile drawer on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('dms_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
   return (
     <div className={styles.layout}>
       <Sidebar
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
       />
 
-      <div className={styles.main}>
+      <div className={`${styles.main} ${isCollapsed ? styles.mainCollapsed : ''}`}>
         <header className={styles.topBar}>
           <div className={styles.topBarLeft}>
             <button
               type="button"
-              onClick={() => setMobileSidebarOpen((prev) => !prev)}
+              onClick={() => {
+                if (window.innerWidth <= 768) {
+                  setMobileSidebarOpen((prev) => !prev);
+                } else {
+                  toggleCollapse();
+                }
+              }}
               className={styles.hamburgerBtn}
               aria-label="Toggle navigation drawer"
-              title="Toggle navigation"
+              title={isCollapsed ? 'Expand navigation' : 'Toggle navigation'}
             >
               <Bars3Icon className={styles.hamburgerIcon} />
             </button>
@@ -47,6 +66,15 @@ export default function AdminLayout() {
                 <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
+          </div>
+          <div className={styles.topBarCenter}>
+            <div className={styles.systemHeaderBrand}>
+              <h1 className={styles.systemHeaderTitle}>
+                <span className={styles.systemHeaderAccent}>ITPC</span> HELP DESK
+              </h1>
+              <span className={styles.systemHeaderDivider}>•</span>
+              <span className={styles.systemHeaderSub}>Management System</span>
+            </div>
           </div>
           <div className={styles.topBarRight}>
             <ThemeToggle />

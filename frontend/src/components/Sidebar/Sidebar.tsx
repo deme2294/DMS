@@ -1,7 +1,8 @@
-import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
-  ArrowRightStartOnRectangleIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
   Cog6ToothIcon,
   ClipboardDocumentCheckIcon,
   BuildingOffice2Icon,
@@ -35,6 +36,8 @@ interface SidebarProps {
   roleOverride?: string;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const ROLE_INFO: Record<string, { portalTitle: string; roleLabel: string; Icon: React.ComponentType<{ className?: string }> }> = {
@@ -65,25 +68,39 @@ const ROLE_INFO: Record<string, { portalTitle: string; roleLabel: string; Icon: 
   },
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ roleOverride, isOpenMobile, onCloseMobile }) => {
-  const { user, logout } = useAuth();
+export const Sidebar: React.FC<SidebarProps> = ({
+  roleOverride,
+  isOpenMobile,
+  onCloseMobile,
+  isCollapsed: externalIsCollapsed,
+  onToggleCollapse: externalToggleCollapse,
+}) => {
+  const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const { can } = usePermission();
+
+  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('dms_sidebar_collapsed') === 'true';
+  });
+
+  const isCollapsed = externalIsCollapsed !== undefined ? externalIsCollapsed : internalCollapsed;
+
+  const handleToggleCollapse = () => {
+    if (externalToggleCollapse) {
+      externalToggleCollapse();
+    } else {
+      setInternalCollapsed((prev) => {
+        const next = !prev;
+        localStorage.setItem('dms_sidebar_collapsed', String(next));
+        return next;
+      });
+    }
+  };
 
   const role = (roleOverride || user?.role || 'admin').toLowerCase();
   const roleConfig = ROLE_INFO[role] || ROLE_INFO.admin;
   const config = SIDEBAR_ITEMS[role] || SIDEBAR_ITEMS.admin;
   const sections: SidebarSection[] = config?.sections || [];
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch {
-      navigate('/login');
-    }
-  };
 
   const getInitials = () => {
     if (!user) return 'IT';
@@ -105,35 +122,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ roleOverride, isOpenMobile, on
           aria-label="Close navigation menu"
         />
       )}
-      <aside className={`${styles.sidebar} ${isOpenMobile ? styles.sidebarOpen : ''}`}>
+      <aside className={`${styles.sidebar} ${isCollapsed ? styles.sidebarCollapsed : ''} ${isOpenMobile ? styles.sidebarOpen : ''}`}>
       {/* ── Brand Header with Ethiopian IT Park Logo ── */}
       <div className={styles.brandContainer}>
         <div className={styles.logoLink} title="Ethiopian IT Park — Help Desk Management System">
-          <div className={styles.logoCardWrapper}>
-            <div className={styles.logoCardGlow} />
-            <div className={styles.logoCard}>
-              <img
-                src="/logo.png"
-                alt="Ethiopian IT Park Logo"
-                className={styles.brandLogoImg}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.portalMeta}>
-          <div className={styles.systemHeading}>
-            <span className={styles.systemName}>ITPC HELP DESK</span>
-            <span className={styles.systemSub}>Management System</span>
-          </div>
-
-          <div className={`${styles.roleBadge} ${styles[`roleBadge_${role}`] || styles.roleBadge_admin}`}>
-            <span className={styles.roleIconWrap}>
-              <roleConfig.Icon />
-            </span>
-            <span className={styles.roleText}>{roleConfig.portalTitle}</span>
-            <span className={styles.pulseDot} />
-          </div>
+          <img
+            src="/logo-white.png"
+            alt="Ethiopian IT Park Logo"
+            className={styles.brandLogoImg}
+          />
         </div>
 
         {/* ── Department / Organization Information Badge ── */}
@@ -185,6 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ roleOverride, isOpenMobile, on
                       to={item.path}
                       onClick={onCloseMobile}
                       className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+                      title={item.label}
                     >
                       <span className={styles.navIconBox}>
                         <SidebarIcon label={item.label} path={item.path} className={styles.navIconSvg} />
@@ -200,9 +198,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ roleOverride, isOpenMobile, on
         })}
       </nav>
 
-      {/* ── Bottom User Card ── */}
+      {/* ── Bottom User Card with Sidebar Collapse Button ── */}
       <div className={styles.bottomCard}>
-        <div className={styles.userInfoGroup}>
+        <div className={styles.userInfoGroup} title={`${userDisplayName} (${roleConfig.roleLabel})`}>
           <div className={styles.userAvatar}>
             {getInitials()}
           </div>
@@ -219,12 +217,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ roleOverride, isOpenMobile, on
 
         <button
           type="button"
-          className={styles.quickLogoutBtn}
-          onClick={handleLogout}
-          title="Sign out of dashboard"
-          aria-label="Sign out"
+          className={styles.collapseToggleBtn}
+          onClick={handleToggleCollapse}
+          title={isCollapsed ? 'Expand sidebar navigation' : 'Collapse sidebar navigation'}
+          aria-label={isCollapsed ? 'Expand sidebar navigation' : 'Collapse sidebar navigation'}
         >
-          <ArrowRightStartOnRectangleIcon />
+          {isCollapsed ? (
+            <ChevronDoubleRightIcon className={styles.collapseIcon} />
+          ) : (
+            <ChevronDoubleLeftIcon className={styles.collapseIcon} />
+          )}
         </button>
       </div>
     </aside>

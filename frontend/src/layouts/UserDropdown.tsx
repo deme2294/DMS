@@ -52,7 +52,7 @@ export default function UserDropdown() {
     <div className={styles.userDropdown} ref={dropdownRef}>
       <button
         type="button"
-        className={styles.trigger}
+        className={`${styles.trigger} ${open ? styles.triggerActive : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="true"
@@ -99,8 +99,8 @@ export default function UserDropdown() {
             My Profile
           </button>
           <div className={styles.divider} />
-          <div style={{ padding: '8px 12px' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div className={styles.appearanceSection}>
+            <div className={styles.appearanceLabel}>
               Appearance
             </div>
             <ThemeToggle showLabels={true} />
