@@ -1,11 +1,11 @@
 /* ══════════════════════════════════════════════════════════════════════════
    ENTERPRISE SIDEBAR NAVIGATION — ETHIOPIAN IT PARK BRANDING
-   Brand Corporate Navy & Cyan Identity, Shadowless Logo, High Contrast
+   Brand Corporate Navy & Cyan Identity (#071933 -> #0b254a), Shadowless Logo
    ══════════════════════════════════════════════════════════════════════════ */
 
 .sidebar {
   width: var(--sidebar-width, 275px);
-  background: linear-gradient(180deg, #071933 0%, #0a2143 50%, #06162d 100%);
+  background: linear-gradient(180deg, #0b254a 0%, #071933 50%, #040e1e 100%);
   color: #e2e8f0;
   display: flex;
   flex-direction: column;
@@ -14,22 +14,24 @@
   bottom: 0;
   left: 0;
   z-index: 100;
-  box-shadow: 4px 0 24px rgba(4, 18, 45, 0.45);
-  border-right: 1px solid rgba(6, 182, 212, 0.18);
+  box-shadow: 4px 0 24px rgba(4, 18, 45, 0.5);
+  border-right: 1px solid rgba(8, 125, 147, 0.28);
   user-select: none;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-:global([data-theme="dark"]) .sidebar {
-  background: linear-gradient(180deg, #051024 0%, #081a38 50%, #040c1c 100%);
-  border-right: 1px solid rgba(6, 182, 212, 0.15);
+:global([data-theme="dark"]) .sidebar,
+:global([data-theme="light"]) .sidebar {
+  background: linear-gradient(180deg, #0b254a 0%, #071933 50%, #040e1e 100%) !important;
+  border-right: 1px solid rgba(8, 125, 147, 0.28) !important;
 }
 
 /* ── Top Brand Header with Ethiopian IT Park Logo ── */
 .brandContainer {
   padding: 18px 16px 14px;
-  border-bottom: 1px solid rgba(6, 182, 212, 0.15);
+  background: linear-gradient(180deg, rgba(8, 125, 147, 0.12) 0%, rgba(7, 25, 51, 0) 100%);
+  border-bottom: 1px solid rgba(8, 125, 147, 0.22);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -69,8 +71,8 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: rgba(6, 182, 212, 0.12);
-  border: 1px solid rgba(6, 182, 212, 0.35);
+  background: rgba(8, 125, 147, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.32);
   border-radius: 9px;
   font-size: 0.72rem;
   font-weight: 700;
@@ -86,7 +88,7 @@
   width: 15px;
   height: 15px;
   flex-shrink: 0;
-  color: #22d3ee;
+  color: #77cbc6;
 }
 
 .deptSidebarText {
@@ -98,8 +100,8 @@
 }
 
 .deptCountTag {
-  background: rgba(6, 182, 212, 0.25);
-  color: #67e8f9;
+  background: rgba(8, 125, 147, 0.35);
+  color: #77cbc6;
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 0.64rem;
@@ -115,7 +117,7 @@
   flex-direction: column;
   gap: 6px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(6, 182, 212, 0.25) transparent;
+  scrollbar-color: rgba(8, 125, 147, 0.35) transparent;
 }
 
 .nav::-webkit-scrollbar {
@@ -123,7 +125,7 @@
 }
 
 .nav::-webkit-scrollbar-thumb {
-  background: rgba(6, 182, 212, 0.25);
+  background: rgba(8, 125, 147, 0.35);
   border-radius: 4px;
 }
 
@@ -138,7 +140,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: #7dd3fc;
+  color: #77cbc6;
   padding: 10px 10px 4px;
 }
 
@@ -150,7 +152,7 @@
 
 .divider {
   height: 1px;
-  background: rgba(6, 182, 212, 0.14);
+  background: rgba(8, 125, 147, 0.2);
   margin: 8px 8px;
 }
 
@@ -161,7 +163,7 @@
   gap: 12px;
   padding: 9px 12px;
   border-radius: 10px;
-  color: #e2e8f0;
+  color: #cbd5e1;
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 600;
@@ -171,18 +173,18 @@
 }
 
 .navItem:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(8, 125, 147, 0.18);
   color: #ffffff;
   transform: translateX(3px);
-  border-color: rgba(6, 182, 212, 0.25);
+  border-color: rgba(56, 189, 248, 0.35);
 }
 
 .navIconBox {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,18 +200,18 @@
 }
 
 .navItem:hover .navIconBox {
-  background: rgba(6, 182, 212, 0.2);
+  background: rgba(8, 125, 147, 0.3);
   color: #38bdf8;
-  border-color: rgba(6, 182, 212, 0.5);
+  border-color: rgba(119, 203, 198, 0.5);
 }
 
 /* Nav Item (Active State) */
 .navItem.active {
-  background: linear-gradient(90deg, rgba(6, 182, 212, 0.28) 0%, rgba(2, 132, 199, 0.16) 100%);
+  background: linear-gradient(90deg, rgba(8, 125, 147, 0.36) 0%, rgba(6, 182, 212, 0.16) 100%);
   color: #ffffff;
   font-weight: 700;
-  border-color: rgba(56, 189, 248, 0.45);
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.22);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 4px 16px rgba(8, 125, 147, 0.28);
 }
 
 .navItem.active::before {
@@ -219,16 +221,16 @@
   top: 14%;
   bottom: 14%;
   width: 3.5px;
-  background: linear-gradient(180deg, #38bdf8, #008ea6);
+  background: linear-gradient(180deg, #77cbc6, #087d93);
   border-radius: 0 4px 4px 0;
-  box-shadow: 0 0 10px #38bdf8;
+  box-shadow: 0 0 10px rgba(119, 203, 198, 0.85);
 }
 
 .navItem.active .navIconBox {
-  background: linear-gradient(135deg, #008ea6 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #087d93 0%, #0284c7 100%);
   color: #ffffff;
-  border-color: rgba(125, 211, 252, 0.6);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+  border-color: rgba(119, 203, 198, 0.6);
+  box-shadow: 0 4px 12px rgba(8, 125, 147, 0.45);
 }
 
 .navLabel {
@@ -240,20 +242,20 @@
 .bottomCard {
   margin: 8px 12px 14px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(6, 182, 212, 0.18);
+  background: rgba(7, 25, 51, 0.75);
+  border: 1px solid rgba(8, 125, 147, 0.28);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   transition: all 0.2s ease;
 }
 
 .bottomCard:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(10, 33, 67, 0.85);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 .userInfoGroup {
@@ -268,7 +270,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #008ea6, #0284c7);
+  background: linear-gradient(135deg, #087d93, #0284c7);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -276,8 +278,8 @@
   font-size: 0.8rem;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(6, 182, 212, 0.35);
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(8, 125, 147, 0.4);
+  border: 1.5px solid rgba(119, 203, 198, 0.45);
 }
 
 .userDetails {
@@ -319,8 +321,8 @@
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  border: 1px solid rgba(6, 182, 212, 0.35);
-  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(8, 125, 147, 0.18);
   color: #38bdf8;
   display: flex;
   align-items: center;
@@ -333,11 +335,11 @@
 }
 
 .collapseToggleBtn:hover {
-  background: rgba(6, 182, 212, 0.28);
+  background: rgba(8, 125, 147, 0.38);
   color: #ffffff;
-  border-color: rgba(56, 189, 248, 0.7);
+  border-color: rgba(119, 203, 198, 0.65);
   transform: scale(1.06);
-  box-shadow: 0 2px 10px rgba(6, 182, 212, 0.45);
+  box-shadow: 0 2px 10px rgba(8, 125, 147, 0.5);
 }
 
 .collapseToggleBtn:active {

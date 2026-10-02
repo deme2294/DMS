@@ -757,7 +757,7 @@ export default function KnowledgeArticleView() {
 
       {/* ── Request Revision Modal ── */}
       <Modal open={showRevisionModal} title="Request Changes / Revision" onClose={() => setShowRevisionModal(false)} maxWidth="580px">
-        <div className={`${styles.modalNoticeBox} ${styles.warning}`}>
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeWarning}`}>
           <span style={{ fontSize: '1.2rem' }}>⚠️</span>
           <div>
             <strong>Sending Back to Author</strong>
@@ -799,7 +799,7 @@ export default function KnowledgeArticleView() {
 
       {/* ── Reject Article Modal ── */}
       <Modal open={showRejectModal} title="Reject Article" onClose={() => setShowRejectModal(false)} maxWidth="560px">
-        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeDanger}`}>
           <span style={{ fontSize: '1.2rem' }}>🛑</span>
           <div>
             <strong>Reject Article Submission</strong>
@@ -839,7 +839,7 @@ export default function KnowledgeArticleView() {
 
       {/* ── Unpublish Article Modal ── */}
       <Modal open={showUnpublishModal} title="Unpublish Article" onClose={() => setShowUnpublishModal(false)} maxWidth="560px">
-        <div className={`${styles.modalNoticeBox} ${styles.warning}`}>
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeWarning}`}>
           <span style={{ fontSize: '1.2rem' }}>⚠️</span>
           <div>
             <strong>Remove from Public Knowledge Base</strong>
@@ -966,7 +966,7 @@ export default function KnowledgeArticleView() {
 
       {/* ── Delete Confirmation Modal ── */}
       <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)} maxWidth="520px">
-        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeDanger}`}>
           <span style={{ fontSize: '1.3rem' }}>🗑️</span>
           <div>
             <strong>Permanent Action</strong>

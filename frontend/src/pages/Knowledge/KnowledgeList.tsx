@@ -46,7 +46,7 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline';
 
-type Tab = 'all' | 'my-drafts' | 'pending' | 'approved' | 'published' | 'needs-revision' | 'archived-restored';
+type Tab = 'all' | 'my-drafts' | 'pending' | 'approved' | 'published' | 'needs-revision' | 'archived-restored' | 'rejected' | 'unpublished';
 
 export default function KnowledgeList() {
   const navigate = useNavigate();
@@ -106,23 +106,19 @@ export default function KnowledgeList() {
       let res;
 
       if (tab === 'my-drafts') {
-        res = await fetchArticles({ ...params, status: 'draft', authorId: user?.id });
+        res = await fetchArticles({ ...params, status: 'draft' });
       } else if (tab === 'pending') {
-        res = await fetchArticles({
-          ...params,
-          status: 'pending_approval',
-          authorId: isStaff ? user?.id : undefined,
-        });
+        res = await fetchArticles({ ...params, status: 'pending_approval' });
       } else if (tab === 'approved') {
         res = await fetchArticles({ ...params, status: 'approved' });
       } else if (tab === 'published') {
         res = await fetchArticles({ ...params, status: 'published' });
       } else if (tab === 'needs-revision') {
-        res = await fetchArticles({
-          ...params,
-          status: 'needs_revision',
-          authorId: isStaff ? user?.id : undefined,
-        });
+        res = await fetchArticles({ ...params, status: 'needs_revision' });
+      } else if (tab === 'rejected') {
+        res = await fetchArticles({ ...params, status: 'rejected' });
+      } else if (tab === 'unpublished') {
+        res = await fetchArticles({ ...params, status: 'unpublished' });
       } else if (tab === 'archived-restored') {
         res = await fetchArticles({
           ...params,
@@ -664,25 +660,39 @@ export default function KnowledgeList() {
             )}
           </div>
 
-          {(isAdmin || isManager) && (
-            <div
-              className={`${styles.statCard} ${tab === 'approved' ? styles.statCardActive : ''}`}
-              onClick={() => handleTabChange('approved')}
-            >
-              <div className={styles.statIconWrapper} style={{ background: '#eff6ff', color: '#1d4ed8' }}>
-                ✓
-              </div>
-              <div className={styles.statInfo}>
-                <span className={styles.statValue}>{stats.approved}</span>
-                <span className={styles.statLabel}>
-                  {isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}
-                </span>
-              </div>
-              {stats.approved > 0 && (
-                <span className={styles.statHighlightSuccess}>{stats.approved} Ready</span>
-              )}
+          <div
+            className={`${styles.statCard} ${tab === 'approved' ? styles.statCardActive : ''}`}
+            onClick={() => handleTabChange('approved')}
+          >
+            <div className={styles.statIconWrapper} style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+              ✓
             </div>
-          )}
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.approved}</span>
+              <span className={styles.statLabel}>
+                {isAdmin ? 'Ready to Publish' : 'Approved'}
+              </span>
+            </div>
+            {stats.approved > 0 && (
+              <span className={styles.statHighlightSuccess}>{stats.approved} Ready</span>
+            )}
+          </div>
+
+          <div
+            className={`${styles.statCard} ${tab === 'needs-revision' ? styles.statCardActive : ''}`}
+            onClick={() => handleTabChange('needs-revision')}
+          >
+            <div className={styles.statIconWrapper} style={{ background: '#fff7ed', color: '#ea580c' }}>
+              ⚠️
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.needs_revision}</span>
+              <span className={styles.statLabel}>Needs Revision</span>
+            </div>
+            {stats.needs_revision > 0 && (
+              <span className={styles.statHighlightAlert}>{stats.needs_revision} Action</span>
+            )}
+          </div>
 
           <div
             className={`${styles.statCard} ${tab === 'published' ? styles.statCardActive : ''}`}
@@ -699,20 +709,49 @@ export default function KnowledgeList() {
             </div>
           </div>
 
-          {isAdmin && (
-            <div
-              className={`${styles.statCard} ${tab === 'archived-restored' ? styles.statCardActive : ''}`}
-              onClick={() => handleTabChange('archived-restored')}
-            >
-              <div className={styles.statIconWrapper} style={{ background: '#f8fafc', color: '#475569' }}>
-                📦
-              </div>
-              <div className={styles.statInfo}>
-                <span className={styles.statValue}>{(stats.archived || 0) + (stats.restored || 0)}</span>
-                <span className={styles.statLabel}>Archived / Restored</span>
-              </div>
+          <div
+            className={`${styles.statCard} ${tab === 'unpublished' ? styles.statCardActive : ''}`}
+            onClick={() => handleTabChange('unpublished')}
+          >
+            <div className={styles.statIconWrapper} style={{ background: '#f1f5f9', color: '#64748b' }}>
+              👁️
             </div>
-          )}
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.unpublished || 0}</span>
+              <span className={styles.statLabel}>Unpublished</span>
+            </div>
+          </div>
+
+          <div
+            className={`${styles.statCard} ${tab === 'rejected' ? styles.statCardActive : ''}`}
+            onClick={() => handleTabChange('rejected')}
+          >
+            <div className={styles.statIconWrapper} style={{ background: '#fef2f2', color: '#dc2626' }}>
+              🛑
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{stats.rejected || 0}</span>
+              <span className={styles.statLabel}>Rejected</span>
+            </div>
+            {(stats.rejected || 0) > 0 && (
+              <span style={{ background: '#fee2e2', color: '#dc2626', fontSize: '0.72rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, marginLeft: 'auto' }}>
+                {stats.rejected}
+              </span>
+            )}
+          </div>
+
+          <div
+            className={`${styles.statCard} ${tab === 'archived-restored' ? styles.statCardActive : ''}`}
+            onClick={() => handleTabChange('archived-restored')}
+          >
+            <div className={styles.statIconWrapper} style={{ background: '#f8fafc', color: '#475569' }}>
+              📦
+            </div>
+            <div className={styles.statInfo}>
+              <span className={styles.statValue}>{(stats.archived || 0) + (stats.restored || 0)}</span>
+              <span className={styles.statLabel}>Archived / Restored</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -741,7 +780,7 @@ export default function KnowledgeList() {
             className={`${styles.tabBtn} ${tab === 'my-drafts' ? styles.tabBtnActive : ''}`}
             onClick={() => handleTabChange('my-drafts')}
           >
-            <span>{isStaff ? 'My Drafts' : isManager ? 'Manager Drafts' : 'Drafts'}</span>
+            <span>{isStaff ? 'My Drafts' : isManager ? 'Dept Drafts' : 'Drafts'}</span>
             {stats && stats.draft > 0 && <span className={styles.tabBadge}>{stats.draft}</span>}
           </button>
 
@@ -757,19 +796,17 @@ export default function KnowledgeList() {
             )}
           </button>
 
-          {(isAdmin || isManager) && (
-            <button
-              className={`${styles.tabBtn} ${tab === 'approved' ? styles.tabBtnActive : ''}`}
-              onClick={() => handleTabChange('approved')}
-            >
-              <span>{isAdmin ? 'Ready to Publish' : 'Approved (At Admin)'}</span>
-              {stats && stats.approved > 0 && (
-                <span className={`${styles.tabBadge} ${styles.tabBadgeReady}`}>
-                  {stats.approved}
-                </span>
-              )}
-            </button>
-          )}
+          <button
+            className={`${styles.tabBtn} ${tab === 'approved' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleTabChange('approved')}
+          >
+            <span>{isAdmin ? 'Ready to Publish' : 'Approved'}</span>
+            {stats && stats.approved > 0 && (
+              <span className={`${styles.tabBadge} ${styles.tabBadgeReady}`}>
+                {stats.approved}
+              </span>
+            )}
+          </button>
 
           <button
             className={`${styles.tabBtn} ${tab === 'needs-revision' ? styles.tabBtnActive : ''}`}
@@ -783,19 +820,45 @@ export default function KnowledgeList() {
             )}
           </button>
 
-          {isAdmin && (
+          {(stats && (stats.unpublished || 0) > 0 || isAdmin || isManager) && (
             <button
-              className={`${styles.tabBtn} ${tab === 'archived-restored' ? styles.tabBtnActive : ''}`}
-              onClick={() => handleTabChange('archived-restored')}
+              className={`${styles.tabBtn} ${tab === 'unpublished' ? styles.tabBtnActive : ''}`}
+              onClick={() => handleTabChange('unpublished')}
             >
-              <span>Archived & Restored</span>
-              {stats && ((stats.archived || 0) + (stats.restored || 0) > 0) && (
+              <span>Unpublished</span>
+              {stats && (stats.unpublished || 0) > 0 && (
                 <span className={styles.tabBadge}>
-                  {(stats.archived || 0) + (stats.restored || 0)}
+                  {stats.unpublished}
                 </span>
               )}
             </button>
           )}
+
+          {(stats && (stats.rejected || 0) > 0 || isAdmin || isManager) && (
+            <button
+              className={`${styles.tabBtn} ${tab === 'rejected' ? styles.tabBtnActive : ''}`}
+              onClick={() => handleTabChange('rejected')}
+            >
+              <span>Rejected</span>
+              {stats && (stats.rejected || 0) > 0 && (
+                <span className={`${styles.tabBadge} ${styles.tabBadgeAlert}`}>
+                  {stats.rejected}
+                </span>
+              )}
+            </button>
+          )}
+
+          <button
+            className={`${styles.tabBtn} ${tab === 'archived-restored' ? styles.tabBtnActive : ''}`}
+            onClick={() => handleTabChange('archived-restored')}
+          >
+            <span>Archived & Restored</span>
+            {stats && ((stats.archived || 0) + (stats.restored || 0) > 0) && (
+              <span className={styles.tabBadge}>
+                {(stats.archived || 0) + (stats.restored || 0)}
+              </span>
+            )}
+          </button>
         </div>
       )}
 
@@ -814,14 +877,24 @@ export default function KnowledgeList() {
           />
         </div>
 
-        {!isTenant && tab === 'all' && (
+        {!isTenant && (
           <div className={styles.selectWrapper}>
             <select
               className={styles.selectInput}
               value={status}
               onChange={(e) => {
-                setStatus(e.target.value);
+                const val = e.target.value;
+                setStatus(val);
                 resetPage();
+                if (val === 'draft') handleTabChange('my-drafts');
+                else if (val === 'pending_approval') handleTabChange('pending');
+                else if (val === 'approved') handleTabChange('approved');
+                else if (val === 'published') handleTabChange('published');
+                else if (val === 'needs_revision') handleTabChange('needs-revision');
+                else if (val === 'unpublished') handleTabChange('unpublished');
+                else if (val === 'rejected') handleTabChange('rejected');
+                else if (val === 'archived' || val === 'restored') handleTabChange('archived-restored');
+                else if (!val) handleTabChange('all');
               }}
             >
               <option value="">All Statuses</option>
@@ -954,20 +1027,22 @@ export default function KnowledgeList() {
 
       {/* ── Modals ── */}
       <Modal open={!!deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(null)} maxWidth="520px">
-        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
-          <span style={{ fontSize: '1.3rem' }}>🗑️</span>
-          <div>
-            <strong>Permanent Action</strong>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
-              Are you sure you want to delete <strong>"{deleteTarget?.title}"</strong>? This action cannot be undone.
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeDanger}`}>
+          <div className={styles.noticeIconWrapDanger}>
+            <TrashIcon className={styles.noticeIcon} />
+          </div>
+          <div className={styles.noticeContent}>
+            <strong className={styles.noticeTitle}>Permanent Action</strong>
+            <p className={styles.noticeText}>
+              Are you sure you want to delete <span className={styles.targetTitleBadge}>"{deleteTarget?.title}"</span>? This action cannot be undone and will permanently remove this article.
             </p>
           </div>
         </div>
-        <div className={styles.formActions}>
-          <button className={styles.cancelBtn} onClick={() => setDeleteTarget(null)}>
+        <div className={styles.modalFormActions}>
+          <button className={styles.modalCancelBtn} onClick={() => setDeleteTarget(null)}>
             Cancel
           </button>
-          <button className={styles.deleteBtn} onClick={handleDelete}>
+          <button className={styles.modalDeleteBtn} onClick={handleDelete}>
             <TrashIcon className={styles.btnIcon} />
             <span>Delete Article</span>
           </button>
@@ -975,12 +1050,14 @@ export default function KnowledgeList() {
       </Modal>
 
       <Modal open={!!revisionTarget} title="Request Revision / Changes" onClose={() => setRevisionTarget(null)} maxWidth="580px">
-        <div className={`${styles.modalNoticeBox} ${styles.warning}`}>
-          <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-          <div>
-            <strong>Sending Back to Author</strong>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
-              Article: <strong>"{revisionTarget?.title}"</strong> will be placed in <strong>Needs Revision</strong> status.
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeWarning}`}>
+          <div className={styles.noticeIconWrapWarning}>
+            <ExclamationTriangleIcon className={styles.noticeIcon} />
+          </div>
+          <div className={styles.noticeContent}>
+            <strong className={styles.noticeTitle}>Sending Back to Author</strong>
+            <p className={styles.noticeText}>
+              Article: <span className={styles.targetTitleBadgeWarning}>"{revisionTarget?.title}"</span> will be placed in <strong>Needs Revision</strong> status.
             </p>
           </div>
         </div>
@@ -996,12 +1073,12 @@ export default function KnowledgeList() {
           />
         </div>
 
-        <div className={styles.formActions}>
-          <button className={styles.cancelBtn} onClick={() => setRevisionTarget(null)}>
+        <div className={styles.modalFormActions}>
+          <button className={styles.modalCancelBtn} onClick={() => setRevisionTarget(null)}>
             Cancel
           </button>
           <button
-            className={styles.revisionBtn}
+            className={styles.modalWarningBtn}
             disabled={!revisionReason.trim()}
             onClick={async () => {
               if (!revisionTarget || !revisionReason.trim()) return;
@@ -1019,12 +1096,14 @@ export default function KnowledgeList() {
       </Modal>
 
       <Modal open={!!rejectTarget} title="Reject Article" onClose={() => setRejectTarget(null)} maxWidth="560px">
-        <div className={`${styles.modalNoticeBox} ${styles.danger}`}>
-          <span style={{ fontSize: '1.2rem' }}>🛑</span>
-          <div>
-            <strong>Reject Article Submission</strong>
-            <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
-              Article: <strong>"{rejectTarget?.title}"</strong> will be marked as <strong>Rejected</strong> and removed from the review queue.
+        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeDanger}`}>
+          <div className={styles.noticeIconWrapDanger}>
+            <XCircleIcon className={styles.noticeIcon} />
+          </div>
+          <div className={styles.noticeContent}>
+            <strong className={styles.noticeTitle}>Reject Article Submission</strong>
+            <p className={styles.noticeText}>
+              Article: <span className={styles.targetTitleBadge}>"{rejectTarget?.title}"</span> will be marked as <strong>Rejected</strong> and removed from the review queue.
             </p>
           </div>
         </div>
@@ -1040,12 +1119,12 @@ export default function KnowledgeList() {
           />
         </div>
 
-        <div className={styles.formActions}>
-          <button className={styles.cancelBtn} onClick={() => setRejectTarget(null)}>
+        <div className={styles.modalFormActions}>
+          <button className={styles.modalCancelBtn} onClick={() => setRejectTarget(null)}>
             Cancel
           </button>
           <button
-            className={styles.deleteBtn}
+            className={styles.modalDeleteBtn}
             disabled={!rejectReason.trim()}
             onClick={async () => {
               if (!rejectTarget || !rejectReason.trim()) return;

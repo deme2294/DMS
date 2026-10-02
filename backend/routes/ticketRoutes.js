@@ -261,8 +261,9 @@ router.post(
   [
     idParam(),
     body('message').trim().notEmpty().withMessage('Message is required'),
-    body('visibility').optional().isIn(['all', 'internal']),
-    body('attachmentId').optional().custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('visibility').optional().isIn(['all', 'internal', 'tenant', 'department', 'both']),
+    body('attachmentId').optional({ nullable: true, checkFalsy: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('departmentIds').optional({ nullable: true }),
     validate,
   ],
   ticketController.addReply

@@ -414,13 +414,6 @@ export default function Login() {
           <span className="login-footer-copyright">
             © 2026 <strong className="login-footer-brand-name">ITPC</strong> Help Desk Management System
           </span>
-          <span className="login-footer-dot">•</span>
-          <span className="login-footer-status">
-            <span className="login-footer-pulse" />
-            All Systems Operational
-          </span>
-          <span className="login-footer-dot">•</span>
-          <span className="login-footer-badge">Official Portal</span>
         </div>
       </div>
     </div>

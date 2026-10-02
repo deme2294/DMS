@@ -143,11 +143,15 @@ input[type="radio"] {
   color: #94a3b8 !important;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ── Sidebar: Corporate Brand Navy Identity across all themes ─────────────── */
+aside[class*="sidebar"],
+aside[class*="Sidebar"],
 [data-theme="dark"] aside[class*="sidebar"],
-[data-theme="dark"] aside[class*="Sidebar"] {
-  background: linear-gradient(180deg, #090d14 0%, #101522 100%) !important;
-  border-right: 1px solid var(--border-color) !important;
+[data-theme="dark"] aside[class*="Sidebar"],
+[data-theme="light"] aside[class*="sidebar"],
+[data-theme="light"] aside[class*="Sidebar"] {
+  background: linear-gradient(180deg, #0b254a 0%, #071933 50%, #040e1e 100%) !important;
+  border-right: 1px solid rgba(8, 125, 147, 0.28) !important;
 }
 
 /* ── Cards, panels, boxes, containers ───────────────────────────────────── */
