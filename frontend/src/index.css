@@ -110,10 +110,10 @@ input[type="radio"] {
 }
 
 /* ── Topbar / Header ─────────────────────────────────────────────────────── */
-[data-theme="dark"] header,
-[data-theme="dark"] [class*="topBar"],
-[data-theme="dark"] [class*="topbar"],
-[data-theme="dark"] [class*="header"] {
+[data-theme="dark"] header:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="topBar"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="topbar"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="header"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-topbar) !important;
   border-bottom-color: var(--border-color) !important;
   color: var(--text-main) !important;
@@ -151,21 +151,21 @@ input[type="radio"] {
 }
 
 /* ── Cards, panels, boxes, containers ───────────────────────────────────── */
-[data-theme="dark"] [class*="card"],
-[data-theme="dark"] [class*="Card"],
-[data-theme="dark"] [class*="panel"],
-[data-theme="dark"] [class*="Panel"],
-[data-theme="dark"] [class*="box"],
-[data-theme="dark"] [class*="Box"],
-[data-theme="dark"] [class*="formContainer"],
-[data-theme="dark"] [class*="statCard"],
-[data-theme="dark"] [class*="statcard"],
-[data-theme="dark"] [class*="statsCard"],
-[data-theme="dark"] [class*="infoCard"],
-[data-theme="dark"] [class*="detailCard"],
-[data-theme="dark"] [class*="summary"],
-[data-theme="dark"] [class*="section"],
-[data-theme="dark"] [class*="wrapper"] {
+[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="box"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Box"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="formContainer"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="statCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="statcard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="statsCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="infoCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="detailCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="summary"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="section"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-card) !important;
   border-color: var(--border-color) !important;
   color: var(--text-main) !important;
@@ -565,17 +565,17 @@ code {
    and all write fields, details, labels, notes, timelines, & badges are crisp
    ========================================================================== */
 
-[data-theme="dark"] form,
-[data-theme="dark"] [class*="form"],
-[data-theme="dark"] [class*="Form"],
-[data-theme="dark"] [class*="card"],
-[data-theme="dark"] [class*="Card"],
-[data-theme="dark"] [class*="section"],
-[data-theme="dark"] [class*="Section"],
-[data-theme="dark"] [class*="wrapper"],
-[data-theme="dark"] [class*="Wrapper"],
-[data-theme="dark"] [class*="panel"],
-[data-theme="dark"] [class*="Panel"] {
+[data-theme="dark"] form:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="form"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Form"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="section"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Section"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Wrapper"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-card) !important;
   background-image: none !important;
   border-color: var(--border-color) !important;
@@ -583,9 +583,9 @@ code {
 }
 
 /* ── Specific gradient headers override in dark mode ───────────────────── */
-[data-theme="dark"] [class*="wrapper"],
-[data-theme="dark"] [class*="pageHeader"],
-[data-theme="dark"] [class*="sectionHeader"] {
+[data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="pageHeader"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="sectionHeader"]:not([class*="login"]):not([class*="Login"]) {
   background: linear-gradient(135deg, #151b28 0%, #1c2333 100%) !important;
   border-color: #252e3e !important;
 }
@@ -1336,4 +1336,95 @@ code {
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LOGIN PAGE THEME ISOLATION — Immune to Theme Toggle (Light / Dark / System)
+   The Login page always maintains authentic Ethiopian IT Park brand styling
+   (#071933 -> #0a2143 -> #06162d) regardless of whether the theme is light or dark.
+   ══════════════════════════════════════════════════════════════════════════ */
+body:has(.login-root),
+body:has(.login-root) #root {
+  background-color: #071933 !important;
+  background: #071933 !important;
+}
+
+[data-theme="dark"] .login-root,
+[data-theme="light"] .login-root,
+:root .login-root,
+.login-root {
+  background: radial-gradient(ellipse 130% 90% at 50% 20%, #0b254a 0%, #071933 55%, #040e1e 100%) !important;
+  background-color: #071933 !important;
+  color: #f8fafc !important;
+}
+
+/* Brand header & logo - zero background / zero box shadow in any theme */
+[data-theme="dark"] .login-brand-row,
+[data-theme="light"] .login-brand-row,
+[data-theme="dark"] .login-brand-row *,
+[data-theme="light"] .login-brand-row *,
+[data-theme="dark"] .login-brand-logo,
+[data-theme="light"] .login-brand-logo,
+[data-theme="dark"] .login-brand-logo *,
+[data-theme="light"] .login-brand-logo *,
+[data-theme="dark"] .login-logo-img,
+[data-theme="light"] .login-logo-img,
+[data-theme="dark"] .login-logo-card,
+[data-theme="light"] .login-logo-card {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  outline: none !important;
+}
+
+/* Bottom Bar & Footer containers - completely transparent, no dark strip */
+[data-theme="dark"] .login-bottom-bar,
+[data-theme="light"] .login-bottom-bar,
+[data-theme="dark"] .login-bottom-section,
+[data-theme="light"] .login-bottom-section,
+[data-theme="dark"] .login-footer-wrap,
+[data-theme="light"] .login-footer-wrap,
+[data-theme="dark"] .login-root footer,
+[data-theme="light"] .login-root footer,
+.login-root footer,
+.login-bottom-bar,
+.login-bottom-section {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Bottom Footer Pill - brand navy backdrop */
+[data-theme="dark"] .login-footer-pill,
+[data-theme="light"] .login-footer-pill,
+:root .login-footer-pill {
+  background: rgba(7, 25, 51, 0.72) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(56, 189, 248, 0.22) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Login Card - rich corporate glass */
+[data-theme="dark"] .login-card,
+[data-theme="light"] .login-card,
+:root .login-card {
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.74) 0%, rgba(8, 17, 40, 0.84) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Feature cards & status box on left panel */
+[data-theme="dark"] .login-feature-card,
+[data-theme="light"] .login-feature-card {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .login-status-box,
+[data-theme="light"] .login-status-box {
+  background: rgba(15, 23, 42, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }

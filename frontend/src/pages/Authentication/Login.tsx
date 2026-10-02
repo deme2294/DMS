@@ -145,9 +145,7 @@ export default function Login() {
       {/* ── Background ── */}
       <div className="login-bg">
         <ParticleBackground className="absolute inset-0" id="login-particles" />
-        <div className="login-bg-glow-top" />
-        <div className="login-bg-glow-bottom" />
-        <div className="login-grid-texture" />
+        <div className="login-ambient-center" />
       </div>
 
       {/* ── Main Two-Column Body ── */}
@@ -162,9 +160,9 @@ export default function Login() {
           transition={{ duration: 0.7, ease: 'easeOut' }}
         >
           {/* Organization Logo & Badges */}
-          <div className="login-brand-header">
-            <div className="login-logo-card">
-              <img src="/logo.png" alt="Ethiopian IT Park" className="login-logo-img" />
+          <div className="login-brand-row">
+            <div className="login-brand-logo">
+              <img src="/logo-white.png?v=3" alt="Ethiopian IT Park" className="login-logo-img" />
             </div>
 
             <div className="login-badges">
@@ -210,7 +208,7 @@ export default function Login() {
 
           {/* System Status */}
           <div className="login-status-box">
-            <div className="login-status-header">
+            <div className="login-status-top">
               <span className="login-status-label">
                 <WifiIcon style={{ width: 16, height: 16, color: '#4ade80' }} />
                 System Status
@@ -242,8 +240,8 @@ export default function Login() {
         >
           {/* Mobile-only brand header */}
           <div className="login-mobile-brand">
-            <div className="login-logo-card" style={{ margin: '0 auto 14px' }}>
-              <img src="/logo.png" alt="Ethiopian IT Park" className="login-logo-img" />
+            <div className="login-brand-logo" style={{ margin: '0 auto 14px' }}>
+              <img src="/logo-white.png?v=3" alt="Ethiopian IT Park" className="login-logo-img" />
             </div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', textAlign: 'center', margin: 0 }}>
               ITPC <span style={{ background: 'linear-gradient(to right, #60a5fa, #67e8f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELP DESK</span>
@@ -254,7 +252,7 @@ export default function Login() {
           {/* Glass card */}
           <div className={`login-card ${isFocused ? 'login-card-focused' : ''}`}>
             {/* Card header */}
-            <div className="login-card-header">
+            <div className="login-card-top">
               <div className="login-card-icon">
                 <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
               </div>
@@ -408,9 +406,9 @@ export default function Login() {
     </div>
 
       {/* ════════════════════════════════════
-          BOTTOM SECTION — Centered & Visible
+          BOTTOM BAR — Centered & Seamless
       ════════════════════════════════════ */}
-      <footer className="login-bottom-section">
+      <div className="login-bottom-bar">
         <div className="login-footer-pill">
           <ShieldCheckIcon className="login-footer-icon" />
           <span className="login-footer-copyright">
@@ -424,7 +422,7 @@ export default function Login() {
           <span className="login-footer-dot">•</span>
           <span className="login-footer-badge">Official Portal</span>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }

@@ -34,6 +34,8 @@
   flex-direction: column;
   gap: 12px;
   position: relative;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .logoLink {
@@ -46,6 +48,7 @@
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
+  filter: none !important;
   padding: 4px 0;
 }
 
@@ -73,8 +76,9 @@
   font-weight: 700;
   color: #38bdf8;
   max-width: 100%;
+  box-shadow: none !important;
+  filter: none !important;
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease;
 }
 

@@ -18,6 +18,16 @@ interface Particle {
   pulseSpeed: number;
   pulseAngle: number;
   hasGlow: boolean;
+  isHub: boolean;
+  radarRadius: number;
+}
+
+interface DataPulse {
+  fromIndex: number;
+  toIndex: number;
+  progress: number;
+  speed: number;
+  color: string;
 }
 
 export default function ParticleBackground({ className, id }: ParticleBackgroundProps) {
@@ -32,15 +42,18 @@ export default function ParticleBackground({ className, id }: ParticleBackground
 
     let animationFrameId: number;
     let particles: Particle[] = [];
-    let mouse = { x: -9999, y: -9999, radius: 150 };
+    let dataPulses: DataPulse[] = [];
+    let mouse = { x: -9999, y: -9999, radius: 160 };
 
-    // Brand color palette: Ethiopian IT Park vibrant cyan, sky, electric sapphire, and indigo
+    // Brand color palette from the Ethiopian IT Park logo:
+    // Signature Teal (#087d93), Vibrant Aqua (#77cbc6), Bright Cyan (#06b6d4), Sky Blue (#38bdf8)
     const PALETTE = [
-      { color: 'rgb(6, 182, 212)', glow: 'rgba(6, 182, 212, 0.85)' },    // Vibrant Cyan
-      { color: 'rgb(56, 189, 248)', glow: 'rgba(56, 189, 248, 0.9)' },   // Sky Blue
-      { color: 'rgb(96, 165, 250)', glow: 'rgba(96, 165, 250, 0.8)' },   // Electric Blue
-      { color: 'rgb(129, 140, 248)', glow: 'rgba(129, 140, 248, 0.75)' }, // Indigo
-      { color: 'rgb(20, 184, 166)', glow: 'rgba(20, 184, 166, 0.85)' },  // Teal
+      { color: 'rgb(8, 125, 147)', glow: 'rgba(8, 125, 147, 0.95)' },    // Official Logo Teal (#087d93)
+      { color: 'rgb(119, 203, 198)', glow: 'rgba(119, 203, 198, 0.95)' }, // Official Logo Aqua (#77cbc6)
+      { color: 'rgb(6, 182, 212)', glow: 'rgba(6, 182, 212, 0.95)' },    // Cyber Cyan
+      { color: 'rgb(56, 189, 248)', glow: 'rgba(56, 189, 248, 0.95)' },   // Sky Blue
+      { color: 'rgb(96, 165, 250)', glow: 'rgba(96, 165, 250, 0.9)' },    // Electric Blue
+      { color: 'rgb(45, 212, 191)', glow: 'rgba(45, 212, 191, 0.95)' },   // Emerald Teal
     ];
 
     const resize = () => {
@@ -54,30 +67,38 @@ export default function ParticleBackground({ className, id }: ParticleBackground
 
     const createParticles = () => {
       particles = [];
+      dataPulses = [];
       const width = canvas.offsetWidth || window.innerWidth;
       const height = canvas.offsetHeight || window.innerHeight;
-      
-      // Calculate balanced density so it looks rich and prominent without clutter
-      const count = Math.max(55, Math.min(130, Math.floor((width * height) / 10000)));
+
+      // Balanced count for smooth enterprise performance and elegant spacing
+      const count = Math.max(55, Math.min(120, Math.floor((width * height) / 11000)));
+
+      // Number of primary hub nodes (mirroring the logo's connected main circles)
+      const hubCount = Math.max(4, Math.floor(count * 0.08));
 
       for (let i = 0; i < count; i++) {
+        const isHub = i < hubCount;
         const theme = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-        const baseRadius = Math.random() * 2.2 + 1.6; // 1.6px to 3.8px
-        const hasGlow = Math.random() > 0.45; // 55% have radiant glow
+        const baseRadius = isHub 
+          ? Math.random() * 1.5 + 3.2 // Hubs: 3.2px to 4.7px
+          : Math.random() * 1.6 + 1.5; // Standard: 1.5px to 3.1px
 
         particles.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.75, // smooth, noticeable drift
-          vy: (Math.random() - 0.5) * 0.75,
+          vx: (Math.random() - 0.5) * (isHub ? 0.35 : 0.65), // Hubs drift slower, majestically
+          vy: (Math.random() - 0.5) * (isHub ? 0.35 : 0.65),
           baseRadius,
           radius: baseRadius,
           color: theme.color,
           glowColor: theme.glow,
-          alpha: Math.random() * 0.4 + 0.55, // 0.55 to 0.95 high visibility
-          pulseSpeed: Math.random() * 0.03 + 0.015,
+          alpha: isHub ? 0.95 : Math.random() * 0.35 + 0.55,
+          pulseSpeed: Math.random() * 0.025 + 0.015,
           pulseAngle: Math.random() * Math.PI * 2,
-          hasGlow,
+          hasGlow: isHub || Math.random() > 0.4,
+          isHub,
+          radarRadius: 0,
         });
       }
     };
@@ -99,10 +120,10 @@ export default function ParticleBackground({ className, id }: ParticleBackground
 
       ctx.clearRect(0, 0, width, height);
 
-      // Connection threshold distance
-      const maxDistance = 145;
+      const maxDistance = 165;
+      const activeConnections: { from: number; to: number; dist: number }[] = [];
 
-      // 1. Draw glowing connections between nearby particles
+      // 1. Draw connections between nearby nodes
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
@@ -110,21 +131,32 @@ export default function ParticleBackground({ className, id }: ParticleBackground
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < maxDistance) {
-            const lineAlpha = (1 - dist / maxDistance) * 0.32; // Crisp, clearly visible
+            const lineAlpha = (1 - dist / maxDistance) * 0.48;
+            activeConnections.push({ from: i, to: j, dist });
+
             ctx.save();
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            
-            // Dual-tone stroke for extra tech depth
-            ctx.strokeStyle = `rgba(56, 189, 248, ${lineAlpha})`;
-            ctx.lineWidth = lineAlpha * 2.2 + 0.4;
+
+            // Subtle gradient stroke between connected nodes
+            const gradient = ctx.createLinearGradient(
+              particles[i].x,
+              particles[i].y,
+              particles[j].x,
+              particles[j].y
+            );
+            gradient.addColorStop(0, `rgba(8, 125, 147, ${lineAlpha})`);
+            gradient.addColorStop(1, `rgba(119, 203, 198, ${lineAlpha})`);
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = lineAlpha * 2.0 + 0.4;
             ctx.stroke();
             ctx.restore();
           }
         }
 
-        // Draw connections to mouse cursor for high-tech interactivity
+        // Draw connections to mouse cursor for interactive responsiveness
         const mouseDx = particles[i].x - mouse.x;
         const mouseDy = particles[i].y - mouse.y;
         const mouseDist = Math.sqrt(mouseDx * mouseDx + mouseDy * mouseDy);
@@ -135,71 +167,118 @@ export default function ParticleBackground({ className, id }: ParticleBackground
           ctx.beginPath();
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(mouse.x, mouse.y);
-          ctx.strokeStyle = `rgba(6, 182, 212, ${mouseAlpha})`;
-          ctx.lineWidth = mouseAlpha * 2.5 + 0.8;
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = 'rgba(6, 182, 212, 0.9)';
+          ctx.strokeStyle = `rgba(119, 203, 198, ${mouseAlpha})`;
+          ctx.lineWidth = mouseAlpha * 2.2 + 0.6;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = 'rgba(6, 182, 212, 0.8)';
           ctx.stroke();
           ctx.restore();
 
-          // Subtle magnetic tug towards cursor
-          const force = (1 - mouseDist / mouse.radius) * 0.04;
+          // Subtle magnetic response
+          const force = (1 - mouseDist / mouse.radius) * 0.035;
           particles[i].vx -= (mouseDx / mouseDist) * force;
           particles[i].vy -= (mouseDy / mouseDist) * force;
         }
       }
 
-      // 2. Update and draw particles with glowing halo
+      // 2. Manage and draw traveling data packets along connections
+      if (activeConnections.length > 0 && dataPulses.length < 14 && Math.random() < 0.15) {
+        const conn = activeConnections[Math.floor(Math.random() * activeConnections.length)];
+        dataPulses.push({
+          fromIndex: conn.from,
+          toIndex: conn.to,
+          progress: 0,
+          speed: Math.random() * 0.015 + 0.01,
+          color: Math.random() > 0.5 ? '#77cbc6' : '#ffffff',
+        });
+      }
+
+      for (let pIdx = dataPulses.length - 1; pIdx >= 0; pIdx--) {
+        const pulse = dataPulses[pIdx];
+        pulse.progress += pulse.speed;
+
+        if (pulse.progress >= 1) {
+          dataPulses.splice(pIdx, 1);
+          continue;
+        }
+
+        const pA = particles[pulse.fromIndex];
+        const pB = particles[pulse.toIndex];
+        if (!pA || !pB) {
+          dataPulses.splice(pIdx, 1);
+          continue;
+        }
+
+        const px = pA.x + (pB.x - pA.x) * pulse.progress;
+        const py = pA.y + (pB.y - pA.y) * pulse.progress;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = pulse.color;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = pulse.color;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. Update and draw particles
       particles.forEach((p) => {
-        // Position update
         p.x += p.vx;
         p.y += p.vy;
 
-        // Dampen velocity to avoid over-acceleration from cursor
         p.vx *= 0.99;
         p.vy *= 0.99;
 
-        // Re-inject slight momentum if slowed down too much
-        if (Math.abs(p.vx) < 0.15) p.vx += (Math.random() - 0.5) * 0.1;
-        if (Math.abs(p.vy) < 0.15) p.vy += (Math.random() - 0.5) * 0.1;
+        if (Math.abs(p.vx) < 0.1) p.vx += (Math.random() - 0.5) * 0.08;
+        if (Math.abs(p.vy) < 0.1) p.vy += (Math.random() - 0.5) * 0.08;
 
-        // Wrap edges seamlessly
-        if (p.x < -10) p.x = width + 10;
-        if (p.x > width + 10) p.x = -10;
-        if (p.y < -10) p.y = height + 10;
-        if (p.y > height + 10) p.y = -10;
+        if (p.x < -15) p.x = width + 15;
+        if (p.x > width + 15) p.x = -15;
+        if (p.y < -15) p.y = height + 15;
+        if (p.y > height + 15) p.y = -15;
 
-        // Pulse radius animation
         p.pulseAngle += p.pulseSpeed;
-        const pulse = Math.sin(p.pulseAngle) * 0.45;
+        const pulse = Math.sin(p.pulseAngle) * 0.4;
         p.radius = Math.max(1, p.baseRadius + pulse);
 
         ctx.save();
 
-        // Outer ambient glow ring for radiant particles
+        // Expanding radar rings for hub nodes (like cybersecurity hubs)
+        if (p.isHub) {
+          p.radarRadius = (p.radarRadius + 0.35) % 28;
+          const radarAlpha = Math.max(0, (1 - p.radarRadius / 28) * 0.45);
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius + p.radarRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(119, 203, 198, ${radarAlpha})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+
+        // Ambient glow
         if (p.hasGlow) {
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = p.isHub ? 16 : 10;
           ctx.shadowColor = p.glowColor;
 
-          // Soft translucent halo
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius * 2.2, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(56, 189, 248, 0.18)`;
+          ctx.arc(p.x, p.y, p.radius * 2.0, 0, Math.PI * 2);
+          ctx.fillStyle = p.isHub ? 'rgba(119, 203, 198, 0.22)' : 'rgba(8, 125, 147, 0.15)';
           ctx.fill();
         }
 
-        // Crisp solid core
+        // Solid core
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.alpha;
         ctx.fill();
 
-        // Highlight center dot for ultra-sharp high-tech feel
+        // White focal spark
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.6, p.radius * 0.4), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, Math.max(0.6, p.radius * 0.38), 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
-        ctx.globalAlpha = 0.9;
+        ctx.globalAlpha = 0.95;
         ctx.fill();
 
         ctx.restore();
@@ -244,4 +323,3 @@ export default function ParticleBackground({ className, id }: ParticleBackground
     />
   );
 }
-
