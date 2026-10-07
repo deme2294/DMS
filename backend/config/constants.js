@@ -121,13 +121,19 @@ export const SLA_RESPONSE_HOURS = {
 };
 
 // Allowed status transitions per role (workflow validation).
-// 'overdue' is computed at read time, never a stored transition.
+// Multi-tier lifecycle:
+// Staff resolves -> under_review (Dept Manager approval)
+// Dept Manager approves -> pending_approval (Admin verification)
+// Admin verifies & resolves -> waiting_tenant (Tenant notification)
+// Tenant confirms solved -> completed (or reopens to in_progress if not solved)
 export const TICKET_STATUS_TRANSITIONS = {
   admin: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
+    under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
+    pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
@@ -140,16 +146,16 @@ export const TICKET_STATUS_TRANSITIONS = {
     cancelled: ['open', 'reopened'],
     escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
-    under_review: ['assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   ceo: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
+    under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
+    pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
@@ -162,52 +168,50 @@ export const TICKET_STATUS_TRANSITIONS = {
     cancelled: ['open', 'reopened'],
     escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
-    under_review: ['assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   manager: {
     assigned: ['in_progress', 'rejected'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated'],
+    in_progress: ['under_review', 'pending_approval', 'pending', 'waiting_vendor', 'escalated'],
     pending: ['in_progress', 'escalated'],
+    under_review: ['pending_approval', 'in_progress', 'rejected'],
+    pending_approval: ['in_progress'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'escalated'],
     waiting_vendor: ['in_progress'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
     reopened: ['in_progress', 'escalated'],
-    // legacy
     accepted: ['in_progress', 'escalated'],
     escalated: ['in_progress', 'resolved', 'waiting_tenant', 'completed'],
     assigned_department: ['assigned_staff'],
     assigned_staff: ['in_progress'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   staff: {
     assigned: ['in_progress'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed'],
+    in_progress: ['under_review', 'pending', 'waiting_vendor'],
+    under_review: [],
     pending: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress'],
-    resolved: ['waiting_tenant', 'completed', 'in_progress'],
-    completed: ['reopened'],
+    resolved: [],
+    completed: [],
     reopened: ['in_progress'],
-    escalated: ['in_progress', 'waiting_tenant', 'resolved'],
-    // legacy
+    escalated: ['in_progress'],
     assigned_staff: ['in_progress'],
   },
   tenant: {
     open: ['cancelled'],
-    waiting_tenant: ['completed', 'closed', 'in_progress', 'reopened'],
-    resolved: ['completed', 'closed', 'in_progress', 'reopened'],
+    waiting_tenant: ['completed', 'in_progress', 'closed', 'reopened'],
+    resolved: ['completed', 'in_progress', 'closed', 'reopened'],
     completed: ['reopened'],
     reopened: [],
     escalated: ['completed', 'in_progress', 'reopened'],
-    // legacy
     approved: ['closed', 'completed'],
     submitted: ['cancelled'],
   },
 };
+
 
 // Attachments
 export const MAX_ATTACHMENTS = 5;

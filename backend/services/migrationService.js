@@ -466,16 +466,16 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column ticket_replies.department_ids');
     }
 
-    // 9b. Table ticket_replies -> extend visibility ENUM to support tenant/department targeting
+    // 9b. Table ticket_replies -> extend visibility ENUM to support tenant/department/admin targeting
     const [replyVisRows] = await pool.query(
       `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ticket_replies' AND COLUMN_NAME = 'visibility'`
     );
-    if (replyVisRows.length && !replyVisRows[0].COLUMN_TYPE.includes("'department'")) {
+    if (replyVisRows.length && !replyVisRows[0].COLUMN_TYPE.includes("'admin'")) {
       await pool.query(
-        `ALTER TABLE ticket_replies MODIFY COLUMN visibility ENUM('all','internal','tenant','department','both') NOT NULL DEFAULT 'all'`
+        `ALTER TABLE ticket_replies MODIFY COLUMN visibility ENUM('all','internal','tenant','department','both','admin') NOT NULL DEFAULT 'all'`
       );
-      console.log('[MIGRATION] Extended ticket_replies.visibility ENUM');
+      console.log('[MIGRATION] Extended ticket_replies.visibility ENUM to include admin');
     }
 
     // 10. Table feedback -> ticket-based feedback fields
@@ -600,6 +600,7 @@ export async function runAutoMigrations() {
       { col: 'archived_at', def: "DATETIME NULL" },
       { col: 'deleted_at', def: "DATETIME NULL" },
       { col: 'view_count', def: "INT DEFAULT 0" },
+      { col: 'tenant_view_count', def: "INT DEFAULT 0" },
       { col: 'helpful_count', def: "INT DEFAULT 0" },
       { col: 'not_helpful_count', def: "INT DEFAULT 0" },
     ];
@@ -608,6 +609,22 @@ export async function runAutoMigrations() {
         await pool.query(`ALTER TABLE knowledge_base ADD COLUMN ${col} ${def}`);
         console.log(`[MIGRATION] Added column knowledge_base.${col}`);
       }
+    }
+
+    // Backfill knowledge_base.tenant_view_count from audit_logs
+    try {
+      await pool.query(`
+        UPDATE knowledge_base kb
+        SET tenant_view_count = COALESCE(
+          (SELECT COUNT(*) FROM audit_logs a
+           JOIN users u ON u.id = a.user_id
+           JOIN roles r ON r.id = u.role_id
+           WHERE a.entity_id = kb.id AND a.action = 'ARTICLE_VIEWED' AND r.name = 'tenant'),
+          0
+        )
+      `);
+    } catch (e) {
+      console.warn('[MIGRATION] Backfill tenant_view_count skipped:', e.message);
     }
 
     // Knowledge base indexes
@@ -668,17 +685,74 @@ export async function runAutoMigrations() {
         version_number VARCHAR(20) NOT NULL,
         title VARCHAR(200) NOT NULL,
         content TEXT NOT NULL,
+        summary TEXT NULL,
+        category VARCHAR(100) NULL,
         category_id CHAR(36) NULL,
+        tags VARCHAR(500) NULL,
+        visibility VARCHAR(50) NULL,
         change_summary TEXT NULL,
         created_by CHAR(36) NOT NULL,
         approved_by CHAR(36) NULL,
         approved_at DATETIME NULL,
         published_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_kb_article_version (article_id, version_number),
         KEY idx_kb_version_article (article_id),
         KEY idx_kb_version_number (version_number)
       )
     `);
+
+    // Ensure snapshot columns exist if table was created in an older schema
+    const versionCols = [
+      { col: 'summary', def: 'TEXT NULL AFTER content' },
+      { col: 'category', def: 'VARCHAR(100) NULL AFTER summary' },
+      { col: 'tags', def: 'VARCHAR(500) NULL AFTER category' },
+      { col: 'visibility', def: 'VARCHAR(50) NULL AFTER tags' },
+    ];
+    for (const { col, def } of versionCols) {
+      const [colRows] = await pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'knowledge_article_versions' AND COLUMN_NAME = ?`,
+        [col]
+      );
+      if (!colRows.length) {
+        await pool.query(`ALTER TABLE knowledge_article_versions ADD COLUMN ${col} ${def}`);
+      }
+    }
+
+    // Ensure unique constraint on (article_id, version_number) exists
+    const [verIdx] = await pool.query(
+      `SHOW INDEX FROM knowledge_article_versions WHERE Key_name = 'uq_kb_article_version'`
+    );
+    if (!verIdx.length) {
+      await pool.query(`ALTER TABLE knowledge_article_versions ADD UNIQUE KEY uq_kb_article_version (article_id, version_number)`);
+    }
+
+    // Backfill baseline version 1.0 snapshot for published or approved articles that lack snapshots
+    try {
+      const [publishedArticles] = await pool.query(
+        `SELECT * FROM knowledge_base WHERE status IN ('published', 'approved', 'unpublished', 'archived', 'restored')`
+      );
+      for (const a of publishedArticles) {
+        const [existing] = await pool.query(
+          `SELECT id FROM knowledge_article_versions WHERE article_id = ? AND version_number = ? LIMIT 1`,
+          [a.id, a.version || '1.0']
+        );
+        if (!existing.length) {
+          const { v4: uuidv4 } = await import('uuid');
+          await pool.query(
+            `INSERT INTO knowledge_article_versions
+              (id, article_id, version_number, title, content, summary, category, category_id, tags, visibility, change_summary, created_by, approved_by, approved_at, published_at, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              uuidv4(), a.id, a.version || '1.0', a.title, a.content, a.summary || null, a.category || null, a.department_id || null, a.tags || null, a.visibility || 'public',
+              `Initial published release (v${a.version || '1.0'})`, a.author_id, a.approved_by || null, a.approved_at || null, a.published_at || null, a.created_at || new Date()
+            ]
+          );
+        }
+      }
+    } catch (backfillErr) {
+      console.error('[MIGRATION] Warning during version backfill:', backfillErr.message);
+    }
     console.log('[MIGRATION] Created/verified knowledge_article_versions table');
 
     // 21. Create knowledge_attachments table
@@ -781,37 +855,34 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column users.user_code');
     }
 
-    // 16. Assign user codes to existing users that don't have one yet
-    const [allUsers] = await pool.query(
-      `SELECT u.id, r.name AS role_name
+    // 16. Assign 4-to-6 digit numeric user codes to existing users
+    const [unassignedUsers] = await pool.query(
+      `SELECT u.id, u.created_at
        FROM users u
-       JOIN roles r ON r.id = u.role_id
-       WHERE u.user_code IS NULL
-       ORDER BY r.name, u.username`
+       WHERE u.user_code IS NULL OR u.user_code NOT REGEXP '^[0-9]{4,6}$'
+       ORDER BY u.created_at ASC, u.id ASC`
     );
 
-    if (allUsers.length > 0) {
-      const roleGroups = {};
-      for (const user of allUsers) {
-        if (!roleGroups[user.role_name]) {
-          roleGroups[user.role_name] = [];
+    if (unassignedUsers.length > 0) {
+      const [maxRows] = await pool.query(
+        `SELECT user_code FROM users WHERE user_code REGEXP '^[0-9]{4,6}$' ORDER BY CAST(user_code AS UNSIGNED) DESC LIMIT 1`
+      );
+      let nextNum = 1001;
+      if (maxRows.length && maxRows[0].user_code) {
+        const parsed = parseInt(maxRows[0].user_code, 10);
+        if (!isNaN(parsed) && parsed >= 1000) {
+          nextNum = parsed + 1;
         }
-        roleGroups[user.role_name].push(user.id);
       }
 
-       const year = new Date().getFullYear().toString().slice(-2);
-       for (const [roleName, userIds] of Object.entries(roleGroups)) {
-         const prefix = roleName.charAt(0).toUpperCase();
-         for (let i = 0; i < userIds.length; i++) {
-           const sequence = String(i + 1).padStart(3, '0');
-           const userCode = `${prefix}${sequence}/${year}`;
-           await pool.query(
-             'UPDATE users SET user_code = :userCode WHERE id = :id',
-             { userCode, id: userIds[i] }
-           );
-         }
-       }
-      console.log(`[MIGRATION] Assigned user codes to ${allUsers.length} existing users`);
+      for (const u of unassignedUsers) {
+        const userCode = String(nextNum++);
+        await pool.query(
+          'UPDATE users SET user_code = :userCode WHERE id = :id',
+          { userCode, id: u.id }
+        );
+      }
+      console.log(`[MIGRATION] Assigned 4-6 digit numeric user codes to ${unassignedUsers.length} users`);
     }
 
     // 17. Add missing columns to assignments table
@@ -829,6 +900,83 @@ export async function runAutoMigrations() {
         await pool.query(`ALTER TABLE assignments ADD COLUMN ${col} ${def}`);
         console.log(`[MIGRATION] Added column assignments.${col}`);
       }
+    }
+
+    // 18. Create knowledge_article_feedback table and ensure 1-feedback-per-user deduplication
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS knowledge_article_feedback (
+        id CHAR(36) PRIMARY KEY,
+        article_id CHAR(36) NOT NULL,
+        user_id CHAR(36) NOT NULL,
+        is_helpful TINYINT(1) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_kb_article_user (article_id, user_id),
+        KEY idx_kb_article_feedback_art (article_id),
+        KEY idx_kb_article_feedback_usr (user_id)
+      )
+    `);
+    console.log('[MIGRATION] Created/verified knowledge_article_feedback table');
+
+    if (!(await columnExists('knowledge_article_feedback', 'reason'))) {
+      await pool.query('ALTER TABLE knowledge_article_feedback ADD COLUMN reason VARCHAR(255) NULL');
+      console.log('[MIGRATION] Added column knowledge_article_feedback.reason');
+    }
+    if (!(await columnExists('knowledge_article_feedback', 'comment'))) {
+      await pool.query('ALTER TABLE knowledge_article_feedback ADD COLUMN comment TEXT NULL');
+      console.log('[MIGRATION] Added column knowledge_article_feedback.comment');
+    }
+
+    // Populate deduplicated feedback from historical audit_logs if any
+    try {
+      const [existingFeedbackLogs] = await pool.query(`
+        SELECT user_id, entity_id AS article_id, details, created_at
+        FROM audit_logs
+        WHERE action = 'ARTICLE_FEEDBACK_SUBMITTED'
+        ORDER BY created_at ASC
+      `);
+      for (const log of existingFeedbackLogs) {
+        if (!log.article_id || !log.user_id) continue;
+        let isHelpful = 1;
+        try {
+          const parsed = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+          isHelpful = parsed?.helpful === false ? 0 : 1;
+        } catch {}
+        await pool.query(
+          `INSERT INTO knowledge_article_feedback (id, article_id, user_id, is_helpful)
+           VALUES (UUID(), ?, ?, ?)
+           ON DUPLICATE KEY UPDATE is_helpful = VALUES(is_helpful)`,
+          [log.article_id, log.user_id, isHelpful]
+        );
+      }
+
+      // Synchronize article counts with deduplicated feedback table
+      await pool.query(`
+        UPDATE knowledge_base kb
+        SET 
+          helpful_count = (
+            SELECT COUNT(*) FROM knowledge_article_feedback kaf 
+            WHERE kaf.article_id = kb.id AND kaf.is_helpful = 1
+          ),
+          not_helpful_count = (
+            SELECT COUNT(*) FROM knowledge_article_feedback kaf 
+            WHERE kaf.article_id = kb.id AND kaf.is_helpful = 0
+          )
+        WHERE kb.id IN (SELECT DISTINCT article_id FROM knowledge_article_feedback)
+      `);
+    } catch (migErr) {
+      console.error('[MIGRATION] Warning during knowledge feedback historical sync:', migErr.message);
+    }
+
+    // Ensure all roles that can view/rate knowledge articles have knowledge.rate permission
+    try {
+      await pool.query(
+        `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+         SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+         WHERE p.code = 'knowledge.rate' AND r.name IN ('admin', 'manager', 'staff', 'tenant')`
+      );
+    } catch (permErr) {
+      console.error('[MIGRATION] Warning seeding knowledge.rate permission:', permErr.message);
     }
 
     console.log('[MIGRATION] Schema verification completed successfully.');

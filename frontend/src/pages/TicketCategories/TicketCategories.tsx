@@ -55,6 +55,9 @@ export default function TicketCategories() {
     const [form, setForm] = useState(emptyForm);
     const [saving, setSaving] = useState(false);
 
+    const [viewingCategory, setViewingCategory] = useState<TicketCategory | null>(null);
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+
     const [slaModalOpen, setSlaModalOpen] = useState(false);
     const [slaForm, setSlaForm] = useState(emptySlaForm);
     const [slaSaving, setSlaSaving] = useState(false);
@@ -126,6 +129,11 @@ export default function TicketCategories() {
         });
         setError('');
         setModalOpen(true);
+    };
+
+    const openView = (cat: TicketCategory) => {
+        setViewingCategory(cat);
+        setViewModalOpen(true);
     };
 
     const handleSave = async () => {
@@ -376,7 +384,7 @@ export default function TicketCategories() {
                         return (
                             <div key={cat.id} className={`${styles.card} ${!cat.isActive ? styles.inactive : ''}`}>
                                 <div className={styles.cardHeader}>
-                                    <span className={styles.catName}>{cat.name}</span>
+                                    <span className={styles.catName} onClick={() => openView(cat)} style={{ cursor: 'pointer' }} title="Click to view details">{cat.name}</span>
                                     {cat.status === 'pending' && <span className={styles.statusPending}>Pending</span>}
                                     {cat.status === 'rejected' && <span className={styles.statusRejected}>Rejected</span>}
                                     {cat.status === 'approved' && !cat.isActive && <span className={styles.badge}>Inactive</span>}
@@ -407,6 +415,7 @@ export default function TicketCategories() {
                                     </div>
                                 )}
                                 <div className={styles.cardActions}>
+                                    <IconButton variant="view" onClick={() => openView(cat)} title="View Category Details" />
                                     <IconButton variant="edit" onClick={() => openEdit(cat)} title="Edit Category" />
                                     <IconButton variant="add" onClick={() => openSlaModal(cat)} title="Add SLA Policy" />
                                     {cat.isActive ? (
@@ -580,6 +589,192 @@ export default function TicketCategories() {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            <Modal
+                open={viewModalOpen}
+                title={`Category Details: ${viewingCategory?.name || ''}`}
+                onClose={() => setViewModalOpen(false)}
+            >
+                {viewingCategory && (
+                    <div className={styles.viewModalContent}>
+                        <div className={styles.viewHeader}>
+                            <div>
+                                <h2 className={styles.viewTitle}>{viewingCategory.name}</h2>
+                                <div className={styles.viewBadges}>
+                                    <span className={viewingCategory.isActive ? styles.badgeActive : styles.badgeInactive}>
+                                        {viewingCategory.isActive ? '● Active' : '○ Inactive'}
+                                    </span>
+                                    {viewingCategory.status && (
+                                        <span className={
+                                            viewingCategory.status === 'approved' ? styles.statusApproved :
+                                            viewingCategory.status === 'pending' ? styles.statusPending :
+                                            styles.statusRejected
+                                        }>
+                                            {viewingCategory.status.toUpperCase()}
+                                        </span>
+                                    )}
+                                    <span className={styles.routingBadge}>
+                                        {((viewingCategory as any).routing_type || viewingCategory.routingType) === 'direct'
+                                            ? 'Direct Routing'
+                                            : 'General Routing'}
+                                    </span>
+                                    {viewingCategory.departmentName && (
+                                        <span className={styles.deptBadge}>{viewingCategory.departmentName}</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.viewSection}>
+                            <h4 className={styles.viewSectionTitle}>Description</h4>
+                            <p className={styles.viewDesc}>
+                                {viewingCategory.description || 'No description provided for this category.'}
+                            </p>
+                        </div>
+
+                        <div className={styles.viewGrid}>
+                            <div className={styles.viewCard}>
+                                <span className={styles.viewLabel}>Assigned Department</span>
+                                <span className={styles.viewValue}>
+                                    {viewingCategory.departmentName || 'All Departments (General / Unassigned)'}
+                                </span>
+                            </div>
+                            <div className={styles.viewCard}>
+                                <span className={styles.viewLabel}>Routing Flow</span>
+                                <span className={styles.viewValue}>
+                                    {((viewingCategory as any).routing_type || viewingCategory.routingType) === 'direct'
+                                        ? 'Direct to Department Manager'
+                                        : 'General Admin Dispatch'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className={styles.viewSection}>
+                            <h4 className={styles.viewSectionTitle}>Default SLA Policy</h4>
+                            {viewingCategory.slaPolicyName ? (
+                                <div className={styles.viewSlaHighlight}>
+                                    <div className={styles.viewSlaHeader}>
+                                        <strong>⚡ {viewingCategory.slaPolicyName}</strong>
+                                        <span className={`${styles.viewPriorityBadge} ${styles[viewingCategory.slaPriority?.toLowerCase() || 'high'] || ''}`}>
+                                            {(viewingCategory.slaPriority || 'General').toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div className={styles.viewSlaStats}>
+                                        {viewingCategory.slaResolutionHours && (
+                                            <div className={styles.viewSlaStatItem}>
+                                                <span>Resolution Time</span>
+                                                <strong>{viewingCategory.slaResolutionHours} hours</strong>
+                                            </div>
+                                        )}
+                                        {viewingCategory.slaResponseHours && (
+                                            <div className={styles.viewSlaStatItem}>
+                                                <span>First Response</span>
+                                                <strong>{viewingCategory.slaResponseHours} hours</strong>
+                                            </div>
+                                        )}
+                                        {viewingCategory.slaEscalationHours ? (
+                                            <div className={styles.viewSlaStatItem}>
+                                                <span>Escalation</span>
+                                                <strong>{viewingCategory.slaEscalationHours} hours</strong>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className={styles.viewEmpty}>No default SLA policy assigned. (System priority defaults apply)</div>
+                            )}
+                        </div>
+
+                        <div className={styles.viewSection}>
+                            <h4 className={styles.viewSectionTitle}>
+                                Category SLA Policies ({getCategorySlaPolicies(viewingCategory.id).length})
+                            </h4>
+                            {getCategorySlaPolicies(viewingCategory.id).length > 0 ? (
+                                <div className={styles.viewSlaList}>
+                                    {getCategorySlaPolicies(viewingCategory.id).map((p) => (
+                                        <div key={p.id} className={styles.viewSlaCard}>
+                                            <div className={styles.viewSlaCardHeader}>
+                                                <strong>{p.name}</strong>
+                                                <span className={`${styles.priorityPill} ${styles[p.priority?.toLowerCase() || 'medium'] || ''}`}>
+                                                    {p.priority.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <div className={styles.viewSlaCardMeta}>
+                                                <span>⏱️ Resolution: <strong>{p.resolutionHours}h</strong></span>
+                                                <span>💬 Response: <strong>{p.responseHours}h</strong></span>
+                                                {p.escalationHours ? (
+                                                    <span>🚨 Escalation: <strong>{p.escalationHours}h</strong></span>
+                                                ) : null}
+                                            </div>
+                                            {p.description && <p className={styles.viewSlaCardDesc}>{p.description}</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className={styles.viewEmpty}>No additional SLA policies configured for this category.</div>
+                            )}
+                        </div>
+
+                        <div className={styles.viewMetaSection}>
+                            <div className={styles.viewMetaRow}>
+                                <span>Created By:</span>
+                                <strong>{viewingCategory.createdByName || 'System Admin'}</strong>
+                            </div>
+                            {viewingCategory.createdAt && (
+                                <div className={styles.viewMetaRow}>
+                                <span>Created Date:</span>
+                                <strong>{new Date(viewingCategory.createdAt).toLocaleString()}</strong>
+                            </div>
+                            )}
+                            {viewingCategory.updatedAt && (
+                                <div className={styles.viewMetaRow}>
+                                <span>Last Updated:</span>
+                                <strong>{new Date(viewingCategory.updatedAt).toLocaleString()}</strong>
+                            </div>
+                            )}
+                            {viewingCategory.reviewNotes && (
+                                <div className={styles.viewMetaRow}>
+                                <span>Review Notes:</span>
+                                <strong>{viewingCategory.reviewNotes}</strong>
+                            </div>
+                            )}
+                        </div>
+
+                        <div className={styles.modalActions}>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const cat = viewingCategory;
+                                    setViewModalOpen(false);
+                                    openEdit(cat);
+                                }}
+                                className={styles.editBtn}
+                            >
+                                ✏️ Edit Category
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const cat = viewingCategory;
+                                    setViewModalOpen(false);
+                                    openSlaModal(cat);
+                                }}
+                                className={styles.saveBtn}
+                                style={{ background: '#0284c7' }}
+                            >
+                                ➕ Add SLA Policy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewModalOpen(false)}
+                                className={styles.cancelBtn}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </div>
     );

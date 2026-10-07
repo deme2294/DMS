@@ -3,7 +3,7 @@ import { body, param, query } from 'express-validator';
 import * as departmentController from '../controllers/departmentController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/roleMiddleware.js';
-import { validate, idParam } from '../middleware/validationMiddleware.js';
+import { validate, departmentIdParam } from '../middleware/validationMiddleware.js';
 
 const router = Router();
 
@@ -26,7 +26,7 @@ router.get(
   authorize('departments.manage'),
   [
     query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('limit').optional().isInt({ min: 1, max: 1000 }),
     query('status').optional().custom((v) => !v || ['active', 'inactive'].includes(v)).withMessage('Invalid status'),
     validate,
   ],
@@ -34,12 +34,12 @@ router.get(
 );
 
 // Member management — declared before '/:id' to avoid any path shadowing.
-router.get('/:id/members', authorize('departments.manage'), [idParam(), validate], departmentController.getDepartmentMembers);
+router.get('/:id/members', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.getDepartmentMembers);
 router.post(
   '/:id/members',
   authorize('departments.manage'),
   [
-    idParam(),
+    departmentIdParam('id'),
     body('userIds').optional().isArray(),
     body('userIds.*').optional().isString().trim(),
     validate,
@@ -47,10 +47,10 @@ router.post(
   departmentController.assignDepartmentUsers
 );
 
-router.get('/:id', authorize('departments.manage'), [idParam(), validate], departmentController.getDepartmentById);
-router.delete('/:id', authorize('departments.manage'), [idParam(), validate], departmentController.deleteDepartment);
-router.patch('/:id/activate', authorize('departments.manage'), [idParam(), validate], departmentController.activateDepartment);
-router.patch('/:id/deactivate', authorize('departments.manage'), [idParam(), validate], departmentController.deactivateDepartment);
+router.get('/:id', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.getDepartmentById);
+router.delete('/:id', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.deleteDepartment);
+router.patch('/:id/activate', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.activateDepartment);
+router.patch('/:id/deactivate', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.deactivateDepartment);
 
 router.post(
   '/',
@@ -72,7 +72,7 @@ router.put(
   '/:id',
   authorize('departments.manage'),
   [
-    idParam(),
+    departmentIdParam('id'),
     body('name').optional().trim().isLength({ min: 2, max: 150 }),
     body('code').optional().trim().isLength({ min: 2, max: 50 }).matches(/^[A-Za-z0-9_-]+$/),
     body('description').optional().trim(),

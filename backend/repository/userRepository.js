@@ -13,7 +13,8 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
   if (search) {
     where += ` AND (
       u.username LIKE :search OR u.email LIKE :search OR
-      u.first_name LIKE :search OR u.last_name LIKE :search OR u.phone LIKE :search
+      u.first_name LIKE :search OR u.last_name LIKE :search OR u.phone LIKE :search OR
+      u.user_code LIKE :search
     )`;
     params.search = `%${search}%`;
   }
@@ -104,7 +105,7 @@ export const findById = async (id) => {
       FROM users u
       JOIN roles r ON r.id = u.role_id
       LEFT JOIN tenants t ON t.id = u.tenant_id
-      WHERE u.id = :id
+      WHERE u.id = :id OR u.user_code = :id
       LIMIT 1`,
     { id }
   );
@@ -263,4 +264,26 @@ export const getAudienceUsers = async (audience) => {
 
   const [rows] = await pool.query(sql, { audience });
   return rows;
+};
+
+export const getNextUserCode = async () => {
+  const [rows] = await pool.query(
+    `SELECT user_code FROM users WHERE user_code REGEXP '^[0-9]{4,6}$' ORDER BY CAST(user_code AS UNSIGNED) DESC LIMIT 1`
+  );
+  let nextNum = 1001;
+  if (rows.length && rows[0].user_code) {
+    const val = parseInt(rows[0].user_code, 10);
+    if (!isNaN(val) && val >= 1000 && val < 999999) {
+      nextNum = val + 1;
+    }
+  }
+
+  while (true) {
+    const code = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM users WHERE user_code = :code LIMIT 1', { code });
+    if (!exists.length) {
+      return code;
+    }
+    nextNum++;
+  }
 };

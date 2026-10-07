@@ -174,8 +174,17 @@ export const reopenTicket = async (req, res, next) => {
 
 export const approveCompletion = async (req, res, next) => {
   try {
-    const data = await ticketService.approveCompletion(req.user, req.params.id, req.body.notes, clientMeta(req));
-    res.status(HTTP.OK).json({ success: true, message: 'Completion approved', data });
+    const data = await ticketService.approveCompletion(
+      req.user,
+      req.params.id,
+      req.body.notes,
+      clientMeta(req),
+      {
+        rating: req.body.rating,
+        feedback: req.body.feedback || req.body.message,
+      }
+    );
+    res.status(HTTP.OK).json({ success: true, message: 'Resolution approved', data });
   } catch (err) {
     next(err);
   }

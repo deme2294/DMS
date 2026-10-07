@@ -109,3 +109,31 @@
     flex-wrap: wrap;
   }
 }
+
+/* Dark Theme Overrides */
+:global([data-theme="dark"]) .layout {
+  background: #0b0f17 !important;
+}
+
+:global([data-theme="dark"]) .header {
+  background: #101522 !important;
+  border-bottom-color: #252e3e !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .brand strong {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .brand span {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .nav a {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .nav a:hover {
+  color: #60a5fa !important;
+  background: #192235 !important;
+}

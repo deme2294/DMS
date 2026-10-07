@@ -470,13 +470,13 @@ export const getReplies = async (ticketId) => {
 
 // ── Assignment lifecycle (assignments table) ──
 export const createAssignment = async ({
-  ticketId, assignedBy, assignedTo, role, notes, priority, category, fromAssignmentId,
+  ticketId, assignedBy, assignedTo, role, notes, priority, category, fromAssignmentId, status = 'pending', acceptedAt = null,
 }) => {
   const id = uuidv4();
   await pool.query(
     `INSERT INTO assignments
-       (id, ticket_id, assigned_by, assigned_to, role, notes, priority, category, from_assignment_id, status)
-     VALUES (:id, :ticketId, :assignedBy, :assignedTo, :role, :notes, :priority, :category, :fromAssignmentId, 'pending')`,
+       (id, ticket_id, assigned_by, assigned_to, role, notes, priority, category, from_assignment_id, status, accepted_at)
+     VALUES (:id, :ticketId, :assignedBy, :assignedTo, :role, :notes, :priority, :category, :fromAssignmentId, :status, :acceptedAt)`,
     {
       id,
       ticketId,
@@ -487,13 +487,15 @@ export const createAssignment = async ({
       priority: priority || null,
       category: category || null,
       fromAssignmentId: fromAssignmentId || null,
+      status,
+      acceptedAt: acceptedAt || (status === 'accepted' ? new Date() : null),
     }
   );
   return id;
 };
 
 export const findActiveAssignment = async (ticketId, role) => {
-  let sql = `SELECT * FROM assignments WHERE ticket_id = :ticketId AND status = 'pending'`;
+  let sql = `SELECT * FROM assignments WHERE ticket_id = :ticketId AND status IN ('pending', 'accepted')`;
   const params = { ticketId };
   if (role) { sql += ' AND role = :role'; params.role = role; }
   sql += ' ORDER BY created_at DESC LIMIT 1';
@@ -583,7 +585,7 @@ export const getTimeline = async (ticketId) => {
     { ticketId }
   );
   const [attachments] = await pool.query(
-    `SELECT a.id, 'attachment' AS type, a.file_name AS message, a.mime_type,
+    `SELECT a.id, 'attachment' AS type, a.file_name AS message, a.file_path, a.mime_type,
             a.created_at, CONCAT(u.first_name,' ',u.last_name) AS actor_name
      FROM ticket_attachments a
      LEFT JOIN users u ON u.id = a.uploaded_by

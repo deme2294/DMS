@@ -91,9 +91,11 @@ export default function KnowledgeBasePage() {
   const rate = async (helpful: boolean) => {
     if (!viewTarget) return;
     try {
-      await rateArticle(viewTarget.id, helpful);
-      setMessage('Thanks for your feedback');
-      setViewTarget({ ...viewTarget, helpfulCount: (viewTarget.helpfulCount || 0) + (helpful ? 1 : 0), notHelpfulCount: (viewTarget.notHelpfulCount || 0) + (helpful ? 0 : 1) });
+      const res = await rateArticle(viewTarget.id, helpful);
+      setMessage(res.data?.message || 'Thanks for your feedback');
+      if (res.data?.data) {
+        setViewTarget(res.data.data);
+      }
     } catch {
       setMessage('Failed to submit feedback');
     }

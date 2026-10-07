@@ -143,31 +143,64 @@ export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => 
   }
 };
 
-export const notifyTicketReply = async (ticket, replyUserId, isInternal = false) => {
+export const notifyTicketReply = async (ticket, replyUserId, isInternal = false, visibility = 'all') => {
   const recipients = new Set();
   const [creator] = await pool.query('SELECT id FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
-  if (creator.length && creator[0].id !== replyUserId && !isInternal) {
-    recipients.add(creator[0].id);
+
+  if (visibility === 'admin') {
+    // Only notify active admins
+    const [admins] = await pool.query(
+      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+    );
+    admins.forEach((a) => {
+      if (a.id !== replyUserId) recipients.add(a.id);
+    });
+  } else {
+    if (creator.length && creator[0].id !== replyUserId && !isInternal && visibility !== 'department') {
+      recipients.add(creator[0].id);
+    }
+
+    if (ticket.assigned_to && ticket.assigned_to !== replyUserId && visibility !== 'tenant') {
+      recipients.add(ticket.assigned_to);
+    }
+
+    const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
+    for (const userId of accessibleUserIds) {
+      if (userId !== replyUserId) recipients.add(userId);
+    }
   }
 
-  if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
-    recipients.add(ticket.assigned_to);
-  }
-
-  const accessibleUserIds = await getTicketAccessibleUserIds(ticket);
-  for (const userId of accessibleUserIds) {
-    if (userId !== replyUserId) recipients.add(userId);
-  }
+  const [authorUser] = await pool.query('SELECT first_name, last_name FROM users WHERE id = :id LIMIT 1', { id: replyUserId });
+  const authorName = authorUser.length ? `${authorUser[0].first_name || ''} ${authorUser[0].last_name || ''}`.trim() : 'User';
 
   for (const userId of recipients) {
+    const title = visibility === 'admin' ? 'New Admin Note on Ticket' : 'New Reply on Ticket';
+    const message = visibility === 'admin'
+      ? `${authorName} sent a private manager reply to Admin on ticket ${ticket.reference_number}.`
+      : `A new reply has been added to ticket ${ticket.reference_number}.`;
+
     await notificationRepo.createNotification(
       userId,
-      'New Reply on Ticket',
-      `A new reply has been added to ticket ${ticket.reference_number}.`,
+      title,
+      message,
       'reply',
       ticket.id
     );
+    emitToUser(userId, 'notification', {
+      title,
+      message,
+      type: 'reply',
+      ticketId: ticket.id,
+      visibility,
+    });
   }
+
+  broadcastTicketEvent(ticket.id, 'ticket:reply', {
+    ticketId: ticket.id,
+    referenceNumber: ticket.reference_number,
+    replyUserId,
+    visibility,
+  });
 };
 
 export const notifyTicketStatusChanged = async (ticket, toStatus, changedByUserId) => {
@@ -786,3 +819,195 @@ export const notifyKnowledgeUnpublished = async (article, unpublishedByUser) => 
     });
   }
 };
+
+// ── Multi-Tier Ticket Resolution Lifecycle Notifications ──
+
+export const notifyStaffSubmittedResolution = async (ticket, staffUserId, notes = '') => {
+  if (ticket.department_id) {
+    const [managers] = await pool.query(
+      `SELECT u.id, u.email, u.first_name FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const mgr of managers) {
+      await notificationRepo.createNotification(
+        mgr.id,
+        'Staff Resolution Pending Manager Approval',
+        `Ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 50)}" was resolved by staff and requires your review/approval.`,
+        'status',
+        ticket.id
+      );
+      emitToUser(mgr.id, 'notification', {
+        title: 'Staff Resolution Pending Manager Approval',
+        message: `Ticket ${ticket.reference_number || ticket.referenceNumber} was resolved by staff and requires your review/approval.`,
+        type: 'status',
+        ticketId: ticket.id,
+      });
+    }
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:under_review', { ticketId: ticket.id, status: 'under_review' });
+};
+
+export const notifyManagerApprovedResolution = async (ticket, managerUserId, notes = '') => {
+  const [admins] = await pool.query(
+    `SELECT u.id, u.email, u.first_name FROM users u
+     JOIN roles r ON r.id = u.role_id
+     WHERE r.name IN ('admin', 'ceo') AND u.status = 'active'`
+  );
+  for (const adm of admins) {
+    await notificationRepo.createNotification(
+      adm.id,
+      'Resolution Pending Admin Verification',
+      `Department manager approved resolution for ticket ${ticket.reference_number || ticket.referenceNumber}. Awaiting admin verification.`,
+      'status',
+      ticket.id
+    );
+    emitToUser(adm.id, 'notification', {
+      title: 'Resolution Pending Admin Verification',
+      message: `Department manager approved resolution for ticket ${ticket.reference_number || ticket.referenceNumber}. Awaiting admin verification.`,
+      type: 'status',
+      ticketId: ticket.id,
+    });
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:pending_approval', { ticketId: ticket.id, status: 'pending_approval' });
+};
+
+export const notifyAdminVerifiedResolution = async (ticket, adminUserId, notes = '') => {
+  // 1. Notify Tenant that ticket is resolved and waiting for tenant's verification
+  if (ticket.created_by) {
+    const [tenantRows] = await pool.query(
+      'SELECT email, first_name FROM users WHERE id = :id LIMIT 1',
+      { id: ticket.created_by }
+    );
+    await notificationRepo.createNotification(
+      ticket.created_by,
+      'Ticket Resolved - Your Confirmation Needed',
+      `Your ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 50)}" has been resolved. Please confirm whether your issue is solved.`,
+      'status',
+      ticket.id
+    );
+    emitToUser(ticket.created_by, 'notification', {
+      title: 'Ticket Resolved - Your Confirmation Needed',
+      message: `Your ticket ${ticket.reference_number || ticket.referenceNumber} has been resolved. Please verify if your issue is solved.`,
+      type: 'status',
+      ticketId: ticket.id,
+    });
+    if (tenantRows.length) {
+      sendTicketResolvedEmail({
+        email: tenantRows[0].email,
+        firstName: tenantRows[0].first_name,
+        ticket: {
+          reference_number: ticket.reference_number || ticket.referenceNumber,
+          title: ticket.title,
+          notes,
+        },
+      }).catch(() => {});
+    }
+  }
+
+  // 2. Notify assigned staff and department manager
+  const recipients = new Set();
+  if (ticket.assigned_to && ticket.assigned_to !== adminUserId) recipients.add(ticket.assigned_to);
+  if (ticket.department_id) {
+    const [mgrs] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const m of mgrs) {
+      if (m.id !== adminUserId) recipients.add(m.id);
+    }
+  }
+  for (const uid of recipients) {
+    await notificationRepo.createNotification(
+      uid,
+      'Ticket Resolution Verified by Admin',
+      `Admin verified resolution for ticket ${ticket.reference_number || ticket.referenceNumber}. Routed to tenant for confirmation.`,
+      'status',
+      ticket.id
+    );
+    emitToUser(uid, 'notification', {
+      title: 'Ticket Resolution Verified by Admin',
+      message: `Admin verified resolution for ticket ${ticket.reference_number || ticket.referenceNumber}.`,
+      type: 'status',
+      ticketId: ticket.id,
+    });
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:waiting_tenant', { ticketId: ticket.id, status: 'waiting_tenant' });
+};
+
+export const notifyTenantConfirmedResolution = async (ticket, tenantUserId, rating, feedback) => {
+  const recipients = new Set();
+  if (ticket.assigned_to) recipients.add(ticket.assigned_to);
+  if (ticket.department_id) {
+    const [mgrs] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const m of mgrs) recipients.add(m.id);
+  }
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin', 'ceo') AND u.status = 'active'`
+  );
+  for (const a of admins) recipients.add(a.id);
+  recipients.delete(tenantUserId);
+
+  for (const uid of recipients) {
+    await notificationRepo.createNotification(
+      uid,
+      'Ticket Confirmed Solved by Tenant',
+      `Tenant confirmed ticket ${ticket.reference_number || ticket.referenceNumber} is solved! Rated: ${rating || 5}/5. Status marked as Completed.`,
+      'status',
+      ticket.id
+    );
+    emitToUser(uid, 'notification', {
+      title: 'Ticket Confirmed Solved by Tenant',
+      message: `Tenant confirmed ticket ${ticket.reference_number || ticket.referenceNumber} is solved! Rated: ${rating || 5}/5.`,
+      type: 'status',
+      ticketId: ticket.id,
+    });
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:completed', { ticketId: ticket.id, status: 'completed' });
+};
+
+export const notifyReworkRequested = async (ticket, requestedByUserId, reason, targetAudience = 'all') => {
+  const recipients = new Set();
+  if (ticket.assigned_to && ticket.assigned_to !== requestedByUserId) recipients.add(ticket.assigned_to);
+  if (ticket.department_id) {
+    const [mgrs] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId: ticket.department_id }
+    );
+    for (const m of mgrs) {
+      if (m.id !== requestedByUserId) recipients.add(m.id);
+    }
+  }
+
+  for (const uid of recipients) {
+    await notificationRepo.createNotification(
+      uid,
+      'Ticket Rework Requested',
+      `Ticket ${ticket.reference_number || ticket.referenceNumber} returned to In Progress for rework. Reason: ${truncate(reason || 'Rework requested', 100)}`,
+      'status',
+      ticket.id
+    );
+    emitToUser(uid, 'notification', {
+      title: 'Ticket Rework Requested',
+      message: `Ticket ${ticket.reference_number || ticket.referenceNumber} returned to In Progress for rework.`,
+      type: 'status',
+      ticketId: ticket.id,
+    });
+  }
+  broadcastTicketEvent(ticket.id, 'ticket:in_progress', { ticketId: ticket.id, status: 'in_progress' });
+};
+

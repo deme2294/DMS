@@ -114,3 +114,26 @@
   box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
   transform: translateY(-1px);
 }
+
+/* Dark Theme Overrides */
+:global([data-theme="dark"]) .btn-secondary {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+:global([data-theme="dark"]) .btn-secondary:hover:not(:disabled) {
+  background: #27354f !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .btn-ghost {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .btn-ghost:hover:not(:disabled) {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}

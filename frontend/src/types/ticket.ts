@@ -63,7 +63,7 @@ export interface TicketReply {
   userId: string;
   userName?: string;
   message: string;
-  visibility: 'all' | 'internal' | 'tenant' | 'department' | 'both';
+  visibility: 'all' | 'internal' | 'tenant' | 'department' | 'both' | 'admin';
   type?: string;
   isInternal?: boolean;
   attachmentId?: string | null;
@@ -84,6 +84,8 @@ export interface TimelineEvent {
   role?: string | null;
   actorName?: string | null;
   departmentIds?: string | null;
+  filePath?: string | null;
+  mimeType?: string | null;
   createdAt?: string;
 }
 
@@ -188,7 +190,7 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   assigned: 'Assigned',
   in_progress: 'In Progress',
   pending: 'Pending',
-  waiting_tenant: 'Waiting for Tenant',
+  waiting_tenant: 'Waiting for Tenant Confirmation',
   waiting_vendor: 'Waiting for Vendor',
   resolved: 'Resolved',
   reopened: 'Reopened',
@@ -200,10 +202,10 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   cancelled: 'Cancelled',
   escalated: 'Escalated',
   submitted: 'Submitted',
-  under_review: 'Under Review',
+  under_review: 'Under Review (Manager Approval)',
   assigned_department: 'Assigned to Department',
   assigned_staff: 'Assigned to Staff',
-  pending_approval: 'Pending Approval',
+  pending_approval: 'Pending Admin Verification',
 };
 
 export const TENANT_CONFIRMATION_LABELS: Record<TenantConfirmationStatus, string> = {

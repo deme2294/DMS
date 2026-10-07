@@ -414,6 +414,21 @@
   animation: pulse 1.8s infinite;
 }
 
+.stagePendingAdmin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+}
+
+.badgeDotPendingAdmin {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  animation: pulse 1.8s infinite;
+}
+
 .stageRevision {
   background: #fff7ed;
   color: #c2410c;
@@ -490,12 +505,46 @@
   animation: pulse 2s infinite;
 }
 
-/* ── Interactive Workflow Action Buttons ── */
+/* ── Interactive Workflow Action Buttons (Strictly in Sequence, No Downward Stacking) ── */
 .actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+}
+
+.viewBtn,
+.editBtn,
+.submitBtn,
+.approveBtn,
+.revisionBtn,
+.rejectBtn,
+.publishBtn,
+.unpublishBtn,
+.cancelBtn,
+.dangerBtn {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
   gap: 6px;
-  flex-wrap: wrap;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1.2;
+}
+
+.viewBtn span,
+.editBtn span,
+.submitBtn span,
+.approveBtn span,
+.revisionBtn span,
+.rejectBtn span,
+.publishBtn span,
+.unpublishBtn span,
+.cancelBtn span,
+.dangerBtn span {
+  white-space: nowrap !important;
 }
 
 .viewBtn {
@@ -837,6 +886,95 @@
   font-weight: 500;
 }
 
+/* Workflow Routing Cards */
+.routeOptionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.routeCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.routeCard:hover {
+  background: #f8fafc;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
+}
+
+.routeCardActive {
+  border-color: #2563eb !important;
+  background: rgba(37, 99, 235, 0.08) !important;
+  box-shadow: 0 0 0 1px #2563eb, 0 4px 14px rgba(37, 99, 235, 0.15) !important;
+}
+
+.routeCardTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.routeCardDesc {
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+:global([data-theme="dark"]) .routeCard {
+  background: #0f1420 !important;
+  border-color: #252e3e !important;
+}
+
+:global([data-theme="dark"]) .routeCard:hover {
+  background: #17233f !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.2) !important;
+}
+
+:global([data-theme="dark"]) .routeCardActive {
+  background: rgba(37, 99, 235, 0.22) !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 1px #60a5fa, 0 4px 16px rgba(96, 165, 250, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .routeCardTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .routeCardDesc {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .suggestionChip {
+  background: #101726 !important;
+  border-color: #252e3e !important;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .suggestionChip:hover {
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .modalError {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
 .modalActions {
   display: flex;
   justify-content: flex-end;
@@ -1084,6 +1222,57 @@
   background: #fee2e2;
   color: #dc2626;
   border-color: #fca5a5;
+}
+
+.drawerHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.drawerPdfBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: 1px solid rgba(2, 132, 199, 0.4);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.drawerPdfBtn:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+}
+
+.drawerFooterPdfBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: var(--my-bg-card);
+  color: #0284c7;
+  border: 1.5px solid #0284c7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.drawerFooterPdfBtn:hover {
+  background: #0284c7;
+  color: #ffffff;
 }
 
 .drawerMetaSection {
@@ -1745,4 +1934,254 @@
 :global([data-theme="dark"]) .drawerStepConnector {
   background: #334155 !important;
 }
+
+/* ── Feedback Drawer Analysis Box ─────────────────────────────────────────── */
+.feedbackDrawerBox {
+  margin: 0 0 20px 0;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerBox {
+  background: linear-gradient(135deg, #151b28 0%, #101522 100%);
+  border-color: #252e3e;
+}
+
+.feedbackDrawerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.feedbackDrawerHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.feedbackDrawerIcon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.feedbackDrawerTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerTitle {
+  color: #f8fafc;
+}
+
+.feedbackDrawerSubtitle {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.feedbackDrawerScoreBadge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+}
+
+.feedbackDrawerMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.feedbackDrawerMetricHelpful,
+.feedbackDrawerMetricNotHelpful,
+.feedbackDrawerMetricViews {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerMetricHelpful,
+:global([data-theme="dark"]) .feedbackDrawerMetricNotHelpful,
+:global([data-theme="dark"]) .feedbackDrawerMetricViews {
+  background: #192235;
+  border-color: #252e3e;
+}
+
+.feedbackDrawerMetricHelpful {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerMetricHelpful {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.feedbackDrawerMetricNotHelpful {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerMetricNotHelpful {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.metricVal {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+:global([data-theme="dark"]) .metricVal {
+  color: #f8fafc;
+}
+
+.metricLabel {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.feedbackDrawerAlertWarning {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+:global([data-theme="dark"]) .feedbackDrawerAlertWarning {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+
+.feedbackDrawerAlertWarning p {
+  margin: 3px 0 0 0;
+  font-size: 0.78rem;
+  opacity: 0.95;
+}
+
+.feedbackEntriesContainer {
+  margin-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 12px;
+}
+
+:global([data-theme="dark"]) .feedbackEntriesContainer {
+  border-top-color: #334155;
+}
+
+.feedbackEntriesTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+:global([data-theme="dark"]) .feedbackEntriesTitle {
+  color: #cbd5e1;
+}
+
+.feedbackEntriesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.feedbackEntryCard {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+}
+
+:global([data-theme="dark"]) .feedbackEntryCard {
+  background: #192235;
+  border-color: #252e3e;
+}
+
+.feedbackEntryHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.entryBadgeHelpful {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.entryBadgeNotHelpful {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.entryUser {
+  font-weight: 600;
+  color: #475569;
+}
+
+:global([data-theme="dark"]) .entryUser {
+  color: #94a3b8;
+}
+
+.entryDate {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.entryReason {
+  color: #b91c1c;
+  font-size: 0.78rem;
+  margin-top: 3px;
+}
+
+.entryComment {
+  font-style: italic;
+  color: #334155;
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid #cbd5e1;
+}
+
+:global([data-theme="dark"]) .entryComment {
+  color: #cbd5e1;
+  border-left-color: #475569;
+}
+
 

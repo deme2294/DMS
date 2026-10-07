@@ -24,6 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
 import Modal from '../../components/Modal/Modal';
 import { TrashIcon } from '@heroicons/react/24/outline';
+import { RevisionThreadCard } from './components/RevisionThreadCard';
 import styles from './KnowledgeArticleEdit.module.css';
 
 interface DeptOption {
@@ -59,6 +60,7 @@ export default function KnowledgeArticleEdit() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ArticleFormValues>({
     defaultValues: { title: '', summary: '', content: '', category: '', tags: '', visibility: 'internal', departmentId: null },
@@ -69,25 +71,56 @@ export default function KnowledgeArticleEdit() {
     setLoading(true);
     Promise.all([
       fetchArticle(id),
-      fetchActiveDepartments().then((res) => setDepartments(res.data.data || [])).catch(() => setDepartments([])),
-      fetchAllCategories().then((res) => setCategories(res.data.data || [])).catch(() => setCategories([])),
+      fetchActiveDepartments().catch(() => ({ data: { data: [] } })),
+      fetchAllCategories().catch(() => ({ data: { data: [] } })),
     ])
-      .then(([res]) => {
-        const a: Article = res.data.data;
+      .then(([artRes, deptRes, catRes]) => {
+        const a: Article = artRes.data.data;
+        const depts: DeptOption[] = deptRes.data.data || [];
+        let cats: KnowledgeCategory[] = catRes.data.data || [];
+
+        const articleCat = (a?.category || '').trim();
+        if (articleCat && !cats.some((c) => c.name.toLowerCase() === articleCat.toLowerCase())) {
+          cats = [
+            {
+              id: `existing-${articleCat}`,
+              name: articleCat,
+              slug: articleCat.toLowerCase().replace(/\s+/g, '-'),
+              icon: 'folder',
+              isActive: true,
+            } as KnowledgeCategory,
+            ...cats,
+          ];
+        }
+
+        setDepartments(depts);
+        setCategories(cats);
         setArticle(a);
+
+        const deptId = (a.departmentId || (a as any).department_id || null) as any;
         reset({
           title: a.title,
           summary: a.summary || '',
           content: a.content,
-          category: a.category,
+          category: articleCat,
           tags: a.tags || '',
           visibility: a.visibility || 'internal',
-          departmentId: a.departmentId || null,
+          departmentId: deptId,
         });
+
+        if (articleCat) {
+          setValue('category', articleCat, { shouldValidate: true, shouldDirty: false });
+        }
       })
       .catch(() => setError('Failed to load article'))
       .finally(() => setLoading(false));
-  }, [id, reset]);
+  }, [id, reset, setValue]);
+
+  useEffect(() => {
+    if (article?.category) {
+      setValue('category', article.category, { shouldValidate: true, shouldDirty: false });
+    }
+  }, [article?.category, categories, setValue]);
 
   const editable =
     !!article &&
@@ -115,14 +148,21 @@ export default function KnowledgeArticleEdit() {
     if (!id) return;
     setSaving(true);
     setError('');
+    const finalCategory = values.category || article?.category || '';
+    if (!finalCategory) {
+      setError('Category is required');
+      setSaving(false);
+      return;
+    }
     try {
       await updateArticle(id, {
         title: values.title,
         summary: values.summary,
         content: values.content,
-        category: values.category,
+        category: finalCategory,
         tags: values.tags || null,
         visibility: values.visibility || 'internal',
+        departmentId: values.departmentId || (article as any)?.departmentId || (article as any)?.department_id || null,
       });
       setMessage('Article updated');
     } catch (err: unknown) {
@@ -173,8 +213,13 @@ export default function KnowledgeArticleEdit() {
         <span style={{ fontWeight: 600 }}>Status:</span>
         <span className={`${styles.badge} ${styles[article.status] || ''}`}>{article.status?.replace(/_/g, ' ')}</span>
         {article.rejectionReason && <span style={{ color: '#991b1b' }}>Rejection: {article.rejectionReason}</span>}
-        {article.revisionNotes && <span style={{ color: '#f59e0b' }}>Revision: {article.revisionNotes}</span>}
       </div>
+
+      {article.revisionNotes && (
+        <div style={{ marginBottom: 20 }}>
+          <RevisionThreadCard revisionNotes={article.revisionNotes} />
+        </div>
+      )}
 
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.formRow}>
@@ -188,6 +233,9 @@ export default function KnowledgeArticleEdit() {
             <label htmlFor="category">Category</label>
             <select id="category" disabled={!editable} {...register('category', { required: 'Category is required' })}>
               <option value="">Select category</option>
+              {article?.category && !categories.some((c) => c.name.toLowerCase() === article.category.toLowerCase()) && (
+                <option value={article.category}>{article.category} (Original)</option>
+              )}
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.name}>{cat.name}</option>
               ))}
@@ -255,7 +303,12 @@ export default function KnowledgeArticleEdit() {
           )}
           {role === 'staff' && article.authorId === user?.id && article.status === 'needs_revision' && (
             <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Resubmit for Review
+              Resubmit to Manager
+            </button>
+          )}
+          {role !== 'staff' && article.status === 'needs_revision' && (
+            <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
+              Resubmit to Admin
             </button>
           )}
           {can('knowledge.request_revision') && article.status === 'pending_approval' && article.authorId !== user?.id && (

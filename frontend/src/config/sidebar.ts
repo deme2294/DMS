@@ -84,6 +84,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
             { label: 'Notifications', path: '/manager/notifications', icon: '🔔' },
             { label: 'Notices', path: '/manager/notices', icon: '📢', permission: 'notices.read' },
             { label: 'Knowledge Base', path: '/manager/knowledge', icon: '📚', permission: 'knowledge.read' },
+            { label: 'KB Approval Desk', path: '/manager/knowledge/approval', icon: '✅', permission: 'knowledge.approve' },
             { label: 'My Articles', path: '/manager/knowledge/my-articles', icon: '📝', permission: 'knowledge.read' },
           ],
         },

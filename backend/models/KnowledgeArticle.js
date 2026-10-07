@@ -62,12 +62,13 @@ export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 
 export const ALLOWED_TRANSITIONS = {
   draft: ['pending_approval', 'approved', 'published', 'archived'],
-  pending_approval: ['approved', 'published', 'needs_revision', 'rejected'],
-  needs_revision: ['draft', 'pending_approval'],
-  approved: ['published', 'draft', 'archived'],
-  published: ['unpublished', 'archived'],
-  unpublished: ['published', 'draft', 'archived'],
+  pending_approval: ['approved', 'published', 'needs_revision', 'rejected', 'draft'],
+  needs_revision: ['draft', 'pending_approval', 'approved', 'published', 'rejected', 'archived', 'needs_revision'],
+  approved: ['published', 'draft', 'archived', 'needs_revision', 'rejected', 'approved'],
+  published: ['unpublished', 'archived', 'needs_revision', 'approved', 'pending_approval', 'draft'],
+  unpublished: ['published', 'draft', 'archived', 'needs_revision', 'rejected'],
   archived: ['restored'],
-  rejected: ['draft', 'archived'],
-  restored: ['draft', 'published', 'pending_approval'],
+  rejected: ['draft', 'archived', 'pending_approval'],
+  restored: ['draft', 'published', 'pending_approval', 'approved', 'archived'],
 };
+

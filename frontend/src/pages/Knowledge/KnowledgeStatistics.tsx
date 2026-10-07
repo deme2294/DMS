@@ -1,15 +1,40 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchArticleStats } from '../../api/knowledgeApi';
-import type { ArticleStats } from '../../types/article';
+import { useAuth } from '../../context/AuthContext';
+import {
+  fetchArticleStats,
+  requestRevision,
+  approveArticle,
+  rejectArticle,
+  publishArticle,
+  unpublishArticle,
+  submitArticle,
+} from '../../api/knowledgeApi';
+import type { Article, ArticleStats } from '../../types/article';
+import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
+import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
+import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
 import styles from './KnowledgeStatistics.module.css';
 
 export default function KnowledgeStatistics() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState<ArticleStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Reader Feedback & Utility interactive state
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'helpful' | 'not_helpful'>('all');
+  const [feedbackSearch, setFeedbackSearch] = useState('');
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowAction, setWorkflowAction] = useState<WorkflowActionType | null>(null);
+  const [actionTargetArticle, setActionTargetArticle] = useState<Article | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
 
   const loadStats = () => {
     setLoading(true);
@@ -23,6 +48,34 @@ export default function KnowledgeStatistics() {
   useEffect(() => {
     loadStats();
   }, []);
+
+  const ratedArticles: Article[] = useMemo(() => stats?.ratedArticles || [], [stats]);
+  const helpfulArticles = useMemo(
+    () => ratedArticles.filter((a) => (Number(a.helpfulCount) || 0) > 0),
+    [ratedArticles]
+  );
+  const notHelpfulArticles = useMemo(
+    () => ratedArticles.filter((a) => (Number(a.notHelpfulCount) || 0) > 0),
+    [ratedArticles]
+  );
+
+  const filteredArticles = useMemo(() => {
+    return ratedArticles.filter((a) => {
+      if (feedbackFilter === 'helpful' && (Number(a.helpfulCount) || 0) <= 0) return false;
+      if (feedbackFilter === 'not_helpful' && (Number(a.notHelpfulCount) || 0) <= 0) return false;
+
+      if (feedbackSearch.trim()) {
+        const q = feedbackSearch.toLowerCase();
+        const matchTitle = (a.title || '').toLowerCase().includes(q);
+        const matchRef = (a.articleReference || '').toLowerCase().includes(q);
+        const matchCat = (a.category || '').toLowerCase().includes(q);
+        const matchDept = (a.departmentName || '').toLowerCase().includes(q);
+        const matchAuthor = `${a.authorFirstName || ''} ${a.authorLastName || ''}`.toLowerCase().includes(q);
+        if (!matchTitle && !matchRef && !matchCat && !matchDept && !matchAuthor) return false;
+      }
+      return true;
+    });
+  }, [ratedArticles, feedbackFilter, feedbackSearch]);
 
   if (loading) {
     return (
@@ -70,6 +123,67 @@ export default function KnowledgeStatistics() {
   const satisfactionRate = totalFeedback > 0 ? Math.round((helpful / totalFeedback) * 100) : 0;
 
   const inReviewCount = (Number(stats.pending_approval) || 0) + (Number(stats.needs_revision) || 0) + (Number(stats.draft) || 0);
+
+  const handleWorkflowSubmit = async (
+    articleId: string,
+    type: WorkflowActionType,
+    reason?: string,
+    options?: { routeTo?: 'manager' | 'author' }
+  ) => {
+    setActionBusy(true);
+    try {
+      switch (type) {
+        case 'request_revision':
+          await requestRevision(articleId, reason || '', options);
+          setActionMessage(
+            options?.routeTo === 'manager'
+              ? 'Revision directive routed to Department Manager.'
+              : 'Revision directive sent to Author. Article moved to Needs Revision.'
+          );
+          break;
+        case 'reject':
+          await rejectArticle(articleId, reason || '');
+          setActionMessage('Article marked as rejected.');
+          break;
+        case 'publish':
+          await publishArticle(articleId);
+          setActionMessage('Article published live to portal!');
+          break;
+        case 'unpublish':
+          await unpublishArticle(articleId, reason);
+          setActionMessage('Article unpublished.');
+          break;
+        case 'submit':
+          await submitArticle(articleId, reason ? { notes: reason } : undefined);
+          setActionMessage('Article resubmitted for review.');
+          break;
+      }
+      setWorkflowModalOpen(false);
+      setActionTargetArticle(null);
+      setDrawerOpen(false);
+      loadStats();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Workflow action failed';
+      alert(msg);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleApproveDirect = async (articleId: string) => {
+    setActionBusy(true);
+    try {
+      await approveArticle(articleId);
+      setActionMessage('Article approved successfully.');
+      setDrawerOpen(false);
+      loadStats();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Approval failed';
+      alert(msg);
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
   // Workflow status items
   const activeStatusCards = [
@@ -314,6 +428,33 @@ export default function KnowledgeStatistics() {
             />
           </div>
         </div>
+
+        <div className={styles.kpiCard}>
+          <div className={styles.kpiTop}>
+            <span className={styles.kpiLabel}>Tenant Reads & Reach</span>
+            <div className={styles.kpiIconWrapper} style={{ color: '#06b6d4' }}>
+              👥
+            </div>
+          </div>
+          <div className={styles.kpiValueRow}>
+            <span className={styles.kpiValue}>{stats.tenantViews ?? 0}</span>
+            <span className={`${styles.kpiBadge} ${styles.badgeInfo}`}>
+              {stats.totalViews ?? 0} Total Views
+            </span>
+          </div>
+          <div className={styles.kpiFooter}>
+            {stats.staffViews ?? 0} internal staff reads across articles
+          </div>
+          <div className={styles.kpiProgressBar}>
+            <div
+              className={styles.kpiProgressFill}
+              style={{
+                width: `${(stats.totalViews ?? 0) > 0 ? Math.round(((stats.tenantViews ?? 0) / (stats.totalViews ?? 1)) * 100) : 0}%`,
+                background: '#06b6d4',
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Visual Workflow Pipeline Distribution */}
@@ -412,10 +553,24 @@ export default function KnowledgeStatistics() {
         })}
       </div>
 
+      {actionMessage && (
+        <div className={styles.toastNotification}>
+          <span>✓ {actionMessage}</span>
+          <button
+            type="button"
+            className={styles.toastCloseBtn}
+            onClick={() => setActionMessage(null)}
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Dual Split Panels: Reader Sentiment & Department Breakdown */}
-      <div className={styles.dualGrid}>
+      <div className={`${styles.dualGrid} ${isPanelExpanded ? styles.dualGridExpanded : ''}`}>
         {/* Panel 1: Reader Sentiment & Feedback */}
-        <div className={styles.panelCard}>
+        <div className={`${styles.panelCard} ${isPanelExpanded ? styles.panelCardExpanded : ''}`}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionHeaderTitleGroup}>
               <h2 className={styles.sectionTitle}>Reader Feedback & Sentiment</h2>
@@ -423,6 +578,14 @@ export default function KnowledgeStatistics() {
                 Audience ratings and utility evaluation for published articles
               </p>
             </div>
+            <button
+              type="button"
+              className={styles.expandToggleBtn}
+              onClick={() => setIsPanelExpanded(!isPanelExpanded)}
+              title={isPanelExpanded ? 'Switch to side-by-side view' : 'Expand feedback panel to full width'}
+            >
+              {isPanelExpanded ? '⬌ Split View' : '⛶ Full Width View'}
+            </button>
           </div>
 
           <div className={styles.feedbackScoreWidget}>
@@ -471,24 +634,321 @@ export default function KnowledgeStatistics() {
             </div>
           )}
 
+          {/* Interactive Feedback Tiles */}
           <div className={styles.feedbackTiles}>
-            <div className={`${styles.feedbackTile} ${styles.feedbackTileHelpful}`}>
+            <button
+              type="button"
+              className={`${styles.feedbackTile} ${styles.feedbackTileHelpful} ${
+                feedbackFilter === 'helpful' ? styles.feedbackTileActiveHelpful : ''
+              }`}
+              onClick={() => setFeedbackFilter(feedbackFilter === 'helpful' ? 'all' : 'helpful')}
+              title="Click to filter and view helpful articles"
+            >
               <div className={styles.feedbackTileHeader}>
                 <span className={styles.feedbackTileTitle}>Helpful Votes</span>
                 <span>👍</span>
               </div>
               <div className={styles.feedbackTileValue}>{helpful}</div>
               <div className={styles.feedbackTileSub}>Direct positive evaluations</div>
-            </div>
+              <div className={styles.feedbackTileHint}>
+                {feedbackFilter === 'helpful'
+                  ? '✓ Active Filter (Click to show all)'
+                  : 'Click to inspect helpful articles →'}
+              </div>
+            </button>
 
-            <div className={`${styles.feedbackTile} ${styles.feedbackTileNotHelpful}`}>
+            <button
+              type="button"
+              className={`${styles.feedbackTile} ${styles.feedbackTileNotHelpful} ${
+                feedbackFilter === 'not_helpful' ? styles.feedbackTileActiveNotHelpful : ''
+              }`}
+              onClick={() => setFeedbackFilter(feedbackFilter === 'not_helpful' ? 'all' : 'not_helpful')}
+              title="Click to filter and view articles needing improvement"
+            >
               <div className={styles.feedbackTileHeader}>
                 <span className={styles.feedbackTileTitle}>Not Helpful Votes</span>
                 <span>👎</span>
               </div>
               <div className={styles.feedbackTileValue}>{notHelpful}</div>
               <div className={styles.feedbackTileSub}>Marked as needing improvement</div>
+              <div className={styles.feedbackTileHint}>
+                {feedbackFilter === 'not_helpful'
+                  ? '✓ Active Filter (Click to show all)'
+                  : 'Click to inspect articles needing revision →'}
+              </div>
+            </button>
+          </div>
+
+          {/* Detailed Feedback-Rated Articles Section */}
+          <div className={styles.feedbackArticlesSection}>
+            <div className={styles.feedbackArticlesHeader}>
+              <div className={styles.feedbackArticlesTitleGroup}>
+                <h3 className={styles.feedbackArticlesTitle}>
+                  <span>Evaluated Articles & Reader Feedback</span>
+                  <span className={styles.feedbackArticlesCountBadge}>
+                    {filteredArticles.length} of {ratedArticles.length} Rated
+                  </span>
+                </h3>
+                <p className={styles.feedbackArticlesSubtitle}>
+                  Select any article below to inspect reader evaluations, check content, and address what should be changed.
+                </p>
+              </div>
             </div>
+
+            {/* Filter Pills & Quick Search */}
+            <div className={styles.feedbackFilterBar}>
+              <div className={styles.feedbackFilterTabs}>
+                <button
+                  type="button"
+                  className={`${styles.feedbackFilterTab} ${
+                    feedbackFilter === 'all' ? styles.feedbackFilterTabActive : ''
+                  }`}
+                  onClick={() => setFeedbackFilter('all')}
+                >
+                  🌟 All Rated ({ratedArticles.length})
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.feedbackFilterTab} ${
+                    feedbackFilter === 'helpful' ? styles.feedbackFilterTabActiveHelpful : ''
+                  }`}
+                  onClick={() => setFeedbackFilter('helpful')}
+                >
+                  👍 Helpful ({helpfulArticles.length})
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.feedbackFilterTab} ${
+                    feedbackFilter === 'not_helpful' ? styles.feedbackFilterTabActiveNotHelpful : ''
+                  }`}
+                  onClick={() => setFeedbackFilter('not_helpful')}
+                >
+                  👎 Needs Improvement ({notHelpfulArticles.length})
+                </button>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Search rated articles..."
+                className={styles.feedbackSearchInput}
+                value={feedbackSearch}
+                onChange={(e) => setFeedbackSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Articles List */}
+            {filteredArticles.length > 0 ? (
+              <div className={styles.feedbackArticlesList}>
+                {filteredArticles.map((art) => {
+                  const artHelpful = Number(art.helpfulCount) || 0;
+                  const artNotHelpful = Number(art.notHelpfulCount) || 0;
+                  const artTotal = artHelpful + artNotHelpful;
+                  const artUtility = artTotal > 0 ? Math.round((artHelpful / artTotal) * 100) : 0;
+                  const hasNegative = artNotHelpful > 0;
+
+                  return (
+                    <div
+                      key={art.id}
+                      className={`${styles.feedbackArticleCard} ${
+                        hasNegative
+                          ? styles.feedbackArticleCardNeedingImprovement
+                          : styles.feedbackArticleCardHelpful
+                      }`}
+                    >
+                      {/* Top Chips Row */}
+                      <div className={styles.cardTopRow}>
+                        <div className={styles.cardTopLeft}>
+                          <span
+                            className={styles.refChip}
+                            onClick={() => {
+                              setSelectedArticle(art);
+                              setDrawerOpen(true);
+                            }}
+                            title="Click to inspect this article"
+                          >
+                            {art.articleReference || 'KB-ARTICLE'}
+                          </span>
+                          {art.category && (
+                            <span className={styles.catChip}>📁 {art.category}</span>
+                          )}
+                          {art.departmentName && (
+                            <span className={styles.deptChip}>🏢 {art.departmentName}</span>
+                          )}
+                        </div>
+                        <div>
+                          <WorkflowStatusBadge status={art.status} />
+                        </div>
+                      </div>
+
+                      {/* Title & Author */}
+                      <div>
+                        <h4
+                          className={styles.cardTitle}
+                          onClick={() => {
+                            setSelectedArticle(art);
+                            setDrawerOpen(true);
+                          }}
+                          title="Click to inspect full article details"
+                        >
+                          {art.title}
+                        </h4>
+                        <div className={styles.cardMeta}>
+                          <span>
+                            ✍️ {art.authorFirstName ? `${art.authorFirstName} ${art.authorLastName || ''}` : 'Knowledge Author'}
+                            {art.authorRole ? ` (${art.authorRole})` : ''}
+                          </span>
+                          {art.updatedAt && (
+                            <span>🕒 Updated {new Date(art.updatedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Reader Sentiment Metrics Bar */}
+                      <div className={styles.cardMetricsRow}>
+                        <div className={styles.metricsPills}>
+                          <span className={styles.pillHelpful}>
+                            👍 {artHelpful} Helpful
+                          </span>
+                          <span className={styles.pillNotHelpful}>
+                            👎 {artNotHelpful} Not Helpful
+                          </span>
+                          <span className={styles.pillViews}>
+                            👁️ {art.viewCount || 0} views
+                          </span>
+                        </div>
+                        <div
+                          className={`${styles.pillScore} ${
+                            artUtility >= 70 ? styles.pillScoreGood : styles.pillScoreWarning
+                          }`}
+                        >
+                          {artUtility}% Utility Score
+                        </div>
+                      </div>
+
+                      {/* Diagnostic Status */}
+                      {hasNegative ? (
+                        <div className={`${styles.diagnosticBanner} ${styles.diagnosticWarning}`}>
+                          <span style={{ fontSize: '1.15rem' }}>⚠️</span>
+                          <div>
+                            <strong>Marked as Needing Improvement ({artNotHelpful} reader vote{artNotHelpful > 1 ? 's' : ''})</strong>
+                            <p>
+                              Readers reported this article did not solve their inquiry. Inspect the content below to check what instructions, steps, or details need to be updated.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`${styles.diagnosticBanner} ${styles.diagnosticSuccess}`}>
+                          <span style={{ fontSize: '1.15rem' }}>✓</span>
+                          <div>
+                            <strong>Positive Reader Utility ({artHelpful} reader vote{artHelpful > 1 ? 's' : ''})</strong>
+                            <p>
+                              Readers confirmed this article directly resolved their inquiry.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reader Comments (if any logged) */}
+                      {art.feedbackEntries && art.feedbackEntries.length > 0 && (
+                        <div className={styles.feedbackCommentsWrap}>
+                          <span className={styles.feedbackCommentsTitle}>
+                            💬 Reader Feedback Log ({art.feedbackEntries.length}):
+                          </span>
+                          {art.feedbackEntries.map((fb) => (
+                            <div key={fb.id} className={styles.commentItem}>
+                              <span className={styles.commentAuthor}>
+                                {fb.isHelpful ? '👍' : '👎'}{' '}
+                                {fb.userFirstName ? `${fb.userFirstName} ${fb.userLastName || ''}` : 'Reader'}
+                                {fb.userRole ? ` (${fb.userRole})` : ''}:
+                              </span>{' '}
+                              {fb.reason && <span><strong>[{fb.reason}]</strong> </span>}
+                              {fb.comment ? (
+                                <span className={styles.commentQuote}>"{fb.comment}"</span>
+                              ) : (
+                                <span>{fb.isHelpful ? 'Marked as helpful' : 'Marked as needing improvement'}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Action Buttons ("Check what should be changed") */}
+                      <div className={styles.cardActionBtns}>
+                        <button
+                          type="button"
+                          className={styles.btnInspectAction}
+                          onClick={() => {
+                            setSelectedArticle(art);
+                            setDrawerOpen(true);
+                          }}
+                          title="Open article in detail drawer to read content, see revision threads, and evaluate changes"
+                        >
+                          🔍 Check What Should Be Changed
+                        </button>
+
+                        <button
+                          type="button"
+                          className={styles.btnEditAction}
+                          onClick={() => navigate(`/admin/knowledge/${art.id}/edit`)}
+                          title="Directly edit and update this article"
+                        >
+                          ✏️ Edit Article
+                        </button>
+
+                        {(user?.role === 'admin' || user?.role === 'manager') && (
+                          <button
+                            type="button"
+                            className={styles.btnReviseAction}
+                            onClick={() => {
+                              setActionTargetArticle(art);
+                              setWorkflowAction('request_revision');
+                              setWorkflowModalOpen(true);
+                            }}
+                            title="Send revision notes to the author specifying what must be corrected"
+                          >
+                            ⚠️ Request Revision
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className={styles.btnViewPublicAction}
+                          onClick={() => navigate(`/admin/knowledge/${art.id}`)}
+                          title="View live published article page"
+                        >
+                          🌐 View Live
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={styles.emptyState} style={{ padding: '24px 16px' }}>
+                <div className={styles.emptyStateIcon}>📋</div>
+                <h4>No Articles Match This Filter</h4>
+                <p>
+                  {feedbackFilter === 'not_helpful'
+                    ? 'No articles currently marked as needing improvement.'
+                    : feedbackFilter === 'helpful'
+                    ? 'No articles rated as helpful yet.'
+                    : 'No rated articles found matching your search.'}
+                </p>
+                {feedbackFilter !== 'all' && (
+                  <button
+                    type="button"
+                    className={styles.btnSecondary}
+                    onClick={() => {
+                      setFeedbackFilter('all');
+                      setFeedbackSearch('');
+                    }}
+                    style={{ marginTop: '8px' }}
+                  >
+                    View All Rated Articles
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -550,6 +1010,46 @@ export default function KnowledgeStatistics() {
           )}
         </div>
       </div>
+
+      {/* Article Detail Drawer for inspection and checking what should be changed */}
+      <ArticleDetailDrawer
+        article={selectedArticle}
+        open={drawerOpen}
+        currentUserRole={user?.role}
+        currentUserId={user?.id}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedArticle(null);
+        }}
+        onRequestAction={(art, action) => {
+          setSelectedArticle(art);
+          setActionTargetArticle(art);
+          setWorkflowAction(action);
+          setWorkflowModalOpen(true);
+        }}
+        onApproveDirect={handleApproveDirect}
+        onOpenRevise={(art) => navigate(`/admin/knowledge/${art.id}/edit`)}
+        onRouteToAuthor={(art) => {
+          setSelectedArticle(art);
+          setActionTargetArticle(art);
+          setWorkflowAction('request_revision');
+          setWorkflowModalOpen(true);
+        }}
+      />
+
+      {/* Workflow Action Modal for Requesting Revision or Publishing */}
+      <WorkflowActionModal
+        open={workflowModalOpen}
+        actionType={workflowAction}
+        article={actionTargetArticle}
+        busy={actionBusy}
+        userRole={user?.role}
+        onClose={() => {
+          setWorkflowModalOpen(false);
+          setActionTargetArticle(null);
+        }}
+        onSubmit={handleWorkflowSubmit}
+      />
     </div>
   );
 }

@@ -807,3 +807,420 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ── View Modal ───────────────────────────────────────────────────────── */
+.viewModalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #1e293b;
+}
+
+:global([data-theme="dark"]) .viewModalContent {
+  color: #e2e8f0;
+}
+
+.viewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+:global([data-theme="dark"]) .viewHeader {
+  border-color: #334155;
+}
+
+.viewTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+}
+
+:global([data-theme="dark"]) .viewTitle {
+  color: #f8fafc;
+}
+
+.viewBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.badgeActive {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+:global([data-theme="dark"]) .badgeActive {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.badgeInactive {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+:global([data-theme="dark"]) .badgeInactive {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.statusApproved {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+:global([data-theme="dark"]) .statusApproved {
+  background: rgba(22, 101, 52, 0.3);
+  color: #86efac;
+}
+
+.viewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.viewSectionTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  margin: 0;
+}
+
+:global([data-theme="dark"]) .viewSectionTitle {
+  color: #94a3b8;
+}
+
+.viewDesc {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #334155;
+  margin: 0;
+  background: #f8fafc;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+:global([data-theme="dark"]) .viewDesc {
+  background: #0f172a;
+  border-color: #1e293b;
+  color: #cbd5e1;
+}
+
+.viewGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .viewGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viewCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+:global([data-theme="dark"]) .viewCard {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.viewLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+:global([data-theme="dark"]) .viewLabel {
+  color: #94a3b8;
+}
+
+.viewValue {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+:global([data-theme="dark"]) .viewValue {
+  color: #f1f5f9;
+}
+
+.viewSlaHighlight {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+:global([data-theme="dark"]) .viewSlaHighlight {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.viewSlaHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.viewPriorityBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #0284c7;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+}
+
+.viewSlaStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 6px;
+  border-top: 1px dashed #bae6fd;
+}
+
+:global([data-theme="dark"]) .viewSlaStats {
+  border-color: rgba(14, 165, 233, 0.25);
+}
+
+.viewSlaStatItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viewSlaStatItem span {
+  font-size: 0.72rem;
+  color: #0369a1;
+}
+
+:global([data-theme="dark"]) .viewSlaStatItem span {
+  color: #7dd3fc;
+}
+
+.viewSlaStatItem strong {
+  font-size: 0.88rem;
+  color: #0c4a6e;
+}
+
+:global([data-theme="dark"]) .viewSlaStatItem strong {
+  color: #e0f2fe;
+}
+
+.viewSlaList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.viewSlaCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:global([data-theme="dark"]) .viewSlaCard {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.viewSlaCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.priorityPill {
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 3px 9px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  background: #f1f5f9;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
+}
+
+/* Light Theme Priority Badges */
+.priorityPill.low,
+.viewPriorityBadge.low {
+  background: #dcfce7;
+  color: #15803d !important;
+  border-color: #86efac;
+}
+
+.priorityPill.medium,
+.viewPriorityBadge.medium {
+  background: #e0f2fe;
+  color: #0369a1 !important;
+  border-color: #7dd3fc;
+}
+
+.priorityPill.high,
+.viewPriorityBadge.high {
+  background: #fef3c7;
+  color: #b45309 !important;
+  border-color: #fcd34d;
+}
+
+.priorityPill.urgent,
+.priorityPill.critical,
+.viewPriorityBadge.urgent,
+.viewPriorityBadge.critical {
+  background: #fee2e2;
+  color: #b91c1c !important;
+  border-color: #fca5a5;
+}
+
+/* Dark Theme Priority Badges: Crisp, High-Contrast Glow */
+:global([data-theme="dark"]) .priorityPill {
+  background: #1e293b;
+  color: #cbd5e1 !important;
+  border-color: #475569;
+}
+
+:global([data-theme="dark"]) .priorityPill.low,
+:global([data-theme="dark"]) .viewPriorityBadge.low {
+  background: rgba(34, 197, 94, 0.22);
+  color: #4ade80 !important;
+  border: 1px solid rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.2);
+}
+
+:global([data-theme="dark"]) .priorityPill.medium,
+:global([data-theme="dark"]) .viewPriorityBadge.medium {
+  background: rgba(14, 165, 233, 0.22);
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+
+:global([data-theme="dark"]) .priorityPill.high,
+:global([data-theme="dark"]) .viewPriorityBadge.high {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24 !important;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+}
+
+:global([data-theme="dark"]) .priorityPill.urgent,
+:global([data-theme="dark"]) .priorityPill.critical,
+:global([data-theme="dark"]) .viewPriorityBadge.urgent,
+:global([data-theme="dark"]) .viewPriorityBadge.critical {
+  background: rgba(239, 68, 68, 0.22);
+  color: #f87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+}
+
+.viewSlaCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+:global([data-theme="dark"]) .viewSlaCardMeta {
+  color: #94a3b8;
+}
+
+.viewSlaCardDesc {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.viewEmpty {
+  font-size: 0.84rem;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+}
+
+:global([data-theme="dark"]) .viewEmpty {
+  background: #0f172a;
+}
+
+.viewMetaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+}
+
+:global([data-theme="dark"]) .viewMetaSection {
+  border-color: #1e293b;
+}
+
+.viewMetaRow {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+}
+
+:global([data-theme="dark"]) .viewMetaRow {
+  color: #94a3b8;
+}
+
+.viewMetaRow strong {
+  color: #1e293b;
+}
+
+:global([data-theme="dark"]) .viewMetaRow strong {
+  color: #e2e8f0;
+}

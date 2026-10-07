@@ -103,7 +103,19 @@ export const createDepartment = async (payload) => {
 
   await validateHeadUser(payload.headUserId);
 
-  const id = uuidv4();
+  // Generate a concise 4 to 6 symbol department ID (e.g. IT-01, HR-01, FIN-01)
+  const cleanCode = (payload.code || 'DEP').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  let basePrefix = cleanCode.slice(0, 3);
+  if (basePrefix.length < 2) basePrefix = (cleanCode + 'X').slice(0, 2);
+
+  let id = `${basePrefix}-01`;
+  let suffix = 1;
+  while (await deptRepo.findById(id)) {
+    suffix += 1;
+    const numStr = String(suffix).padStart(2, '0');
+    id = `${basePrefix}-${numStr}`.slice(0, 6);
+  }
+
   await deptRepo.create({
     id,
     name: payload.name,

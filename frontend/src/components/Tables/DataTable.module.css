@@ -25,6 +25,13 @@
   border-bottom: 1px solid #edf2f7;
 }
 
+/* Guarantee that actions/operations columns and their cells never cause button wrapping or vertical down stacking */
+.actionCell,
+.table th:last-child,
+.table td:last-child {
+  white-space: nowrap;
+}
+
 .table thead th {
   background: #f8fafc;
   font-size: 0.76rem;

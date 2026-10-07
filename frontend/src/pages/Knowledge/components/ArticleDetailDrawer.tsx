@@ -1,6 +1,8 @@
 import React from 'react';
 import type { Article } from '../../../types/article';
 import { WorkflowStatusBadge } from './WorkflowStatusBadge';
+import { RevisionThreadCard } from './RevisionThreadCard';
+import { printArticleAsPdf } from '../../../utils/pdfExportUtils';
 import styles from '../KnowledgeMyArticles.module.css';
 
 interface ArticleDetailDrawerProps {
@@ -12,6 +14,7 @@ interface ArticleDetailDrawerProps {
   onRequestAction: (article: Article, action: 'request_revision' | 'reject' | 'publish' | 'unpublish' | 'submit') => void;
   onApproveDirect: (articleId: string) => void;
   onOpenRevise: (article: Article) => void;
+  onRouteToAuthor?: (article: Article) => void;
 }
 
 export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
@@ -23,6 +26,7 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
   onRequestAction,
   onApproveDirect,
   onOpenRevise,
+  onRouteToAuthor,
 }) => {
   if (!open || !article) return null;
 
@@ -72,9 +76,19 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
             </div>
             <h2 className={styles.drawerTitle}>{article.title}</h2>
           </div>
-          <button className={styles.drawerCloseBtn} onClick={onClose} aria-label="Close drawer">
-            ✕
-          </button>
+          <div className={styles.drawerHeaderRight}>
+            <button
+              type="button"
+              className={styles.drawerPdfBtn}
+              onClick={() => printArticleAsPdf(article)}
+              title="Download / Print Article as PDF"
+            >
+              📄 Download as PDF
+            </button>
+            <button className={styles.drawerCloseBtn} onClick={onClose} aria-label="Close drawer">
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* ── Lifecycle Pipeline Tracker (Where It Reached) ── */}
@@ -151,7 +165,7 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
         <div className={styles.drawerMetaSection}>
           <div className={styles.drawerStatusBlock}>
             <span className={styles.drawerMetaLabel}>Current Gate:</span>
-            <WorkflowStatusBadge status={article.status} showSubtitle />
+            <WorkflowStatusBadge status={article.status} reviewedBy={article.reviewedBy} revisionNotes={article.revisionNotes} showSubtitle />
           </div>
 
           <div className={styles.drawerMetaGrid}>
@@ -220,13 +234,7 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
 
         {/* Revision Feedback Banner (if in needs_revision) */}
         {article.status === 'needs_revision' && article.revisionNotes && (
-          <div className={styles.drawerAlertBox}>
-            <div className={styles.drawerAlertTitle}>
-              <span>⚠️</span>
-              <strong>Admin Revision Notice & Required Changes</strong>
-            </div>
-            <p className={styles.drawerAlertText}>{article.revisionNotes}</p>
-          </div>
+          <RevisionThreadCard revisionNotes={article.revisionNotes} />
         )}
 
         {/* Rejection Banner */}
@@ -237,6 +245,85 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
               <strong>Article Rejection Reason</strong>
             </div>
             <p className={styles.drawerAlertText}>{article.rejectionReason}</p>
+          </div>
+        )}
+
+        {/* Reader Feedback & Sentiment Section */}
+        {((article.helpfulCount || 0) > 0 || (article.notHelpfulCount || 0) > 0 || (article.feedbackEntries && article.feedbackEntries.length > 0)) && (
+          <div className={styles.feedbackDrawerBox}>
+            <div className={styles.feedbackDrawerHeader}>
+              <div className={styles.feedbackDrawerHeaderLeft}>
+                <span className={styles.feedbackDrawerIcon}>📊</span>
+                <div>
+                  <h4 className={styles.feedbackDrawerTitle}>Reader Feedback & Sentiment</h4>
+                  <p className={styles.feedbackDrawerSubtitle}>Audience ratings and utility evaluation for this article</p>
+                </div>
+              </div>
+              <div className={styles.feedbackDrawerScoreBadge}>
+                {Math.round(((Number(article.helpfulCount) || 0) / Math.max(1, (Number(article.helpfulCount) || 0) + (Number(article.notHelpfulCount) || 0))) * 100)}% Utility
+              </div>
+            </div>
+
+            <div className={styles.feedbackDrawerMetrics}>
+              <div className={styles.feedbackDrawerMetricHelpful}>
+                <span className={styles.metricVal}>👍 {article.helpfulCount || 0}</span>
+                <span className={styles.metricLabel}>Helpful Votes</span>
+              </div>
+              <div className={styles.feedbackDrawerMetricNotHelpful}>
+                <span className={styles.metricVal}>👎 {article.notHelpfulCount || 0}</span>
+                <span className={styles.metricLabel}>Not Helpful Votes</span>
+              </div>
+              <div className={styles.feedbackDrawerMetricViews}>
+                <span className={styles.metricVal}>👁️ {article.viewCount || 0}</span>
+                <span className={styles.metricLabel}>Total Views</span>
+              </div>
+            </div>
+
+            {(Number(article.notHelpfulCount) || 0) > 0 && (
+              <div className={styles.feedbackDrawerAlertWarning}>
+                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                <div>
+                  <strong>Content Revision Recommended</strong>
+                  <p>Readers flagged this article as unhelpful or lacking resolution. Review the content below to verify clarity, accuracy, and completeness, then update or request revisions.</p>
+                </div>
+              </div>
+            )}
+
+            {article.feedbackEntries && article.feedbackEntries.length > 0 && (
+              <div className={styles.feedbackEntriesContainer}>
+                <div className={styles.feedbackEntriesTitle}>Reader Evaluations & Comments:</div>
+                <div className={styles.feedbackEntriesList}>
+                  {article.feedbackEntries.map((fb) => (
+                    <div key={fb.id} className={styles.feedbackEntryCard}>
+                      <div className={styles.feedbackEntryHead}>
+                        <span className={fb.isHelpful ? styles.entryBadgeHelpful : styles.entryBadgeNotHelpful}>
+                          {fb.isHelpful ? '👍 Helpful' : '👎 Not Helpful'}
+                        </span>
+                        <span className={styles.entryUser}>
+                          {fb.userFirstName ? `${fb.userFirstName} ${fb.userLastName || ''}` : 'Reader'}
+                          {fb.userRole ? ` (${fb.userRole})` : ''}
+                        </span>
+                        {fb.createdAt && (
+                          <span className={styles.entryDate}>
+                            {new Date(fb.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      {fb.reason && (
+                        <div className={styles.entryReason}>
+                          <strong>Reason:</strong> {fb.reason}
+                        </div>
+                      )}
+                      {fb.comment && (
+                        <div className={styles.entryComment}>
+                          "{fb.comment}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -276,8 +363,46 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
                 className={styles.submitModalBtn}
                 onClick={() => onRequestAction(article, 'submit')}
               >
-                📤 Submit for Review
+                📤 {article.status === 'needs_revision' && isStaff ? 'Resubmit to Manager' : 'Submit for Review'}
               </button>
+            )}
+
+            {/* Department Manager in Needs Revision (when not author) */}
+            {isManager && !isAuthor && article.status === 'needs_revision' && (
+              <>
+                <button
+                  type="button"
+                  className={styles.primaryReviseBtn}
+                  onClick={() => {
+                    onClose();
+                    onOpenRevise(article);
+                  }}
+                  title="Department Manager directly revises article"
+                >
+                  ✏️ Revise Directly
+                </button>
+                <button
+                  type="button"
+                  className={styles.submitModalBtn}
+                  onClick={() => onRequestAction(article, 'submit')}
+                  title="Resubmit revised article to Admin for publishing"
+                >
+                  📤 Resubmit to Admin
+                </button>
+                {onRouteToAuthor && (
+                  <button
+                    type="button"
+                    className={styles.revisionSubmitBtn}
+                    onClick={() => {
+                      onClose();
+                      onRouteToAuthor(article);
+                    }}
+                    title="Forward revision instructions to Staff Author"
+                  >
+                    ⚠️ Route to Author
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -330,6 +455,16 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
                 ⏸ Unpublish
               </button>
             )}
+
+            {/* Direct Download as PDF */}
+            <button
+              type="button"
+              className={styles.drawerFooterPdfBtn}
+              onClick={() => printArticleAsPdf(article)}
+              title="Download / Print Article as PDF"
+            >
+              📄 Download as PDF
+            </button>
           </div>
         </div>
       </div>

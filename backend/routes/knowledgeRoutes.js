@@ -245,7 +245,13 @@ router.post(
   '/:id/feedback',
   authenticate,
   authorize('knowledge.rate'),
-  [param('id').isString().notEmpty(), body('helpful').isBoolean(), validate],
+  [
+    param('id').isString().notEmpty(),
+    body('helpful').isBoolean(),
+    body('reason').optional().isString(),
+    body('comment').optional().isString(),
+    validate,
+  ],
   knowledgeController.rateArticle
 );
 
@@ -253,15 +259,31 @@ router.post(
 router.get(
   '/:id/versions',
   authenticate,
-  authorize('knowledge.view_versions'),
+  authorize('knowledge.view_versions', 'knowledge.read'),
   [param('id').isString().notEmpty(), validate],
   knowledgeController.getVersions
+);
+
+router.get(
+  '/:id/versions/:versionId',
+  authenticate,
+  authorize('knowledge.view_versions', 'knowledge.read'),
+  [param('id').isString().notEmpty(), param('versionId').isString().notEmpty(), validate],
+  knowledgeController.getVersionById
+);
+
+router.post(
+  '/:id/versions/:versionId/restore',
+  authenticate,
+  authorize('knowledge.manage_versions', 'knowledge.restore', 'knowledge.update'),
+  [param('id').isString().notEmpty(), param('versionId').isString().notEmpty(), validate],
+  knowledgeController.restoreVersion
 );
 
 router.post(
   '/:id/versions',
   authenticate,
-  authorize('knowledge.manage_versions'),
+  authorize('knowledge.manage_versions', 'knowledge.create', 'knowledge.update'),
   [
     param('id').isString().notEmpty(),
     body('versionNumber').optional(),
@@ -276,7 +298,7 @@ router.post(
 router.post(
   '/:id/attachments',
   authenticate,
-  authorize('knowledge.create'),
+  authorize('knowledge.create', 'knowledge.update', 'knowledge.submit', 'knowledge.review', 'knowledge.approve', 'knowledge.request_revision', 'knowledge.publish', 'knowledge.manage', 'knowledge.read'),
   uploadKnowledgeAttachment.single('file'),
   [param('id').isString().notEmpty(), validate],
   knowledgeController.uploadAttachment
@@ -290,10 +312,18 @@ router.get(
   knowledgeController.getAttachments
 );
 
+router.get(
+  '/attachments/:attachmentId/stream',
+  authenticate,
+  authorize('knowledge.read'),
+  [param('attachmentId').isString().notEmpty(), validate],
+  knowledgeController.streamAttachment
+);
+
 router.delete(
   '/attachments/:attachmentId',
   authenticate,
-  authorize('knowledge.create'),
+  authorize('knowledge.create', 'knowledge.update', 'knowledge.submit', 'knowledge.review', 'knowledge.approve', 'knowledge.request_revision', 'knowledge.delete', 'knowledge.manage', 'knowledge.read'),
   [param('attachmentId').isString().notEmpty(), validate],
   knowledgeController.deleteAttachment
 );

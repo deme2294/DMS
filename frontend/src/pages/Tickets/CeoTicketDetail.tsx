@@ -30,86 +30,83 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   admin: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
+    under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
+    pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
     reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     closed: ['reopened'],
-    // legacy
     accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     approved: ['closed', 'completed', 'reopened'],
     rejected: ['reopened', 'open'],
     cancelled: ['open', 'reopened'],
     escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
-    under_review: ['assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   ceo: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
+    under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
+    pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
     reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     closed: ['reopened'],
-    // legacy
     accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     approved: ['closed', 'completed', 'reopened'],
     rejected: ['reopened', 'open'],
     cancelled: ['open', 'reopened'],
     escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
-    under_review: ['assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   manager: {
     assigned: ['in_progress', 'rejected'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed', 'escalated'],
+    in_progress: ['under_review', 'pending_approval', 'pending', 'waiting_vendor', 'escalated'],
     pending: ['in_progress', 'escalated'],
+    under_review: ['pending_approval', 'in_progress', 'rejected'],
+    pending_approval: ['in_progress'],
     waiting_tenant: ['in_progress', 'resolved', 'completed', 'escalated'],
     waiting_vendor: ['in_progress'],
     resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
     reopened: ['in_progress', 'escalated'],
-    // legacy
     accepted: ['in_progress', 'escalated'],
     escalated: ['in_progress', 'resolved', 'waiting_tenant', 'completed'],
     assigned_department: ['assigned_staff'],
     assigned_staff: ['in_progress'],
-    pending_approval: ['resolved', 'in_progress'],
   },
   staff: {
     assigned: ['in_progress'],
-    in_progress: ['pending', 'waiting_tenant', 'waiting_vendor', 'resolved', 'completed'],
+    in_progress: ['under_review', 'pending', 'waiting_vendor'],
+    under_review: [],
     pending: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress'],
-    resolved: ['waiting_tenant', 'completed', 'in_progress'],
-    completed: ['reopened'],
+    resolved: [],
+    completed: [],
     reopened: ['in_progress'],
-    escalated: ['in_progress', 'waiting_tenant', 'resolved'],
-    // legacy
+    escalated: ['in_progress'],
     assigned_staff: ['in_progress'],
   },
   tenant: {
     open: ['cancelled'],
-    waiting_tenant: ['completed', 'closed', 'in_progress', 'reopened'],
-    resolved: ['completed', 'closed', 'in_progress', 'reopened'],
+    waiting_tenant: ['completed', 'in_progress', 'closed', 'reopened'],
+    resolved: ['completed', 'in_progress', 'closed', 'reopened'],
     completed: ['reopened'],
     reopened: [],
     escalated: ['completed', 'in_progress', 'reopened'],
-    // legacy
     approved: ['closed', 'completed'],
     submitted: ['cancelled'],
   },
@@ -240,7 +237,14 @@ export default function CeoTicketDetail() {
     }
   };
 
-  if (loading || !ticket) return <div className={styles.page}>Loading...</div>;
+  if (loading || !ticket) return (
+    <div className={styles.page}>
+      <div className={styles.loadingState}>
+        <div className={styles.loadingSpinner} />
+        <p>Loading ticket details…</p>
+      </div>
+    </div>
+  );
 
   const transitions = getTransitions();
   const role = user?.role as string;
@@ -330,71 +334,235 @@ export default function CeoTicketDetail() {
           </div>
         </div>
 
-      {(role === 'admin' || role === 'manager' || role === 'staff') && (
+      {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && (
         <div className={styles.card}>
           <h3>⚡ Actions</h3>
-          <div className={styles.btnRow}>
-            {transitions.length > 0 && (
-              <button onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
-            )}
+          <div className={styles.actionsSection}>
             {role === 'admin' && (
-              <button
-                className={styles.btnSecondary}
-                onClick={() => setDeptModal(true)}
-                disabled={ticket.isOverdue}
-                title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
-              >
-                Assign Dept
-              </button>
+              <div className={ticket.departmentId ? styles.deptInfoBanner : styles.deptWarnBanner}>
+                <span>{ticket.departmentId ? '🏢' : '📌'}</span>
+                <span>
+                  {ticket.departmentId
+                    ? <>Assigned to <strong>{ticket.departmentName}</strong>. Department manager is responsible for delegating staff.</>  
+                    : 'Assign this ticket to a department. The department manager will assign and oversee staff.'}
+                </span>
+              </div>
             )}
-            {(role === 'admin' || role === 'manager') && ticket.departmentId && (
-              <button
-                className={styles.btnSecondary}
-                onClick={() => setStaffModal(true)}
-                disabled={ticket.isOverdue}
-                title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
-              >
-                Assign Staff
-              </button>
+            <div className={styles.btnRow}>
+              {transitions.length > 0 && (
+                <button className={styles.btnPrimary} onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
+              )}
+              {role === 'admin' && (
+                <button
+                  className={styles.btnInfo}
+                  onClick={() => setDeptModal(true)}
+                  disabled={ticket.isOverdue}
+                  title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
+                >
+                  Assign Dept
+                </button>
+              )}
+              {role === 'manager' && ticket.departmentId && (
+                <button
+                  className={styles.btnInfo}
+                  onClick={() => setStaffModal(true)}
+                  disabled={ticket.isOverdue}
+                  title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
+                >
+                  Assign Staff
+                </button>
+              )}
+              {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                <button className={styles.btnSuccess} onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}>Accept</button>
+              )}
+              {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                <button className={styles.btnReject} onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}>Reject</button>
+              )}
+              {(role === 'admin' || role === 'ceo') && (
+                <button className={styles.btnAmber} onClick={() => setPriorityModal(true)}>Change Priority</button>
+              )}
+              {role === 'admin' && (
+                <button className={styles.btnRose} onClick={() => setCategoryModal(true)}>Change Category</button>
+              )}
+
+              {/* Staff: Resolve submits to Dept Manager */}
+              {role === 'staff' && ticket.status === 'in_progress' && (
+                <button
+                  className={styles.btnEmerald}
+                  onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Department Manager approval!')}
+                  title="Submit work for Department Manager approval"
+                >
+                  Resolve
+                </button>
+              )}
+
+              {/* Manager: approve/reject staff resolution */}
+              {role === 'manager' && ticket.status === 'under_review' && (
+                <>
+                  <button
+                    className={styles.btnEmerald}
+                    onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution approved! Forwarded to Admin for verification.')}
+                  >
+                    Approve Resolution
+                  </button>
+                  <button
+                    className={styles.btnReject}
+                    onClick={() => call(() => rejectResolution(ticket.id, notes || 'Department Manager requested rework'), 'Rework requested.')}
+                  >
+                    Request Rework
+                  </button>
+                </>
+              )}
+              {role === 'manager' && ticket.status === 'in_progress' && (
+                <button
+                  className={styles.btnEmerald}
+                  onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Admin verification.')}
+                >
+                  Resolve
+                </button>
+              )}
+
+              {/* Admin / CEO: verify & resolve or return for revision */}
+              {(role === 'admin' || role === 'ceo') && ticket.status === 'pending_approval' && (
+                <>
+                  <button
+                    className={styles.btnEmerald}
+                    onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution verified! Marked Resolved and routed to tenant for confirmation.')}
+                    title="Verify resolution and route to tenant for final confirmation"
+                  >
+                    Verify & Resolve
+                  </button>
+                  <button
+                    className={styles.btnReject}
+                    onClick={() => call(() => rejectResolution(ticket.id, notes || 'Admin returned for revision'), 'Returned for revision.')}
+                  >
+                    Return for Revision
+                  </button>
+                </>
+              )}
+              {(role === 'admin' || role === 'ceo') && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
+                <button
+                  className={styles.btnEmerald}
+                  onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}
+                >
+                  Resolve
+                </button>
+              )}
+
+              {(role === 'admin' || role === 'ceo' || role === 'manager') && (
+                <button className={styles.btnOrange} onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}>Escalate</button>
+              )}
+              {role === 'admin' && (
+                <button className={styles.btnIndigo} onClick={() => setMergeModal(true)}>Merge</button>
+              )}
+              {transitions.includes('closed') && (
+                <button className={styles.btnDark} onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}>Close</button>
+              )}
+              {transitions.includes('reopened') && (
+                <button className={styles.btnAmber} onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}>Reopen</button>
+              )}
+              <button className={styles.btnSlate} onClick={() => setNoteModal(true)}>Internal Note</button>
+              <button className={styles.btnInfo} onClick={() => setAttachModal(true)}>Upload File</button>
+            </div>
+            {ticket.isOverdue && (
+              <div className={styles.slaInlineWarning}>
+                ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
+              </div>
             )}
-            {(role === 'manager' || role === 'staff') && (
-              <button className={styles.btnSecondary} onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}>Accept</button>
-            )}
-            {(role === 'manager' || role === 'staff') && (
-              <button className={styles.btnSecondary} onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}>Reject</button>
-            )}
-            {role === 'admin' && (
-              <button className={styles.btnSecondary} onClick={() => setPriorityModal(true)}>Change Priority</button>
-            )}
-            {role === 'admin' && (
-              <button className={styles.btnSecondary} onClick={() => setCategoryModal(true)}>Change Category</button>
-            )}
-            {(role === 'admin' || role === 'manager' || role === 'staff') && (transitions.includes('resolved') || transitions.includes('waiting_tenant')) && (
-              <button className={styles.btnSecondary} onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}>Resolve</button>
-            )}
-            {role === 'admin' && (
-              <button className={styles.btnSecondary} onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}>Escalate</button>
-            )}
-            {role === 'admin' && (
-              <button className={styles.btnSecondary} onClick={() => setMergeModal(true)}>Merge</button>
-            )}
-            {transitions.includes('closed') && (
-              <button className={styles.btnSecondary} onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}>Close</button>
-            )}
-            {transitions.includes('reopened') && (
-              <button className={styles.btnSecondary} onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}>Reopen</button>
-            )}
-            <button className={styles.btnSecondary} onClick={() => setNoteModal(true)}>Internal Note</button>
-            <button className={styles.btnSecondary} onClick={() => setAttachModal(true)}>Upload File</button>
           </div>
-          {ticket.isOverdue && (
-            <div className={styles.slaInlineWarning}>
-              ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
+        </div>
+      )}
+      </div>
+
+      {/* Escalation Banner */}
+      {ticket.isEscalated && ticket.status === 'escalated' && (
+        <div className={`${styles.card} ${styles.slaDangerCard}`}>
+          <h3><span>🚨</span> Ticket Escalated</h3>
+          <p>
+            This ticket has been <strong>automatically escalated</strong> due to an SLA breach.
+            {ticket.escalatedAt && <> Escalated at: <strong>{new Date(ticket.escalatedAt).toLocaleString()}</strong>.</>}
+            {' '}Urgent attention required.
+          </p>
+        </div>
+      )}
+
+      {/* Under Review Banner */}
+      {ticket.status === 'under_review' && (
+        <div className={`${styles.card} ${styles.slaWarningCard}`} style={{ borderLeft: '4px solid #a855f7' }}>
+          <h3><span>📋</span> {role === 'manager' ? 'Staff Resolution Awaiting Your Approval' : 'Resolution Under Department Review'}</h3>
+          <p>
+            {role === 'manager'
+              ? `Staff member ${ticket.assignedToName || 'assigned staff'} has resolved the issue and submitted it for your department approval. Please review the work and either approve it to forward to Admin, or request rework.`
+              : role === 'staff'
+              ? 'You have submitted this ticket for resolution. It is currently under review by your Department Manager.'
+              : 'Staff has resolved this ticket. Awaiting review and approval by the Department Manager.'}
+          </p>
+          {role === 'manager' && (
+            <div className={styles.btnRow} style={{ marginTop: '12px' }}>
+              <button
+                className={styles.btnSuccess}
+                onClick={() => call(() => markResolved(ticket.id, notes || 'Department Manager approved resolution'), 'Resolution approved! Forwarded to Admin for verification.')}
+              >
+                ✅ Approve Resolution (Send to Admin)
+              </button>
+              <button
+                className={styles.btnReject}
+                onClick={() => call(() => rejectResolution(ticket.id, notes || 'Department Manager requested rework'), 'Ticket returned to In Progress for staff rework.')}
+              >
+                🔄 Request Rework (Return to Staff)
+              </button>
             </div>
           )}
         </div>
       )}
-      </div>
+
+      {/* Pending Admin Approval Banner */}
+      {ticket.status === 'pending_approval' && (
+        <div className={`${styles.card} ${styles.slaWarningCard}`} style={{ borderLeft: '4px solid #3b82f6' }}>
+          <h3><span>🛡️</span> {(role === 'admin' || role === 'ceo') ? 'Resolution Awaiting Admin Verification' : 'Pending Administrative Verification'}</h3>
+          <p>
+            {(role === 'admin' || role === 'ceo')
+              ? 'Department Manager has approved the resolution. Verify the solution and click "Verify & Resolve" to mark it Resolved and notify the tenant for confirmation.'
+              : role === 'manager'
+              ? 'You approved this resolution. It is now awaiting final verification by an Administrator before the tenant is notified.'
+              : 'Department Manager approved the resolution. Awaiting Administrator verification.'}
+          </p>
+          {(role === 'admin' || role === 'ceo') && (
+            <div className={styles.btnRow} style={{ marginTop: '12px' }}>
+              <button
+                className={styles.btnEmerald}
+                onClick={() => call(() => markResolved(ticket.id, notes || 'Admin verified resolution'), 'Resolution verified! Marked Resolved and routed to tenant for confirmation.')}
+              >
+                ✅ Verify & Resolve (Notify Tenant)
+              </button>
+              <button
+                className={styles.btnReject}
+                onClick={() => call(() => rejectResolution(ticket.id, notes || 'Admin returned for revision'), 'Returned for revision.')}
+              >
+                🔄 Return for Revision
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Waiting for Tenant Banner */}
+      {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && ticket.status === 'waiting_tenant' && (
+        <div className={`${styles.card} ${styles.slaWarningCard}`}>
+          <h3><span>⏳</span> Waiting for Tenant Confirmation</h3>
+          <p>
+            The ticket has been resolved by our team and verified by Admin. Waiting for the tenant to inspect the resolution, rate satisfaction, and confirm if the issue is solved.
+          </p>
+        </div>
+      )}
+
+      {/* Completed Banner */}
+      {ticket.status === 'completed' && (
+        <div className={`${styles.card} ${styles.completedCard}`}>
+          <h3><span>🎉</span> Ticket Completed</h3>
+          <p>The tenant has verified and confirmed this ticket is solved. The request is officially completed.</p>
+        </div>
+      )}
 
       <div className={styles.card}>
         <h3>📝 Description</h3>
@@ -415,16 +583,23 @@ export default function CeoTicketDetail() {
       )}
 
       <div className={styles.card}>
-        <h3>💬 Comments & Replies {role !== 'tenant' ? '(Internal notes visible to staff only)' : ''}</h3>
-        {replies.length === 0 && <p>No replies yet.</p>}
+        <h3>💬 Comments & Replies {role !== 'tenant' ? <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>(🔒 Internal notes are hidden from tenants)</span> : ''}</h3>
+        {replies.length === 0 && <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>No replies yet.</p>}
         <ul className={styles.replies}>
           {replies.map((reply) => {
-            const isInternal = reply.visibility === 'internal' || !!reply.isInternal;
+            const v = reply.visibility;
+            const isPrivate = v === 'internal' || v === 'department' || !!reply.isInternal;
+            const label =
+              v === 'tenant' ? '👤 Tenant Only'
+                : v === 'department' ? '🏢 Department'
+                  : v === 'both' ? '👤🏢 Tenant & Dept'
+                    : v === 'internal' ? '🔒 Internal'
+                      : '📢 Public';
             return (
-              <li key={reply.id} className={isInternal ? styles.internal : styles.replyItem}>
+              <li key={reply.id} className={isPrivate ? styles.internal : styles.replyItem}>
                 <div className={styles.replyHeader}>
                   <strong className={styles.replyAuthor}>{reply.userName || 'System'}</strong>
-                  {isInternal && <span className={styles.badgeInternal}>🔒 Internal Note</span>}
+                  <span className={isPrivate ? styles.badgeInternal : styles.badgePublic}>{label}</span>
                   <span className={styles.time}>{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</span>
                 </div>
                 <p className={styles.replyMessage}>{reply.message}</p>
@@ -468,34 +643,76 @@ export default function CeoTicketDetail() {
           <>
             <div className={styles.timelineContainer}>
               <ul className={styles.timeline}>
-                {paginatedTimeline.map((ev) => (
-                  <li key={ev.id}>
-                    <div className={styles.timelineEvent}>
-                      <strong>{ev.actorName || 'System'}</strong>
-                      <span className={styles.timelineKind}>
-                        {ev.kind}
-                      </span>
-                      {ev.kind === 'status' && (
-                        <div className={styles.timelineMessage}>
-                          {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                {paginatedTimeline.map((ev) => {
+                  const matchedAttachment = ticket.attachments?.find(
+                    (att) => att.fileName === ev.message || (att.filePath && ev.filePath === att.filePath)
+                  );
+                  const downloadUrl = ev.filePath
+                    ? `${API_BASE}${ev.filePath}`
+                    : matchedAttachment
+                    ? `${API_BASE}${matchedAttachment.filePath}`
+                    : null;
+                  const isImage = !!ev.message?.match(/\.(png|jpe?g|gif|webp|svg)$/i);
+
+                  return (
+                    <li key={ev.id}>
+                      <div className={styles.timelineEvent}>
+                        <div className={styles.timelineHeader}>
+                          <div className={styles.timelineActorWrapper}>
+                            <strong className={styles.timelineActor}>{ev.actorName || 'System'}</strong>
+                            <span className={`${styles.timelineKind} ${styles[`kind-${ev.kind}` as keyof typeof styles]}`}>
+                              {ev.kind === 'attachment' && <span className={styles.kindIcon}>📎</span>}
+                              {ev.kind === 'status' && <span className={styles.kindIcon}>🔄</span>}
+                              {ev.kind === 'assignment' && <span className={styles.kindIcon}>👤</span>}
+                              {ev.kind === 'comment' && <span className={styles.kindIcon}>💬</span>}
+                              <span className={styles.kindLabel}>{ev.kind}</span>
+                            </span>
+                          </div>
+                          <span className={styles.timelineTime}>{ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}</span>
                         </div>
-                      )}
-                      {ev.kind === 'comment' && (
-                        <div className={styles.timelineMessage}>
-                          {(ev.visibility === 'internal' ? '[Internal] ' : '') + (ev.message || '')}
-                        </div>
-                      )}
-                      {ev.kind === 'attachment' && (
-                        <div className={styles.timelineMessage}>uploaded {ev.message}</div>
-                      )}
-                      {ev.kind === 'assignment' && (
-                        <div className={styles.timelineMessage}>{ev.role} assignment {ev.status}</div>
-                      )}
-                      <span className={styles.timelineTime}>{ev.createdAt ? new Date(ev.createdAt).toLocaleString() : ''}</span>
-                      {ev.notes && <div className={styles.timelineNotes}>📌 {ev.notes}</div>}
-                    </div>
-                  </li>
-                ))}
+                        {ev.kind === 'status' && (
+                          <div className={styles.timelineMessage}>
+                            {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                          </div>
+                        )}
+                        {ev.kind === 'comment' && (
+                          <div className={styles.timelineMessage}>
+                            {(ev.visibility === 'internal' ? '[Internal] ' : '') + (ev.message || '')}
+                          </div>
+                        )}
+                        {ev.kind === 'attachment' && (
+                          <div className={styles.timelineAttachmentSection}>
+                            <div className={styles.timelineAttachmentCard}>
+                              <div className={styles.timelineAttachmentIconWrapper}>
+                                {isImage ? '🖼️' : '📄'}
+                              </div>
+                              <div className={styles.timelineAttachmentDetails}>
+                                <span className={styles.timelineAttachmentAction}>Uploaded attachment</span>
+                                <span className={styles.timelineAttachmentFileName} title={ev.message}>{ev.message}</span>
+                              </div>
+                              {downloadUrl && (
+                                <a
+                                  href={downloadUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={styles.timelineAttachmentDownloadBtn}
+                                  title="View or download file"
+                                >
+                                  <span>View File</span>
+                                  <span className={styles.downloadIcon}>↗</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {ev.kind === 'assignment' && (
+                          <div className={styles.timelineMessage}>{ev.role} assignment {ev.status}</div>
+                        )}
+                        {ev.notes && <div className={styles.timelineNotes}>📌 {ev.notes}</div>}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 
@@ -665,15 +882,22 @@ function ReplyForm({ ticketId, canInternal }: { ticketId: string; canInternal: b
   };
   return (
     <div className={styles.replyForm}>
-      <textarea rows={3} placeholder="Add a reply..." value={text} onChange={(e) => setText(e.target.value)} />
       {canInternal && (
-        <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'all' | 'internal')}>
-          <option value="all">Visible to All</option>
-          <option value="internal">Internal Only</option>
-        </select>
+        <div>
+          <label>Visibility:
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as 'all' | 'internal')}
+            >
+              <option value="all">📢 Visible to All</option>
+              <option value="internal">🔒 Internal Only (Staff & Managers)</option>
+            </select>
+          </label>
+        </div>
       )}
+      <textarea rows={3} placeholder="Add a reply..." value={text} onChange={(e) => setText(e.target.value)} />
       <button onClick={submit} disabled={!text.trim()}>Submit Reply</button>
-      {msg && <span style={{ color: '#6ee7b7' }}>{msg}</span>}
+      {msg && <span style={{ color: '#166534', fontWeight: 600 }}>{msg}</span>}
     </div>
   );
 }

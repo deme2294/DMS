@@ -227,3 +227,64 @@
     width: 100%;
   }
 }
+
+/* Dark Theme Overrides */
+:global([data-theme="dark"]) .form {
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .formGroup label {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .formGroup input,
+:global([data-theme="dark"]) .formGroup select,
+:global([data-theme="dark"]) .formGroup textarea,
+:global([data-theme="dark"]) .memberSearch {
+  background: #0f1420 !important;
+  border-color: #2e384d !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .formGroup input:focus,
+:global([data-theme="dark"]) .formGroup select:focus,
+:global([data-theme="dark"]) .formGroup textarea:focus,
+:global([data-theme="dark"]) .memberSearch:focus {
+  background: #131926 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .memberCard {
+  background: #0f1420 !important;
+  border-color: #252e3e !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .memberCard:hover {
+  background: #182236 !important;
+  border-color: #3b82f6 !important;
+}
+
+:global([data-theme="dark"]) .memberCardSelected {
+  background: rgba(37, 99, 235, 0.2) !important;
+  border-color: #3b82f6 !important;
+}
+
+:global([data-theme="dark"]) .btnSecondary {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .btnSecondary:hover:not(:disabled) {
+  background: #27354f !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .actions {
+  border-top-color: #1e2638 !important;
+}

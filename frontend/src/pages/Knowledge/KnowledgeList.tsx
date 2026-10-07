@@ -137,7 +137,7 @@ export default function KnowledgeList() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, category, tab, page, limit, user?.id, isStaff, isTenant]);
+  }, [search, status, category, tab, page, limit, user?.id, isStaff, isTenant, isAdmin]);
 
   useEffect(() => {
     loadArticles();
@@ -183,39 +183,58 @@ export default function KnowledgeList() {
     return false;
   };
 
-  const renderWorkflowStatusBadge = (articleStatus: string) => {
+  const renderWorkflowStatusBadge = (articleStatus: string, article?: Article) => {
     switch (articleStatus) {
       case 'draft':
         return (
-          <span className={`${styles.statusBadge} ${styles.statusDraft}`}>
+          <span className={`${styles.statusBadge} ${styles.statusDraft}`} title="Draft article">
             <PencilSquareIcon className={styles.statusBadgeIcon} />
             <span>Draft</span>
           </span>
         );
-      case 'pending_approval':
+      case 'pending_approval': {
+        const isApprovedByDept = Boolean(article?.reviewedBy);
+        if (isApprovedByDept) {
+          return (
+            <span
+              className={`${styles.statusBadge} ${styles.statusPendingAdmin}`}
+              title="Approved by Department Manager · Pending Review for Admin to Publish"
+            >
+              <ClockIcon className={styles.statusBadgeIcon} />
+              <span>Pending Review for Admin</span>
+            </span>
+          );
+        }
         return (
-          <span className={`${styles.statusBadge} ${styles.statusPending}`}>
+          <span
+            className={`${styles.statusBadge} ${styles.statusPending}`}
+            title="Submitted by staff · Pending Department Manager review and approval"
+          >
             <ClockIcon className={styles.statusBadgeIcon} />
-            <span>Pending Review</span>
+            <span>Pending Dept Review</span>
           </span>
         );
+      }
       case 'approved':
         return (
-          <span className={`${styles.statusBadge} ${styles.statusApproved}`}>
+          <span
+            className={`${styles.statusBadge} ${styles.statusApproved}`}
+            title={isAdmin ? 'Approved by Dept Manager · Ready for Admin to Publish' : 'Approved by Department Manager (Awaiting Admin)'}
+          >
             <CheckIcon className={styles.statusBadgeIcon} />
-            <span>Approved</span>
+            <span>{isAdmin ? 'Approved (Ready to Publish)' : 'Approved (Awaiting Admin)'}</span>
           </span>
         );
       case 'published':
         return (
-          <span className={`${styles.statusBadge} ${styles.statusPublished}`}>
+          <span className={`${styles.statusBadge} ${styles.statusPublished}`} title="Live for tenants">
             <CheckCircleIcon className={styles.statusBadgeIcon} />
-            <span>Published</span>
+            <span>Published Live</span>
           </span>
         );
       case 'needs_revision':
         return (
-          <span className={`${styles.statusBadge} ${styles.statusRevision}`}>
+          <span className={`${styles.statusBadge} ${styles.statusRevision}`} title="Revisions requested with recommendations">
             <ExclamationTriangleIcon className={styles.statusBadgeIcon} />
             <span>Needs Revision</span>
           </span>
@@ -280,6 +299,34 @@ export default function KnowledgeList() {
           >
             <CheckCircleIcon className={styles.btnIcon} />
             <span>Publish to Tenants</span>
+          </button>
+        );
+        buttons.push(
+          <button
+            key="revision"
+            className={styles.revisionBtn}
+            title="Send back to department manager with recommendations of what should be changed"
+            onClick={() => {
+              setRevisionTarget(a);
+              setRevisionReason('');
+            }}
+          >
+            <ExclamationTriangleIcon className={styles.btnIcon} />
+            <span>Request Changes</span>
+          </button>
+        );
+        buttons.push(
+          <button
+            key="reject"
+            className={styles.deleteBtn}
+            title="Reject article"
+            onClick={() => {
+              setRejectTarget(a);
+              setRejectReason('');
+            }}
+          >
+            <XCircleIcon className={styles.btnIcon} />
+            <span>Reject</span>
           </button>
         );
       } else if (a.status === 'draft') {
@@ -371,63 +418,87 @@ export default function KnowledgeList() {
       }
     }
 
-    // Manager review actions (strictly for department staff articles)
-    if (!isAdmin && isManager && a.status === 'pending_approval' && can('knowledge.approve')) {
+    // Manager review actions (strictly for department staff articles: draft or pending_approval)
+    if (!isAdmin && isManager && (a.status === 'pending_approval' || a.status === 'draft') && can('knowledge.approve')) {
       const isOwnArticle = a.authorId === user?.id;
       if (!isOwnArticle) {
-        buttons.push(
-          <button
-            key="approve"
-            className={styles.approveBtn}
-            title="Approve article and automatically notify Admin to publish"
-            onClick={() => runAction(() => approveArticle(a.id), 'Article approved! Admin has been notified to publish.')}
-          >
-            <CheckIcon className={styles.btnIcon} />
-            <span>Approve</span>
-          </button>
-        );
+        if (!a.reviewedBy) {
+          buttons.push(
+            <button
+              key="approve"
+              className={styles.approveBtn}
+              title="Department Manager approval (routes to Admin for verification & publishing)"
+              onClick={() => runAction(() => approveArticle(a.id), 'Article approved! Routed to Admin Pending Review queue.')}
+            >
+              <CheckIcon className={styles.btnIcon} />
+              <span>Approve & Route to Admin</span>
+            </button>
+          );
+          buttons.push(
+            <button
+              key="revision"
+              className={styles.revisionBtn}
+              title="Send back to author with guidance notes"
+              onClick={() => {
+                setRevisionTarget(a);
+                setRevisionReason('');
+              }}
+            >
+              <ExclamationTriangleIcon className={styles.btnIcon} />
+              <span>Request Changes</span>
+            </button>
+          );
+          buttons.push(
+            <button
+              key="reject"
+              className={styles.deleteBtn}
+              title="Reject article"
+              onClick={() => {
+                setRejectTarget(a);
+                setRejectReason('');
+              }}
+            >
+              <XCircleIcon className={styles.btnIcon} />
+              <span>Reject</span>
+            </button>
+          );
+        } else {
+          buttons.push(
+            <span
+              key="deptApprovedStatus"
+              className={styles.deptSignedOffBadge}
+              title="You have approved this article. It has been routed to Admin for review & publishing."
+            >
+              ✓ Dept Approved · With Admin
+            </span>
+          );
+        }
       }
-      buttons.push(
-        <button
-          key="revision"
-          className={styles.revisionBtn}
-          title="Send back to author with guidance notes"
-          onClick={() => {
-            setRevisionTarget(a);
-            setRevisionReason('');
-          }}
-        >
-          <ExclamationTriangleIcon className={styles.btnIcon} />
-          <span>Request Changes</span>
-        </button>
-      );
-      buttons.push(
-        <button
-          key="reject"
-          className={styles.deleteBtn}
-          title="Reject article"
-          onClick={() => {
-            setRejectTarget(a);
-            setRejectReason('');
-          }}
-        >
-          <XCircleIcon className={styles.btnIcon} />
-          <span>Reject</span>
-        </button>
-      );
     }
 
-    // Staff submission action (Staff can ONLY submit draft/revision, never approve or publish)
+    // Submission actions: Staff submits to Dept Manager; Manager submits to Admin
     if (isStaff && a.authorId === user?.id && (a.status === 'draft' || a.status === 'needs_revision')) {
       buttons.push(
         <button
           key="submit"
           className={styles.submitBtn}
-          title="Submit article to your Department Manager for approval"
-          onClick={() => runAction(() => submitArticle(a.id), 'Submitted to Department Manager for review!')}
+          title={a.status === 'needs_revision' ? 'Re-submit article to Department Manager with revisions' : 'Submit article to your Department Manager for approval'}
+          onClick={() => runAction(() => submitArticle(a.id), a.status === 'needs_revision' ? 'Re-submitted to Department Manager for verification!' : 'Submitted to Department Manager for review!')}
         >
           <PaperAirplaneIcon className={styles.btnIcon} />
-          <span>Submit for Review</span>
+          <span>{a.status === 'needs_revision' ? 'Re-submit for Review' : 'Submit for Review'}</span>
+        </button>
+      );
+    } else if (isManager && (a.status === 'draft' || a.status === 'needs_revision')) {
+      buttons.push(
+        <button
+          key="submit"
+          className={styles.submitBtn}
+          title={a.status === 'needs_revision' ? 'Re-submit article to Admin for review' : 'Submit article to Admin for approval'}
+          onClick={() => runAction(() => submitArticle(a.id), a.status === 'needs_revision' ? 'Re-submitted to Admin for verification!' : 'Submitted to Admin for review!')}
+        >
+          <PaperAirplaneIcon className={styles.btnIcon} />
+          <span>{a.status === 'needs_revision' ? 'Re-submit to Admin' : 'Submit for Review'}</span>
         </button>
       );
     }
@@ -614,12 +685,18 @@ export default function KnowledgeList() {
       {/* ── Role-Specific Live Overview Metric Cards ── */}
       {(isAdmin || isManager || isStaff) && stats && (
         <div className={styles.statsGrid}>
+          {/* 1. All Articles */}
           <div
             className={`${styles.statCard} ${tab === 'all' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('all')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#eff6ff', color: '#2563eb' }}>
-              📚
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconAll}`}>
+                📚
+              </div>
+              <span className={styles.statBadgeNeutral}>
+                {stats.total} Total
+              </span>
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.total}</span>
@@ -629,12 +706,18 @@ export default function KnowledgeList() {
             </div>
           </div>
 
+          {/* 2. Drafts */}
           <div
             className={`${styles.statCard} ${tab === 'my-drafts' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('my-drafts')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#f8fafc', color: '#475569' }}>
-              📝
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconDraft}`}>
+                📝
+              </div>
+              {stats.draft > 0 && (
+                <span className={styles.statBadgeDraft}>{stats.draft} Draft</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.draft}</span>
@@ -642,12 +725,18 @@ export default function KnowledgeList() {
             </div>
           </div>
 
+          {/* 3. Pending Review */}
           <div
             className={`${styles.statCard} ${tab === 'pending' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('pending')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#fef3c7', color: '#b45309' }}>
-              ⏳
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconPending}`}>
+                ⏳
+              </div>
+              {stats.pending_approval > 0 && (
+                <span className={styles.statBadgePending}>{stats.pending_approval} Pending</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.pending_approval}</span>
@@ -655,17 +744,20 @@ export default function KnowledgeList() {
                 {isStaff ? 'Submitted for Review' : isManager ? 'Pending Dept Review' : 'Pending Review'}
               </span>
             </div>
-            {stats.pending_approval > 0 && (
-              <span className={styles.statHighlightAlert}>{stats.pending_approval} Pending</span>
-            )}
           </div>
 
+          {/* 4. Approved */}
           <div
             className={`${styles.statCard} ${tab === 'approved' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('approved')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#eff6ff', color: '#1d4ed8' }}>
-              ✓
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconApproved}`}>
+                ✓
+              </div>
+              {stats.approved > 0 && (
+                <span className={styles.statBadgeApproved}>{stats.approved} Ready</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.approved}</span>
@@ -673,33 +765,39 @@ export default function KnowledgeList() {
                 {isAdmin ? 'Ready to Publish' : 'Approved'}
               </span>
             </div>
-            {stats.approved > 0 && (
-              <span className={styles.statHighlightSuccess}>{stats.approved} Ready</span>
-            )}
           </div>
 
+          {/* 5. Needs Revision */}
           <div
             className={`${styles.statCard} ${tab === 'needs-revision' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('needs-revision')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#fff7ed', color: '#ea580c' }}>
-              ⚠️
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconRevision}`}>
+                ⚠️
+              </div>
+              {stats.needs_revision > 0 && (
+                <span className={styles.statBadgeRevision}>{stats.needs_revision} Action</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.needs_revision}</span>
               <span className={styles.statLabel}>Needs Revision</span>
             </div>
-            {stats.needs_revision > 0 && (
-              <span className={styles.statHighlightAlert}>{stats.needs_revision} Action</span>
-            )}
           </div>
 
+          {/* 6. Published */}
           <div
             className={`${styles.statCard} ${tab === 'published' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('published')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#ecfdf5', color: '#059669' }}>
-              🌐
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconPublished}`}>
+                🌐
+              </div>
+              {stats.published > 0 && (
+                <span className={styles.statBadgePublished}>{stats.published} Live</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.published}</span>
@@ -709,12 +807,18 @@ export default function KnowledgeList() {
             </div>
           </div>
 
+          {/* 7. Unpublished */}
           <div
             className={`${styles.statCard} ${tab === 'unpublished' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('unpublished')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#f1f5f9', color: '#64748b' }}>
-              👁️
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconUnpublished}`}>
+                👁️
+              </div>
+              {(stats.unpublished || 0) > 0 && (
+                <span className={styles.statBadgeUnpublished}>{stats.unpublished} Off</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.unpublished || 0}</span>
@@ -722,30 +826,37 @@ export default function KnowledgeList() {
             </div>
           </div>
 
+          {/* 8. Rejected */}
           <div
             className={`${styles.statCard} ${tab === 'rejected' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('rejected')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#fef2f2', color: '#dc2626' }}>
-              🛑
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconRejected}`}>
+                🛑
+              </div>
+              {(stats.rejected || 0) > 0 && (
+                <span className={styles.statBadgeRejected}>{stats.rejected} Rejected</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{stats.rejected || 0}</span>
               <span className={styles.statLabel}>Rejected</span>
             </div>
-            {(stats.rejected || 0) > 0 && (
-              <span style={{ background: '#fee2e2', color: '#dc2626', fontSize: '0.72rem', fontWeight: 700, padding: '2px 7px', borderRadius: 999, marginLeft: 'auto' }}>
-                {stats.rejected}
-              </span>
-            )}
           </div>
 
+          {/* 9. Archived / Restored */}
           <div
             className={`${styles.statCard} ${tab === 'archived-restored' ? styles.statCardActive : ''}`}
             onClick={() => handleTabChange('archived-restored')}
           >
-            <div className={styles.statIconWrapper} style={{ background: '#f8fafc', color: '#475569' }}>
-              📦
+            <div className={styles.statCardTop}>
+              <div className={`${styles.statIconWrapper} ${styles.statIconArchived}`}>
+                📦
+              </div>
+              {((stats.archived || 0) + (stats.restored || 0)) > 0 && (
+                <span className={styles.statBadgeArchived}>{(stats.archived || 0) + (stats.restored || 0)} Stored</span>
+              )}
             </div>
             <div className={styles.statInfo}>
               <span className={styles.statValue}>{(stats.archived || 0) + (stats.restored || 0)}</span>
@@ -959,15 +1070,24 @@ export default function KnowledgeList() {
                       <span>{row.departmentName}</span>
                     </span>
                   )}
+                  {row.reviewedFirstName && (
+                    <span
+                      className={styles.approvedChip}
+                      title="Reviewed & Signed Off by Department Manager"
+                    >
+                      <CheckCircleIcon style={{ width: '12px', height: '12px' }} />
+                      <span>Dept Approved by {row.reviewedFirstName} {row.reviewedLastName || ''}</span>
+                    </span>
+                  )}
                   {row.approvedFirstName && (
                     <span
                       className={styles.approvedChip}
-                      title={`Approved at ${
+                      title={`Approved by Admin at ${
                         row.approvedAt ? new Date(row.approvedAt).toLocaleString() : ''
                       }`}
                     >
                       <CheckCircleIcon style={{ width: '12px', height: '12px' }} />
-                      <span>Dept Approved by {row.approvedFirstName} {row.approvedLastName || ''}</span>
+                      <span>Admin Approved by {row.approvedFirstName} {row.approvedLastName || ''}</span>
                     </span>
                   )}
                   <span className={styles.visibilityChip}>{row.visibility}</span>
@@ -989,7 +1109,7 @@ export default function KnowledgeList() {
           {
             key: 'status',
             label: 'Workflow Status',
-            render: (row) => renderWorkflowStatusBadge(row.status),
+            render: (row) => renderWorkflowStatusBadge(row.status, row),
           },
           {
             key: 'author',

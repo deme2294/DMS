@@ -184,9 +184,10 @@
 
 /* ── Actions ── */
 .actions {
-  display: flex;
+  display: inline-flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   align-items: center;
 }
 
@@ -204,7 +205,8 @@
   font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.15s ease;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
   text-decoration: none;
   border: none;
 }

@@ -6,7 +6,8 @@
 /* --------------------------------------------------------------------------
    1. CSS VARIABLES & THEME TOKENS
    -------------------------------------------------------------------------- */
-:root {
+:root,
+:global([data-theme='light']) {
   --primary-blue: #2563eb;
   --primary-blue-hover: #1d4ed8;
   --primary-blue-light: #eff6ff;
@@ -27,17 +28,21 @@
   --accent-ticket-light: #f5f3ff;
   --accent-ticket-border: #ddd6fe;
 
-  --accent-video: #10b981;
-  --accent-video-glow: rgba(16, 185, 129, 0.4);
+  --accent-video: #db2777;
+  --accent-video-glow: rgba(219, 39, 119, 0.25);
 
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
   --bg-sidebar: #ffffff;
+  --bg-sidebar-header: #ffffff;
   --bg-surface: #ffffff;
   --bg-hover: #f1f5f9;
   --bg-active: #e2e8f0;
-  --bg-bubble-in: #f1f5f9;
-  --bg-input: #ffffff;
+  --bg-bubble-in: #ffffff;
+  --bg-input: #f8fafc;
+  --bg-room-active: #eff6ff;
+  --border-room-active: #bfdbfe;
+  --text-room-active: #1d4ed8;
 
   --text-main: #0f172a;
   --text-muted: #64748b;
@@ -58,11 +63,10 @@
   --radius-full: 9999px;
 }
 
-:global([data-theme='dark']),
-[data-theme='dark'] {
+:global([data-theme='dark']) {
   --primary-blue: #3b82f6;
   --primary-blue-hover: #2563eb;
-  --primary-blue-light: rgba(37, 99, 235, 0.18);
+  --primary-blue-light: rgba(59, 130, 246, 0.18);
   --primary-blue-border: rgba(59, 130, 246, 0.35);
 
   --accent-direct: #10b981;
@@ -75,25 +79,32 @@
   --accent-dept-light: rgba(245, 158, 11, 0.18);
   --accent-dept-border: rgba(245, 158, 11, 0.35);
 
-  --accent-ticket: #8b5cf6;
-  --accent-ticket-hover: #7c3aed;
-  --accent-ticket-light: rgba(139, 92, 246, 0.18);
-  --accent-ticket-border: rgba(139, 92, 246, 0.35);
+  --accent-ticket: #a855f7;
+  --accent-ticket-hover: #9333ea;
+  --accent-ticket-light: rgba(168, 85, 247, 0.18);
+  --accent-ticket-border: rgba(168, 85, 247, 0.35);
+
+  --accent-video: #f472b6;
+  --accent-video-glow: rgba(244, 114, 182, 0.35);
 
   --bg-app: #0b0f17;
-  --bg-card: #151b28;
-  --bg-sidebar: #101522;
-  --bg-surface: #151b28;
+  --bg-card: #111827;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-header: #0f172a;
+  --bg-surface: #111827;
   --bg-hover: #1e293b;
   --bg-active: #26334a;
   --bg-bubble-in: #1e293b;
-  --bg-input: #0f1420;
+  --bg-input: #1e293b;
+  --bg-room-active: #1e2a47;
+  --border-room-active: #3b82f6;
+  --text-room-active: #93c5fd;
 
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
   --text-dim: #64748b;
 
-  --border-light: #252e3e;
+  --border-light: #1e293b;
   --border-strong: #334155;
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -133,7 +144,7 @@
   z-index: 99999 !important;
   margin: 0 !important;
   padding: 8px !important;
-  background: #0b0f17 !important;
+  background: var(--bg-app) !important;
   box-sizing: border-box !important;
 }
 
@@ -311,15 +322,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 10px 18px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-light);
-  gap: 16px;
-  min-height: 68px;
+  gap: 12px;
+  min-height: 60px;
   box-sizing: border-box;
   flex-shrink: 0;
   z-index: 10;
   transition: background-color 0.2s ease, border-color 0.2s ease;
+  flex-wrap: wrap;
 }
 
 .chatHeaderLeft {
@@ -327,7 +339,7 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 
 .mobileSidebarToggle {
@@ -468,10 +480,10 @@
 .chatHeaderRight {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
 }
 
 /* Mode Switcher Segmented Control (Text Chat / Video Call / Split View) */
@@ -479,7 +491,7 @@
   display: inline-flex;
   align-items: center;
   background: #f1f5f9;
-  padding: 4px;
+  padding: 3px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-light);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -490,13 +502,13 @@
 .modeSwitchBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 5px;
+  padding: 6px 11px;
   border-radius: var(--radius-full);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.825rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -539,17 +551,39 @@
   50% { opacity: 1; transform: scale(1.05); }
 }
 
+.headerQuickCallBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.headerQuickCallBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
+}
+
 .headerActionBtn,
 .actionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
+  gap: 5px;
+  padding: 6px 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
   background: #ffffff;
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -628,22 +662,24 @@
   border-right: 1px solid var(--border-light);
   background: var(--bg-sidebar);
   z-index: 15;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .sidebarHeader {
-  padding: 16px 16px 12px 16px;
+  padding: 14px 16px 12px 16px;
   border-bottom: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #ffffff;
+  gap: 10px;
+  background: var(--bg-sidebar-header);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .sidebarTitleRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
 }
 
 .sidebarTitleGroup {
@@ -665,19 +701,22 @@
 }
 
 .newChatBtn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-hover) 100%);
   color: #ffffff;
   border: none;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
 }
 
 .newChatBtn:hover {
@@ -726,7 +765,7 @@
   padding: 8px 32px 8px 34px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  background: #f8fafc;
+  background: var(--bg-input);
   font-size: 0.85rem;
   color: var(--text-main);
   outline: none;
@@ -734,10 +773,14 @@
   box-sizing: border-box;
 }
 
+.searchBox input::placeholder {
+  color: var(--text-dim);
+}
+
 .searchBox input:focus {
-  background: #ffffff;
+  background: var(--bg-surface);
   border-color: var(--primary-blue);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
 .clearSearchBtn {
@@ -768,8 +811,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 11px;
-  background: #f1f5f9;
-  border: 1px solid transparent;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-full);
   font-size: 0.775rem;
   font-weight: 600;
@@ -781,7 +824,7 @@
 }
 
 .filterPill:hover {
-  background: #e2e8f0;
+  background: var(--bg-active);
   color: var(--text-main);
   transform: translateY(-1px);
 }
@@ -835,14 +878,17 @@
 .sidebarActionsGroup {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
 }
 
 .newConferenceBtn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
   background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
   color: #ffffff;
@@ -925,6 +971,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background: var(--bg-sidebar);
 }
 
 .roomList::-webkit-scrollbar {
@@ -955,8 +1002,8 @@
 }
 
 .activeRoom {
-  background: var(--primary-blue-light) !important;
-  border-color: var(--primary-blue-border) !important;
+  background: var(--bg-room-active) !important;
+  border-color: var(--border-room-active) !important;
   box-shadow: 0 2px 10px rgba(37, 99, 235, 0.1) !important;
 }
 
@@ -972,7 +1019,7 @@
 }
 
 .activeRoom .roomName {
-  color: var(--primary-blue) !important;
+  color: var(--text-room-active) !important;
 }
 
 .roomAvatarWrapper {
@@ -1852,8 +1899,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
-  background: rgba(15, 23, 42, 0.9);
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
@@ -1867,8 +1914,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0;
-  flex: 1;
+  min-width: 280px;
+  flex: 1 1 auto;
 }
 
 .inAppConferenceLiveDot,
@@ -1905,7 +1952,7 @@
   gap: 8px;
   font-size: 0.76rem;
   color: #94a3b8;
-  margin-top: 2px;
+  margin-top: 3px;
   flex-wrap: wrap;
 }
 
@@ -1933,8 +1980,9 @@
 .inAppVideoHeaderActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .inAppSwitchChatBtn,
@@ -1944,13 +1992,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 13px;
-  border-radius: 9px;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: #e2e8f0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -4317,12 +4365,259 @@
 }
 
 :global([data-theme='dark']) .roomName {
-  color: #f8fafc;
+  color: #f8fafc !important;
 }
 
 :global([data-theme='dark']) .lastMessagePreview,
 :global([data-theme='dark']) .lastMessageText {
-  color: #94a3b8;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='dark']) .roomTime {
+  color: #64748b !important;
+}
+
+/* --------------------------------------------------------------------------
+   16. COMPREHENSIVE LIGHT THEME RULES
+   -------------------------------------------------------------------------- */
+:global([data-theme='light']) .chatPageWrapper {
+  background: #f8fafc !important;
+}
+
+:global([data-theme='light']) .chatMainContainer {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.08) !important;
+}
+
+:global([data-theme='light']) .chatSidebar {
+  background: #ffffff !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .sidebarHeader {
+  background: #ffffff !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .sidebarTitleGroup h2 {
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .searchBox input {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .searchBox input::placeholder {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='light']) .filterPill {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+:global([data-theme='light']) .filterPill:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .pillCount {
+  background: rgba(0, 0, 0, 0.07) !important;
+  color: #334155 !important;
+}
+
+:global([data-theme='light']) .filterActiveAll {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+:global([data-theme='light']) .filterActiveAll .pillCount {
+  background: #dbeafe !important;
+  color: #1e40af !important;
+}
+
+:global([data-theme='light']) .filterActiveDirect {
+  background: #ecfdf5 !important;
+  border-color: #6ee7b7 !important;
+  color: #047857 !important;
+}
+
+:global([data-theme='light']) .filterActiveDirect .pillCount {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+}
+
+:global([data-theme='light']) .filterActiveDept {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+
+:global([data-theme='light']) .filterActiveDept .pillCount {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+:global([data-theme='light']) .filterActiveTicket {
+  background: #f5f3ff !important;
+  border-color: #c4b5fd !important;
+  color: #6d28d9 !important;
+}
+
+:global([data-theme='light']) .filterActiveTicket .pillCount {
+  background: #ede9fe !important;
+  color: #5b21b6 !important;
+}
+
+:global([data-theme='light']) .filterActiveVideo {
+  background: #fdf2f8 !important;
+  border-color: #f472b6 !important;
+  color: #db2777 !important;
+}
+
+:global([data-theme='light']) .filterActiveVideo .pillCount {
+  background: #fce7f3 !important;
+  color: #be185d !important;
+}
+
+:global([data-theme='light']) .roomList {
+  background: #ffffff !important;
+}
+
+:global([data-theme='light']) .roomItem {
+  background: transparent !important;
+}
+
+:global([data-theme='light']) .roomItem:hover {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .roomName {
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .lastMessagePreview {
+  color: #64748b !important;
+}
+
+:global([data-theme='light']) .roomTime {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='light']) .activeRoom {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1) !important;
+}
+
+:global([data-theme='light']) .activeRoom .roomName {
+  color: #1d4ed8 !important;
+}
+
+:global([data-theme='light']) .activeRoom .lastMessagePreview {
+  color: #2563eb !important;
+}
+
+:global([data-theme='light']) .badgeDirect {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+:global([data-theme='light']) .badgeDepartment {
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+:global([data-theme='light']) .badgeTicket {
+  background: #f5f3ff !important;
+  color: #6d28d9 !important;
+  border-color: #ddd6fe !important;
+}
+
+:global([data-theme='light']) .videoRoomBadge {
+  background: #fdf2f8 !important;
+  color: #db2777 !important;
+  border-color: #f472b6 !important;
+}
+
+:global([data-theme='light']) .chatHeader {
+  background: #ffffff !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .chatHeaderTitle {
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .participantsSummary {
+  color: #64748b !important;
+}
+
+:global([data-theme='light']) .modeSwitcherContainer {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .modeSwitchBtn {
+  color: #475569 !important;
+}
+
+:global([data-theme='light']) .modeSwitchBtnActive {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  border-color: rgba(37, 99, 235, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12) !important;
+}
+
+:global([data-theme='light']) .headerActionBtn,
+:global([data-theme='light']) .actionBtn {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+:global([data-theme='light']) .headerActionBtn:hover,
+:global([data-theme='light']) .actionBtn:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+:global([data-theme='light']) .chatConversationArea {
+  background: #ffffff !important;
+}
+
+:global([data-theme='light']) .messagesArea {
+  background: #f8fafc !important;
+}
+
+:global([data-theme='light']) .otherBubble {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+:global([data-theme='light']) .messageInputContainer {
+  background: #ffffff !important;
+  border-top-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .messageInput {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .chatPageWrapperWholePage {
+  background: #f1f5f9 !important;
 }
 
 :global([data-theme='dark']) .badgeDirect {

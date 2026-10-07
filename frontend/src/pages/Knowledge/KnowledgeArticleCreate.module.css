@@ -120,3 +120,37 @@
   border-color: #94a3b8;
 }
 
+.autoVisibilityBox {
+  background: #fef3c7;
+  border: 1.5px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.autoVisibilityBox:hover {
+  background: #fde68a;
+  border-color: #d97706;
+  color: #78350f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+}
+
+:global([data-theme="dark"]) .autoVisibilityBox {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.55) !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15) !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityBox:hover {
+  background: rgba(245, 158, 11, 0.3) !important;
+  border-color: #fde047 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4) !important;
+}
+

@@ -4,29 +4,6 @@ import { fetchTenantDashboard } from '../../api/dashboardApi';
 import { useAuth } from '../../context/AuthContext';
 import styles from './TenantDashboard.module.css';
 
-const STATUS_COLORS: Record<string, string> = {
-  submitted: 'bg-blue-100 text-blue-700',
-  under_review: 'bg-purple-100 text-purple-700',
-  assigned_department: 'bg-indigo-100 text-indigo-700',
-  assigned_staff: 'bg-cyan-100 text-cyan-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  pending_approval: 'bg-orange-100 text-orange-700',
-  resolved: 'bg-green-100 text-green-700',
-  closed: 'bg-slate-100 text-slate-600',
-  rejected: 'bg-red-100 text-red-700',
-  open: 'bg-sky-100 text-sky-700',
-  assigned: 'bg-indigo-100 text-indigo-700',
-  accepted: 'bg-teal-100 text-teal-700',
-  escalated: 'bg-red-100 text-red-700',
-};
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-sky-100 text-sky-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  critical: 'bg-red-100 text-red-700',
-  urgent: 'bg-red-100 text-red-700',
-};
-
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -53,16 +30,17 @@ export default function TenantDashboard() {
   if (error) return <div className="p-6 text-red-600 bg-red-50 rounded-xl border border-red-200">{error}</div>;
 
   const s = data?.stats;
-  const myBookings: any[] = data?.myBookings || [];
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <div>
-          <h1>My Dashboard</h1>
-          <p>Welcome back, <span className="font-medium text-slate-700">{user?.firstName} {user?.lastName}</span></p>
+          <h1 className={styles.headerTitle}>My Dashboard</h1>
+          <p className={styles.headerSubtitle}>
+            Welcome back, <span className={styles.userName}>{user?.firstName} {user?.lastName}</span>
+          </p>
         </div>
-        <Link to="/tenant/tickets/create" className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-500 transition-all shadow-sm hover:shadow-md self-start">
+        <Link to="/tenant/tickets/create" className={styles.newTicketBtn}>
           <span>+</span> New Ticket
         </Link>
       </div>
@@ -78,86 +56,94 @@ export default function TenantDashboard() {
           { label: 'Upcoming Deadlines', value: s?.upcomingDeadlines || 0, icon: '⏰', color: 'from-amber-500 to-amber-600' },
           { label: 'Office Bookings', value: s?.myActiveBookings || 0, icon: '🏢', color: 'from-purple-500 to-purple-600' },
         ].map(({ label, value, icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-lg mb-3`}>{icon}</div>
-            <div className="text-2xl font-bold text-slate-800">{value}</div>
-            <div className="text-sm text-slate-500 mt-0.5">{label}</div>
+          <div key={label} className={styles.statCard}>
+            <div className={`${styles.statIcon} bg-gradient-to-br ${color} text-white`}>{icon}</div>
+            <div className={styles.statValue}>{value}</div>
+            <div className={styles.statLabel}>{label}</div>
           </div>
         ))}
       </div>
 
       {/* Info row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-2xl">💬</div>
+      <div className={styles.infoRow}>
+        <div className={styles.infoCard}>
+          <div className={`${styles.infoIconWrapper} ${styles.feedbackIconBg}`}>💬</div>
           <div>
-            <div className="text-xl font-bold text-slate-800">{(data?.pendingFeedback as { count: number })?.count ?? 0}</div>
-            <div className="text-sm text-slate-500">Pending Feedback</div>
+            <div className={styles.infoValue}>{(data?.pendingFeedback as { count: number })?.count ?? 0}</div>
+            <div className={styles.infoLabel}>Pending Feedback</div>
           </div>
-          <Link to="/tenant/feedback" className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium">View →</Link>
+          <Link to="/tenant/feedback" className={styles.infoLink}>View →</Link>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl">📢</div>
+        <div className={styles.infoCard}>
+          <div className={`${styles.infoIconWrapper} ${styles.noticesIconBg}`}>📢</div>
           <div>
-            <div className="text-xl font-bold text-slate-800">{(data?.activeNotices as { count: number })?.count ?? 0}</div>
-            <div className="text-sm text-slate-500">Active Notices</div>
+            <div className={styles.infoValue}>{(data?.activeNotices as { count: number })?.count ?? 0}</div>
+            <div className={styles.infoLabel}>Active Notices</div>
           </div>
-          <Link to="/tenant/notices" className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium">View →</Link>
+          <Link to="/tenant/notices" className={styles.infoLink}>View →</Link>
         </div>
       </div>
 
       {/* Recent Tickets */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-slate-700">My Recent Tickets</h2>
-          <Link to="/tenant/tickets" className="text-sm text-blue-600 hover:text-blue-700 font-medium">View all →</Link>
+      <div className={styles.recentSection}>
+        <div className={styles.recentHeader}>
+          <h2 className={styles.recentTitle}>My Recent Tickets</h2>
+          <Link to="/tenant/tickets" className={styles.viewAllLink}>View all →</Link>
         </div>
         {!data?.recentTickets?.length ? (
-          <div className="py-10 text-center">
-            <div className="text-3xl mb-2 opacity-40">📭</div>
-            <p className="text-slate-400 text-sm mb-3">You haven't submitted any tickets yet</p>
-            <Link to="/tenant/tickets/create" className="text-sm text-blue-600 font-medium hover:underline">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>📭</div>
+            <p className={styles.emptyText}>You haven't submitted any tickets yet</p>
+            <Link to="/tenant/tickets/create" className={styles.emptyLink}>
               Submit your first ticket →
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={styles.tableContainer}>
+            <table className={styles.ticketsTable}>
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Reference</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Title</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Status</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Priority</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Response Due</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Resolution Due</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Created</th>
+                <tr>
+                  <th>Reference</th>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Response Due</th>
+                  <th>Resolution Due</th>
+                  <th>Created</th>
                 </tr>
               </thead>
               <tbody>
-                {data!.recentTickets.map((t: any) => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-slate-500">{t.referenceNumber ?? '—'}</td>
-                    <td className="py-3 px-4">
-                      <Link to={`/tenant/tickets/${t.id}`} className="font-medium text-slate-800 hover:text-blue-600 line-clamp-1">{t.title}</Link>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {t.status.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PRIORITY_COLORS[t.priority] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{formatDate((t as any).responseDueDate)}</td>
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{formatDate((t as any).dueDate)}</td>
-                    <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
-                      {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {data!.recentTickets.map((t: any) => {
+                  const statusKey = `status_${t.status}`;
+                  const statusClass = styles[statusKey] || styles.status_submitted;
+                  const priorityKey = `priority_${t.priority}`;
+                  const priorityClass = styles[priorityKey] || styles.priority_medium;
+                  return (
+                    <tr key={t.id} className={styles.ticketRow}>
+                      <td className={styles.ticketRef}>{t.referenceNumber ?? '—'}</td>
+                      <td>
+                        <Link to={`/tenant/tickets/${t.id}`} className={styles.ticketTitleLink} title={t.title}>
+                          {t.title}
+                        </Link>
+                      </td>
+                      <td>
+                        <span className={`${styles.badge} ${statusClass}`}>
+                          {t.status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`${styles.badge} ${priorityClass}`}>
+                          {t.priority}
+                        </span>
+                      </td>
+                      <td className={styles.ticketDate}>{formatDate((t as any).responseDueDate)}</td>
+                      <td className={styles.ticketDate}>{formatDate((t as any).dueDate)}</td>
+                      <td className={styles.ticketDateCreated}>
+                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

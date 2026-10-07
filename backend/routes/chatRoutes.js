@@ -40,7 +40,7 @@ router.post(
 router.post(
   '/rooms/department',
   [
-    body('departmentId').trim().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i).withMessage('departmentId must be a valid UUID'),
+    body('departmentId').trim().matches(/^[0-9a-zA-Z_-]{2,36}$/i).withMessage('departmentId must be a valid department identifier'),
     body('name').optional().trim(),
     validate
   ],
@@ -185,7 +185,7 @@ router.get(
 // Get members of a department with online status for chat
 router.get(
   '/departments/:departmentId/members',
-  [param('departmentId').isUUID(), validate],
+  [param('departmentId').trim().matches(/^[0-9a-zA-Z_-]{2,36}$/i), validate],
   chatController.getDepartmentChatMembers
 );
 

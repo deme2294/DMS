@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import pool from '../config/db.js';
 import * as knowledgeService from '../services/knowledgeService.js';
 import { HTTP } from '../config/constants.js';
 import { uploadKnowledgeAttachment } from '../config/multer.js';
@@ -96,7 +99,7 @@ export const updateArticle = async (req, res, next) => {
 
 export const submitForReview = async (req, res, next) => {
   try {
-    const article = await knowledgeService.submitForReview(req.params.id, req.user, req);
+    const article = await knowledgeService.submitForReview(req.params.id, req.user, req, req.body);
     res.status(HTTP.OK).json({ success: true, message: 'Article submitted for review', data: article });
   } catch (err) {
     next(err);
@@ -105,7 +108,9 @@ export const submitForReview = async (req, res, next) => {
 
 export const requestRevision = async (req, res, next) => {
   try {
-    const article = await knowledgeService.requestRevision(req.params.id, req.body.reason, req.user, req);
+    const reason = typeof req.body === 'object' && req.body.reason !== undefined ? req.body.reason : (typeof req.body === 'string' ? req.body : req.body?.comment || '');
+    const targetRole = req.body?.targetRole || req.body?.routeTo || null;
+    const article = await knowledgeService.requestRevision(req.params.id, reason, req.user, req, { targetRole });
     res.status(HTTP.OK).json({ success: true, message: 'Revision requested', data: article });
   } catch (err) {
     next(err);
@@ -114,7 +119,7 @@ export const requestRevision = async (req, res, next) => {
 
 export const approveArticle = async (req, res, next) => {
   try {
-    const article = await knowledgeService.approveArticle(req.params.id, req.user, req);
+    const article = await knowledgeService.approveArticle(req.params.id, req.user, req, req.body);
     res.status(HTTP.OK).json({ success: true, message: 'Article approved', data: article });
   } catch (err) {
     next(err);
@@ -132,7 +137,7 @@ export const rejectArticle = async (req, res, next) => {
 
 export const publishArticle = async (req, res, next) => {
   try {
-    const article = await knowledgeService.publishArticle(req.params.id, req.user, req);
+    const article = await knowledgeService.publishArticle(req.params.id, req.user, req, req.body);
     res.status(HTTP.OK).json({ success: true, message: 'Article published', data: article });
   } catch (err) {
     next(err);
@@ -186,9 +191,23 @@ export const deleteArticle = async (req, res, next) => {
 
 export const rateArticle = async (req, res, next) => {
   try {
-    const isHelpful = req.body.helpful === true || req.body.helpful === 'yes';
-    const article = await knowledgeService.rateArticle(req.params.id, isHelpful, req.user, req);
-    res.status(HTTP.OK).json({ success: true, message: 'Thanks for your feedback', data: article });
+    const isHelpful = req.body.helpful === true || req.body.helpful === 'yes' || req.body.helpful === 'true' || req.body.helpful === 1;
+    const article = await knowledgeService.rateArticle(req.params.id, isHelpful, req.user, req, {
+      reason: req.body.reason,
+      comment: req.body.comment,
+    });
+    let message = 'Thanks for your feedback';
+    if (article.feedbackStatus === 'already_submitted') {
+      message = 'You have already submitted this feedback for this article';
+    } else if (article.feedbackStatus === 'updated') {
+      message = 'Your feedback has been updated';
+    }
+    res.status(HTTP.OK).json({
+      success: true,
+      message,
+      data: article,
+      alreadySubmitted: article.feedbackStatus === 'already_submitted',
+    });
   } catch (err) {
     next(err);
   }
@@ -275,10 +294,28 @@ export const getVersions = async (req, res, next) => {
   }
 };
 
+export const getVersionById = async (req, res, next) => {
+  try {
+    const data = await knowledgeService.getArticleVersionById(req.params.id, req.params.versionId, req.user);
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const createVersion = async (req, res, next) => {
   try {
     const data = await knowledgeService.createVersion(req.params.id, req.body, req.user, req);
     res.status(HTTP.CREATED).json({ success: true, message: 'Version created', data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const restoreVersion = async (req, res, next) => {
+  try {
+    const data = await knowledgeService.restoreArticleVersion(req.params.id, req.params.versionId, req.user, req, req.body);
+    res.status(HTTP.OK).json({ success: true, message: data.message || 'Version restored successfully', data });
   } catch (err) {
     next(err);
   }
@@ -320,6 +357,30 @@ export const getAttachments = async (req, res, next) => {
   try {
     const data = await knowledgeService.getAttachments(req.params.id);
     res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const streamAttachment = async (req, res, next) => {
+  try {
+    const { attachmentId } = req.params;
+    const [rows] = await pool.query('SELECT * FROM knowledge_attachments WHERE id = ? LIMIT 1', [attachmentId]);
+    if (!rows.length) {
+      return res.status(HTTP.NOT_FOUND).json({ success: false, message: 'Attachment not found' });
+    }
+    const att = rows[0];
+    const fullPath = path.join(process.cwd(), att.file_path.replace(/^\//, ''));
+    if (!fs.existsSync(fullPath)) {
+      return res.status(HTTP.NOT_FOUND).json({ success: false, message: 'File not found on server' });
+    }
+
+    if (att.mime_type) {
+      res.setHeader('Content-Type', att.mime_type);
+    }
+    const safeName = encodeURIComponent(att.file_name);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"; filename*=UTF-8''${safeName}`);
+    return res.sendFile(fullPath);
   } catch (err) {
     next(err);
   }

@@ -35,9 +35,21 @@ export default function DataTable<T extends { id: string }>({
       <table className={styles.table}>
         <thead>
           <tr>
-            {columns.map((col) => (
-              <th key={col.key}>{col.label}</th>
-            ))}
+            {columns.map((col) => {
+              const isAction =
+                col.key === 'actions' ||
+                col.key === 'operations' ||
+                col.key === 'action' ||
+                col.key === 'operation' ||
+                col.label.toLowerCase().includes('action') ||
+                col.label.toLowerCase().includes('operation');
+
+              return (
+                <th key={col.key} className={isAction ? styles.actionCell : undefined}>
+                  {col.label}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -70,11 +82,21 @@ export default function DataTable<T extends { id: string }>({
           ) : (
             data.map((row) => (
               <tr key={row.id}>
-                {columns.map((col) => (
-                  <td key={col.key}>
-                    {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as React.ReactNode}
-                  </td>
-                ))}
+                {columns.map((col) => {
+                  const isAction =
+                    col.key === 'actions' ||
+                    col.key === 'operations' ||
+                    col.key === 'action' ||
+                    col.key === 'operation' ||
+                    col.label.toLowerCase().includes('action') ||
+                    col.label.toLowerCase().includes('operation');
+
+                  return (
+                    <td key={col.key} className={isAction ? styles.actionCell : undefined}>
+                      {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as React.ReactNode}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           )}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/Modal/Modal';
 import type { Article, ArticleVisibility } from '../../../types/article';
 import { updateArticle, submitArticle } from '../../../api/knowledgeApi';
+import { useAuth } from '../../../context/AuthContext';
+import { RevisionThreadCard } from './RevisionThreadCard';
 import styles from '../KnowledgeMyArticles.module.css';
 
 interface QuickReviseModalProps {
@@ -17,6 +19,10 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
+  const isAdmin = user?.role === 'admin';
+
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [summary, setSummary] = useState('');
@@ -25,6 +31,9 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const [checklist, setChecklist] = useState<string[]>([]);
+  const [resubmitNotes, setResubmitNotes] = useState('');
+
   useEffect(() => {
     if (article && open) {
       setTitle(article.title || '');
@@ -32,11 +41,19 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
       setSummary(article.summary || '');
       setContent(article.content || '');
       setVisibility(article.visibility || 'internal');
+      setChecklist([]);
+      setResubmitNotes('');
       setError('');
     }
   }, [article, open]);
 
   if (!open || !article) return null;
+
+  const toggleChecklistItem = (item: string) => {
+    setChecklist((prev) =>
+      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+    );
+  };
 
   const handleSave = async (submitNow: boolean) => {
     if (!title.trim()) {
@@ -58,13 +75,29 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
         summary: summary.trim() || null,
         content: content.trim(),
         visibility,
+        bumpVersion: true,
       });
 
       if (submitNow) {
-        await submitArticle(article.id);
-        onSuccess(`Article "${title}" updated and resubmitted to Admin for review!`);
+        const compiledNotes = [
+          ...checklist.map((c) => `✓ ${c}`),
+          resubmitNotes.trim() ? `Details: ${resubmitNotes.trim()}` : '',
+        ]
+          .filter(Boolean)
+          .join('; ');
+
+        await submitArticle(article.id, {
+          resubmitNotes: compiledNotes || 'Addressed revision recommendations and updated version',
+          bumpVersion: true,
+        });
+
+        if (isManager || isAdmin) {
+          onSuccess(`Article "${title}" updated and routed to Admin for review.`);
+        } else {
+          onSuccess(`Article "${title}" updated (new version) and assigned to Department Manager for review!`);
+        }
       } else {
-        onSuccess(`Changes to "${title}" saved successfully.`);
+        onSuccess(`Changes to "${title}" saved as updated draft.`);
       }
       onClose();
     } catch (err: unknown) {
@@ -80,19 +113,14 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
   return (
     <Modal
       open={open}
-      title={`Revise Article: ${article.articleReference}`}
+      title={`Revise Article: ${article.articleReference} (v${article.version || '1.0'})`}
       onClose={busy ? () => {} : onClose}
+      maxWidth="680px"
     >
       <div className={styles.reviseModalContent}>
-        {/* Admin Feedback Box */}
+        {/* Revision & Feedback Trail */}
         {article.revisionNotes && (
-          <div className={styles.adminFeedbackAlert}>
-            <div className={styles.feedbackAlertHeader}>
-              <span className={styles.feedbackAlertIcon}>⚠️</span>
-              <strong>Admin Revision Instructions & Feedback</strong>
-            </div>
-            <p className={styles.feedbackAlertBody}>{article.revisionNotes}</p>
-          </div>
+          <RevisionThreadCard revisionNotes={article.revisionNotes} />
         )}
 
         {error && <div className={styles.modalError}>{error}</div>}
@@ -162,6 +190,46 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
           />
         </div>
 
+        {/* Verification & Change Checklist */}
+        <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginTop: '12px', marginBottom: '16px' }}>
+          <label style={{ display: 'block', fontWeight: 600, fontSize: '0.85rem', color: '#1e293b', marginBottom: '8px' }}>
+            ☑️ Revision Resolution Checklist (Checked by Dept Manager)
+          </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: '#334155' }}>
+            {[
+              'Addressed and resolved Admin revision recommendations',
+              'Verified step-by-step procedures and technical accuracy',
+              'Checked department guidelines and verified category',
+              'Proofread content for clarity and complete resolution instructions',
+            ].map((item) => (
+              <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={checklist.includes(item)}
+                  onChange={() => toggleChecklistItem(item)}
+                  disabled={busy}
+                  style={{ accentColor: '#2563eb', width: '16px', height: '16px' }}
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </div>
+
+          <div style={{ marginTop: '10px' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '4px', fontWeight: 500 }}>
+              What was added or changed (Summary for Admin):
+            </label>
+            <input
+              type="text"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}
+              placeholder="E.g., Added missing steps, clarified troubleshooting commands, and verified department policy"
+              value={resubmitNotes}
+              onChange={(e) => setResubmitNotes(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+        </div>
+
         <div className={styles.modalActions}>
           <button
             type="button"
@@ -185,7 +253,11 @@ export const QuickReviseModal: React.FC<QuickReviseModalProps> = ({
             onClick={() => handleSave(true)}
             disabled={busy}
           >
-            {busy ? 'Submitting...' : '🚀 Save & Resubmit to Admin'}
+            {busy
+              ? 'Submitting...'
+              : isManager
+              ? '🚀 Save & Route to Admin'
+              : '🚀 Save & Submit New Version to Manager'}
           </button>
         </div>
       </div>

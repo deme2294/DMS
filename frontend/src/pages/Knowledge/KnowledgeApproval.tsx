@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ClockIcon,
   CheckCircleIcon,
@@ -12,6 +13,7 @@ import {
   XMarkIcon,
   PencilSquareIcon,
   PauseIcon,
+  PaperAirplaneIcon,
   MagnifyingGlassIcon,
   BuildingOffice2Icon,
   UserIcon,
@@ -34,11 +36,14 @@ import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
 import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
 import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
 import { QuickReviseModal } from './components/QuickReviseModal';
+import { ManagerAssignRevisionModal } from './components/ManagerAssignRevisionModal';
+import { getLatestRevisionItem } from '../../utils/revisionUtils';
 import styles from './KnowledgeApproval.module.css';
 
-type ApprovalTab = '' | 'pending_approval' | 'approved' | 'needs_revision' | 'published';
+type ApprovalTab = 'all' | 'pending_approval' | 'draft' | 'approved' | 'needs_revision' | 'published' | 'unpublished';
 
 export default function KnowledgeApproval() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const role = user?.role;
   const isAdmin = role === 'admin';
@@ -53,15 +58,18 @@ export default function KnowledgeApproval() {
 
   // Live overview counters across workflow queues
   const [queueCounts, setQueueCounts] = useState({
+    draft: 0,
     pending_approval: 0,
     approved: 0,
     needs_revision: 0,
     published: 0,
+    unpublished: 0,
     total: 0,
   });
 
   // Tab & Filters
-  const [activeTab, setActiveTab] = useState<ApprovalTab>('pending_approval');
+  const [activeTab, setActiveTab] = useState<ApprovalTab>('all');
+  const [subStatusFilter, setSubStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [approvalPage, setApprovalPage] = useState(1);
   const [approvalPageSize, setApprovalPageSize] = useState(10);
@@ -81,15 +89,21 @@ export default function KnowledgeApproval() {
   const [reviseModalOpen, setReviseModalOpen] = useState(false);
   const [reviseArticle, setReviseArticle] = useState<Article | null>(null);
 
+  // Manager Assign Revision Modal State
+  const [managerRevisionModalOpen, setManagerRevisionModalOpen] = useState(false);
+  const [managerRevisionArticle, setManagerRevisionArticle] = useState<Article | null>(null);
+
   const fetchOverviewCounts = useCallback(async () => {
     try {
       const res = await fetchPendingReview({ status: 'all' });
       const all = res.data.data || [];
       setQueueCounts({
+        draft: all.filter((a) => a.status === 'draft').length,
         pending_approval: all.filter((a) => a.status === 'pending_approval').length,
         approved: all.filter((a) => a.status === 'approved').length,
         needs_revision: all.filter((a) => a.status === 'needs_revision').length,
         published: all.filter((a) => a.status === 'published').length,
+        unpublished: all.filter((a) => a.status === 'unpublished').length,
         total: all.length,
       });
     } catch {
@@ -101,7 +115,7 @@ export default function KnowledgeApproval() {
     setLoading(true);
     try {
       const res = await fetchPendingReview({
-        status: activeTab || undefined,
+        status: activeTab === 'all' ? 'all' : (activeTab || 'all'),
       });
       setArticles(res.data.data || []);
     } catch {
@@ -127,11 +141,24 @@ export default function KnowledgeApproval() {
     }
   }, [message, error]);
 
+  // Computed Breakdown of Statuses in Current Queue
+  const statusBreakdownInQueue = useMemo(() => {
+    const counts: Record<string, number> = {};
+    articles.forEach((a) => {
+      counts[a.status] = (counts[a.status] || 0) + 1;
+    });
+    return counts;
+  }, [articles]);
+
   // Filtered & Paged Articles
   const filteredArticles = useMemo(() => {
-    if (!search.trim()) return articles;
+    let list = articles;
+    if (activeTab === 'all' && subStatusFilter) {
+      list = list.filter((a) => a.status === subStatusFilter);
+    }
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
-    return articles.filter(
+    return list.filter(
       (a) =>
         a.title.toLowerCase().includes(q) ||
         a.articleReference.toLowerCase().includes(q) ||
@@ -139,7 +166,7 @@ export default function KnowledgeApproval() {
         (a.departmentName && a.departmentName.toLowerCase().includes(q)) ||
         (a.content && a.content.toLowerCase().includes(q))
     );
-  }, [articles, search]);
+  }, [articles, search, activeTab, subStatusFilter]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(filteredArticles.length / approvalPageSize)),
@@ -182,19 +209,24 @@ export default function KnowledgeApproval() {
     setActionModalOpen(true);
   };
 
-  // Submit Workflow Action (Request Revision, Reject, Publish, Unpublish)
+  // Submit Workflow Action (Request Revision, Reject, Publish, Unpublish, Resubmit)
   const handleWorkflowSubmit = async (
     articleId: string,
     type: WorkflowActionType,
-    reason?: string
+    reason?: string,
+    options?: { routeTo?: 'manager' | 'author' }
   ) => {
     setActionBusy(true);
     setError('');
     try {
       switch (type) {
         case 'request_revision':
-          await requestRevision(articleId, reason || '');
-          setMessage(`Revision directive issued. Department Manager / Creator has been notified.`);
+          await requestRevision(articleId, reason || '', options);
+          setMessage(
+            options?.routeTo === 'manager'
+              ? `Revision directive routed to Department Manager.`
+              : `Revision directive issued to Author.`
+          );
           break;
         case 'reject':
           await rejectArticle(articleId, reason || '');
@@ -209,8 +241,8 @@ export default function KnowledgeApproval() {
           setMessage(`Article unpublished.`);
           break;
         case 'submit':
-          await submitArticle(articleId);
-          setMessage(`Article resubmitted for review.`);
+          await submitArticle(articleId, reason ? { notes: reason } : undefined);
+          setMessage(isManager ? `Article revised and routed directly to Admin!` : `Article resubmitted for department review.`);
           break;
       }
       setActionModalOpen(false);
@@ -256,6 +288,26 @@ export default function KnowledgeApproval() {
   const handleOpenDrawer = (article: Article) => {
     setDrawerArticle(article);
     setDrawerOpen(true);
+  };
+
+  // Submit Manager Revision Assignment
+  const handleManagerAssignRevisionSubmit = async (articleId: string, managerComment: string) => {
+    setActionBusy(true);
+    setError('');
+    try {
+      await requestRevision(articleId, managerComment);
+      setMessage('Revision assigned to Author with Admin feedback and Department Manager directions.');
+      setManagerRevisionModalOpen(false);
+      setManagerRevisionArticle(null);
+      await Promise.all([loadArticles(), fetchOverviewCounts()]);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to assign revision to author';
+      setError(msg);
+    } finally {
+      setActionBusy(false);
+    }
   };
 
   return (
@@ -331,6 +383,17 @@ export default function KnowledgeApproval() {
                     </span>
                     <span className={styles.queueStatLabel}>Live</span>
                   </div>
+                  {queueCounts.unpublished > 0 && (
+                    <>
+                      <div className={styles.queueStatDivider} />
+                      <div className={styles.queueStatItem}>
+                        <span className={styles.queueStatVal} style={{ color: '#fb923c' }}>
+                          {queueCounts.unpublished}
+                        </span>
+                        <span className={styles.queueStatLabel}>Unpublished</span>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -339,7 +402,7 @@ export default function KnowledgeApproval() {
 
         {/* ── 4-Stage Lifecycle Stepper ── */}
         <div className={styles.stepperContainer}>
-          <div className={`${styles.stepItem} ${activeTab === '' ? styles.stepItemActive : ''}`}>
+          <div className={`${styles.stepItem} ${activeTab === 'draft' ? styles.stepItemActive : ''}`}>
             <span className={styles.stepNumber}>1</span>
             <div className={styles.stepInfo}>
               <span className={styles.stepTitle}>Draft Authoring</span>
@@ -387,6 +450,20 @@ export default function KnowledgeApproval() {
           <span className={styles.tabBadge}>{queueCounts.pending_approval}</span>
         </button>
 
+        {isManager && (
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'draft' ? styles.tabBtnActive : ''}`}
+            onClick={() => {
+              setActiveTab('draft');
+              setApprovalPage(1);
+            }}
+          >
+            <PencilSquareIcon className={styles.tabIcon} />
+            <span>Staff Drafts</span>
+            <span className={styles.tabBadge}>{queueCounts.draft}</span>
+          </button>
+        )}
+
         <button
           className={`${styles.tabBtn} ${activeTab === 'approved' ? styles.tabBtnActive : ''}`}
           onClick={() => {
@@ -416,6 +493,7 @@ export default function KnowledgeApproval() {
             className={`${styles.tabBtn} ${activeTab === 'published' ? styles.tabBtnActive : ''}`}
             onClick={() => {
               setActiveTab('published');
+              setSubStatusFilter('');
               setApprovalPage(1);
             }}
           >
@@ -425,10 +503,26 @@ export default function KnowledgeApproval() {
           </button>
         )}
 
+        {isAdmin && queueCounts.unpublished > 0 && (
+          <button
+            className={`${styles.tabBtn} ${activeTab === 'unpublished' ? styles.tabBtnActive : ''}`}
+            onClick={() => {
+              setActiveTab('unpublished');
+              setSubStatusFilter('');
+              setApprovalPage(1);
+            }}
+          >
+            <PauseIcon className={styles.tabIcon} />
+            <span>Unpublished</span>
+            <span className={styles.tabBadge}>{queueCounts.unpublished}</span>
+          </button>
+        )}
+
         <button
-          className={`${styles.tabBtn} ${activeTab === '' ? styles.tabBtnActive : ''}`}
+          className={`${styles.tabBtn} ${activeTab === 'all' ? styles.tabBtnActive : ''}`}
           onClick={() => {
-            setActiveTab('');
+            setActiveTab('all');
+            setSubStatusFilter('');
             setApprovalPage(1);
           }}
         >
@@ -437,6 +531,71 @@ export default function KnowledgeApproval() {
           <span className={styles.tabBadge}>{queueCounts.total}</span>
         </button>
       </div>
+
+      {/* ── Status Count & Breakdown for All Queue ── */}
+      {activeTab === 'all' && (
+        <div className={styles.statusBreakdownBar}>
+          <div className={styles.statusBreakdownTitle}>
+            <QueueListIcon style={{ width: 15, height: 15, color: '#38bdf8' }} />
+            <span>Statuses Served in Queue ({articles.length} total):</span>
+          </div>
+          <div className={styles.statusChipsList}>
+            <button
+              type="button"
+              className={`${styles.statusChipBtn} ${subStatusFilter === '' ? styles.statusChipBtnActive : ''}`}
+              onClick={() => {
+                setSubStatusFilter('');
+                setApprovalPage(1);
+              }}
+            >
+              All Statuses
+              <span className={styles.chipCountBadge}>{articles.length}</span>
+            </button>
+            {Object.entries(statusBreakdownInQueue).map(([st, cnt]) => {
+              const label =
+                st === 'approved'
+                  ? 'Approved'
+                  : st === 'published'
+                  ? 'Published Live'
+                  : st === 'unpublished'
+                  ? 'Unpublished'
+                  : st === 'pending_approval'
+                  ? 'Pending Review'
+                  : st === 'needs_revision'
+                  ? 'Needs Revision'
+                  : st === 'draft'
+                  ? 'Staff Drafts'
+                  : st.replace(/_/g, ' ');
+              const icon =
+                st === 'approved'
+                  ? '✓'
+                  : st === 'published'
+                  ? '🌐'
+                  : st === 'unpublished'
+                  ? '⏸'
+                  : st === 'pending_approval'
+                  ? '⏳'
+                  : st === 'needs_revision'
+                  ? '⚠️'
+                  : '📝';
+              return (
+                <button
+                  key={st}
+                  type="button"
+                  className={`${styles.statusChipBtn} ${subStatusFilter === st ? styles.statusChipBtnActive : ''}`}
+                  onClick={() => {
+                    setSubStatusFilter(subStatusFilter === st ? '' : st);
+                    setApprovalPage(1);
+                  }}
+                >
+                  <span>{icon} {label}</span>
+                  <span className={styles.chipCountBadge}>{cnt}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Filters & Search ── */}
       <div className={styles.filtersRow}>
@@ -527,14 +686,17 @@ export default function KnowledgeApproval() {
                     <span>· Submitted {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—'}</span>
                   </div>
 
-                  {hasRevisionNotes && (
-                    <div className={styles.inlineRevisionNotice}>
-                      <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#c2410c', flexShrink: 0 }} />
-                      <div>
-                        <strong>Revision Directive:</strong> {row.revisionNotes}
+                  {hasRevisionNotes && (() => {
+                    const latest = getLatestRevisionItem(row.revisionNotes);
+                    return (
+                      <div className={styles.inlineRevisionNotice}>
+                        <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#c2410c', flexShrink: 0 }} />
+                        <div>
+                          <strong>{latest?.roleLabel || 'Revision Directive'}:</strong> {latest?.comment || row.revisionNotes}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             },
@@ -552,7 +714,7 @@ export default function KnowledgeApproval() {
           {
             key: 'status',
             label: 'Workflow Gate',
-            render: (row) => <WorkflowStatusBadge status={row.status} showSubtitle />,
+            render: (row) => <WorkflowStatusBadge status={row.status} showSubtitle role={role} reviewedBy={row.reviewedBy} revisionNotes={row.revisionNotes} />,
           },
           {
             key: 'actions',
@@ -576,29 +738,70 @@ export default function KnowledgeApproval() {
                   {/* ADMIN ACTIONS on pending_approval */}
                   {isAdmin && row.status === 'pending_approval' && (
                     <>
+                      {row.reviewedBy || row.authorRole === 'manager' || row.authorRole === 'admin' ? (
+                        <>
+                          <button
+                            className={styles.approveBtn}
+                            disabled={isBusy}
+                            onClick={() => handleDirectApprove(row.id)}
+                            title="Approve article (moves to Approved state)"
+                          >
+                            <CheckIcon style={{ width: 14, height: 14 }} />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            className={styles.approveAndPublishBtn}
+                            disabled={isBusy}
+                            onClick={() => handleApproveAndPublish(row.id)}
+                            title="Approve and Publish live to tenants in one click"
+                          >
+                            <SparklesIcon style={{ width: 14, height: 14 }} />
+                            <span>Approve & Publish</span>
+                          </button>
+                          <button
+                            className={styles.revisionBtn}
+                            disabled={isBusy}
+                            onClick={() => handleOpenActionModal(row, 'request_revision')}
+                            title="Notify Department Manager of required revisions"
+                          >
+                            <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+                            <span>Request Revision</span>
+                          </button>
+                          <button
+                            className={styles.rejectBtn}
+                            disabled={isBusy}
+                            onClick={() => handleOpenActionModal(row, 'reject')}
+                            title="Reject article submission"
+                          >
+                            <XMarkIcon style={{ width: 14, height: 14 }} />
+                            <span>Reject</span>
+                          </button>
+                        </>
+                      ) : (
+                        <span className={styles.staffWaitingChip} title="Staff article must be verified by Department Manager first">
+                          ⏳ Awaiting Dept Manager Review
+                        </span>
+                      )}
+                    </>
+                  )}
+
+                  {/* ADMIN ACTIONS on approved -> Publish Live, Request Revision, or Reject */}
+                  {isAdmin && row.status === 'approved' && (
+                    <>
                       <button
-                        className={styles.approveBtn}
+                        className={styles.publishBtn}
                         disabled={isBusy}
-                        onClick={() => handleDirectApprove(row.id)}
-                        title="Approve article (moves to Approved state)"
+                        onClick={() => handleOpenActionModal(row, 'publish')}
+                        title="Publish article live so it reaches tenants"
                       >
-                        <CheckIcon style={{ width: 14, height: 14 }} />
-                        <span>Approve</span>
-                      </button>
-                      <button
-                        className={styles.approveAndPublishBtn}
-                        disabled={isBusy}
-                        onClick={() => handleApproveAndPublish(row.id)}
-                        title="Approve and Publish live to tenants in one click"
-                      >
-                        <SparklesIcon style={{ width: 14, height: 14 }} />
-                        <span>Approve & Publish</span>
+                        <GlobeAltIcon style={{ width: 14, height: 14 }} />
+                        <span>Publish Live</span>
                       </button>
                       <button
                         className={styles.revisionBtn}
                         disabled={isBusy}
                         onClick={() => handleOpenActionModal(row, 'request_revision')}
-                        title="Notify Department Manager of required revisions"
+                        title="Send back to department manager with recommendations of what should be changed"
                       >
                         <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
                         <span>Request Revision</span>
@@ -615,53 +818,101 @@ export default function KnowledgeApproval() {
                     </>
                   )}
 
-                  {/* ADMIN ACTIONS on approved -> Publish Live */}
-                  {isAdmin && row.status === 'approved' && (
+                  {/* Edit button: Allows Dept Manager or Admin to finish/polish article before or after approval */}
+                  {(isAdmin || isManager) && (
                     <button
-                      className={styles.publishBtn}
-                      disabled={isBusy}
-                      onClick={() => handleOpenActionModal(row, 'publish')}
-                      title="Publish article live so it reaches tenants"
+                      className={styles.viewBtn}
+                      onClick={() => navigate(`${basePath}/${row.id}/edit`)}
+                      title="Edit and finish article content before approval"
                     >
-                      <GlobeAltIcon style={{ width: 14, height: 14 }} />
-                      <span>Publish Live</span>
+                      <PencilSquareIcon style={{ width: 14, height: 14 }} />
+                      <span>Edit</span>
                     </button>
                   )}
 
-                  {/* DEPARTMENT MANAGER ACTIONS on pending_approval (for staff articles in dept) */}
-                  {isManager && !isAuthor && row.status === 'pending_approval' && (
+                  {/* DEPARTMENT MANAGER ACTIONS on pending_approval or draft (for staff articles in dept) */}
+                  {isManager && !isAuthor && (row.status === 'pending_approval' || row.status === 'draft') && (
                     <>
+                      {!row.reviewedBy ? (
+                        <>
+                          <button
+                            className={styles.approveBtn}
+                            disabled={isBusy}
+                            onClick={() => handleDirectApprove(row.id)}
+                            title="Department Manager approval (routes to Admin for verification)"
+                          >
+                            <CheckIcon style={{ width: 14, height: 14 }} />
+                            <span>Approve & Route to Admin</span>
+                          </button>
+                          <button
+                            className={styles.revisionBtn}
+                            disabled={isBusy}
+                            onClick={() => handleOpenActionModal(row, 'request_revision')}
+                            title="Instruct staff to revise"
+                          >
+                            <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+                            <span>Request Revision</span>
+                          </button>
+                          <button
+                            className={styles.rejectBtn}
+                            disabled={isBusy}
+                            onClick={() => handleOpenActionModal(row, 'reject')}
+                            title="Reject staff submission"
+                          >
+                            <XMarkIcon style={{ width: 14, height: 14 }} />
+                            <span>Reject</span>
+                          </button>
+                        </>
+                      ) : (
+                        <span
+                          className={styles.deptSignedOffBadge}
+                          title="You have approved this article. It has been routed to Admin for review & publishing."
+                        >
+                          ✓ Dept Approved · With Admin
+                        </span>
+                      )}
+                    </>
+                  )}
+
+                  {/* DEPARTMENT MANAGER on article in needs_revision */}
+                  {isManager && !isAuthor && row.status === 'needs_revision' && (
+                    <>
+                      <button
+                        className={styles.viewBtn}
+                        onClick={() => {
+                          setReviseArticle(row);
+                          setReviseModalOpen(true);
+                        }}
+                        title="Directly update article content based on Admin directive"
+                      >
+                        <PencilSquareIcon style={{ width: 14, height: 14 }} />
+                        <span>Revise Directly</span>
+                      </button>
                       <button
                         className={styles.approveBtn}
                         disabled={isBusy}
-                        onClick={() => handleDirectApprove(row.id)}
-                        title="Department Manager approval (sends to Admin for publish)"
+                        onClick={() => handleOpenActionModal(row, 'submit')}
+                        title="Resubmit revised article directly to Admin for publishing"
                       >
-                        <CheckIcon style={{ width: 14, height: 14 }} />
-                        <span>Approve Staff Article</span>
+                        <PaperAirplaneIcon style={{ width: 14, height: 14 }} />
+                        <span>Resubmit to Admin</span>
                       </button>
                       <button
-                        className={styles.revisionBtn}
+                        className={styles.managerAssignBtn}
                         disabled={isBusy}
-                        onClick={() => handleOpenActionModal(row, 'request_revision')}
-                        title="Instruct staff to revise"
+                        onClick={() => {
+                          setManagerRevisionArticle(row);
+                          setManagerRevisionModalOpen(true);
+                        }}
+                        title="Check Admin comments and assign revision to the Author with Manager directions"
                       >
                         <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
-                        <span>Request Revision</span>
-                      </button>
-                      <button
-                        className={styles.rejectBtn}
-                        disabled={isBusy}
-                        onClick={() => handleOpenActionModal(row, 'reject')}
-                        title="Reject staff submission"
-                      >
-                        <XMarkIcon style={{ width: 14, height: 14 }} />
-                        <span>Reject</span>
+                        <span>Route to Author</span>
                       </button>
                     </>
                   )}
 
-                  {/* DEPARTMENT MANAGER on own article in needs_revision */}
+                  {/* AUTHOR on article in needs_revision */}
                   {isAuthor && row.status === 'needs_revision' && (
                     <button
                       className={styles.revisionBtn}
@@ -669,10 +920,10 @@ export default function KnowledgeApproval() {
                         setReviseArticle(row);
                         setReviseModalOpen(true);
                       }}
-                      title="Modify article to address Admin directives"
+                      title="Update article and assign new version to Department Manager"
                     >
                       <PencilSquareIcon style={{ width: 14, height: 14 }} />
-                      <span>Modify & Resubmit</span>
+                      <span>Update & Submit to Manager</span>
                     </button>
                   )}
 
@@ -687,6 +938,30 @@ export default function KnowledgeApproval() {
                       <PauseIcon style={{ width: 14, height: 14 }} />
                       <span>Unpublish</span>
                     </button>
+                  )}
+
+                  {/* ADMIN ACTIONS on unpublished -> Re-publish live or Request Revision */}
+                  {isAdmin && row.status === 'unpublished' && (
+                    <>
+                      <button
+                        className={styles.publishBtn}
+                        disabled={isBusy}
+                        onClick={() => handleOpenActionModal(row, 'publish')}
+                        title="Re-publish article live to portal tenants"
+                      >
+                        <GlobeAltIcon style={{ width: 14, height: 14 }} />
+                        <span>Publish Live</span>
+                      </button>
+                      <button
+                        className={styles.revisionBtn}
+                        disabled={isBusy}
+                        onClick={() => handleOpenActionModal(row, 'request_revision')}
+                        title="Send back for revisions"
+                      >
+                        <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+                        <span>Request Revision</span>
+                      </button>
+                    </>
                   )}
                 </div>
               );
@@ -724,6 +999,7 @@ export default function KnowledgeApproval() {
         actionType={actionType}
         article={selectedArticle}
         busy={actionBusy}
+        userRole={role}
         onClose={() => {
           setActionModalOpen(false);
           setSelectedArticle(null);
@@ -761,6 +1037,18 @@ export default function KnowledgeApproval() {
           setMessage(msg);
           loadArticles();
         }}
+      />
+
+      {/* ── Manager Assign Revision Modal ── */}
+      <ManagerAssignRevisionModal
+        open={managerRevisionModalOpen}
+        article={managerRevisionArticle}
+        busy={actionBusy}
+        onClose={() => {
+          setManagerRevisionModalOpen(false);
+          setManagerRevisionArticle(null);
+        }}
+        onSubmit={handleManagerAssignRevisionSubmit}
       />
     </div>
   );

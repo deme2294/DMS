@@ -306,7 +306,7 @@ CREATE TABLE ticket_replies (
   ticket_id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
   message TEXT NOT NULL,
-  visibility ENUM('all','internal','tenant','department','both') NOT NULL DEFAULT 'all',
+  visibility ENUM('all','internal','tenant','department','both','admin') NOT NULL DEFAULT 'all',
   attachment_id CHAR(36) NULL,
   type ENUM('comment','note','reply') NOT NULL DEFAULT 'reply',
   is_internal TINYINT(1) NOT NULL DEFAULT 0,
@@ -473,6 +473,20 @@ CREATE TABLE knowledge_base (
   KEY idx_kb_author (author_id)
 );
 
+CREATE TABLE knowledge_article_feedback (
+  id CHAR(36) PRIMARY KEY,
+  article_id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  is_helpful TINYINT(1) NOT NULL,
+  reason VARCHAR(255) NULL,
+  comment TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_kb_article_user (article_id, user_id),
+  KEY idx_kb_article_feedback_art (article_id),
+  KEY idx_kb_article_feedback_usr (user_id)
+);
+
 CREATE TABLE knowledge_categories (
   id CHAR(36) PRIMARY KEY,
   name VARCHAR(100) NOT NULL UNIQUE,
@@ -494,13 +508,18 @@ CREATE TABLE knowledge_article_versions (
   version_number VARCHAR(20) NOT NULL,
   title VARCHAR(200) NOT NULL,
   content TEXT NOT NULL,
+  summary TEXT NULL,
+  category VARCHAR(100) NULL,
   category_id CHAR(36) NULL,
+  tags VARCHAR(500) NULL,
+  visibility VARCHAR(50) NULL,
   change_summary TEXT NULL,
   created_by CHAR(36) NOT NULL,
   approved_by CHAR(36) NULL,
   approved_at DATETIME NULL,
   published_at DATETIME NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_kb_article_version (article_id, version_number),
   KEY idx_kb_version_article (article_id),
   KEY idx_kb_version_number (version_number)
 );
@@ -824,20 +843,20 @@ INSERT INTO tenants (id, tenant_id, organization_name, registration_number, cont
 ('11111111-1111-1111-1111-111111111111', 1, 'City Housing Office', 'REG-2024-001', 'John Tenant', 'tenant@demo.gov', '555-0100', 'Main Street 1', 'Demo tenant organization', 'active', 'tenant', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL);
 
 INSERT INTO departments (id, name, code, description, status) VALUES
-('dddddddd-dddd-dddd-dddd-dddddddddddd', 'IT Support', 'IT', 'Information Technology Support', 'active'),
-('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'Human Resources', 'HR', 'Human Resources Department', 'active');
+('IT-01', 'IT Support', 'IT', 'Information Technology Support', 'active'),
+('HR-01', 'Human Resources', 'HR', 'Human Resources Department', 'active');
 
 -- Password for all demo users is: password
 INSERT INTO users (id, tenant_id, role_id, username, email, password_hash, first_name, last_name, status, user_code) VALUES
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 1, 'admin', 'admin@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Admin', 'active', 'A001/26'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', NULL, 2, 'manager', 'manager@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Dept', 'Manager', 'active', 'M001/26'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 3, 'staff', 'staff@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Help', 'Staff', 'active', 'S001/26'),
-('ffffffff-ffff-ffff-ffff-ffffffffffff', '11111111-1111-1111-1111-111111111111', 4, 'tenant', 'tenant@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Tenant', 'active', 'T001/26'),
-('cccccccc-cecc-cecc-cecc-cccccccccecc', NULL, 5, 'ceo', 'ceo@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Executive', 'Officer', 'active', 'C001/26');
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 1, 'admin', 'admin@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Admin', 'active', '1001'),
+('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', NULL, 2, 'manager', 'manager@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Dept', 'Manager', 'active', '1002'),
+('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 3, 'staff', 'staff@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Help', 'Staff', 'active', '1003'),
+('ffffffff-ffff-ffff-ffff-ffffffffffff', '11111111-1111-1111-1111-111111111111', 4, 'tenant', 'tenant@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Tenant', 'active', '1005'),
+('cccccccc-cecc-cecc-cecc-cccccccccecc', NULL, 5, 'ceo', 'ceo@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Executive', 'Officer', 'active', '1004');
 
 INSERT INTO user_departments (id, user_id, department_id) VALUES
-('uddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dddddddd-dddd-dddd-dddd-dddddddddddd'),
-('ueeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'dddddddd-dddd-dddd-dddd-dddddddddddd');
+('uddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'IT-01'),
+('ueeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'IT-01');
 
 INSERT INTO ticket_categories (id, name, description, department_id, is_active, status, routing_type, created_by) VALUES
 ('cat00001-0000-0000-0000-000000000001', 'Hardware', 'Hardware related issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),

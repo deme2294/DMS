@@ -24,6 +24,8 @@ import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
 import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
 import { QuickReviseModal } from './components/QuickReviseModal';
 import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
+import { ManagerAssignRevisionModal } from './components/ManagerAssignRevisionModal';
+import { getAdminRevisionDirective, getManagerRevisionDirective, getLatestRevisionItem } from '../../utils/revisionUtils';
 import styles from './KnowledgeMyArticles.module.css';
 
 type StatusFilter = '' | 'draft' | 'pending_approval' | 'needs_revision' | 'approved' | 'published' | 'archived' | 'restored';
@@ -62,6 +64,10 @@ export default function KnowledgeMyArticles() {
   // Quick Revise Modal State
   const [reviseModalOpen, setReviseModalOpen] = useState(false);
   const [reviseArticle, setReviseArticle] = useState<Article | null>(null);
+
+  // Manager Assign Revision Modal State
+  const [managerRevisionModalOpen, setManagerRevisionModalOpen] = useState(false);
+  const [managerRevisionArticle, setManagerRevisionArticle] = useState<Article | null>(null);
 
   // Drawer Preview State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -145,14 +151,23 @@ export default function KnowledgeMyArticles() {
   };
 
   // Submit the workflow action with the reason/information
-  const handleWorkflowSubmit = async (articleId: string, type: WorkflowActionType, reason?: string) => {
+  const handleWorkflowSubmit = async (
+    articleId: string,
+    type: WorkflowActionType,
+    reason?: string,
+    options?: { routeTo?: 'manager' | 'author' }
+  ) => {
     setActionBusy(true);
     setError('');
     try {
       switch (type) {
         case 'request_revision':
-          await requestRevision(articleId, reason || '');
-          setMessage(`Revision requested on article. Creator has been notified.`);
+          await requestRevision(articleId, reason || '', options);
+          setMessage(
+            options?.routeTo === 'manager'
+              ? `Revision directive routed to Department Manager.`
+              : `Revision directive issued to Author.`
+          );
           break;
         case 'reject':
           await rejectArticle(articleId, reason || '');
@@ -167,8 +182,8 @@ export default function KnowledgeMyArticles() {
           setMessage(`Article unpublished.`);
           break;
         case 'submit':
-          await submitArticle(articleId);
-          setMessage(`Article submitted to Admin for review.`);
+          await submitArticle(articleId, reason ? { notes: reason } : undefined);
+          setMessage(isManager ? `Article revised and routed directly to Admin!` : `Article submitted for review.`);
           break;
       }
       setActionModalOpen(false);
@@ -182,6 +197,27 @@ export default function KnowledgeMyArticles() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to process workflow action';
+      setError(msg);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  // Manager routes revision to staff Author with departmental instructions
+  const handleManagerAssignRevisionSubmit = async (articleId: string, managerComment: string) => {
+    setActionBusy(true);
+    setError('');
+    try {
+      await requestRevision(articleId, managerComment, { targetRole: 'author' });
+      setMessage('Revision assigned to Author with Admin feedback and Department Manager directions.');
+      setManagerRevisionModalOpen(false);
+      setManagerRevisionArticle(null);
+      await loadArticles();
+      await loadStats();
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to assign revision to author';
       setError(msg);
     } finally {
       setActionBusy(false);
@@ -368,6 +404,7 @@ export default function KnowledgeMyArticles() {
             label: 'Article Title & Reference',
             render: (row) => {
               const hasRevisionNotes = row.status === 'needs_revision' && row.revisionNotes;
+              const isAuthor = row.authorId === user?.id;
               return (
                 <div className={styles.titleColumnWrap}>
                   <div className={styles.articleTitleRow}>
@@ -394,22 +431,77 @@ export default function KnowledgeMyArticles() {
                     <span>· Created {row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '—'}</span>
                   </div>
 
-                  {/* Inline Revision Alert Card */}
+                  {/* Inline Revision Alert Card with multi-tier directives */}
                   {hasRevisionNotes && (
                     <div className={styles.inlineRevisionAlert}>
                       <span className={styles.inlineRevisionIcon}>⚠️</span>
-                      <div className={styles.inlineRevisionText}>
-                        <strong>Admin Revision Directive:</strong> {row.revisionNotes}
+                      <div className={styles.inlineRevisionText} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {(() => {
+                          const adminDir = getAdminRevisionDirective(row.revisionNotes);
+                          const mgrDir = getManagerRevisionDirective(row.revisionNotes);
+                          const latestRev = getLatestRevisionItem(row.revisionNotes);
+
+                          if (adminDir || mgrDir) {
+                            return (
+                              <>
+                                {adminDir && (
+                                  <div>
+                                    <span style={{ fontWeight: 700, color: '#b45309' }}>🛡️ Admin Directive: </span>
+                                    <span>{adminDir.comment}</span>
+                                  </div>
+                                )}
+                                {mgrDir && (
+                                  <div>
+                                    <span style={{ fontWeight: 700, color: '#0369a1' }}>🏢 Manager Directive: </span>
+                                    <span>{mgrDir.comment}</span>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          }
+                          return (
+                            <div>
+                              <strong>{latestRev?.roleLabel || 'Revision Directive'}:</strong>{' '}
+                              {latestRev?.comment || row.revisionNotes}
+                            </div>
+                          );
+                        })()}
                       </div>
-                      {(row.authorId === user?.id || isManager) && (
-                        <button
-                          type="button"
-                          className={styles.inlineReviseBtn}
-                          onClick={() => handleOpenRevise(row)}
-                        >
-                          Revise Now →
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {isAuthor && (
+                          <button
+                            type="button"
+                            className={styles.inlineReviseBtn}
+                            onClick={() => handleOpenRevise(row)}
+                          >
+                            Revise Now →
+                          </button>
+                        )}
+                        {!isAuthor && isManager && (
+                          <>
+                            <button
+                              type="button"
+                              className={styles.inlineReviseBtn}
+                              onClick={() => handleOpenRevise(row)}
+                              title="Department Manager directly updates article"
+                            >
+                              Revise Directly →
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.inlineReviseBtn}
+                              style={{ background: '#d97706' }}
+                              onClick={() => {
+                                setManagerRevisionArticle(row);
+                                setManagerRevisionModalOpen(true);
+                              }}
+                              title="Route revision with instructions to Author"
+                            >
+                              Route to Author →
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -434,10 +526,19 @@ export default function KnowledgeMyArticles() {
               let stageText = 'Stage 1: Draft Created';
               if (row.status === 'pending_approval') {
                 step = 2;
-                stageText = 'Stage 2: Under Review by Admin/Manager';
+                stageText = row.reviewedBy
+                  ? 'Stage 2.5: Approved by Manager · Ready for Admin'
+                  : 'Stage 2: Under Review by Department Manager';
               } else if (row.status === 'needs_revision') {
                 step = 2;
-                stageText = '⚠️ Changes Requested by Reviewer';
+                const latestRev = getLatestRevisionItem(row.revisionNotes);
+                if (latestRev?.step === 'manager_revision') {
+                  stageText = '⚠️ Changes Routed by Manager to Staff Author';
+                } else if (latestRev?.step === 'admin_revision' && latestRev.targetRole === 'manager') {
+                  stageText = '⚠️ Changes Requested by Admin → Routed to Manager';
+                } else {
+                  stageText = '⚠️ Changes Requested by Reviewer';
+                }
               } else if (row.status === 'approved') {
                 step = 3;
                 stageText = 'Stage 3: Approved · Waiting Admin to Publish';
@@ -516,7 +617,7 @@ export default function KnowledgeMyArticles() {
                     </div>
                   </div>
 
-                  <WorkflowStatusBadge status={row.status} showSubtitle={false} />
+                  <WorkflowStatusBadge status={row.status} reviewedBy={row.reviewedBy} revisionNotes={row.revisionNotes} showSubtitle={false} />
 
                   <div className={styles.stageDescriptionText}>
                     <span>{stageText}</span>
@@ -618,9 +719,9 @@ export default function KnowledgeMyArticles() {
                           className={styles.submitBtn}
                           disabled={isBusy}
                           onClick={() => handleOpenActionModal(row, 'submit')}
-                          title="Submit to review queue"
+                          title={row.status === 'needs_revision' && isStaff ? 'Resubmit revised draft to Department Manager' : 'Submit to review queue'}
                         >
-                          📤 {row.status === 'needs_revision' ? 'Resubmit' : 'Submit'}
+                          📤 {row.status === 'needs_revision' ? (isStaff ? 'Resubmit to Manager' : 'Resubmit') : 'Submit'}
                         </button>
                       ) : (
                         <button
@@ -632,6 +733,38 @@ export default function KnowledgeMyArticles() {
                           📝 Move to Draft
                         </button>
                       )}
+                    </>
+                  )}
+
+                  {/* Manager handling Needs Revision (routed by Admin to Department Manager) */}
+                  {!isAuthor && isManager && row.status === 'needs_revision' && (
+                    <>
+                      <button
+                        className={styles.editBtn}
+                        onClick={() => handleOpenRevise(row)}
+                        title="Department Manager directly updates article"
+                      >
+                        ✏️ Revise Directly
+                      </button>
+                      <button
+                        className={styles.submitBtn}
+                        disabled={isBusy}
+                        onClick={() => handleOpenActionModal(row, 'submit')}
+                        title="Resubmit revised article to Admin for publishing"
+                      >
+                        📤 Resubmit to Admin
+                      </button>
+                      <button
+                        className={styles.revisionBtn}
+                        disabled={isBusy}
+                        onClick={() => {
+                          setManagerRevisionArticle(row);
+                          setManagerRevisionModalOpen(true);
+                        }}
+                        title="Forward revision instructions to Staff Author"
+                      >
+                        ⚠️ Route to Author
+                      </button>
                     </>
                   )}
 
@@ -801,11 +934,24 @@ export default function KnowledgeMyArticles() {
         actionType={actionType}
         article={selectedArticle}
         busy={actionBusy}
+        userRole={role}
         onClose={() => {
           setActionModalOpen(false);
           setSelectedArticle(null);
         }}
         onSubmit={handleWorkflowSubmit}
+      />
+
+      {/* ── Manager Assign Revision Modal (Department Manager -> Staff Author) ── */}
+      <ManagerAssignRevisionModal
+        open={managerRevisionModalOpen}
+        article={managerRevisionArticle}
+        busy={actionBusy}
+        onClose={() => {
+          setManagerRevisionModalOpen(false);
+          setManagerRevisionArticle(null);
+        }}
+        onSubmit={handleManagerAssignRevisionSubmit}
       />
 
       {/* ── Quick Revise Modal (Department Manager In-Place Editor) ── */}
@@ -836,6 +982,10 @@ export default function KnowledgeMyArticles() {
         onRequestAction={(art, action) => handleOpenActionModal(art, action)}
         onApproveDirect={(id) => handleDirectApprove(id)}
         onOpenRevise={(art) => handleOpenRevise(art)}
+        onRouteToAuthor={(art) => {
+          setManagerRevisionArticle(art);
+          setManagerRevisionModalOpen(true);
+        }}
       />
 
       {/* ── Delete Confirmation Modal ── */}

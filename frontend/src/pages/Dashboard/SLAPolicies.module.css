@@ -280,6 +280,12 @@
   white-space: nowrap;
 }
 
+.table th:last-child,
+.table td:last-child {
+  white-space: nowrap;
+  min-width: 250px;
+}
+
 .table td {
   padding: 13px 16px;
   border-bottom: 1px solid var(--sla-border-subtle);
@@ -356,10 +362,17 @@
   border-color: #fed7aa;
 }
 
+:global([data-theme="dark"]) .priorityUrgent,
+:global([data-theme="dark"]) .priorityCritical {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.6) !important;
+}
+
 :global([data-theme="dark"]) .priorityHigh {
-  background: rgba(234,88,12,.15);
-  color: #fb923c;
-  border-color: rgba(234,88,12,.3);
+  background: rgba(234, 88, 12, 0.22) !important;
+  color: #fdba74 !important;
+  border-color: rgba(251, 146, 60, 0.6) !important;
 }
 
 .priorityMedium {
@@ -368,10 +381,22 @@
   border-color: var(--sla-warning-border);
 }
 
+:global([data-theme="dark"]) .priorityMedium {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fde047 !important;
+  border-color: rgba(250, 204, 21, 0.6) !important;
+}
+
 .priorityLow {
   background: var(--sla-primary-light);
   color: var(--sla-primary);
   border-color: var(--sla-primary-border);
+}
+
+:global([data-theme="dark"]) .priorityLow {
+  background: rgba(59, 130, 246, 0.22) !important;
+  color: #93c5fd !important;
+  border-color: rgba(96, 165, 250, 0.6) !important;
 }
 
 /* Category badge */
@@ -391,10 +416,22 @@
   white-space: nowrap;
 }
 
+:global([data-theme="dark"]) .categoryBadge {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+}
+
 .globalBadge {
   background: var(--sla-surface-alt);
   color: var(--sla-text-muted);
   border-color: var(--sla-border);
+}
+
+:global([data-theme="dark"]) .globalBadge {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
 }
 
 /* ── STATUS TOGGLE BUTTON ───────────────────────────────────────────────────── */
@@ -416,27 +453,53 @@
 }
 
 .toggleOn {
-  background: var(--sla-success-light);
-  color: var(--sla-success);
-  border-color: var(--sla-success-border);
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
 }
 
 .toggleOn:hover {
-  filter: brightness(.92);
+  filter: brightness(.94);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(5,150,105,.18);
+  box-shadow: 0 2px 6px rgba(5,150,105,.22);
 }
 
 .toggleOff {
-  background: var(--sla-danger-light);
-  color: var(--sla-danger);
-  border-color: var(--sla-danger-border);
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
 }
 
 .toggleOff:hover {
-  filter: brightness(.92);
+  filter: brightness(.94);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(220,38,38,.18);
+  box-shadow: 0 2px 6px rgba(220,38,38,.22);
+}
+
+:global([data-theme="dark"]) .toggleOn {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
+}
+
+:global([data-theme="dark"]) .toggleOn:hover {
+  background: rgba(16, 185, 129, 0.35) !important;
+  border-color: #34d399 !important;
+  color: #a7f3d0 !important;
+}
+
+:global([data-theme="dark"]) .toggleOff {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.6) !important;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.2);
+}
+
+:global([data-theme="dark"]) .toggleOff:hover {
+  background: rgba(239, 68, 68, 0.35) !important;
+  border-color: #f87171 !important;
+  color: #fecaca !important;
 }
 
 .toggleIcon {
@@ -452,91 +515,191 @@
 /* ── ACTION BUTTONS ─────────────────────────────────────────────────────────── */
 
 .actions {
-  display: flex;
-  gap: 6px;
+  display: inline-flex;
+  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .btnIcon {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
+  transition: transform .18s ease, color .18s ease;
 }
 
-/* View */
-.viewBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border: 1.5px solid var(--sla-border);
-  border-radius: var(--sla-radius-sm);
-  background: var(--sla-surface-alt);
-  color: var(--sla-text-body);
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all .15s ease;
-  font-family: inherit;
-}
-
-.viewBtn:hover {
-  background: var(--sla-text-main);
-  border-color: var(--sla-text-main);
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(15,23,42,.2);
-}
-
-/* Edit */
-.editBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border: 1.5px solid var(--sla-primary-border);
-  border-radius: var(--sla-radius-sm);
-  background: var(--sla-primary-light);
-  color: var(--sla-primary);
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all .15s ease;
-  font-family: inherit;
-}
-
-.editBtn:hover {
-  background: var(--sla-primary);
-  border-color: var(--sla-primary);
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(29,78,216,.28);
-}
-
-/* Delete */
+/* Base button defaults */
+.viewBtn,
+.editBtn,
 .deleteBtn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 6px 12px;
-  border: 1.5px solid var(--sla-danger-border);
   border-radius: var(--sla-radius-sm);
-  background: var(--sla-danger-light);
-  color: var(--sla-danger);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1;
   cursor: pointer;
-  transition: all .15s ease;
+  transition: all .18s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
+  white-space: nowrap;
+  border-width: 1.5px;
+  border-style: solid;
+}
+
+.viewBtn:hover .btnIcon,
+.editBtn:hover .btnIcon,
+.deleteBtn:hover .btnIcon {
+  transform: scale(1.12);
+}
+
+/* ── VIEW BUTTON ── */
+/* Light Mode */
+.viewBtn {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.viewBtn .btnIcon {
+  color: #475569;
+}
+
+.viewBtn:hover {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.2);
+}
+
+.viewBtn:hover .btnIcon {
+  color: #ffffff;
+}
+
+/* Dark Mode View */
+:global([data-theme="dark"]) .viewBtn {
+  background: rgba(148, 163, 184, 0.16) !important;
+  border-color: rgba(203, 213, 225, 0.5) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+:global([data-theme="dark"]) .viewBtn .btnIcon {
+  color: #e2e8f0 !important;
+}
+
+:global([data-theme="dark"]) .viewBtn:hover {
+  background: #334155 !important;
+  border-color: #cbd5e1 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+:global([data-theme="dark"]) .viewBtn:hover .btnIcon {
+  color: #ffffff !important;
+}
+
+/* ── EDIT BUTTON ── */
+/* Light Mode */
+.editBtn {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.editBtn .btnIcon {
+  color: #2563eb;
+}
+
+.editBtn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+
+.editBtn:hover .btnIcon {
+  color: #ffffff;
+}
+
+/* Dark Mode Edit */
+:global([data-theme="dark"]) .editBtn {
+  background: rgba(59, 130, 246, 0.22) !important;
+  border-color: rgba(96, 165, 250, 0.65) !important;
+  color: #bfdbfe !important;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.25);
+}
+
+:global([data-theme="dark"]) .editBtn .btnIcon {
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .editBtn:hover {
+  background: #2563eb !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(59, 130, 246, 0.5);
+}
+
+:global([data-theme="dark"]) .editBtn:hover .btnIcon {
+  color: #ffffff !important;
+}
+
+/* ── DELETE BUTTON ── */
+/* Light Mode */
+.deleteBtn {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08);
+}
+
+.deleteBtn .btnIcon {
+  color: #ef4444;
 }
 
 .deleteBtn:hover {
-  background: var(--sla-danger);
-  border-color: var(--sla-danger);
+  background: #dc2626;
+  border-color: #dc2626;
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(220,38,38,.28);
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35);
+}
+
+.deleteBtn:hover .btnIcon {
+  color: #ffffff;
+}
+
+/* Dark Mode Delete */
+:global([data-theme="dark"]) .deleteBtn {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: rgba(248, 113, 113, 0.65) !important;
+  color: #fecaca !important;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.25);
+}
+
+:global([data-theme="dark"]) .deleteBtn .btnIcon {
+  color: #fca5a5 !important;
+}
+
+:global([data-theme="dark"]) .deleteBtn:hover {
+  background: #dc2626 !important;
+  border-color: #f87171 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5);
+}
+
+:global([data-theme="dark"]) .deleteBtn:hover .btnIcon {
+  color: #ffffff !important;
 }
 
 /* ── EMPTY STATE ────────────────────────────────────────────────────────────── */

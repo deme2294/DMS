@@ -425,7 +425,7 @@ export default function MyProfile() {
 
               {user.userCode && (
                 <div className={styles.deptDisplayItem}>
-                  <span className={styles.deptItemLabel}>Employee / User Code</span>
+                  <span className={styles.deptItemLabel}>Registered User ID</span>
                   <div className={styles.deptItemValue}>
                     <IdentificationIcon style={{ width: 18, height: 18, color: '#f59e0b', flexShrink: 0 }} />
                     <span style={{ fontFamily: 'monospace' }}>{user.userCode}</span>

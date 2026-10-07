@@ -49,11 +49,11 @@ export const createArticle = (payload: Record<string, unknown>) =>
 export const updateArticle = (id: string, payload: Record<string, unknown>) =>
   api.put(`/knowledge/${id}`, payload);
 
-export const submitArticle = (id: string) =>
-  api.post(`/knowledge/${id}/submit`);
+export const submitArticle = (id: string, payload?: Record<string, unknown>) =>
+  api.post(`/knowledge/${id}/submit`, payload);
 
-export const requestRevision = (id: string, reason: string) =>
-  api.post(`/knowledge/${id}/request-revision`, { reason });
+export const requestRevision = (id: string, reason: string, options?: { targetRole?: string; routeTo?: string }) =>
+  api.post(`/knowledge/${id}/request-revision`, { reason, ...(options || {}) });
 
 export const approveArticle = (id: string) =>
   api.post(`/knowledge/${id}/approve`);
@@ -73,13 +73,19 @@ export const archiveArticle = (id: string) =>
 export const restoreArticle = (id: string) =>
   api.post(`/knowledge/${id}/restore`);
 
+export const fetchArticleVersions = (articleId: string) =>
+  api.get<{ success: boolean; data: ArticleVersion[] }>(`/knowledge/${articleId}/versions`);
+
+export const createArticleVersion = (articleId: string, payload: { versionNumber?: string; title?: string; content?: string; changeSummary?: string }) =>
+  api.post(`/knowledge/${articleId}/versions`, payload);
+
 export const moveToDraft = (id: string) =>
   api.post(`/knowledge/${id}/to-draft`);
 
 export const deleteArticle = (id: string) => api.delete(`/knowledge/${id}`);
 
-export const rateArticle = (id: string, helpful: boolean) =>
-  api.post(`/knowledge/${id}/feedback`, { helpful });
+export const rateArticle = (id: string, helpful: boolean, payload?: { reason?: string; comment?: string }) =>
+  api.post(`/knowledge/${id}/feedback`, { helpful, ...payload });
 
 export const fetchArticleCategories = (params?: { departmentId?: string }) =>
   api.get<{ success: boolean; data: string[] }>('/knowledge/categories', { params });
@@ -105,7 +111,20 @@ export const deleteCategory = (id: string) =>
 export const fetchVersions = (id: string) =>
   api.get<{ success: boolean; data: ArticleVersion[] }>(`/knowledge/${id}/versions`);
 
-export const createVersion = (id: string, payload: { versionNumber?: string; title?: string; content?: string; categoryId?: string | null; changeSummary?: string }) =>
+export const fetchVersionById = (id: string, versionId: string) =>
+  api.get<{ success: boolean; data: ArticleVersion }>(`/knowledge/${id}/versions/${versionId}`);
+
+export const restoreArticleVersion = (
+  id: string,
+  versionId: string,
+  payload?: { isMajor?: boolean; changeSummary?: string; reason?: string; publishImmediately?: boolean }
+) =>
+  api.post<{ success: boolean; message: string; data: any }>(
+    `/knowledge/${id}/versions/${versionId}/restore`,
+    payload
+  );
+
+export const createVersion = (id: string, payload: { versionNumber?: string; title?: string; content?: string; categoryId?: string | null; changeSummary?: string; isMajor?: boolean }) =>
   api.post(`/knowledge/${id}/versions`, payload);
 
 export const uploadAttachment = (id: string, file: File) => {

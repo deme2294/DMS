@@ -28,7 +28,7 @@ router.post(
     [
         body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2-100 chars'),
         body('description').optional({ nullable: true }).trim(),
-        body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-z-]{36}$/i.test(v)),
+        body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
         body('slaPolicyId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-z-]{36}$/i.test(v)),
         body('routingType').optional().isIn(['general', 'direct']).withMessage('routingType must be general or direct'),
         body('departmentId').if((value, { req }) => req.body.routingType === 'direct').notEmpty().withMessage('Direct-routing categories require a department'),
@@ -44,7 +44,7 @@ router.put(
         param('id').trim().notEmpty().isLength({ min: 1, max: 64 }),
         body('name').optional().trim().isLength({ min: 2, max: 100 }),
         body('description').optional({ nullable: true }).trim(),
-        body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-z-]{36}$/i.test(v)),
+        body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
         body('slaPolicyId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-z-]{36}$/i.test(v)),
         body('routingType').optional().isIn(['general', 'direct']).withMessage('routingType must be general or direct'),
         body('departmentId').if((value, { req }) => req.body.routingType === 'direct').notEmpty().withMessage('Direct-routing categories require a department'),

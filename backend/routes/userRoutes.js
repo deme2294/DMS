@@ -21,7 +21,7 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 1000 }),
      query('role').optional().custom((v) => !v || ['admin', 'manager', 'staff', 'tenant'].includes(v)).withMessage('Invalid role'),
      query('status').optional().custom((v) => !v || ['active', 'inactive', 'locked'].includes(v)).withMessage('Invalid status'),
-     query('departmentId').optional().custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)).withMessage('Invalid departmentId'),
+     query('departmentId').optional().custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)).withMessage('Invalid departmentId'),
     validate,
   ],
   userController.getUsers

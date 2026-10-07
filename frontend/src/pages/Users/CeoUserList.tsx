@@ -13,10 +13,12 @@ import {
 import type { User } from '../../types/user';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
+import { useAuth } from '../../context/AuthContext';
 import styles from './CeoUsers.module.css';
 
 export default function CeoUserList() {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const { can } = usePermission();
   const { page, limit, setPage, resetPage } = usePagination();
   const [users, setUsers] = useState<User[]>([]);
@@ -45,6 +47,10 @@ export default function CeoUserList() {
   }, [loadUsers]);
 
   const handleDelete = async (user: User) => {
+    if (user.id === currentUser?.id) {
+      setMessage('You cannot delete your own account.');
+      return;
+    }
     if (!window.confirm(`Delete user ${user.username}?`)) return;
     await deleteUser(user.id);
     setMessage('User deleted successfully');
@@ -52,6 +58,10 @@ export default function CeoUserList() {
   };
 
   const handleToggleStatus = async (user: User) => {
+    if (user.id === currentUser?.id) {
+      setMessage('You cannot deactivate your own account.');
+      return;
+    }
     if (user.status === 'active') {
       await deactivateUser(user.id);
       setMessage('User deactivated');
@@ -136,14 +146,25 @@ export default function CeoUserList() {
                 {can('users.update') && (
                   <>
                     <button onClick={() => navigate(`/ceo/users/${row.id}/edit`)}>Edit</button>
-                    <button onClick={() => handleToggleStatus(row)}>
+                    <button
+                      disabled={row.id === currentUser?.id}
+                      onClick={() => handleToggleStatus(row)}
+                      title={row.id === currentUser?.id ? 'You cannot deactivate your own account' : undefined}
+                    >
                       {row.status === 'active' ? 'Deactivate' : 'Activate'}
                     </button>
                     <button onClick={() => setResetModal(row)}>Reset Password</button>
                   </>
                 )}
                 {can('users.delete') && (
-                  <button className={styles.danger} onClick={() => handleDelete(row)}>Delete</button>
+                  <button
+                    className={styles.danger}
+                    disabled={row.id === currentUser?.id}
+                    onClick={() => handleDelete(row)}
+                    title={row.id === currentUser?.id ? 'You cannot delete your own account' : undefined}
+                  >
+                    Delete
+                  </button>
                 )}
               </div>
             ),

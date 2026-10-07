@@ -10,8 +10,9 @@ interface WorkflowActionModalProps {
   actionType: WorkflowActionType | null;
   article: Article | null;
   busy: boolean;
+  userRole?: string;
   onClose: () => void;
-  onSubmit: (articleId: string, actionType: WorkflowActionType, reason?: string) => Promise<void>;
+  onSubmit: (articleId: string, actionType: WorkflowActionType, reason?: string, options?: { routeTo?: 'manager' | 'author' }) => Promise<void>;
 }
 
 export const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
@@ -19,15 +20,18 @@ export const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
   actionType,
   article,
   busy,
+  userRole,
   onClose,
   onSubmit,
 }) => {
   const [reason, setReason] = useState('');
+  const [routeTo, setRouteTo] = useState<'manager' | 'author'>('manager');
   const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
     if (open) {
       setReason('');
+      setRouteTo('manager');
       setValidationError('');
     }
   }, [open, actionType]);
@@ -108,8 +112,10 @@ export const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
       setValidationError('Please provide the required feedback or reason before proceeding.');
       return;
     }
-    await onSubmit(article.id, actionType, reason.trim());
+    await onSubmit(article.id, actionType, reason.trim(), { routeTo });
   };
+
+  const showRoutingSelector = actionType === 'request_revision' && userRole === 'admin';
 
   return (
     <Modal open={open} title={meta.title} onClose={busy ? () => {} : onClose}>
@@ -127,6 +133,58 @@ export const WorkflowActionModal: React.FC<WorkflowActionModalProps> = ({
           </div>
           <div className={styles.capsuleTitle}>{article.title}</div>
         </div>
+
+        {/* Route Revision Selector for Admin */}
+        {showRoutingSelector && (
+          <div style={{ marginBottom: 14 }}>
+            <label className={styles.fieldLabel} style={{ marginBottom: 8, display: 'block' }}>
+              Route Revision Directive To:
+            </label>
+            <div className={styles.routeOptionsGrid}>
+              <label
+                className={`${styles.routeCard} ${routeTo === 'manager' ? styles.routeCardActive : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="routeTo"
+                  value="manager"
+                  checked={routeTo === 'manager'}
+                  onChange={() => setRouteTo('manager')}
+                  style={{ marginTop: 3 }}
+                />
+                <div>
+                  <div className={styles.routeCardTitle}>
+                    🏢 Department Manager (Recommended)
+                  </div>
+                  <p className={styles.routeCardDesc}>
+                    Manager inspects your directive and can either update the article directly or route it down to the Author with departmental directions.
+                  </p>
+                </div>
+              </label>
+
+              <label
+                className={`${styles.routeCard} ${routeTo === 'author' ? styles.routeCardActive : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="routeTo"
+                  value="author"
+                  checked={routeTo === 'author'}
+                  onChange={() => setRouteTo('author')}
+                  style={{ marginTop: 3 }}
+                />
+                <div>
+                  <div className={styles.routeCardTitle}>
+                    👤 Author Directly
+                  </div>
+                  <p className={styles.routeCardDesc}>
+                    Assign instructions directly to the staff author.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+        )}
 
         {meta.fieldLabel && (
           <div className={styles.formGroup}>

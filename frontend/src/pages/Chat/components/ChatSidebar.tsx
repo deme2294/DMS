@@ -48,7 +48,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onCloseMobileSidebar,
 }) => {
   return (
-    <aside
+    <div
       className={`${styles.chatSidebar} ${
         mobileSidebarOpen ? styles.sidebarOpenMobile : ''
       } ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
@@ -59,26 +59,27 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <span className={styles.sidebarIcon}>💬</span>
             <h2>Conversations</h2>
           </div>
-          <div className={styles.sidebarActionsGroup}>
-            <button
-              type="button"
-              className={styles.newConferenceBtn}
-              onClick={onStartVideoConference}
-              title="Start or schedule Video Conference (Today or custom date)"
-            >
-              <span>📹</span>
-              <span className={styles.newChatBtnText}>Video Call</span>
-            </button>
-            <button
-              type="button"
-              className={styles.newChatBtn}
-              onClick={onStartNewChat}
-              title="Start new conversation"
-            >
-              <span>➕</span>
-              <span className={styles.newChatBtnText}>New Chat</span>
-            </button>
-          </div>
+        </div>
+
+        <div className={styles.sidebarActionsGroup}>
+          <button
+            type="button"
+            className={styles.newConferenceBtn}
+            onClick={onStartVideoConference}
+            title="Start or schedule Video Conference (Today or custom date)"
+          >
+            <span>📹</span>
+            <span className={styles.newChatBtnText}>Video Call</span>
+          </button>
+          <button
+            type="button"
+            className={styles.newChatBtn}
+            onClick={onStartNewChat}
+            title="Start new conversation"
+          >
+            <span>➕</span>
+            <span className={styles.newChatBtnText}>New Chat</span>
+          </button>
         </div>
 
         {unreadCount > 0 && (
@@ -304,7 +305,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           })
         )}
       </div>
-    </aside>
+    </div>
   );
 };
 

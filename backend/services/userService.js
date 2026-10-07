@@ -7,12 +7,8 @@ import { sendWelcomeEmail, sendPasswordResetEmail } from './emailService.js';
 
 const SALT_ROUNDS = 10;
 
-export const generateUserCode = async (roleName) => {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const prefix = roleName.charAt(0).toUpperCase();
-  const count = await userRepo.countByRole(roleName);
-  const sequence = String(count + 1).padStart(3, '0');
-  return `${prefix}${sequence}/${year}`;
+export const generateUserCode = async (_roleName) => {
+  return userRepo.getNextUserCode();
 };
 
 export const listUsers = async (query) => {
@@ -77,7 +73,10 @@ export const createUser = async (payload) => {
   return getUser(id);
 };
 
-export const updateUser = async (id, payload) => {
+export const updateUser = async (id, payload, currentUserId) => {
+  if (currentUserId && id === currentUserId && payload.status && payload.status !== 'active') {
+    throw Object.assign(new Error('You cannot deactivate your own account'), { statusCode: 400 });
+  }
   const existing = await userRepo.findById(id);
   if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
 
@@ -127,7 +126,12 @@ export const deleteUser = async (id, currentUserId) => {
 };
 
 export const activateUser = async (id) => updateUser(id, { status: 'active' });
-export const deactivateUser = async (id) => updateUser(id, { status: 'inactive' });
+export const deactivateUser = async (id, currentUserId) => {
+  if (currentUserId && id === currentUserId) {
+    throw Object.assign(new Error('You cannot deactivate your own account'), { statusCode: 400 });
+  }
+  return updateUser(id, { status: 'inactive' }, currentUserId);
+};
 
 export const resetUserPassword = async (id, newPassword, actorId) => {
   const existing = await userRepo.findById(id);

@@ -11,6 +11,7 @@ type Props = {
   onSubmit: (values: UserFormValues) => Promise<void>;
   loading?: boolean;
   onCancel?: () => void;
+  isSelf?: boolean;
 };
 
 export default function UserForm({
@@ -20,6 +21,7 @@ export default function UserForm({
   onSubmit,
   loading,
   onCancel,
+  isSelf,
 }: Props) {
   const navigate = useNavigate();
   const {
@@ -125,16 +127,16 @@ export default function UserForm({
           </div>
 
           <div className={styles.field}>
-            <label>Account Status</label>
-            <select {...register('status')}>
+            <label>Account Status {isSelf && <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>(Cannot deactivate own account)</span>}</label>
+            <select {...register('status')} disabled={isSelf}>
               <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="inactive" disabled={isSelf}>Inactive</option>
             </select>
           </div>
 
           {initialData?.userCode && (
             <div className={styles.field}>
-              <label>User System Code</label>
+              <label>Registered User ID</label>
               <input type="text" value={initialData.userCode} disabled />
             </div>
           )}

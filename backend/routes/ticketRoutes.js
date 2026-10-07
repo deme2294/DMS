@@ -48,7 +48,7 @@ router.get(
   '/departments/:departmentId/managers',
   authorize('tickets.read', 'tickets.assign'),
   [
-    param('departmentId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('Valid departmentId required'),
+    param('departmentId').custom((v) => /^[0-9a-zA-Z_-]{2,36}$/i.test(v)).withMessage('Valid departmentId required'),
     validate,
   ],
   ticketController.getDepartmentManagers
@@ -67,7 +67,7 @@ router.post(
     body('description').trim().notEmpty(),
     body('category').trim().notEmpty(),
     body('priority').optional().isIn(TICKET_PRIORITIES),
-    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
     validate,
   ],
   ticketController.createTicket
@@ -82,7 +82,7 @@ router.put(
     body('description').optional().trim().notEmpty(),
     body('category').optional().trim().notEmpty(),
     body('priority').optional().isIn(TICKET_PRIORITIES),
-    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
     body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     validate,
   ],
@@ -95,7 +95,7 @@ router.post(
   requireRole('admin'),
   [
     idParam(),
-    body('departmentId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('departmentId required'),
+    body('departmentId').custom((v) => /^[0-9a-zA-Z_-]{2,36}$/i.test(v)).withMessage('departmentId required'),
     body('managerId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     body('notes').optional({ nullable: true }).trim(),
@@ -188,17 +188,28 @@ router.post(
   ticketController.reopenTicket
 );
 
-// Admin approves / rejects completion, and tenant approves own resolution
+// Admin/Manager approves resolution, and tenant confirms own resolution
 router.post(
   '/:id/approve',
   authorize('tickets.approve', 'tickets.create'),
-  [idParam(), body('notes').optional({ nullable: true }).trim(), validate],
+  [
+    idParam(),
+    body('notes').optional({ nullable: true }).trim(),
+    body('rating').optional({ nullable: true }).isInt({ min: 1, max: 5 }),
+    body('feedback').optional({ nullable: true }).trim(),
+    validate,
+  ],
   ticketController.approveCompletion
 );
 router.post(
   '/:id/reject-completion',
   authorize('tickets.approve', 'tickets.create'),
-  [idParam(), body('notes').optional({ nullable: true }).trim(), validate],
+  [
+    idParam(),
+    body('notes').optional({ nullable: true }).trim(),
+    body('reason').optional({ nullable: true }).trim(),
+    validate,
+  ],
   ticketController.rejectCompletion
 );
 
@@ -228,7 +239,7 @@ router.patch(
 router.post(
   '/:id/internal-note',
   authorize('tickets.internal_note'),
-  [idParam(), body('message').trim().notEmpty(), body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)), validate],
+  [idParam(), body('message').trim().notEmpty(), body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)), validate],
   ticketController.addInternalNote
 );
 
@@ -239,7 +250,7 @@ router.patch(
     idParam(),
     body('status').isIn(TICKET_STATUS),
     body('notes').optional().trim(),
-    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
     body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     validate,
   ],
@@ -261,7 +272,7 @@ router.post(
   [
     idParam(),
     body('message').trim().notEmpty().withMessage('Message is required'),
-    body('visibility').optional().isIn(['all', 'internal', 'tenant', 'department', 'both']),
+    body('visibility').optional().isIn(['all', 'internal', 'tenant', 'department', 'both', 'admin']),
     body('attachmentId').optional({ nullable: true, checkFalsy: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     body('departmentIds').optional({ nullable: true }),
     validate,

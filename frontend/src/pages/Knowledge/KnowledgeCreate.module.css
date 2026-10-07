@@ -211,3 +211,325 @@
   background: #27354f !important;
   color: #ffffff !important;
 }
+
+/* ==========================================================================
+   AUTOMATED LIFECYCLE VISIBILITY COMPONENT
+   ========================================================================== */
+.autoVisibilityLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.autoVisibilityTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.autoVisibilitySub {
+  font-size: 0.78rem;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.autoVisibilityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #f59e0b;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.autoVisibilityBadge:hover {
+  background: #fde68a;
+  color: #78350f;
+  border-color: #d97706;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+}
+
+.autoVisibilityCard {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s ease;
+}
+
+.autoVisibilityCard:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.autoVisibilityHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.autoVisibilityCurrent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.autoVisibilityDesc {
+  font-size: 0.84rem;
+  color: #475569;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.autoVisibilityDesc strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.autoVisibilitySteps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+}
+
+@media (max-width: 768px) {
+  .autoVisibilitySteps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.autoStep {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.autoStep:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.16);
+}
+
+.autoStep:hover .autoStepNum {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.autoStep:hover .autoStepName {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.autoStep:hover .autoStepScope {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.autoStep.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1.5px #2563eb, 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.autoStep.active:hover {
+  background: #dbeafe;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px #1d4ed8, 0 6px 18px rgba(29, 78, 216, 0.22);
+  transform: translateY(-2px);
+}
+
+.autoStepNum {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  margin-bottom: 3px;
+  transition: color 0.15s ease;
+}
+
+.autoStep.active .autoStepNum {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.autoStepName {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+  transition: color 0.15s ease;
+}
+
+.autoStep.active .autoStepName {
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.autoStepScope {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.35;
+  transition: color 0.15s ease;
+}
+
+.autoStep.active .autoStepScope {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.autoVisibilityNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 0.82rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   DARK THEME OVERRIDES FOR LIFECYCLE COMPONENT
+   ========================================================================== */
+:global([data-theme="dark"]) .autoVisibilityTitle {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilitySub {
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityBadge {
+  background: rgba(245, 158, 11, 0.18) !important;
+  color: #fbbf24 !important;
+  border: 1.5px solid rgba(245, 158, 11, 0.55) !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .autoVisibilityBadge:hover {
+  background: rgba(245, 158, 11, 0.32) !important;
+  color: #ffffff !important;
+  border-color: #fde047 !important;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.45) !important;
+  transform: translateY(-1px);
+}
+
+:global([data-theme="dark"]) .autoVisibilityCard {
+  background: #0f1420 !important;
+  border-color: #2e384d !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityCard:hover {
+  border-color: #3b82f6 !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityDesc {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityDesc strong {
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilitySteps {
+  background: #141b2b !important;
+  border-color: #243048 !important;
+}
+
+:global([data-theme="dark"]) .autoStep {
+  background: #0f1420 !important;
+  border-color: #283347 !important;
+}
+
+:global([data-theme="dark"]) .autoStep:hover {
+  background: #192338 !important;
+  border-color: #60a5fa !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .autoStep:hover .autoStepNum {
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .autoStep:hover .autoStepName {
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+}
+
+:global([data-theme="dark"]) .autoStep:hover .autoStepScope {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .autoStepNum {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .autoStepName {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .autoStepScope {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .autoStep.active {
+  background: rgba(30, 58, 95, 0.75) !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 1.5px #60a5fa, 0 4px 14px rgba(96, 165, 250, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .autoStep.active:hover {
+  background: rgba(37, 99, 235, 0.45) !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 0 0 2px #93c5fd, 0 8px 24px rgba(147, 197, 253, 0.4) !important;
+  transform: translateY(-2px);
+}
+
+:global([data-theme="dark"]) .autoStep.active .autoStepNum {
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .autoStep.active .autoStepName {
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .autoStep.active .autoStepScope {
+  color: #bfdbfe !important;
+}
+
+:global([data-theme="dark"]) .autoVisibilityNote {
+  color: #4ade80 !important;
+}

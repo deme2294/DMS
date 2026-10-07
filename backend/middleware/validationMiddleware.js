@@ -41,3 +41,19 @@ export const uuidBody = (name) =>
     .trim()
     .matches(UUID_REGEX)
     .withMessage(`${name} must be a valid UUID`);
+
+export const DEPT_ID_REGEX = /^[0-9a-zA-Z_-]{2,36}$/i;
+
+export const departmentIdParam = (name = 'departmentId') =>
+  param(name)
+    .trim()
+    .matches(DEPT_ID_REGEX)
+    .withMessage(`${name} must be a valid department identifier`);
+
+export const departmentIdBody = (name = 'departmentId') =>
+  body(name)
+    .optional({ values: 'falsy' })
+    .trim()
+    .matches(DEPT_ID_REGEX)
+    .withMessage(`${name} must be a valid department identifier`);
+

@@ -133,8 +133,6 @@ export default function ManagerDashboard() {
       {/* ── Executive Department Command Hub Banner ── */}
       {data?.department && (
         <div className={styles.deptBanner}>
-          <div className={styles.deptBannerGrid} />
-
           <div className={styles.deptContent}>
             <div className={styles.deptIconCard}>
               <BuildingOffice2Icon style={{ width: 28, height: 28, color: '#ffffff' }} />
@@ -154,14 +152,14 @@ export default function ManagerDashboard() {
           </div>
 
           <div className={styles.deptShortcuts}>
-            <Link to="/manager/knowledge/my-articles" className={styles.shortcutLink}>
+            <Link to="/manager/knowledge" className={styles.shortcutLink}>
               📚 Knowledge Base
+            </Link>
+            <Link to="/manager/knowledge/approval" className={styles.shortcutLink}>
+              ✅ Dept Approval Desk
             </Link>
             <Link to="/manager/matrix" className={styles.shortcutLink}>
               👥 Department Roster
-            </Link>
-            <Link to="/manager/sla" className={styles.shortcutLink}>
-              ⏱️ SLA Rules
             </Link>
           </div>
         </div>

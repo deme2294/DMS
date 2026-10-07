@@ -47,7 +47,7 @@ router.get(
   authorize('tenants.manage'),
   [
     query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
+    query('limit').optional().isInt({ min: 1, max: 1000 }),
     query('status').optional().custom((v) => !v || ['active', 'inactive', 'pending'].includes(v)).withMessage('Invalid status'),
     validate,
   ],

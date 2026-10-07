@@ -89,7 +89,8 @@ export const closeTicket = (id: string, notes?: string) => api.post(`/tickets/${
 
 export const reopenTicket = (id: string, notes?: string) => api.post(`/tickets/${id}/reopen`, { notes });
 
-export const approveResolution = (id: string, notes?: string) => api.post(`/tickets/${id}/approve`, { notes });
+export const approveResolution = (id: string, notes?: string, rating?: number, feedback?: string) =>
+  api.post(`/tickets/${id}/approve`, { notes, rating, feedback });
 
 export const rejectResolution = (id: string, notes?: string) => api.post(`/tickets/${id}/reject-completion`, { notes });
 

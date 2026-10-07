@@ -4,12 +4,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import UserForm from '../../components/Forms/UserForm';
 import { fetchUser, updateUser, fetchRoles } from '../../api/userApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
+import { useAuth } from '../../context/AuthContext';
 import type { User, RoleOption, UserFormValues } from '../../types/user';
 import styles from './Users.module.css';
 
 export default function UserEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
@@ -71,6 +73,7 @@ export default function UserEdit() {
         departments={departments}
         onSubmit={onSubmit}
         loading={loading}
+        isSelf={currentUser?.id === user.id}
       />
     </div>
   );

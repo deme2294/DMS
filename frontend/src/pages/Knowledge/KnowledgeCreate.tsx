@@ -43,7 +43,7 @@ export default function KnowledgeCreate() {
       content: '',
       category: '',
       tags: '',
-      visibility: 'internal',
+      visibility: 'restricted',
       departmentId: '' as any,
     },
   });
@@ -119,9 +119,9 @@ export default function KnowledgeCreate() {
         content: values.content,
         category: values.category,
         tags: values.tags || null,
-        visibility: values.visibility || 'internal',
+        visibility: values.visibility || 'tenant',
         departmentId: finalDeptId || null,
-        submitForApproval,
+        submitForApproval: role === 'staff' ? false : submitForApproval,
       });
       navigate(basePath);
     } catch (err: unknown) {
@@ -199,17 +199,6 @@ export default function KnowledgeCreate() {
 
         <div className={styles.formRow}>
           <div className={styles.formGroup}>
-            <label htmlFor="visibility">Visibility</label>
-            <select id="visibility" {...register('visibility')}>
-              <option value="internal">Internal</option>
-              <option value="tenant">Tenant</option>
-              <option value="department">Department</option>
-              <option value="restricted">Restricted</option>
-              <option value="public">Public</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup}>
             <label htmlFor="departmentId">Department *</label>
             {role === 'staff' && departments.length <= 1 ? (
               <>
@@ -252,29 +241,106 @@ export default function KnowledgeCreate() {
             )}
             {errors.departmentId && <span className={styles.error}>{errors.departmentId.message}</span>}
           </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="tags">Tags</label>
+            <input id="tags" type="text" {...register('tags')} placeholder="e.g. onboarding, payroll, leave" />
+          </div>
         </div>
 
+        {/* Automated Visibility Lifecycle */}
         <div className={styles.formGroup}>
-          <label htmlFor="tags">Tags</label>
-          <input id="tags" type="text" {...register('tags')} placeholder="e.g. onboarding, payroll, leave" />
+          <input type="hidden" {...register('visibility')} value="restricted" />
+          <label className={styles.autoVisibilityLabel}>
+            <span className={styles.autoVisibilityTitle}>
+              Visibility Lifecycle
+              <span className={styles.autoVisibilitySub}>
+                (Automated Step-by-Step)
+              </span>
+            </span>
+            <span
+              className={styles.autoVisibilityBadge}
+              title="Automated Initial State: Saved as a private draft visible only to you"
+            >
+              🔒 Restricted · Creator Only
+            </span>
+          </label>
+
+          <div className={styles.autoVisibilityCard}>
+            <div className={styles.autoVisibilityDesc}>
+              Visibility adjusts automatically at each workflow stage. Upon creation, this article is saved as a <strong>private draft visible only to you ({user?.firstName || 'Creator'})</strong>. You can review your draft, make any corrections, and route it to your Department Manager.
+            </div>
+
+            <div className={styles.autoVisibilitySteps}>
+              <div
+                className={`${styles.autoStep} ${styles.active}`}
+                title="Step 1: Private draft visible only to you (Creator)"
+              >
+                <span className={styles.autoStepNum}>Step 1 · Draft (Current)</span>
+                <span className={styles.autoStepName}>🔒 Restricted</span>
+                <span className={styles.autoStepScope}>Visible only to you (Creator)</span>
+              </div>
+
+              <div
+                className={styles.autoStep}
+                title="Step 2: Shared between you and Department Manager for review"
+              >
+                <span className={styles.autoStepNum}>Step 2 · Routed</span>
+                <span className={styles.autoStepName}>👥 Internal</span>
+                <span className={styles.autoStepScope}>Shared between you & Dept Manager</span>
+              </div>
+
+              <div
+                className={styles.autoStep}
+                title="Step 3: Approved by Manager; visible to all Department staff and Admin"
+              >
+                <span className={styles.autoStepNum}>Step 3 · Dept Approved</span>
+                <span className={styles.autoStepName}>🏢 Department</span>
+                <span className={styles.autoStepScope}>All Department Staff, Manager & Admin</span>
+              </div>
+
+              <div
+                className={styles.autoStep}
+                title="Step 4: Published live to all staff, tenants, and portal users"
+              >
+                <span className={styles.autoStepNum}>Step 4 · Live</span>
+                <span className={styles.autoStepName}>🌐 Public / Tenants</span>
+                <span className={styles.autoStepScope}>Everyone (Staff, Admin, Tenants & Public)</span>
+              </div>
+            </div>
+
+            <div className={styles.autoVisibilityNote}>
+              <span>✓ Articles created by staff are saved as drafts and can be routed to your Department Manager for approval once verified.</span>
+            </div>
+          </div>
         </div>
 
         <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
-          Articles submitted for review will be checked and approved by your <strong>Department Manager</strong> before Admin publishes them to tenants.
+          {role === 'staff'
+            ? 'Articles created by staff are saved as drafts visible only to you. You can review and route them to your Department Manager for approval.'
+            : role === 'manager'
+            ? 'You can save this article as a draft or submit it directly to Admin for review and publication.'
+            : 'Admin can save as draft or publish directly to tenants.'}
         </p>
 
         <div className={styles.formActions}>
+          {role !== 'staff' && (
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={isSubmitting}
+              onClick={() => setSubmitForApproval(true)}
+            >
+              {isSubmitting && submitForApproval
+                ? 'Submitting...'
+                : role === 'manager'
+                ? 'Submit to Admin for Approval'
+                : 'Publish to Tenants'}
+            </button>
+          )}
           <button
             type="submit"
-            className={styles.submitBtn}
-            disabled={isSubmitting}
-            onClick={() => setSubmitForApproval(true)}
-          >
-            {isSubmitting && submitForApproval ? 'Submitting...' : 'Submit for Approval'}
-          </button>
-          <button
-            type="submit"
-            className={styles.draftBtn}
+            className={role === 'staff' ? styles.submitBtn : styles.draftBtn}
             disabled={isSubmitting}
             onClick={() => setSubmitForApproval(false)}
           >

@@ -220,7 +220,7 @@
 /* ── Stat Cards Bar ── */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -231,13 +231,15 @@
   border-radius: 14px;
   padding: 16px 18px;
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--kb-shadow-sm);
   position: relative;
   overflow: hidden;
+  min-height: 110px;
 }
 
 .statCard:hover {
@@ -252,14 +254,22 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2), var(--kb-shadow-md);
 }
 
+.statCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
 .statIconWrapper {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
   transition: transform 0.2s ease;
 }
@@ -268,46 +278,163 @@
   transform: scale(1.08);
 }
 
+/* ── Light Mode Semantic Icon Themes ── */
+.statIconAll {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+}
+
+.statIconDraft {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid rgba(71, 85, 105, 0.18);
+}
+
+.statIconPending {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.statIconApproved {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.statIconRevision {
+  background: #fff7ed;
+  color: #ea580c;
+  border: 1px solid rgba(234, 88, 12, 0.25);
+}
+
+.statIconPublished {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.statIconUnpublished {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+.statIconRejected {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.statIconArchived {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+/* ── Card Badges (Pills) ── */
+.statBadgeBase {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  border: 1px solid;
+  line-height: 1.3;
+}
+
+.statBadgeNeutral {
+  composes: statBadgeBase;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.statBadgeDraft {
+  composes: statBadgeBase;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.statBadgePending {
+  composes: statBadgeBase;
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.statBadgeApproved {
+  composes: statBadgeBase;
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.statBadgeRevision {
+  composes: statBadgeBase;
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+.statBadgePublished {
+  composes: statBadgeBase;
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.statBadgeUnpublished {
+  composes: statBadgeBase;
+  background: #f5f3ff;
+  color: #6b21a8;
+  border-color: #ddd6fe;
+}
+
+.statBadgeRejected {
+  composes: statBadgeBase;
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.statBadgeArchived {
+  composes: statBadgeBase;
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+/* Legacy fallback classes */
+.statHighlightAlert { composes: statBadgePending; }
+.statHighlightSuccess { composes: statBadgeApproved; }
+
 .statInfo {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-width: 0;
 }
 
 .statValue {
-  font-size: 1.45rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: var(--kb-text-primary);
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .statLabel {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--kb-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-top: 2px;
-}
-
-.statHighlightAlert {
-  background: #fef3c7;
-  color: #b45309;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  margin-left: auto;
-}
-
-.statHighlightSuccess {
-  background: #dcfce7;
-  color: #15803d;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  margin-left: auto;
+  margin-top: 4px;
+  line-height: 1.35;
 }
 
 /* ── Modern Tab Navigation Bar (No Ugly Scrollbar!) ── */
@@ -385,12 +512,20 @@
 
 .tabBadgeUrgent {
   background: #fef3c7 !important;
-  color: #b45309 !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
 }
 
 .tabBadgeReady {
   background: #dcfce7 !important;
   color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+}
+
+.tabBadgeAlert {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
 }
 
 /* ── Filters Bar ── */
@@ -603,6 +738,12 @@
   border-color: #fde68a;
 }
 
+.statusPendingAdmin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
 .statusApproved {
   background: #eff6ff;
   color: #1e40af;
@@ -659,16 +800,17 @@
    EXECUTIVE ACTION BUTTONS (MODERN CSS & DUAL-THEME)
    ══════════════════════════════════════════════════════════════════════════ */
 .actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
   align-items: center;
 }
 
 .btnBase {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   gap: 5px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -677,7 +819,8 @@
   font-weight: 600;
   font-size: 0.78rem;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  white-space: nowrap;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
   user-select: none;
   line-height: 1.2;
 }
@@ -1239,10 +1382,33 @@
   color: #93c5fd !important;
 }
 
+:global([data-theme="dark"]) .tabBadgeUrgent {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fde68a !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .tabBadgeReady {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #86efac !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .tabBadgeAlert {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
 :global([data-theme="dark"]) .searchInput,
 :global([data-theme="dark"]) .selectInput {
   background: #0f1420 !important;
   border-color: #252e3e !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .selectInput option {
+  background: #111726 !important;
   color: #f8fafc !important;
 }
 
@@ -1264,20 +1430,130 @@
 }
 
 :global([data-theme="dark"]) .statCard {
-  background: #151b28 !important;
-  border-color: #252e3e !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
+  background: #141b2b !important;
+  border-color: #222d3f !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35) !important;
 }
 
 :global([data-theme="dark"]) .statCard:hover {
-  background: #192235 !important;
+  background: #192338 !important;
   border-color: #3b82f6 !important;
 }
 
 :global([data-theme="dark"]) .statCardActive {
-  background: linear-gradient(145deg, #172236, #121927) !important;
+  background: linear-gradient(145deg, #18243c, #131b2e) !important;
   border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ── Dark Mode Semantic Icons ── */
+:global([data-theme="dark"]) .statIconAll {
+  background: rgba(37, 99, 235, 0.18) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .statIconDraft {
+  background: rgba(148, 163, 184, 0.16) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .statIconPending {
+  background: rgba(245, 158, 11, 0.18) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconApproved {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconRevision {
+  background: rgba(249, 115, 22, 0.18) !important;
+  color: #fb923c !important;
+  border-color: rgba(249, 115, 22, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconPublished {
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #4ade80 !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconUnpublished {
+  background: rgba(168, 85, 247, 0.18) !important;
+  color: #c084fc !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconRejected {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statIconArchived {
+  background: rgba(100, 116, 139, 0.18) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(100, 116, 139, 0.35) !important;
+}
+
+/* ── Dark Mode Card Badges (Pills) ── */
+:global([data-theme="dark"]) .statBadgeNeutral {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeDraft {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .statBadgePending {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fde68a !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeApproved {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #86efac !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeRevision {
+  background: rgba(249, 115, 22, 0.2) !important;
+  color: #fdba74 !important;
+  border-color: rgba(249, 115, 22, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statBadgePublished {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeUnpublished {
+  background: rgba(168, 85, 247, 0.2) !important;
+  color: #d8b4fe !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeRejected {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .statBadgeArchived {
+  background: rgba(100, 116, 139, 0.2) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(100, 116, 139, 0.35) !important;
 }
 
 :global([data-theme="dark"]) .statValue {
@@ -1343,6 +1619,12 @@
   background: rgba(245, 158, 11, 0.15) !important;
   color: #fde68a !important;
   border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .statusPendingAdmin {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
 }
 
 :global([data-theme="dark"]) .statusApproved {
@@ -1498,3 +1780,24 @@
   color: #f8fafc !important;
   border-color: #475569 !important;
 }
+
+.deptSignedOffBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+}
+
+:global([data-theme="dark"]) .deptSignedOffBadge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+

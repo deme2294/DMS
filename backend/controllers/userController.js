@@ -75,7 +75,7 @@ export const updateUser = async (req, res, next) => {
       status: req.body.status,
       profileImage,
       departmentId,
-    });
+    }, req.user?.id);
 
     res.status(HTTP.OK).json({ success: true, message: 'User updated', data: user });
   } catch (err) {
@@ -103,7 +103,7 @@ export const activateUser = async (req, res, next) => {
 
 export const deactivateUser = async (req, res, next) => {
   try {
-    const user = await userService.deactivateUser(req.params.id);
+    const user = await userService.deactivateUser(req.params.id, req.user?.id);
     res.status(HTTP.OK).json({ success: true, message: 'User deactivated', data: user });
   } catch (err) {
     next(err);

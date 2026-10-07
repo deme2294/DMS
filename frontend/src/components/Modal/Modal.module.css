@@ -4,7 +4,10 @@
 
 .backdrop {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -13,6 +16,20 @@
   z-index: 1000;
   animation: fadeIn 0.18s ease;
   padding: 20px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 769px) {
+  .backdrop {
+    left: var(--sidebar-width, 275px);
+    width: calc(100% - var(--sidebar-width, 275px));
+  }
+
+  :global(.mainCollapsed) .backdrop,
+  :global([data-sidebar-collapsed="true"]) .backdrop {
+    left: var(--sidebar-collapsed-width, 76px);
+    width: calc(100% - var(--sidebar-collapsed-width, 76px));
+  }
 }
 
 .modal {

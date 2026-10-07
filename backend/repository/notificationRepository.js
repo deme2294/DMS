@@ -25,16 +25,17 @@ export const getUnreadCount = async (userId) => {
 export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, title, message, type, 
-              ticket_id AS ticketId, 
-              notice_id AS noticeId, 
-              room_id AS roomId, 
-              article_id AS articleId,
-              read_at AS readAt, 
-              created_at AS createdAt
-       FROM notifications
-       WHERE user_id = :userId
-       ORDER BY created_at DESC
+      `SELECT n.id, n.title, n.message, n.type, 
+              n.ticket_id AS ticketId, 
+              n.notice_id AS noticeId, 
+              n.room_id AS roomId, 
+              CASE WHEN kb.id IS NOT NULL AND kb.deleted_at IS NULL THEN n.article_id ELSE NULL END AS articleId,
+              n.read_at AS readAt, 
+              n.created_at AS createdAt
+       FROM notifications n
+       LEFT JOIN knowledge_base kb ON kb.id = n.article_id
+       WHERE n.user_id = :userId
+       ORDER BY n.created_at DESC
        LIMIT :limit OFFSET :offset`,
       { userId, limit: Number(limit), offset: Number(offset) }
     );

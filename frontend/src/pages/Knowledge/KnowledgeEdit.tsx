@@ -25,6 +25,7 @@ import { usePermission } from '../../hooks/usePermission';
 import Modal from '../../components/Modal/Modal';
 import { TrashIcon } from '@heroicons/react/24/outline';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
+import { RevisionThreadCard } from './components/RevisionThreadCard';
 import styles from './KnowledgeEdit.module.css';
 
 interface DeptOption {
@@ -61,6 +62,7 @@ export default function KnowledgeEdit() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ArticleFormValues>({
     defaultValues: { title: '', summary: '', content: '', category: '', tags: '', visibility: 'internal', departmentId: '' as any },
@@ -71,25 +73,58 @@ export default function KnowledgeEdit() {
     setLoading(true);
     Promise.all([
       fetchArticle(id),
-      fetchActiveDepartments().then((res) => setDepartments(res.data.data || [])).catch(() => setDepartments([])),
-      fetchAllCategories().then((res) => setCategories(res.data.data || [])).catch(() => setCategories([])),
+      fetchActiveDepartments().catch(() => ({ data: { data: [] } })),
+      fetchAllCategories().catch(() => ({ data: { data: [] } })),
     ])
-      .then(([res]) => {
-        const a: Article = res.data.data;
+      .then(([artRes, deptRes, catRes]) => {
+        const a: Article = artRes.data.data;
+        const depts: DeptOption[] = deptRes.data.data || [];
+        let cats: KnowledgeCategory[] = catRes.data.data || [];
+
+        // Automatically ensure the article's category from creation is always in the options list
+        const articleCat = (a?.category || '').trim();
+        if (articleCat && !cats.some((c) => c.name.toLowerCase() === articleCat.toLowerCase())) {
+          cats = [
+            {
+              id: `existing-${articleCat}`,
+              name: articleCat,
+              slug: articleCat.toLowerCase().replace(/\s+/g, '-'),
+              icon: 'folder',
+              isActive: true,
+            } as KnowledgeCategory,
+            ...cats,
+          ];
+        }
+
+        setDepartments(depts);
+        setCategories(cats);
         setArticle(a);
+
+        const deptId = (a.departmentId || (a as any).department_id || '') as any;
         reset({
           title: a.title || '',
           summary: a.summary || '',
           content: a.content || '',
-          category: a.category || '',
+          category: articleCat,
           tags: a.tags || '',
           visibility: a.visibility || 'internal',
-          departmentId: (a.departmentId || '') as any,
+          departmentId: deptId,
         });
+
+        if (articleCat) {
+          setValue('category', articleCat, { shouldValidate: true, shouldDirty: false });
+        }
       })
       .catch(() => setError('Failed to load article'))
       .finally(() => setLoading(false));
-  }, [id, reset]);
+  }, [id, reset, setValue]);
+
+  // Keep category synchronized whenever categories or article category updates
+  useEffect(() => {
+    if (article?.category) {
+      setValue('category', article.category, { shouldValidate: true, shouldDirty: false });
+    }
+  }, [article?.category, categories, setValue]);
 
   const editable =
     !!article &&
@@ -117,14 +152,21 @@ export default function KnowledgeEdit() {
     if (!id) return;
     setSaving(true);
     setError('');
+    const finalCategory = values.category || article?.category || '';
+    if (!finalCategory) {
+      setError('Category is required');
+      setSaving(false);
+      return;
+    }
     try {
       await updateArticle(id, {
         title: values.title,
         summary: values.summary,
         content: values.content,
-        category: values.category,
+        category: finalCategory,
         tags: values.tags || null,
         visibility: values.visibility || 'internal',
+        departmentId: values.departmentId || (article as any)?.departmentId || (article as any)?.department_id || null,
       });
       setMessage('Article updated');
     } catch (err: unknown) {
@@ -174,8 +216,13 @@ export default function KnowledgeEdit() {
         <span style={{ fontWeight: 600 }}>Status:</span>
         <span className={`${styles.badge} ${styles[article.status] || ''}`}>{article.status?.replace(/_/g, ' ')}</span>
         {article.rejectionReason && <span style={{ color: '#991b1b' }}>Rejection: {article.rejectionReason}</span>}
-        {article.revisionNotes && <span style={{ color: '#f59e0b' }}>Revision: {article.revisionNotes}</span>}
       </div>
+
+      {article.revisionNotes && (
+        <div style={{ marginBottom: 20 }}>
+          <RevisionThreadCard revisionNotes={article.revisionNotes} />
+        </div>
+      )}
 
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.formRow}>
@@ -189,6 +236,11 @@ export default function KnowledgeEdit() {
             <label htmlFor="category">Category</label>
             <select id="category" disabled={!editable} {...register('category', { required: 'Category is required' })}>
               <option value="">Select category</option>
+              {article?.category && !categories.some((c) => c.name.toLowerCase() === article.category.toLowerCase()) && (
+                <option value={article.category}>
+                  {resolveCategoryIcon(article.category)} {article.category} (Original)
+                </option>
+              )}
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.name}>
                   {resolveCategoryIcon(cat.icon || cat.name)} {cat.name}
@@ -211,25 +263,80 @@ export default function KnowledgeEdit() {
         </div>
 
         <div className={styles.formRow}>
-          <div className={styles.formGroup}>
-            <label htmlFor="visibility">Visibility</label>
-            <select id="visibility" disabled={!editable} {...register('visibility')}>
-              <option value="internal">Internal</option>
-              <option value="tenant">Tenant</option>
-              <option value="department">Department</option>
-              <option value="restricted">Restricted</option>
-              <option value="public">Public</option>
-            </select>
-          </div>
+          {role !== 'admin' ? (
+            <div className={styles.formGroup}>
+              <label htmlFor="visibility">
+                Visibility Lifecycle
+                <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, marginLeft: 6 }}>
+                  (Automated)
+                </span>
+              </label>
+              <input type="hidden" {...register('visibility')} />
+              <div className={styles.autoVisibilityCard}>
+                <div className={styles.autoVisibilityCardHeader}>
+                  <span className={styles.autoVisibilityCardTitle}>
+                    {article.status === 'draft'
+                      ? '🔒 Restricted · Creator Only'
+                      : (article.status === 'pending_approval' && !article.reviewedBy)
+                      ? '👥 Internal · Creator & Dept Manager'
+                      : (article.status === 'pending_approval' && article.reviewedBy) || article.status === 'approved'
+                      ? '🏢 Department · All Staff, Manager & Admin'
+                      : article.status === 'published'
+                      ? '🌐 Public · Portal & Tenants'
+                      : '⚠️ Internal · Review Scope'}
+                  </span>
+                  <span
+                    className={`${styles.autoVisibilityStatusBadge} ${
+                      article.status === 'draft' ? styles.draft : styles.other
+                    }`}
+                  >
+                    {article.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                </div>
+                <span className={styles.autoVisibilityCardDesc}>
+                  {article.status === 'draft'
+                    ? 'Private to author. Use "Route to Department Manager" below when ready to submit for review.'
+                    : (article.status === 'pending_approval' && !article.reviewedBy)
+                    ? 'Shared between you and Department Manager for review.'
+                    : (article.status === 'pending_approval' && article.reviewedBy) || article.status === 'approved'
+                    ? 'Approved by Department Manager. Visible to all department staff and Admin.'
+                    : article.status === 'published'
+                    ? 'Publicly accessible to all users, tenants, and department staff.'
+                    : 'Visible to author and reviewer while revisions are pending.'}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.formGroup}>
+              <label htmlFor="visibility">
+                Visibility
+                <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, marginLeft: 6 }}>
+                  (Automated Lifecycle · Admin Override)
+                </span>
+              </label>
+              <select id="visibility" disabled={!editable} {...register('visibility')}>
+                <option value="restricted">Restricted (Author Only / Private Draft)</option>
+                <option value="internal">Internal (Author & Dept Manager)</option>
+                <option value="department">Department (Whole Dept Staff, Manager & Admin)</option>
+                <option value="public">Public (Open Knowledge Base & Tenants)</option>
+                <option value="tenant">Tenant (Visible to Tenants & Portal Users)</option>
+              </select>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label htmlFor="departmentId">Department</label>
-            <select id="departmentId" disabled={!editable} {...register('departmentId')}>
+            <select id="departmentId" disabled={!editable || role === 'staff'} {...register('departmentId')}>
               <option value="">Select department</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
+            {role === 'staff' && (
+              <span style={{ fontSize: '0.78rem', color: '#15803d', marginTop: 4, display: 'block' }}>
+                ✓ Locked to your assigned department
+              </span>
+            )}
           </div>
         </div>
 
@@ -252,13 +359,36 @@ export default function KnowledgeEdit() {
           )}
 
           {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
-            <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Submit for Review
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={handleSubmitForReview}
+              title="Route draft to Department Manager (changes visibility to Internal)"
+            >
+              📤 Route to Department Manager
             </button>
           )}
           {role === 'staff' && article.authorId === user?.id && article.status === 'needs_revision' && (
-            <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Resubmit for Review
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={handleSubmitForReview}
+              title="Re-submit corrected article to Department Manager"
+            >
+              📤 Re-route to Department Manager
+            </button>
+          )}
+          {role === 'manager' && (article.status === 'draft' || article.status === 'needs_revision') && (
+            <button
+              type="button"
+              className={styles.submitBtn}
+              disabled={busy || saving}
+              onClick={handleSubmitForReview}
+              title="Submit article to Admin for final review"
+            >
+              📤 {article.status === 'needs_revision' ? 'Re-submit to Admin' : 'Submit to Admin for Approval'}
             </button>
           )}
           {/* Admin Draft Controls */}
@@ -309,10 +439,19 @@ export default function KnowledgeEdit() {
               Reject
             </button>
           )}
-          {can('knowledge.publish') && article.status === 'approved' && (
-            <button type="button" className={styles.publishBtn} disabled={busy || saving} onClick={handlePublish}>
-              🚀 Publish to Tenants
-            </button>
+          {/* Approved state actions */}
+          {role === 'admin' && article.status === 'approved' && (
+            <>
+              <button type="button" className={styles.publishBtn} disabled={busy || saving} onClick={handlePublish}>
+                🚀 Publish to Tenants
+              </button>
+              <button type="button" className={styles.warningBtn} disabled={busy || saving} onClick={() => setShowRevisionModal(true)}>
+                Request Changes
+              </button>
+              <button type="button" className={styles.dangerBtn} disabled={busy || saving} onClick={() => setShowRejectModal(true)}>
+                Reject
+              </button>
+            </>
           )}
           {can('knowledge.unpublish') && article.status === 'published' && (
             <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={() => setShowUnpublishModal(true)}>

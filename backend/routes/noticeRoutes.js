@@ -3,7 +3,7 @@ import { body, query } from 'express-validator';
 import * as noticeController from '../controllers/noticeController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/roleMiddleware.js';
-import { validate, idParam, uuidBody } from '../middleware/validationMiddleware.js';
+import { validate, idParam, uuidBody, departmentIdBody } from '../middleware/validationMiddleware.js';
 
 const router = Router();
 
@@ -84,7 +84,7 @@ router.post(
     body('description').optional(),
     body('priority').optional().isIn(['low', 'medium', 'high']),
     body('targetAudience').optional().isIn(['all', 'admin', 'manager', 'staff', 'tenant', 'department']),
-    uuidBody('departmentId'),
+    departmentIdBody('departmentId'),
     uuidBody('assignedTo'),
     validate,
   ],

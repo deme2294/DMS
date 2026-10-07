@@ -5,7 +5,7 @@ export const findUserByUsernameOrEmail = async (identifier) => {
     `SELECT u.*, r.name AS role
      FROM users u
      JOIN roles r ON r.id = u.role_id
-     WHERE u.username = :identifier OR u.email = :identifier
+     WHERE u.username = :identifier OR u.email = :identifier OR u.user_code = :identifier
      LIMIT 1`,
     { identifier }
   );

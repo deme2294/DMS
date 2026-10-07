@@ -55,9 +55,11 @@
 }
 
 .actions {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
 }
 
 .actions button,
@@ -78,6 +80,8 @@
   transition: all 0.15s ease;
   box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);
   text-decoration: none;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 .actions button:hover,
@@ -176,6 +180,58 @@
 
 :global([data-theme="dark"]) .header p {
   color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .filters input,
+:global([data-theme="dark"]) .filters select,
+:global([data-theme="dark"]) .form input,
+:global([data-theme="dark"]) .form select {
+  background: #0f1420 !important;
+  border-color: #2e384d !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .filters input:focus,
+:global([data-theme="dark"]) .filters select:focus,
+:global([data-theme="dark"]) .form input:focus,
+:global([data-theme="dark"]) .form select:focus {
+  background: #131926 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .badge.active {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .badge.inactive {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .badge.locked {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fcd34d !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .userCell img {
+  border-color: #2e384d !important;
+}
+
+:global([data-theme="dark"]) .toast {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  color: #6ee7b7 !important;
+}
+
+:global([data-theme="dark"]) .toast.error {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  color: #fca5a5 !important;
 }
 
 @media (max-width: 768px) {

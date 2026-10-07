@@ -9,6 +9,7 @@ import * as slaService from './slaService.js';
 import * as slaRepo from '../repository/slaRepository.js';
 import * as categoryRepo from '../repository/categoryRepository.js';
 import * as userRepository from '../repository/userRepository.js';
+import * as feedbackRepo from '../repository/feedbackRepository.js';
 import pool from '../config/db.js';
 
 const canTransition = (role, fromStatus, toStatus) => {
@@ -354,10 +355,21 @@ export const changeStatus = async (user, id, { status, notes }, meta = {}) => {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
   }
 
-  // If Admin / Staff / Manager selects 'resolved', route to 'waiting_tenant' so tenant can confirm/approve
+  // Multi-tier role-aware resolution routing:
   let targetStatus = status;
-  if (status === 'resolved' && user.role !== 'tenant') {
-    targetStatus = 'waiting_tenant';
+  if (status === 'resolved') {
+    if (user.role === 'staff') {
+      targetStatus = 'under_review';
+    } else if (user.role === 'manager') {
+      targetStatus = 'pending_approval';
+    } else if (user.role === 'admin' || user.role === 'ceo') {
+      targetStatus = 'waiting_tenant';
+    }
+  }
+
+  // Staff cannot directly approve or finalize tickets
+  if (user.role === 'staff' && ['completed', 'waiting_tenant', 'pending_approval'].includes(targetStatus)) {
+    throw Object.assign(new Error('Staff cannot directly approve or complete tickets. Please resolve the ticket to submit for Department Manager approval.'), { statusCode: 403 });
   }
 
   if (!canTransition(user.role, ticket.status, targetStatus) && !canTransition(user.role, ticket.status, status)) {
@@ -480,6 +492,8 @@ export const assignDepartment = async (user, id, departmentId, notes, managerId 
     priority: ticket.priority,
     category: ticket.category,
     fromAssignmentId: activeDept?.id || null,
+    status: 'accepted',
+    acceptedAt: new Date(),
   });
 
   const updated = await getTicket(user, id);
@@ -493,9 +507,26 @@ export const assignDepartment = async (user, id, departmentId, notes, managerId 
 
 // ── Manager: assign / reassign staff (validating BOTH department and role) ──
 export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
+  // Admin cannot directly assign staff: only assign to department
+  if (user.role === 'admin') {
+    throw Object.assign(
+      new Error('Admins cannot directly assign staff. Please assign the ticket to a department so the department manager can assign appropriate staff.'),
+      { statusCode: 403 }
+    );
+  }
+
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // Validate manager belongs to the ticket's department
+  if (user.role === 'manager' && ticket.department_id) {
+    const mgrUser = await userRepository.findById(user.id);
+    const belongsToDept = mgrUser?.departments && mgrUser.departments.some((d) => d.id === ticket.department_id);
+    if (!belongsToDept) {
+      throw Object.assign(new Error('You can only assign staff for tickets belonging to your department'), { statusCode: 403 });
+    }
+  }
 
   // Validate staff member's role and department
   const staff = await userRepository.findById(staffId);
@@ -508,14 +539,32 @@ export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
     throw Object.assign(new Error("Staff member does not belong to the ticket's department"), { statusCode: 400 });
   }
 
+  // If the department manager assignment is still pending, automatically accept it
+  const activeDeptMgr = await ticketRepo.findActiveAssignment(id, 'department_manager');
+  if (activeDeptMgr && activeDeptMgr.status === 'pending') {
+    await ticketRepo.acceptAssignment(activeDeptMgr.id);
+  }
+
   const active = await ticketRepo.findActiveAssignment(id, 'staff');
   if (active) {
     await ticketRepo.reassignAssignment(active.id);
   }
 
-  await ticketRepo.update(id, { assigned_to: staffId, status: 'assigned' });
-  await logStatus(id, ticket.status, 'assigned', user, notes || 'Assigned to staff', meta);
-  await ticketRepo.createAssignment({ ticketId: id, assignedBy: user.id, assignedTo: staffId, role: 'staff', notes, priority: ticket.priority, category: ticket.category, fromAssignmentId: active?.id || null });
+  // Automatically accept the assigned staff member in their department
+  await ticketRepo.update(id, { assigned_to: staffId, status: 'in_progress' });
+  await logStatus(id, ticket.status, 'in_progress', user, notes || `Assigned to ${staff.first_name || 'staff'} ${staff.last_name || ''} and accepted by department manager`, meta);
+  await ticketRepo.createAssignment({
+    ticketId: id,
+    assignedBy: user.id,
+    assignedTo: staffId,
+    role: 'staff',
+    notes,
+    priority: ticket.priority,
+    category: ticket.category,
+    fromAssignmentId: active?.id || null,
+    status: 'accepted',
+    acceptedAt: new Date(),
+  });
 
   const updated = await getTicket(user, id);
   await notificationService.notifyTicketAssigned(updated, staffId, user.id);
@@ -623,11 +672,10 @@ export const overrideAssignment = async (user, id, { assignedTo, assignedBy, not
   // Reassign current assignee (optionally with a custom attribution user)
   const newAssignedTo = assignedTo || null;
   if (newAssignedTo) {
-    const target = await userRepository.findById(newAssignedTo);
-    if (!target) throw Object.assign(new Error('Assignee user not found'), { statusCode: 404 });
-    if (ticket.department_id && !target.departments.some((d) => d.id === ticket.department_id)) {
-      throw Object.assign(new Error('Assignee does not belong to the ticket department'), { statusCode: 400 });
-    }
+    throw Object.assign(
+      new Error('Admins cannot directly assign staff. Please assign the ticket to a department so the department manager can assign appropriate staff.'),
+      { statusCode: 403 }
+    );
   }
 
   const prev = await ticketRepo.findActiveAssignment(id, 'staff');
@@ -695,56 +743,176 @@ export const reopenTicket = async (user, id, notes, meta = {}) => {
   return changeStatus(user, id, { status: 'reopened', notes }, meta);
 };
 
-export const approveResolution = async (user, id, notes, meta = {}) => {
+export const approveResolution = async (user, id, notes, meta = {}, feedbackData = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
-  if (!['waiting_tenant', 'resolved', 'pending_approval', 'completed', 'escalated'].includes(ticket.status)) {
-    throw Object.assign(new Error('Only resolved or waiting-for-tenant tickets can be approved'), { statusCode: 400 });
-  }
 
   const now = new Date();
-  const updateFields = {
-    status: 'completed',
-    closed_at: now,
-    completed_at: now,
-    tenant_confirmation_status: 'approved',
-    approved_by: user.id,
-    approved_at: now,
-  };
-  await ticketRepo.update(id, updateFields);
-  await logStatus(id, ticket.status, 'completed', user, notes || 'Tenant approved resolution as fixed', meta);
 
-  const updated = await getTicket(user, id);
-  await notificationService.notifyTicketStatusChanged(updated, 'completed', user.id);
-  sendTicketCompletedEmail(updated).catch(() => {});
-  auditService.logAction(user.id, 'approve_resolution', 'ticket', id, meta?.ip, { notes, newStatus: 'completed' }, { role: user.role, browser: meta?.browser }).catch(() => {});
-  return updated;
+  // Tier 1: Staff CANNOT approve resolutions
+  if (user.role === 'staff') {
+    throw Object.assign(
+      new Error('Staff cannot approve ticket resolutions. Only Department Managers, Admins, or Tenants can approve.'),
+      { statusCode: 403 }
+    );
+  }
+
+  // Tier 2: Department Manager approves staff's resolution (under_review -> pending_approval)
+  if (user.role === 'manager') {
+    if (ticket.status !== 'under_review') {
+      throw Object.assign(
+        new Error(`Department Manager can only approve tickets currently 'under_review'. Current status is '${ticket.status}'.`),
+        { statusCode: 400 }
+      );
+    }
+    const targetStatus = 'pending_approval';
+    await ticketRepo.update(id, { status: targetStatus });
+    await logStatus(id, ticket.status, targetStatus, user, notes || 'Department Manager approved resolution; submitted for Admin verification', meta);
+
+    const updated = await getTicket(user, id);
+    await notificationService.notifyManagerApprovedResolution(updated, user.id, notes);
+    auditService.logAction(user.id, 'manager_approve_resolution', 'ticket', id, meta?.ip, { notes, targetStatus }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
+
+  // Tier 3: Admin verifies & approves resolution (pending_approval or under_review -> waiting_tenant)
+  if (user.role === 'admin' || user.role === 'ceo') {
+    if (['pending_approval', 'under_review'].includes(ticket.status)) {
+      let slaAchieved = false;
+      const dueDate = ticket.due_date ? new Date(ticket.due_date) : null;
+      if (dueDate && now <= dueDate) {
+        slaAchieved = true;
+      }
+
+      const targetStatus = 'waiting_tenant';
+      const updateFields = {
+        status: targetStatus,
+        resolved_at: now,
+        tenant_confirmation_status: 'pending',
+      };
+      if (ticket.due_date) updateFields.is_overdue = slaAchieved ? 0 : 1;
+      updateFields.sla_achieved = slaAchieved ? 1 : 0;
+
+      await ticketRepo.update(id, updateFields);
+      await logStatus(id, ticket.status, targetStatus, user, notes || 'Admin verified and approved resolution; routed to tenant for confirmation', meta);
+
+      const updated = await getTicket(user, id);
+      await notificationService.notifyAdminVerifiedResolution(updated, user.id, notes);
+      auditService.logAction(user.id, 'admin_verify_resolution', 'ticket', id, meta?.ip, { targetStatus, slaAchieved }, { role: user.role, browser: meta?.browser }).catch(() => {});
+      return updated;
+    }
+  }
+
+  // Tier 4: Tenant confirms resolution as solved (waiting_tenant or resolved -> completed)
+  if (user.role === 'tenant' || user.role === 'admin' || user.role === 'ceo') {
+    if (!['waiting_tenant', 'resolved', 'pending_approval', 'completed', 'escalated'].includes(ticket.status)) {
+      throw Object.assign(new Error('Only resolved or waiting-for-tenant tickets can be confirmed as completed'), { statusCode: 400 });
+    }
+
+    const updateFields = {
+      status: 'completed',
+      closed_at: now,
+      completed_at: now,
+      tenant_confirmation_status: 'approved',
+      approved_by: user.id,
+      approved_at: now,
+    };
+    await ticketRepo.update(id, updateFields);
+    await logStatus(id, ticket.status, 'completed', user, notes || 'Tenant confirmed issue resolved (completed)', meta);
+
+    // Save Tenant satisfaction feedback if rating or feedback text is provided
+    const ratingVal = feedbackData?.rating ? Number(feedbackData.rating) : null;
+    const feedbackText = feedbackData?.feedback || feedbackData?.message || notes;
+    if (ratingVal || feedbackText) {
+      await feedbackRepo.create({
+        id: uuidv4(),
+        tenantId: user.tenant_id || ticket.tenant_id || null,
+        ticketId: id,
+        subject: `Ticket ${ticket.reference_number || ticket.referenceNumber} Resolution Feedback`,
+        message: feedbackText || 'Tenant confirmed issue resolved',
+        rating: ratingVal || 5,
+        feedbackType: 'suggestion',
+        status: 'resolved',
+      }).catch((err) => console.error('[FEEDBACK] Error saving tenant feedback:', err));
+    }
+
+    const updated = await getTicket(user, id);
+    await notificationService.notifyTenantConfirmedResolution(updated, user.id, ratingVal, feedbackText);
+    sendTicketCompletedEmail(updated).catch(() => {});
+    auditService.logAction(user.id, 'tenant_confirm_resolution', 'ticket', id, meta?.ip, { notes, rating: ratingVal, newStatus: 'completed' }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
+
+  throw Object.assign(new Error('Unauthorized to approve resolution'), { statusCode: 403 });
 };
 
 export const rejectResolution = async (user, id, notes, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  if (user.role === 'staff') {
+    throw Object.assign(new Error('Staff cannot reject ticket resolutions'), { statusCode: 403 });
+  }
+
+  const now = new Date();
+
+  // Tier 2: Manager requests rework from Staff (under_review -> in_progress)
+  if (user.role === 'manager') {
+    if (ticket.status !== 'under_review') {
+      throw Object.assign(
+        new Error(`Department Manager can only request rework on tickets 'under_review'. Current status is '${ticket.status}'.`),
+        { statusCode: 400 }
+      );
+    }
+    const updateFields = {
+      status: 'in_progress',
+      reopen_reason: notes || 'Department Manager requested rework',
+    };
+    await ticketRepo.update(id, updateFields);
+    await logStatus(id, ticket.status, 'in_progress', user, notes || 'Department Manager requested rework', meta);
+
+    const updated = await getTicket(user, id);
+    await notificationService.notifyReworkRequested(updated, user.id, notes || 'Department Manager requested rework', 'staff');
+    auditService.logAction(user.id, 'manager_request_rework', 'ticket', id, meta?.ip, { notes, newStatus: 'in_progress' }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
+
+  // Tier 3: Admin returns resolution for revision (pending_approval -> in_progress)
+  if ((user.role === 'admin' || user.role === 'ceo') && ticket.status === 'pending_approval') {
+    const updateFields = {
+      status: 'in_progress',
+      reopen_reason: notes || 'Admin returned resolution for revision',
+    };
+    await ticketRepo.update(id, updateFields);
+    await logStatus(id, ticket.status, 'in_progress', user, notes || 'Admin returned resolution for revision', meta);
+
+    const updated = await getTicket(user, id);
+    await notificationService.notifyReworkRequested(updated, user.id, notes || 'Admin returned for revision', 'manager');
+    auditService.logAction(user.id, 'admin_return_revision', 'ticket', id, meta?.ip, { notes, newStatus: 'in_progress' }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
+
+  // Tier 4: Tenant rejects resolution (issue NOT solved) (waiting_tenant or resolved -> in_progress)
   if (!['waiting_tenant', 'resolved', 'pending_approval', 'escalated'].includes(ticket.status)) {
     throw Object.assign(new Error('Only resolved or waiting-for-tenant tickets can be rejected'), { statusCode: 400 });
   }
 
-  const now = new Date();
   const updateFields = {
     status: 'in_progress',
     tenant_confirmation_status: 'rejected',
     reopened_by: user.id,
     reopened_at: now,
-    reopen_reason: notes || null,
+    reopen_reason: notes || 'Tenant reported issue is not resolved',
   };
   await ticketRepo.update(id, updateFields);
   await logStatus(id, ticket.status, 'in_progress', user, notes || 'Tenant rejected resolution (issue not fixed)', meta);
 
   const updated = await getTicket(user, id);
-  await notificationService.notifyTicketReopened(updated, user.id, notes);
+  await notificationService.notifyReworkRequested(updated, user.id, notes || 'Tenant rejected resolution (issue not fixed)', 'all');
   sendTicketReopenedEmail(updated).catch(() => {});
-  auditService.logAction(user.id, 'reject_resolution', 'ticket', id, meta?.ip, { notes, newStatus: 'in_progress' }, { role: user.role, browser: meta?.browser }).catch(() => {});
+  auditService.logAction(user.id, 'tenant_reject_resolution', 'ticket', id, meta?.ip, { notes, newStatus: 'in_progress' }, { role: user.role, browser: meta?.browser }).catch(() => {});
   return updated;
 };
 
@@ -756,30 +924,74 @@ export const markResolved = async (user, id, notes, meta = {}) => {
   }
 
   const now = new Date();
-  let slaAchieved = false;
-  const dueDate = ticket.due_date ? new Date(ticket.due_date) : null;
-  if (dueDate && now <= dueDate) {
-    slaAchieved = true;
+
+  // Tier 1: Staff resolves -> transitions to under_review (Department Manager Approval Pending)
+  if (user.role === 'staff') {
+    if (!['in_progress', 'assigned'].includes(ticket.status)) {
+      throw Object.assign(
+        new Error(`Cannot submit resolution from status '${ticket.status}'. Ticket must be in progress.`),
+        { statusCode: 400 }
+      );
+    }
+    const targetStatus = 'under_review';
+    await ticketRepo.update(id, { status: targetStatus });
+    await logStatus(id, ticket.status, targetStatus, user, notes || 'Staff marked ticket resolved; submitted for Department Manager approval', meta);
+
+    const updated = await getTicket(user, id);
+    await notificationService.notifyStaffSubmittedResolution(updated, user.id, notes);
+    auditService.logAction(user.id, 'staff_resolve_submitted', 'ticket', id, meta?.ip, { targetStatus, notes }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
   }
 
-  // Route to waiting_tenant so tenant can approve resolution
-  const targetStatus = 'waiting_tenant';
-  const updateFields = { status: targetStatus, resolved_at: now };
-  if (ticket.due_date) updateFields.is_overdue = slaAchieved ? 0 : 1;
-  updateFields.sla_achieved = slaAchieved ? 1 : 0;
-  updateFields.tenant_confirmation_status = 'pending';
+  // Tier 2: Department Manager approves / resolves -> transitions to pending_approval (Admin Verification Pending)
+  if (user.role === 'manager') {
+    if (!['under_review', 'in_progress', 'assigned'].includes(ticket.status)) {
+      throw Object.assign(
+        new Error(`Cannot approve resolution from status '${ticket.status}'. Ticket must be under review or in progress.`),
+        { statusCode: 400 }
+      );
+    }
+    const targetStatus = 'pending_approval';
+    await ticketRepo.update(id, { status: targetStatus });
+    await logStatus(id, ticket.status, targetStatus, user, notes || 'Department Manager approved resolution; submitted for Admin verification', meta);
 
-  await ticketRepo.update(id, updateFields);
-  await logStatus(id, ticket.status, targetStatus, user, notes || 'Marked resolved (waiting for tenant approval)', meta);
+    const updated = await getTicket(user, id);
+    await notificationService.notifyManagerApprovedResolution(updated, user.id, notes);
+    auditService.logAction(user.id, 'manager_resolve_approved', 'ticket', id, meta?.ip, { targetStatus, notes }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
 
-  const updated = await getTicket(user, id);
-  const resolutionMinutes = dueDate
-    ? Math.round((now.getTime() - new Date(ticket.created_at).getTime()) / 60000)
-    : null;
+  // Tier 3: Admin verifies & resolves -> transitions to waiting_tenant (Notifies Tenant for confirmation)
+  if (user.role === 'admin' || user.role === 'ceo') {
+    let slaAchieved = false;
+    const dueDate = ticket.due_date ? new Date(ticket.due_date) : null;
+    if (dueDate && now <= dueDate) {
+      slaAchieved = true;
+    }
 
-  await notificationService.notifyTicketResolved(updated);
-  auditService.logAction(user.id, 'resolve', 'ticket', id, meta?.ip, { targetStatus, slaAchieved, resolutionMinutes }, { role: user.role, browser: meta?.browser }).catch(() => {});
-  return updated;
+    const targetStatus = 'waiting_tenant';
+    const updateFields = {
+      status: targetStatus,
+      resolved_at: now,
+      tenant_confirmation_status: 'pending',
+    };
+    if (ticket.due_date) updateFields.is_overdue = slaAchieved ? 0 : 1;
+    updateFields.sla_achieved = slaAchieved ? 1 : 0;
+
+    await ticketRepo.update(id, updateFields);
+    await logStatus(id, ticket.status, targetStatus, user, notes || 'Admin verified and marked resolved; awaiting tenant confirmation', meta);
+
+    const updated = await getTicket(user, id);
+    const resolutionMinutes = dueDate
+      ? Math.round((now.getTime() - new Date(ticket.created_at).getTime()) / 60000)
+      : null;
+
+    await notificationService.notifyAdminVerifiedResolution(updated, user.id, notes);
+    auditService.logAction(user.id, 'admin_verified_resolution', 'ticket', id, meta?.ip, { targetStatus, slaAchieved, resolutionMinutes }, { role: user.role, browser: meta?.browser }).catch(() => {});
+    return updated;
+  }
+
+  throw Object.assign(new Error('Unauthorized to mark ticket resolved'), { statusCode: 403 });
 };
 
 export const changePriority = async (user, id, priority, meta = {}) => {
@@ -896,15 +1108,22 @@ const splitCsv = (v) => (v || '').toString().split(',').map((s) => s.trim()).fil
 
 export const isReplyVisible = (user, reply, userDeptIds = []) => {
   const visibility = reply.visibility;
-  const isInternal = visibility === 'internal' || reply.isInternal === 1 || reply.isInternal === true;
+  const isInternal = visibility === 'internal' || visibility === 'admin' || reply.isInternal === 1 || reply.isInternal === true;
   const deptIds = splitCsv(reply.departmentIds || reply.department_ids);
   const authorDepts = splitCsv(reply.authorDepartmentIds || reply.author_department_ids);
 
+  // Author of the reply can always see their own reply
+  const isAuthor = (reply.userId && reply.userId === user.id) || (reply.user_id && reply.user_id === user.id);
+  if (isAuthor) return true;
+
+  // Admin can always see everything
   if (user.role === 'admin') return true;
 
+  // Admin-only replies are strictly between the author and Admins
+  if (visibility === 'admin') return false;
+
   if (user.role === 'tenant') {
-    if (visibility === 'department') return false;
-    if (isInternal) return false;
+    if (visibility === 'department' || visibility === 'internal' || isInternal) return false;
     return true;
   }
 
@@ -928,7 +1147,7 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
 
   const replyId = uuidv4();
-  const isInternal = (visibility === 'internal' || visibility === 'department') ? 1 : 0;
+  const isInternal = (visibility === 'internal' || visibility === 'department' || visibility === 'admin') ? 1 : 0;
   await ticketRepo.addReply({
     id: replyId, ticketId, userId: user.id, message, visibility, attachmentId,
     type: 'reply', isInternal, departmentIds: departmentIds || null,
@@ -946,7 +1165,7 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   }
 
   const savedTicket = await ticketRepo.findById(ticketId);
-  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1);
+  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1, visibility);
 
   const replies = await ticketRepo.getReplies(ticketId);
   return replies.find((r) => r.id === replyId) || { id: replyId };

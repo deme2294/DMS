@@ -16,12 +16,19 @@
 }
 
 .actions {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
 }
 
 .submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 16px;
   background: #2563eb;
   color: #fff;
@@ -32,6 +39,11 @@
 }
 
 .cancelBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 16px;
   background: #e5e7eb;
   color: #374151;
@@ -42,6 +54,11 @@
 }
 
 .danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 16px;
   background: #dc2626;
   color: #fff;
@@ -52,6 +69,11 @@
 }
 
 .edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 16px;
   background: #f59e0b;
   color: #fff;
@@ -62,6 +84,11 @@
 }
 
 .view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 16px;
   background: #6b7280;
   color: #fff;

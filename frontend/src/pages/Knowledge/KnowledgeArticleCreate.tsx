@@ -38,7 +38,7 @@ export default function KnowledgeArticleCreate() {
       content: '',
       category: '',
       tags: '',
-      visibility: 'internal',
+      visibility: 'restricted',
       departmentId: null,
     },
   });
@@ -124,14 +124,16 @@ export default function KnowledgeArticleCreate() {
 
         <div className={styles.formRow}>
           <div className={styles.formGroup}>
-            <label htmlFor="visibility">Visibility</label>
-            <select id="visibility" {...register('visibility')}>
-              <option value="internal">Internal</option>
-              <option value="tenant">Tenant</option>
-              <option value="department">Department</option>
-              <option value="restricted">Restricted</option>
-              <option value="public">Public</option>
-            </select>
+            <label htmlFor="visibility">
+              Visibility Lifecycle
+              <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: 600, marginLeft: 6 }}>
+                (Automated Step-by-Step)
+              </span>
+            </label>
+            <input type="hidden" {...register('visibility')} value="restricted" />
+            <div className={styles.autoVisibilityBox} title="Saved as private draft visible only to creator">
+              🔒 Restricted · Creator Only (Private draft)
+            </div>
           </div>
 
           <div className={styles.formGroup}>
@@ -151,7 +153,7 @@ export default function KnowledgeArticleCreate() {
           <input id="tags" type="text" {...register('tags')} placeholder="e.g. onboarding, payroll, leave" />
         </div>
 
-        <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+        <p style={{ color: '#577297ff', fontSize: '0.85rem' }}>
           Articles are saved as <strong>draft</strong> and must be submitted for approval before publishing.
         </p>
 

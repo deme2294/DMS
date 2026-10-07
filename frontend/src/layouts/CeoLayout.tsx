@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import Sidebar from '../components/Sidebar/Sidebar';
 import NotificationCenter from '../components/NotificationCenter';
+import ConnectionStatus from '../components/ConnectionStatus/ConnectionStatus';
 import ThemeToggle from '../components/ThemeToggle/ThemeToggle';
 import UserDropdown from './UserDropdown';
 import styles from './CeoLayout.module.css';
@@ -78,6 +79,7 @@ export default function CeoLayout() {
             </div>
           </div>
           <div className={styles.topBarRight}>
+            <ConnectionStatus />
             <ThemeToggle />
             <NotificationCenter />
             <UserDropdown />
