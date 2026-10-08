@@ -1926,6 +1926,56 @@ export const deleteCategory = async (id, user, req) => {
   return { success: true };
 };
 
+export const getCategoryById = async (id) => {
+  // Virtual categories (prefixed kb-cat-) are derived from article data, not the DB
+  if (id.startsWith('kb-cat-')) {
+    const slug = id.replace(/^kb-cat-/, '');
+    const name = slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return {
+      id,
+      name,
+      slug,
+      description: 'Knowledge base category',
+      icon: 'folder',
+      isActive: true,
+      isVirtual: true,
+      parentId: null,
+      departmentId: null,
+      departmentName: null,
+      createdAt: null,
+      updatedAt: null,
+    };
+  }
+
+  const [rows] = await pool.query(
+    `SELECT kc.id, kc.name, kc.slug, kc.description, kc.icon,
+            kc.is_active AS isActive, kc.parent_id AS parentId,
+            kc.department_id AS departmentId, d.name AS departmentName,
+            kc.created_at, kc.updated_at
+     FROM knowledge_categories kc
+     LEFT JOIN departments d ON d.id = kc.department_id
+     WHERE kc.id = ? OR kc.slug = ?
+     LIMIT 1`,
+    [id, id]
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    description: r.description,
+    icon: r.icon,
+    isActive: Boolean(r.isActive),
+    isVirtual: false,
+    parentId: r.parentId,
+    departmentId: r.departmentId,
+    departmentName: r.departmentName,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+};
+
 export const listCategories = async (user, queryParams = {}) => {
   let deptFilter = queryParams?.departmentId || null;
   if (!deptFilter && user && !isAdmin(user) && (isStaff(user) || isManager(user))) {
@@ -2001,6 +2051,7 @@ export const listCategories = async (user, queryParams = {}) => {
           description: 'Knowledge base category',
           icon: 'folder',
           isActive: true,
+          isVirtual: true,
           parentId: null,
           departmentId: null,
           departmentName: null,

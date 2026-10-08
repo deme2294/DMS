@@ -18,6 +18,9 @@ interface Notice {
   isAcknowledged: boolean;
   acknowledgedAt: string | null;
   created_at: string;
+  createdAt?: string;
+  published_at?: string | null;
+  publishedAt?: string | null;
   expires_at: string | null;
 }
 
@@ -222,7 +225,9 @@ export default function TenantNotices() {
                   <div className={styles.infoItem}>
                     <span className={styles.infoLabel}>From:</span>
                     <span className={styles.infoValue}>
-                      {notice.creatorName} ({getCreatorLabel(notice.creator_role)})
+                      {(notice as any).creator_first_name
+                        ? `${(notice as any).creator_first_name} ${(notice as any).creator_last_name || ''}`.trim()
+                        : (notice.creatorName || (notice as any).createdByName || 'System')} ({getCreatorLabel((notice as any).creator_role || notice.creator_role)})
                     </span>
                   </div>
 
@@ -241,17 +246,42 @@ export default function TenantNotices() {
                   )}
 
                   <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Date:</span>
+                    <span className={styles.infoLabel}>Published:</span>
                     <span className={styles.infoValue}>
-                      {new Date(notice.created_at).toLocaleDateString()}
+                      {notice.published_at || notice.publishedAt || notice.created_at || notice.createdAt
+                        ? new Date((notice.published_at || notice.publishedAt || notice.created_at || notice.createdAt)!).toLocaleString([], {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '—'}
                     </span>
                   </div>
+
+                  {(notice.created_at || notice.createdAt) && (
+                    <div className={styles.infoItem}>
+                      <span className={styles.infoLabel}>Created:</span>
+                      <span className={styles.infoValue}>
+                        {new Date((notice.created_at || notice.createdAt)!).toLocaleDateString([], {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
 
                   {notice.expires_at && (
                     <div className={styles.infoItem}>
                       <span className={styles.infoLabel}>Expires:</span>
                       <span className={styles.infoValue}>
-                        {new Date(notice.expires_at).toLocaleDateString()}
+                        {new Date(notice.expires_at).toLocaleDateString([], {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </span>
                     </div>
                   )}

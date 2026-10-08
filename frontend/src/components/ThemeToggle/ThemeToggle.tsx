@@ -54,11 +54,19 @@ export default function ThemeToggle({ showLabels = true, className }: ThemeToggl
     <div className={`${styles.container} ${className || ''}`} role="radiogroup" aria-label="Theme mode options">
       {options.map((opt) => {
         const isActive = themePreference === opt.id;
+        const activeClass = isActive
+          ? opt.id === 'dark'
+            ? styles.activeDark
+            : opt.id === 'light'
+            ? styles.activeLight
+            : styles.activeSystem
+          : '';
+
         return (
           <button
             key={opt.id}
             type="button"
-            className={`${styles.optionBtn} ${isActive ? styles.active : ''}`}
+            className={`${styles.optionBtn} ${activeClass}`}
             onClick={() => setThemePreference(opt.id)}
             role="radio"
             aria-checked={isActive}

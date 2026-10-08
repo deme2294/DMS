@@ -10,7 +10,6 @@ type NoticeFormValues = {
   title: string;
   description: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'draft' | 'published' | 'archived';
   targetAudience: 'all' | 'admin' | 'manager' | 'staff' | 'tenant' | 'department';
   departmentId?: string;
   expiresAt?: string;
@@ -20,6 +19,7 @@ export default function CeoNoticesCreate() {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [publishIntent, setPublishIntent] = useState<'draft' | 'published'>('draft');
   const [departments, setDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
   const [myDepartments, setMyDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
 
@@ -32,7 +32,6 @@ export default function CeoNoticesCreate() {
   } = useForm<NoticeFormValues>({
     defaultValues: {
       priority: 'medium',
-      status: 'draft',
       targetAudience: 'all',
       departmentId: '',
     },
@@ -92,7 +91,7 @@ export default function CeoNoticesCreate() {
         title: values.title,
         description: values.description,
         priority: values.priority,
-        status: values.status,
+        status: publishIntent,
         targetAudience: values.targetAudience,
         departmentId: values.departmentId || null,
       };
@@ -140,7 +139,7 @@ export default function CeoNoticesCreate() {
           <textarea
             id="description"
             rows={6}
-            {...register('description', { required: 'Description is required' })}
+            {...register('description', { required: 'Description is required', minLength: { value: 50, message: 'Description must be at least 50 characters' } })}
             placeholder="Notice content..."
           />
           {errors.description && <span className={styles.fieldError}>{errors.description.message}</span>}
@@ -153,15 +152,6 @@ export default function CeoNoticesCreate() {
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
-            </select>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="status">Status</label>
-            <select id="status" {...register('status')}>
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
             </select>
           </div>
 
@@ -251,11 +241,14 @@ export default function CeoNoticesCreate() {
           <input id="expiresAt" type="datetime-local" {...register('expiresAt')} />
         </div>
 
-        <p className={styles.hint}>
-          Publishing notifies every user in the selected audience by email and in-app.
-          When the notice expires, recipients who have not acknowledged it are sent an
-          expiry warning through both channels, and the notice is automatically archived.
-        </p>
+        <div className={styles.hint}>
+          <span className={styles.hintIcon}>💡</span>
+          <span>
+            Publishing notifies every user in the selected audience by email and in-app.
+            When the notice expires, recipients who have not acknowledged it are sent an
+            expiry warning through both channels, and the notice is automatically archived.
+          </span>
+        </div>
 
         <div className={styles.actions}>
           <button type="button" className={styles.btnSecondary} onClick={() => navigate('/ceo/notices')}>
@@ -263,10 +256,23 @@ export default function CeoNoticesCreate() {
           </button>
           <button
             type="submit"
+            className={styles.btnSecondary}
+            disabled={saving || isDepartmentAudienceBlocked}
+            onClick={() => setPublishIntent('draft')}
+          >
+            {saving && publishIntent === 'draft' ? 'Saving...' : (
+              <><span className={styles.btnIcon}>📝</span> Save as Draft</>
+            )}
+          </button>
+          <button
+            type="submit"
             className={styles.btnPrimary}
             disabled={saving || isDepartmentAudienceBlocked}
+            onClick={() => setPublishIntent('published')}
           >
-            {saving ? 'Creating...' : 'Create Notice'}
+            {saving && publishIntent === 'published' ? 'Publishing...' : (
+              <><span className={styles.btnIcon}>🚀</span> Publish Now</>
+            )}
           </button>
         </div>
       </form>

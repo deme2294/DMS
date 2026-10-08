@@ -20,8 +20,15 @@ const parseAttachments = (row) => {
 
 const fetchAttachmentsByTicketId = async (ticketId) => {
   const [rows] = await pool.query(
-    `SELECT id, ticket_id, file_name, file_path, mime_type, uploaded_by, created_at
-     FROM ticket_attachments WHERE ticket_id = ?`,
+    `SELECT a.id, a.ticket_id, a.file_name, a.original_name, a.file_path, a.file_size, a.mime_type,
+            a.uploaded_by, a.comment, a.created_at,
+            CONCAT(u.first_name, ' ', u.last_name) AS uploaded_by_name,
+            r.name AS uploaded_by_role
+     FROM ticket_attachments a
+     LEFT JOIN users u ON u.id = a.uploaded_by
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE a.ticket_id = ?
+     ORDER BY a.created_at ASC`,
     [ticketId]
   );
   return rows;
@@ -114,8 +121,15 @@ export const findAll = async ({
   if (ticketIds.length) {
     const placeholders = ticketIds.map(() => '?').join(',');
     const [attRows] = await pool.query(
-      `SELECT id, ticket_id, file_name, file_path, mime_type, uploaded_by, created_at
-       FROM ticket_attachments WHERE ticket_id IN (${placeholders})`,
+      `SELECT a.id, a.ticket_id, a.file_name, a.original_name, a.file_path, a.file_size, a.mime_type,
+              a.uploaded_by, a.comment, a.created_at,
+              CONCAT(u.first_name, ' ', u.last_name) AS uploaded_by_name,
+              r.name AS uploaded_by_role
+       FROM ticket_attachments a
+       LEFT JOIN users u ON u.id = a.uploaded_by
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE a.ticket_id IN (${placeholders})
+       ORDER BY a.created_at ASC`,
       ticketIds
     );
     for (const att of attRows) {
@@ -227,9 +241,9 @@ export const remove = async (id) => {
 export const addAttachment = async (attachment) => {
   await pool.query(
     `INSERT INTO ticket_attachments
-       (id, ticket_id, file_name, original_name, file_path, file_size, mime_type, uploaded_by)
+       (id, ticket_id, file_name, original_name, file_path, file_size, mime_type, uploaded_by, comment)
      VALUES
-       (:id, :ticketId, :fileName, :originalName, :filePath, :fileSize, :mimeType, :uploadedBy)`,
+       (:id, :ticketId, :fileName, :originalName, :filePath, :fileSize, :mimeType, :uploadedBy, :comment)`,
     {
       id: attachment.id,
       ticketId: attachment.ticketId,
@@ -239,6 +253,7 @@ export const addAttachment = async (attachment) => {
       fileSize: attachment.fileSize != null ? attachment.fileSize : 0,
       mimeType: attachment.mimeType || null,
       uploadedBy: attachment.uploadedBy,
+      comment: attachment.comment || null,
     }
   );
 };
@@ -397,8 +412,15 @@ export const findAllForManager = async ({
   if (ticketIds.length) {
     const ph = ticketIds.map(() => '?').join(',');
     const [attRows] = await pool.query(
-      `SELECT id, ticket_id, file_name, file_path, mime_type, uploaded_by, created_at
-       FROM ticket_attachments WHERE ticket_id IN (${ph})`,
+      `SELECT a.id, a.ticket_id, a.file_name, a.original_name, a.file_path, a.file_size, a.mime_type,
+              a.uploaded_by, a.comment, a.created_at,
+              CONCAT(u.first_name, ' ', u.last_name) AS uploaded_by_name,
+              r.name AS uploaded_by_role
+       FROM ticket_attachments a
+       LEFT JOIN users u ON u.id = a.uploaded_by
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE a.ticket_id IN (${ph})
+       ORDER BY a.created_at ASC`,
       ticketIds
     );
     for (const att of attRows) {
@@ -456,9 +478,11 @@ export const addReply = async (reply) => {
 export const getReplies = async (ticketId) => {
   const [rows] = await pool.query(
     `SELECT r.*, CONCAT(u.first_name, ' ', u.last_name) AS user_name,
+            ro.name AS user_role,
             COALESCE(GROUP_CONCAT(ud.department_id), '') AS author_department_ids
      FROM ticket_replies r
      LEFT JOIN users u ON u.id = r.user_id
+     LEFT JOIN roles ro ON ro.id = u.role_id
      LEFT JOIN user_departments ud ON ud.user_id = r.user_id
      WHERE r.ticket_id = :ticketId
      GROUP BY r.id
@@ -562,6 +586,54 @@ export const mergeInto = async (sourceIds, targetId) => {
   );
 };
 
+// Find ticket by UUID id, reference_number, or track_number
+export const findByIdOrRef = async (idOrRef) => {
+  if (!idOrRef) return null;
+  const [rows] = await pool.query(
+    `SELECT ${baseSelect}
+     FROM tickets t
+     LEFT JOIN tenants tn ON tn.id = t.tenant_id
+     LEFT JOIN users cu ON cu.id = t.created_by
+     LEFT JOIN departments d ON d.id = t.department_id
+     LEFT JOIN users au ON au.id = t.assigned_to
+     WHERE t.id = :idOrRef OR t.reference_number = :idOrRef OR t.track_number = :idOrRef
+     LIMIT 1`,
+    { idOrRef }
+  );
+  if (!rows[0]) return null;
+  const attachments = await fetchAttachmentsByTicketId(rows[0].id);
+  return { ...rows[0], attachments };
+};
+
+// Find eligible candidate tickets to merge into a target ticket
+export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
+  let query = `
+    SELECT ${baseSelect}
+    FROM tickets t
+    LEFT JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN users cu ON cu.id = t.created_by
+    LEFT JOIN departments d ON d.id = t.department_id
+    LEFT JOIN users au ON au.id = t.assigned_to
+    WHERE t.id != :targetTicketId
+      AND t.merged_into IS NULL
+      AND t.status NOT IN ('cancelled', 'closed')
+  `;
+  const params = { targetTicketId, tenantId: tenantId || null };
+
+  if (search && search.trim()) {
+    query += ` AND (t.title LIKE :search OR t.reference_number LIKE :search OR t.track_number LIKE :search OR tn.organization_name LIKE :search)`;
+    params.search = `%${search.trim()}%`;
+  }
+
+  query += `
+    ORDER BY (t.tenant_id = :tenantId) DESC, t.created_at DESC
+    LIMIT 25
+  `;
+
+  const [rows] = await pool.query(query, params);
+  return rows;
+};
+
 // ── Timeline aggregation (status history + replies + attachments) ──
 export const getTimeline = async (ticketId) => {
   const [status] = await pool.query(
@@ -575,9 +647,11 @@ export const getTimeline = async (ticketId) => {
   const [comments] = await pool.query(
     `SELECT r.id, 'comment' AS type, r.message, r.visibility, r.type AS comment_type,
             r.created_at, CONCAT(u.first_name, ' ', u.last_name) AS actor_name,
+            r.user_id, ro.name AS user_role,
             r.department_ids, COALESCE(GROUP_CONCAT(ud.department_id), '') AS author_department_ids
      FROM ticket_replies r
      LEFT JOIN users u ON u.id = r.user_id
+     LEFT JOIN roles ro ON ro.id = u.role_id
      LEFT JOIN user_departments ud ON ud.user_id = r.user_id
      WHERE r.ticket_id = :ticketId
      GROUP BY r.id

@@ -28,9 +28,14 @@ export interface TicketAttachment {
   id: string;
   ticketId: string;
   fileName: string;
+  originalName?: string;
   filePath: string;
+  fileSize?: number;
   mimeType?: string;
   uploadedBy: string;
+  uploadedByName?: string;
+  uploadedByRole?: string;
+  comment?: string | null;
   createdAt?: string;
 }
 
@@ -62,6 +67,7 @@ export interface TicketReply {
   ticketId: string;
   userId: string;
   userName?: string;
+  userRole?: string;
   message: string;
   visibility: 'all' | 'internal' | 'tenant' | 'department' | 'both' | 'admin';
   type?: string;

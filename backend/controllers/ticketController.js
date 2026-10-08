@@ -145,6 +145,15 @@ export const escalateTicket = async (req, res, next) => {
   }
 };
 
+export const getMergeCandidates = async (req, res, next) => {
+  try {
+    const data = await ticketService.getMergeCandidates(req.user, req.params.id, req.query.search);
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const mergeTickets = async (req, res, next) => {
   try {
     const data = await ticketService.mergeTickets(req.user, req.params.id, req.body.sourceIds || [], req.body.notes, clientMeta(req));
@@ -237,7 +246,8 @@ export const addInternalNote = async (req, res, next) => {
 
 export const uploadAttachments = async (req, res, next) => {
   try {
-    const data = await ticketService.addAttachments(req.user, req.params.id, req.files || [], clientMeta(req));
+    const comment = req.body.comment || req.body.notes || req.body.reason || null;
+    const data = await ticketService.addAttachments(req.user, req.params.id, req.files || [], comment, clientMeta(req));
     res.status(HTTP.OK).json({ success: true, message: 'Attachments uploaded', data });
   } catch (err) {
     next(err);

@@ -241,3 +241,100 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   NIGHT THEME ADAPTATIONS
+   ══════════════════════════════════════════════════════════════════════════════ */
+:global([data-theme="dark"]) .page {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .header {
+  border-bottom-color: #252e3e;
+}
+
+:global([data-theme="dark"]) .header h1,
+:global([data-theme="dark"]) .section h2,
+:global([data-theme="dark"]) .sectionHeader h2 {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .header p {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .filters input,
+:global([data-theme="dark"]) .filters select {
+  background: #0f1420;
+  border-color: #252e3e;
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .filters input:focus,
+:global([data-theme="dark"]) .filters select:focus {
+  background: #141b2b;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+:global([data-theme="dark"]) .statCard {
+  background: #151b28;
+  border-color: #252e3e;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .statLabel {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .statValue {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .exportBtn {
+  background: rgba(3, 105, 161, 0.2);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+:global([data-theme="dark"]) .exportBtn:hover {
+  background: rgba(3, 105, 161, 0.35);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+:global([data-theme="dark"]) .badge.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+:global([data-theme="dark"]) .badge.inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+:global([data-theme="dark"]) .badge.pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+:global([data-theme="dark"]) .toast {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #047857;
+}
+
+:global([data-theme="dark"]) .toast.error {
+  background: #7f1d1d;
+  color: #fecaca;
+  border-color: #991b1b;
+}
+
+:global([data-theme="dark"]) .loading {
+  color: #94a3b8;
+}
+
+

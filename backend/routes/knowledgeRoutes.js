@@ -56,6 +56,10 @@ router.get('/categories', authenticate, authorize('knowledge.read'), knowledgeCo
 
 // Categories CRUD (admin / authenticated readers)
 router.get('/categories/all', authenticate, authorize('knowledge.read', 'knowledge.manage_categories'), knowledgeController.listCategories);
+router.get('/categories/:id', authenticate, authorize('knowledge.read'), [
+  param('id').isString().notEmpty(),
+  validate,
+], knowledgeController.getCategoryById);
 router.post('/categories', authenticate, authorize('knowledge.manage_categories'), [
   body('name').notEmpty(),
   validate,

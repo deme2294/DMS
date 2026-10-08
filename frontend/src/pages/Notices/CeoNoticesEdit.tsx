@@ -177,7 +177,7 @@ export default function CeoNoticesEdit() {
           <textarea
             id="description"
             rows={6}
-            {...register('description', { required: 'Description is required' })}
+            {...register('description', { required: 'Description is required', minLength: { value: 50, message: 'Description must be at least 50 characters' } })}
             placeholder="Notice content..."
           />
           {errors.description && <span className={styles.fieldError}>{errors.description.message}</span>}

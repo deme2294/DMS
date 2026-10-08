@@ -5,7 +5,7 @@ import Modal from '../../components/Modal/Modal';
 import {
    changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
    assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
-   escalateTicket, mergeTickets, closeTicket, reopenTicket, approveResolution, rejectResolution,
+   escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
    markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments,
    overrideAssignment, fetchDepartmentManagers, type DepartmentManager,
  } from '../../api/ticketApi';
@@ -18,6 +18,40 @@ import type { Article } from '../../types/article';
 import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Tickets.module.css';
+import {
+  ArrowPathIcon,
+  BuildingOffice2Icon,
+  UserPlusIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  CheckBadgeIcon,
+  ArrowUturnLeftIcon,
+  FlagIcon,
+  TagIcon,
+  ArrowTrendingUpIcon,
+  ArrowsRightLeftIcon,
+  XMarkIcon,
+  ChatBubbleLeftRightIcon,
+  PaperClipIcon,
+  MegaphoneIcon,
+  DocumentIcon,
+  PhotoIcon,
+  EyeIcon,
+  ArrowDownTrayIcon,
+  UserCircleIcon,
+  ChatBubbleBottomCenterTextIcon,
+  ClipboardDocumentListIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  BuildingOfficeIcon,
+  ChevronDoubleUpIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ShieldCheckIcon,
+  BoltIcon,
+} from '@heroicons/react/24/outline';
+import { formatFileSize, buildAttachmentUrl } from '../../utils/attachmentUtils';
 import { io, Socket } from 'socket.io-client';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -150,9 +184,17 @@ export default function TicketDetail() {
   const [selectedPriority, setSelectedPriority] = useState('medium');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [mergeIds, setMergeIds] = useState('');
+  const [mergeCandidates, setMergeCandidates] = useState<Ticket[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState('');
+  const [selectedMergeTickets, setSelectedMergeTickets] = useState<Ticket[]>([]);
+  const [manualMergeInput, setManualMergeInput] = useState('');
+  const [mergeNotes, setMergeNotes] = useState('');
+  const [mergingLoading, setMergingLoading] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedNoteDepts, setSelectedNoteDepts] = useState<string[]>([]);
   const [attachFiles, setAttachFiles] = useState<FileList | null>(null);
+  const [attachComment, setAttachComment] = useState('');
   const [tenantRating, setTenantRating] = useState<number>(5);
   const [tenantFeedback, setTenantFeedback] = useState<string>('');
   const [hoverRating, setHoverRating] = useState<number>(0);
@@ -247,6 +289,100 @@ export default function TicketDetail() {
   }, [deptModal, staffModal, categoryModal, mergeModal, noteModal]);
 
   useEffect(() => {
+    if (mergeModal && ticket?.id) {
+      setLoadingCandidates(true);
+      fetchMergeCandidates(ticket.id, mergeSearch)
+        .then((res) => setMergeCandidates(res.data.data || []))
+        .catch(() => setMergeCandidates([]))
+        .finally(() => setLoadingCandidates(false));
+    } else if (!mergeModal) {
+      setSelectedMergeTickets([]);
+      setMergeSearch('');
+      setManualMergeInput('');
+      setMergeNotes('');
+    }
+  }, [mergeModal, ticket?.id]);
+
+  useEffect(() => {
+    if (!mergeModal || !ticket?.id) return;
+    const timer = setTimeout(() => {
+      setLoadingCandidates(true);
+      fetchMergeCandidates(ticket.id, mergeSearch)
+        .then((res) => setMergeCandidates(res.data.data || []))
+        .catch(() => setMergeCandidates([]))
+        .finally(() => setLoadingCandidates(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mergeSearch]);
+
+  const toggleMergeCandidate = (cand: Ticket) => {
+    setSelectedMergeTickets((prev) => {
+      const exists = prev.some((t) => t.id === cand.id);
+      if (exists) return prev.filter((t) => t.id !== cand.id);
+      return [...prev, cand];
+    });
+  };
+
+  const handleManualAddMerge = async () => {
+    const raw = manualMergeInput.trim();
+    if (!raw || !ticket?.id) return;
+    if (
+      raw.toLowerCase() === ticket.id.toLowerCase() ||
+      (ticket.referenceNumber && raw.toLowerCase() === ticket.referenceNumber.toLowerCase()) ||
+      (ticket.trackNumber && raw.toLowerCase() === ticket.trackNumber.toLowerCase())
+    ) {
+      flash('Cannot merge the target ticket into itself. Please choose another ticket.', true);
+      return;
+    }
+    const already = selectedMergeTickets.some(
+      (t) => t.id.toLowerCase() === raw.toLowerCase() ||
+             (t.referenceNumber && t.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
+             (t.trackNumber && t.trackNumber.toLowerCase() === raw.toLowerCase())
+    );
+    if (already) {
+      setManualMergeInput('');
+      return;
+    }
+    const found = mergeCandidates.find(
+      (c) => c.id.toLowerCase() === raw.toLowerCase() ||
+             (c.referenceNumber && c.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
+             (c.trackNumber && c.trackNumber.toLowerCase() === raw.toLowerCase())
+    );
+    if (found) {
+      toggleMergeCandidate(found);
+      setManualMergeInput('');
+      return;
+    }
+    try {
+      const res = await fetchMergeCandidates(ticket.id, raw);
+      const candidates = res.data.data || [];
+      if (candidates.length > 0) {
+        toggleMergeCandidate(candidates[0]);
+        setManualMergeInput('');
+      } else {
+        flash(`No active ticket found matching "${raw}"`, true);
+      }
+    } catch {
+      flash('Failed to find ticket', true);
+    }
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!selectedMergeTickets.length || !ticket?.id) return;
+    setMergingLoading(true);
+    try {
+      const sourceIds = selectedMergeTickets.map((t) => t.id);
+      await call(
+        () => mergeTickets(ticket.id, sourceIds, mergeNotes || undefined),
+        `Merged ${selectedMergeTickets.length} ticket(s) into this ticket`
+      );
+      setMergeModal(false);
+    } finally {
+      setMergingLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (!selectedDept) {
       setDeptManagers([]);
       setSelectedManager('');
@@ -326,29 +462,88 @@ export default function TicketDetail() {
 
       <div className={styles.detailGrid}>
         <div className={styles.card}>
-          <h3>📋 Details</h3>
+          <div className={styles.detailsCardHeader}>
+            <div className={styles.detailsHeaderTitle}>
+              <span className={styles.detailsHeaderIconWrapper}>
+                <ClipboardDocumentListIcon />
+              </span>
+              <h3>Details</h3>
+            </div>
+            <span className={styles.detailsHeaderTag}>Live Info</span>
+          </div>
           <div className={styles.detailsSection}>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Status</span>
+              <span className={styles.detailLabel}>
+                <ShieldCheckIcon className={styles.detailLabelIcon} />
+                Status
+              </span>
               <span className={styles.detailValue}>
-                <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status]}</span>
+                <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status] || ticket.status}</span>
               </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Priority</span>
-              <span className={styles.detailValue}>{ticket.priority}</span>
+              <span className={styles.detailLabel}>
+                <FlagIcon className={styles.detailLabelIcon} />
+                Priority
+              </span>
+              <span className={styles.detailValue}>
+                <span className={`${styles.priorityBadge} ${styles['priority_' + ticket.priority] || styles.priority_medium}`}>
+                  {(ticket.priority as string) === 'urgent' || (ticket.priority as string) === 'critical' ? (
+                    <ChevronDoubleUpIcon />
+                  ) : ticket.priority === 'high' ? (
+                    <ChevronDoubleUpIcon />
+                  ) : ticket.priority === 'medium' ? (
+                    <ChevronUpIcon />
+                  ) : (
+                    <ChevronDownIcon />
+                  )}
+                  {ticket.priority}
+                </span>
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Category</span>
-              <span className={styles.detailValue}>{ticket.category}</span>
+              <span className={styles.detailLabel}>
+                <TagIcon className={styles.detailLabelIcon} />
+                Category
+              </span>
+              <span className={styles.detailValue}>
+                <span className={styles.categoryChip}>
+                  <TagIcon />
+                  {ticket.category || '—'}
+                </span>
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Department</span>
-              <span className={styles.detailValue}>{ticket.departmentName || '—'}</span>
+              <span className={styles.detailLabel}>
+                <BuildingOffice2Icon className={styles.detailLabelIcon} />
+                Department
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.departmentName ? (
+                  <span className={styles.deptChip}>
+                    <BuildingOffice2Icon />
+                    {ticket.departmentName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedChip}>Unassigned</span>
+                )}
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Assigned To</span>
-              <span className={styles.detailValue}>{ticket.assignedToName || '—'}</span>
+              <span className={styles.detailLabel}>
+                <UserCircleIcon className={styles.detailLabelIcon} />
+                Assigned To
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.assignedToName ? (
+                  <span className={styles.userChip}>
+                    <UserCircleIcon />
+                    {ticket.assignedToName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedChip}>Unassigned</span>
+                )}
+              </span>
             </div>
             {role === 'admin' && (() => {
               const staffAssignments = (ticket.assignments || []).filter((a) => a.role === 'staff') || [];
@@ -357,213 +552,480 @@ export default function TicketDetail() {
               return (
                 <>
                   <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Assigned By</span>
-                    <span className={styles.detailValue}>{latestStaff?.assignedByName || '—'}</span>
+                    <span className={styles.detailLabel}>
+                      <UserPlusIcon className={styles.detailLabelIcon} />
+                      Assigned By
+                    </span>
+                    <span className={styles.detailValue}>
+                      {latestStaff?.assignedByName ? (
+                        <span className={styles.userChip}>
+                          <UserPlusIcon />
+                          {latestStaff.assignedByName}
+                        </span>
+                      ) : (
+                        <span className={styles.unassignedChip}>—</span>
+                      )}
+                    </span>
                   </div>
                   <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>Changed By</span>
-                    <span className={styles.detailValue}>{latestHistory?.changedByName || '—'}</span>
+                    <span className={styles.detailLabel}>
+                      <ArrowPathIcon className={styles.detailLabelIcon} />
+                      Changed By
+                    </span>
+                    <span className={styles.detailValue}>
+                      {latestHistory?.changedByName ? (
+                        <span className={styles.userChip}>
+                          <UserCircleIcon />
+                          {latestHistory.changedByName}
+                        </span>
+                      ) : (
+                        <span className={styles.unassignedChip}>—</span>
+                      )}
+                    </span>
                   </div>
                 </>
               );
             })()}
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Tenant</span>
-              <span className={styles.detailValue}>{ticket.tenantName || '—'}</span>
+              <span className={styles.detailLabel}>
+                <BuildingOfficeIcon className={styles.detailLabelIcon} />
+                Tenant
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.tenantName ? (
+                  <span className={styles.tenantChip}>
+                    <BuildingOfficeIcon />
+                    {ticket.tenantName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Created</span>
-              <span className={styles.detailValue}>{ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '—'}</span>
+              <span className={styles.detailLabel}>
+                <CalendarDaysIcon className={styles.detailLabelIcon} />
+                Created
+              </span>
+              <span className={styles.detailValue}>
+                <span className={styles.dateChip}>
+                  <CalendarDaysIcon />
+                  {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '—'}
+                </span>
+              </span>
             </div>
             <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Updated</span>
-              <span className={styles.detailValue}>{ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '—'}</span>
+              <span className={styles.detailLabel}>
+                <ClockIcon className={styles.detailLabelIcon} />
+                Updated
+              </span>
+              <span className={styles.detailValue}>
+                <span className={styles.dateChip}>
+                  <ClockIcon />
+                  {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '—'}
+                </span>
+              </span>
             </div>
             {ticket.responseDueDate && (
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>First Response SLA</span>
-                <span className={`${styles.detailValue} ${ticket.responseSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
-                  {new Date(ticket.responseDueDate).toLocaleString()} {ticket.responseSlaBreached ? '⚠️ (Breached)' : '✓ (Target)'}
+                <span className={styles.detailLabel}>
+                  <BoltIcon className={styles.detailLabelIcon} />
+                  First Response SLA
+                </span>
+                <span className={styles.detailValue}>
+                  <div className={styles.slaContainer}>
+                    <span className={styles.slaDateRow}>
+                      <ClockIcon />
+                      {new Date(ticket.responseDueDate).toLocaleString()}
+                    </span>
+                    <span className={ticket.responseSlaBreached ? styles.slaBadgeBreached : styles.slaBadgeOk}>
+                      {ticket.responseSlaBreached ? (
+                        <>
+                          <ExclamationTriangleIcon />
+                          Breached
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircleIcon />
+                          Target Met
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </span>
               </div>
             )}
             {ticket.dueDate && (
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>Resolution SLA Due</span>
-                <span className={`${styles.detailValue} ${ticket.isOverdue ? styles.slaOverdue : ticket.remainingMs != null && ticket.remainingMs < 3.6e6 ? styles.slaImminent : styles.slaOk}`}>
-                  {new Date(ticket.dueDate).toLocaleString()} ({formatRemaining(ticket.remainingMs)})
+                <span className={styles.detailLabel}>
+                  <ExclamationTriangleIcon className={styles.detailLabelIcon} />
+                  Resolution SLA Due
+                </span>
+                <span className={styles.detailValue}>
+                  <div className={styles.slaContainer}>
+                    <span className={styles.slaDateRow}>
+                      <ClockIcon />
+                      {new Date(ticket.dueDate).toLocaleString()}
+                    </span>
+                    <span
+                      className={
+                        ticket.isOverdue
+                          ? styles.slaBadgeBreached
+                          : ticket.remainingMs != null && ticket.remainingMs < 3.6e6
+                          ? styles.slaBadgeImminent
+                          : styles.slaBadgeOk
+                      }
+                    >
+                      {ticket.isOverdue ? (
+                        <>
+                          <ExclamationTriangleIcon />
+                          Overdue ({formatRemaining(ticket.remainingMs)})
+                        </>
+                      ) : ticket.remainingMs != null && ticket.remainingMs < 3.6e6 ? (
+                        <>
+                          <ClockIcon />
+                          Due Soon ({formatRemaining(ticket.remainingMs)})
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircleIcon />
+                          On Track ({formatRemaining(ticket.remainingMs)})
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </span>
               </div>
             )}
             {ticket.escalationDueDate && (
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>Escalation SLA Due</span>
-                <span className={`${styles.detailValue} ${ticket.escalationSlaBreached ? styles.slaOverdue : styles.slaOk}`}>
-                  {new Date(ticket.escalationDueDate).toLocaleString()} {ticket.escalationSlaBreached ? '⚠️ (Breached)' : ''}
+                <span className={styles.detailLabel}>
+                  <ArrowTrendingUpIcon className={styles.detailLabelIcon} />
+                  Escalation SLA Due
+                </span>
+                <span className={styles.detailValue}>
+                  <div className={styles.slaContainer}>
+                    <span className={styles.slaDateRow}>
+                      <ClockIcon />
+                      {new Date(ticket.escalationDueDate).toLocaleString()}
+                    </span>
+                    <span className={ticket.escalationSlaBreached ? styles.slaBadgeBreached : styles.slaBadgeOk}>
+                      {ticket.escalationSlaBreached ? (
+                        <>
+                          <ExclamationTriangleIcon />
+                          Breached
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircleIcon />
+                          Scheduled
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {(role === 'admin' || role === 'manager' || role === 'staff') && (
-          <div className={styles.card}>
-            <h3>⚡ Actions</h3>
-            <div className={styles.actionsSection}>
-              {role === 'admin' && (
-                <div className={ticket.departmentId ? styles.deptInfoBanner : styles.deptWarnBanner}>
-                  {ticket.departmentId ? (
-                    <>
-                      <span>🏢</span>
-                      <span>
-                        Assigned to <strong>{ticket.departmentName}</strong>. Department manager is responsible for delegating staff.
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span>📌</span>
-                      <span>
-                        Assign this ticket to a department. The department manager will assign and oversee staff.
-                      </span>
-                    </>
+        {(role === 'admin' || role === 'manager' || role === 'staff') && (() => {
+          const hasWorkflowActions =
+            transitions.length > 0 ||
+            (role === 'admin' && (ticket.routingType ?? 'general') !== 'direct') ||
+            (role === 'manager' && !!ticket.departmentId) ||
+            ((role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open')) ||
+            (role === 'staff' && ticket.status === 'in_progress') ||
+            (role === 'manager' && (ticket.status === 'under_review' || ticket.status === 'in_progress')) ||
+            (role === 'admin' && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
+            transitions.includes('closed') ||
+            transitions.includes('reopened');
+
+          const hasManagementActions = role === 'admin' || role === 'manager';
+
+          return (
+            <div className={styles.card}>
+              <h3>
+                <span>⚡</span> Ticket Actions
+              </h3>
+              <div className={styles.actionsSection}>
+                {role === 'admin' && (
+                  <div className={ticket.departmentId ? styles.deptInfoBanner : styles.deptWarnBanner}>
+                    {ticket.departmentId ? (
+                      <>
+                        <BuildingOffice2Icon className={styles.bannerIcon} />
+                        <span>
+                          Assigned to <strong>{ticket.departmentName}</strong>. Department manager is responsible for delegating staff.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className={styles.bannerIconEmoji}>📌</span>
+                        <span>
+                          Assign this ticket to a department. The department manager will assign and oversee staff.
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className={styles.actionClusters}>
+                  {/* Cluster 1: Lifecycle & Workflow */}
+                  {hasWorkflowActions && (
+                    <div className={styles.actionCluster}>
+                      <div className={styles.clusterHeader}>
+                        <span className={styles.clusterDotWorkflow} />
+                        <span className={styles.clusterLabel}>Lifecycle & Assignment</span>
+                      </div>
+                      <div className={styles.btnClusterRow}>
+                        {transitions.length > 0 && (
+                          <button
+                            className={styles.btnPrimary}
+                            onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}
+                            title="Transition ticket to next workflow status"
+                          >
+                            <ArrowPathIcon className={styles.btnIcon} />
+                            Update Status
+                          </button>
+                        )}
+                        {role === 'admin' && (ticket.routingType ?? 'general') !== 'direct' && (
+                          <button
+                            className={styles.btnInfo}
+                            onClick={() => setDeptModal(true)}
+                            title="Assign Department"
+                          >
+                            <BuildingOffice2Icon className={styles.btnIcon} />
+                            Assign Dept
+                          </button>
+                        )}
+                        {role === 'manager' && ticket.departmentId && (
+                          <button
+                            className={styles.btnInfo}
+                            onClick={() => setStaffModal(true)}
+                            title="Assign Staff to Department Member"
+                          >
+                            <UserPlusIcon className={styles.btnIcon} />
+                            Assign Staff
+                          </button>
+                        )}
+                        {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                          <button
+                            className={styles.btnSuccess}
+                            onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}
+                            title="Accept ticket assignment"
+                          >
+                            <CheckCircleIcon className={styles.btnIcon} />
+                            Accept
+                          </button>
+                        )}
+                        {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                          <button
+                            className={styles.btnReject}
+                            onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}
+                            title="Reject ticket assignment"
+                          >
+                            <XCircleIcon className={styles.btnIcon} />
+                            Reject
+                          </button>
+                        )}
+
+                        {/* Staff: on in_progress, clicking Resolve submits to Department Manager approval */}
+                        {role === 'staff' && ticket.status === 'in_progress' && (
+                          <button
+                            className={styles.btnEmerald}
+                            onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Department Manager approval!')}
+                            title="Submit work for Department Manager approval"
+                          >
+                            <CheckCircleIcon className={styles.btnIcon} />
+                            Resolve
+                          </button>
+                        )}
+
+                        {/* Manager: on under_review -> Approve Resolution & Request Rework; on in_progress -> Resolve */}
+                        {role === 'manager' && ticket.status === 'under_review' && (
+                          <>
+                            <button
+                              className={styles.btnEmerald}
+                              onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution approved! Forwarded to Admin for verification.')}
+                              title="Approve staff resolution and forward to Admin"
+                            >
+                              <CheckBadgeIcon className={styles.btnIcon} />
+                              Approve Resolution
+                            </button>
+                            <button
+                              className={styles.btnReject}
+                              onClick={() => call(() => rejectResolution(ticket.id, notes || 'Department Manager requested rework'), 'Rework requested. Ticket returned to In Progress.')}
+                              title="Request staff rework"
+                            >
+                              <ArrowUturnLeftIcon className={styles.btnIcon} />
+                              Request Rework
+                            </button>
+                          </>
+                        )}
+                        {role === 'manager' && ticket.status === 'in_progress' && (
+                          <button
+                            className={styles.btnEmerald}
+                            onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Admin verification.')}
+                            title="Resolve and forward to Admin"
+                          >
+                            <CheckCircleIcon className={styles.btnIcon} />
+                            Resolve
+                          </button>
+                        )}
+
+                        {/* Admin: on pending_approval -> Verify & Resolve or Return for Revision; on under_review/in_progress -> Resolve */}
+                        {role === 'admin' && ticket.status === 'pending_approval' && (
+                          <>
+                            <button
+                              className={styles.btnEmerald}
+                              onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution verified! Ticket marked Resolved and routed to tenant for confirmation.')}
+                              title="Verify resolution and route to tenant for final confirmation"
+                            >
+                              <CheckBadgeIcon className={styles.btnIcon} />
+                              Verify & Resolve
+                            </button>
+                            <button
+                              className={styles.btnReject}
+                              onClick={() => call(() => rejectResolution(ticket.id, notes || 'Admin returned for revision'), 'Returned for revision. Ticket sent back to In Progress.')}
+                              title="Return for revision"
+                            >
+                              <ArrowUturnLeftIcon className={styles.btnIcon} />
+                              Return for Revision
+                            </button>
+                          </>
+                        )}
+                        {role === 'admin' && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
+                          <button
+                            className={styles.btnEmerald}
+                            onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}
+                            title="Resolve ticket and route to tenant for confirmation"
+                          >
+                            <CheckCircleIcon className={styles.btnIcon} />
+                            Resolve
+                          </button>
+                        )}
+                        {transitions.includes('closed') && (
+                          <button
+                            className={styles.btnDark}
+                            onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}
+                            title="Close ticket"
+                          >
+                            <XMarkIcon className={styles.btnIcon} />
+                            Close
+                          </button>
+                        )}
+                        {transitions.includes('reopened') && (
+                          <button
+                            className={styles.btnAmber}
+                            onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}
+                            title="Reopen ticket"
+                          >
+                            <ArrowPathIcon className={styles.btnIcon} />
+                            Reopen
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
+
+                  {/* Cluster 2: Management & Properties */}
+                  {hasManagementActions && (
+                    <div className={styles.actionCluster}>
+                      <div className={styles.clusterHeader}>
+                        <span className={styles.clusterDotProperties} />
+                        <span className={styles.clusterLabel}>Properties & Routing</span>
+                      </div>
+                      <div className={styles.btnClusterRow}>
+                        {(role === 'admin' || role === 'manager') && (
+                          <button
+                            className={styles.btnAmber}
+                            onClick={() => setPriorityModal(true)}
+                            title="Change Ticket Priority"
+                          >
+                            <FlagIcon className={styles.btnIcon} />
+                            Change Priority
+                          </button>
+                        )}
+                        {role === 'admin' && (
+                          <button
+                            className={styles.btnRose}
+                            onClick={() => setCategoryModal(true)}
+                            title="Change Ticket Category"
+                          >
+                            <TagIcon className={styles.btnIcon} />
+                            Change Category
+                          </button>
+                        )}
+                        {(role === 'admin' || role === 'manager') && (
+                          <button
+                            className={styles.btnOrange}
+                            onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}
+                            title="Escalate ticket to higher authority"
+                          >
+                            <ArrowTrendingUpIcon className={styles.btnIcon} />
+                            Escalate
+                          </button>
+                        )}
+                        {role === 'admin' && (
+                          <button
+                            className={styles.btnIndigo}
+                            onClick={() => setMergeModal(true)}
+                            title="Merge ticket into another"
+                          >
+                            <ArrowsRightLeftIcon className={styles.btnIcon} />
+                            Merge
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cluster 3: Collaboration & Files */}
+                  <div className={styles.actionCluster}>
+                    <div className={styles.clusterHeader}>
+                      <span className={styles.clusterDotCollab} />
+                      <span className={styles.clusterLabel}>Collaboration & Updates</span>
+                    </div>
+                    <div className={styles.btnClusterRow}>
+                      <button
+                        className={styles.btnSlate}
+                        onClick={() => setNoteModal(true)}
+                        title="Add an internal staff note"
+                      >
+                        <ChatBubbleLeftRightIcon className={styles.btnIcon} />
+                        Internal Note
+                      </button>
+                      <button
+                        className={styles.btnInfoOutline}
+                        onClick={() => setAttachModal(true)}
+                        title="Upload file attachment"
+                      >
+                        <PaperClipIcon className={styles.btnIcon} />
+                        Upload File
+                      </button>
+                      {(role === 'admin' || role === 'manager') && (
+                        <button
+                          className={styles.btnAnnounce}
+                          onClick={() => setAnnounceModal(true)}
+                          title="Broadcast a visible update to the tenant"
+                        >
+                          <MegaphoneIcon className={styles.btnIcon} />
+                          Announce
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div className={styles.btnRow}>
-                {transitions.length > 0 && (
-                  <button className={styles.btnPrimary} onClick={() => { setNewStatus(transitions[0]); setStatusModal(true); }}>Update Status</button>
-                )}
-                {role === 'admin' && (ticket.routingType ?? 'general') !== 'direct' && (
-                  <button
-                    className={styles.btnInfo}
-                    onClick={() => setDeptModal(true)}
-                    title="Assign Department"
-                  >
-                    Assign Dept
-                  </button>
-                )}
-                {role === 'manager' && ticket.departmentId && (
-                  <button
-                    className={styles.btnInfo}
-                    onClick={() => setStaffModal(true)}
-                    title="Assign Staff to Department Member"
-                  >
-                    Assign Staff
-                  </button>
-                )}
-                {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
-                  <button className={styles.btnSuccess} onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}>Accept</button>
-                )}
-                {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
-                  <button className={styles.btnReject} onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}>Reject</button>
-                )}
-                {(role === 'admin' || role === 'manager') && (
-                  <button className={styles.btnAmber} onClick={() => setPriorityModal(true)}>Change Priority</button>
-                )}
-                {role === 'admin' && (
-                  <button className={styles.btnRose} onClick={() => setCategoryModal(true)}>Change Category</button>
-                )}
 
-                {/* Staff: on in_progress, clicking Resolve submits to Department Manager approval */}
-                {role === 'staff' && ticket.status === 'in_progress' && (
-                  <button
-                    className={styles.btnEmerald}
-                    onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Department Manager approval!')}
-                    title="Submit work for Department Manager approval"
-                  >
-                    Resolve
-                  </button>
-                )}
-
-                {/* Manager: on under_review -> Approve Resolution & Request Rework; on in_progress -> Resolve */}
-                {role === 'manager' && ticket.status === 'under_review' && (
-                  <>
-                    <button
-                      className={styles.btnEmerald}
-                      onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution approved! Forwarded to Admin for verification.')}
-                      title="Approve staff resolution and forward to Admin"
-                    >
-                      Approve Resolution
-                    </button>
-                    <button
-                      className={styles.btnReject}
-                      onClick={() => call(() => rejectResolution(ticket.id, notes || 'Department Manager requested rework'), 'Rework requested. Ticket returned to In Progress.')}
-                      title="Request staff rework"
-                    >
-                      Request Rework
-                    </button>
-                  </>
-                )}
-                {role === 'manager' && ticket.status === 'in_progress' && (
-                  <button
-                    className={styles.btnEmerald}
-                    onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Admin verification.')}
-                    title="Resolve and forward to Admin"
-                  >
-                    Resolve
-                  </button>
-                )}
-
-                {/* Admin: on pending_approval -> Verify & Resolve or Return for Revision; on under_review/in_progress -> Resolve */}
-                {role === 'admin' && ticket.status === 'pending_approval' && (
-                  <>
-                    <button
-                      className={styles.btnEmerald}
-                      onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution verified! Ticket marked Resolved and routed to tenant for confirmation.')}
-                      title="Verify resolution and route to tenant for final confirmation"
-                    >
-                      Verify & Resolve
-                    </button>
-                    <button
-                      className={styles.btnReject}
-                      onClick={() => call(() => rejectResolution(ticket.id, notes || 'Admin returned for revision'), 'Returned for revision. Ticket sent back to In Progress.')}
-                      title="Return for revision"
-                    >
-                      Return for Revision
-                    </button>
-                  </>
-                )}
-                {role === 'admin' && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
-                  <button
-                    className={styles.btnEmerald}
-                    onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}
-                    title="Resolve ticket and route to tenant for confirmation"
-                  >
-                    Resolve
-                  </button>
-                )}
-                {(role === 'admin' || role === 'manager') && (
-                  <button className={styles.btnOrange} onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}>Escalate</button>
-                )}
-                {role === 'admin' && (
-                  <button className={styles.btnIndigo} onClick={() => setMergeModal(true)}>Merge</button>
-                )}
-                {transitions.includes('closed') && (
-                  <button className={styles.btnDark} onClick={() => call(() => closeTicket(ticket.id, notes || undefined), 'Closed')}>Close</button>
-                )}
-                {transitions.includes('reopened') && (
-                  <button className={styles.btnAmber} onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}>Reopen</button>
-                )}
-                <button className={styles.btnSlate} onClick={() => setNoteModal(true)}>Internal Note</button>
-                <button className={styles.btnInfo} onClick={() => setAttachModal(true)}>Upload File</button>
-                {(role === 'admin' || role === 'manager') && (
-                  <button
-                    className={styles.btnAnnounce}
-                    onClick={() => setAnnounceModal(true)}
-                    title="Send a visible update to the tenant"
-                  >
-                    📢 Announce
-                  </button>
+                {ticket.isOverdue && (
+                  <div className={styles.slaInlineWarning}>
+                    ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
+                  </div>
                 )}
               </div>
-              {ticket.isOverdue && (
-                <div className={styles.slaInlineWarning}>
-                  ⚠️ <strong>SLA Overdue:</strong> This ticket has passed its resolution deadline. Assignments and routing actions are restricted until the SLA is resolved or the ticket is escalated.
-                </div>
-              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Escalation Banner */}
         {ticket.isEscalated && ticket.status === 'escalated' && (
@@ -815,16 +1277,156 @@ export default function TicketDetail() {
         <p className={styles.description}>{ticket.description}</p>
       </div>
 
-      {ticket.attachments && ticket.attachments.length > 0 && (
+      {ticket.attachments && ticket.attachments.length > 0 ? (
         <div className={styles.card}>
-          <h3>📎 Attachments ({ticket.attachments.length})</h3>
-          <ul className={styles.attachments}>
-            {ticket.attachments.map((file) => (
-              <li key={file.id}>
-                <a href={`${API_BASE}${file.filePath}`} target="_blank" rel="noreferrer">{file.fileName}</a>
-              </li>
-            ))}
-          </ul>
+          <div className={styles.attachmentsCardHeader}>
+            <div className={styles.attachmentsCardTitleGroup}>
+              <span className={styles.attachmentsHeaderIcon}>📎</span>
+              <h3>Attachments ({ticket.attachments.length})</h3>
+            </div>
+            <button
+              type="button"
+              className={styles.uploadAttachQuickBtn}
+              onClick={() => setAttachModal(true)}
+              title="Upload new attachment"
+            >
+              <PaperClipIcon className={styles.btnIcon} />
+              + Upload File
+            </button>
+          </div>
+
+          <div className={styles.attachmentsGrid}>
+            {ticket.attachments.map((file) => {
+              const fileName = file.fileName || (file as any).file_name || 'Attachment';
+              const rawPath = file.filePath || (file as any).file_path || '';
+              const fileUrl = buildAttachmentUrl(rawPath) || (rawPath.startsWith('http') ? rawPath : `${API_BASE}${rawPath}`);
+              const uploaderName = file.uploadedByName || (file as any).uploaded_by_name || 'User';
+              const uploaderRole = file.uploadedByRole || (file as any).uploaded_by_role || '';
+              const comment = file.comment || (file as any).comment || null;
+              const dateStr = file.createdAt || (file as any).created_at;
+              const sizeStr = formatFileSize(file.fileSize || (file as any).file_size);
+              const isImage = (file.mimeType || (file as any).mime_type || '').startsWith('image/') ||
+                /\.(png|jpe?g|webp|gif|svg)$/i.test(fileName);
+
+              return (
+                <div key={file.id} className={styles.attachmentCard}>
+                  {/* Top: File info and action buttons */}
+                  <div className={styles.attachmentTop}>
+                    <div className={styles.attachmentIconBox}>
+                      {isImage ? (
+                        <PhotoIcon className={styles.attachmentFileIcon} />
+                      ) : (
+                        <DocumentIcon className={styles.attachmentFileIcon} />
+                      )}
+                    </div>
+                    <div className={styles.attachmentDetails}>
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachmentFileName}
+                        title={`Click to open: ${fileName}`}
+                      >
+                        {fileName}
+                      </a>
+                      <div className={styles.attachmentSubMeta}>
+                        {sizeStr && <span className={styles.attachmentSize}>{sizeStr}</span>}
+                        {sizeStr && dateStr && <span>•</span>}
+                        {dateStr && (
+                          <span className={styles.attachmentDate}>
+                            {new Date(dateStr).toLocaleDateString()} {new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className={styles.attachmentActions}>
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachmentActionBtn}
+                        title="View file in new tab"
+                      >
+                        <EyeIcon className={styles.attachmentActionIcon} />
+                      </a>
+                      <a
+                        href={fileUrl}
+                        download={fileName}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.attachmentActionBtn}
+                        title="Download file"
+                      >
+                        <ArrowDownTrayIcon className={styles.attachmentActionIcon} />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Optional Image Thumbnail Preview */}
+                  {isImage && (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={styles.attachmentThumbContainer}
+                      title="Click to view full image"
+                    >
+                      <img src={fileUrl} alt={fileName} className={styles.attachmentThumb} loading="lazy" />
+                    </a>
+                  )}
+
+                  {/* Middle: Uploader Badge */}
+                  <div className={styles.attachmentUploaderRow}>
+                    <div className={styles.attachmentUploaderUser}>
+                      <UserCircleIcon className={styles.uploaderAvatarIcon} />
+                      <span className={styles.uploaderName}>{uploaderName}</span>
+                      {uploaderRole && (
+                        <span className={`${styles.uploaderRoleBadge} ${styles['role_' + uploaderRole.toLowerCase()] || styles.role_default}`}>
+                          {uploaderRole.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom: Why the file was uploaded (Comment / Reason) */}
+                  <div className={styles.attachmentCommentBox}>
+                    <div className={styles.commentBoxLabel}>
+                      <ChatBubbleBottomCenterTextIcon className={styles.commentBoxIcon} />
+                      <span>Why uploaded / Comment:</span>
+                    </div>
+                    <p className={styles.commentBoxText}>
+                      {comment || <span className={styles.commentBoxMuted}>No comment provided</span>}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className={styles.card}>
+          <div className={styles.attachmentsCardHeader}>
+            <div className={styles.attachmentsCardTitleGroup}>
+              <span className={styles.attachmentsHeaderIcon}>📎</span>
+              <h3>Attachments (0)</h3>
+            </div>
+            <button
+              type="button"
+              className={styles.uploadAttachQuickBtn}
+              onClick={() => setAttachModal(true)}
+              title="Upload new attachment"
+            >
+              <PaperClipIcon className={styles.btnIcon} />
+              + Upload File
+            </button>
+          </div>
+          <div className={styles.attachmentsEmptyBox}>
+            <PaperClipIcon className={styles.attachmentsEmptyIcon} />
+            <p>No files attached to this ticket yet.</p>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+              Upload screenshots, documents, or diagnostics with a comment explaining why.
+            </span>
+          </div>
         </div>
       )}
 
@@ -836,16 +1438,37 @@ export default function TicketDetail() {
             const v = reply.visibility;
             const isAdmin = v === 'admin';
             const isPrivate = v === 'internal' || v === 'department' || !!reply.isInternal;
-            const label =
-              v === 'admin' ? '🛡️ Admin Only'
-                : v === 'tenant' ? '👤 Tenant Only'
-                  : v === 'department' ? '🏢 Department'
-                    : v === 'both' ? '👤🏢 Tenant & Dept'
-                      : v === 'internal' ? '🔒 Internal'
-                        : '📢 Public';
-            const badgeClass = isAdmin
-              ? styles.badgeAdmin
-              : isPrivate ? styles.badgeInternal : styles.badgePublic;
+            const isTenantReply = reply.userRole === 'tenant';
+            const isDirect = ticket?.routingType === 'direct';
+
+            let label = '📢 Public';
+            let badgeClass = styles.badgePublic;
+
+            if (isAdmin) {
+              label = '🛡️ Admin Only';
+              badgeClass = styles.badgeAdmin;
+            } else if (isTenantReply) {
+              if (isDirect) {
+                label = '🏢 Direct to Dept';
+                badgeClass = styles.badgeDirectDept;
+              } else {
+                label = '🛡️ Routed to Admin';
+                badgeClass = styles.badgeGeneralAdmin;
+              }
+            } else if (v === 'tenant') {
+              label = '👤 Tenant Only';
+              badgeClass = styles.badgePublic;
+            } else if (v === 'department') {
+              label = '🏢 Department';
+              badgeClass = styles.badgeInternal;
+            } else if (v === 'both') {
+              label = '👤🏢 Tenant & Dept';
+              badgeClass = styles.badgePublic;
+            } else if (v === 'internal') {
+              label = '🔒 Internal';
+              badgeClass = styles.badgeInternal;
+            }
+
             return (
               <li key={reply.id} className={isAdmin || isPrivate ? styles.internal : styles.replyItem}>
                 <div className={styles.replyHeader}>
@@ -1139,10 +1762,163 @@ export default function TicketDetail() {
       </Modal>
 
       <Modal open={mergeModal} title="Merge Duplicate Tickets" onClose={() => setMergeModal(false)}>
-        <div className={styles.modalForm}>
-          <label>Source Ticket IDs (comma separated)</label>
-          <textarea rows={3} value={mergeIds} onChange={(e) => setMergeIds(e.target.value)} placeholder="id1, id2" />
-          <button disabled={!mergeIds.trim()} onClick={() => call(() => mergeTickets(ticket.id, mergeIds.split(',').map((s) => s.trim()).filter(Boolean), notes), 'Tickets merged')}>Merge</button>
+        <div className={styles.mergeModalContent}>
+          {/* Target Ticket Highlight */}
+          <div className={styles.mergeTargetBanner}>
+            <span className={styles.mergeTargetIcon}>🎯</span>
+            <div className={styles.mergeTargetInfo}>
+              <span className={styles.mergeTargetTitle}>
+                Target Ticket: {ticket.referenceNumber || ticket.id} — {ticket.title}
+              </span>
+              <span className={styles.mergeTargetDesc}>
+                This ticket remains active and will absorb the duplicate tickets. All selected source tickets will be closed and marked as merged.
+              </span>
+            </div>
+          </div>
+
+          {/* Search & Auto-Discovery */}
+          <div className={styles.mergeSearchRow}>
+            <input
+              type="text"
+              className={styles.mergeSearchInput}
+              placeholder="🔍 Search candidate tickets by Ref #, Title, or Tenant..."
+              value={mergeSearch}
+              onChange={(e) => setMergeSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Quick Add by Ref # / ID */}
+          <div className={styles.mergeSearchRow}>
+            <input
+              type="text"
+              className={styles.mergeSearchInput}
+              placeholder="Or enter Ref # (e.g. HD-2026-00002) / UUID ID directly..."
+              value={manualMergeInput}
+              onChange={(e) => setManualMergeInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleManualAddMerge(); } }}
+            />
+            <button
+              type="button"
+              className={styles.mergeQuickAddBtn}
+              onClick={handleManualAddMerge}
+              disabled={!manualMergeInput.trim()}
+            >
+              + Add Ticket
+            </button>
+          </div>
+
+          {/* Selected Tickets Box */}
+          {selectedMergeTickets.length > 0 && (
+            <div className={styles.mergeSelectedBox}>
+              <div className={styles.mergeSelectedHeader}>
+                <span>Selected Tickets to Merge ({selectedMergeTickets.length}):</span>
+                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Click ✕ to deselect</span>
+              </div>
+              <div className={styles.mergeSelectedPills}>
+                {selectedMergeTickets.map((st) => (
+                  <span key={st.id} className={styles.mergePill}>
+                    <strong>{st.referenceNumber || st.id.slice(0, 8)}</strong>: {st.title}
+                    <button
+                      type="button"
+                      className={styles.mergePillRemove}
+                      onClick={() => toggleMergeCandidate(st)}
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Discovered Candidates Header */}
+          <div className={styles.mergeSectionTitle}>
+            <span>Discovered Duplicate Candidates</span>
+            <span className={styles.mergeCandidateCount}>{mergeCandidates.length} found</span>
+          </div>
+
+          {/* Candidate List */}
+          {loadingCandidates ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '0.84rem' }}>
+              Searching for candidate duplicate tickets…
+            </div>
+          ) : mergeCandidates.length === 0 ? (
+            <div className={styles.mergeEmptyCandidates}>
+              No eligible duplicate tickets discovered. You can search by reference number or add a ticket ID above.
+            </div>
+          ) : (
+            <div className={styles.mergeCandidatesList}>
+              {mergeCandidates.map((cand) => {
+                const isSelected = selectedMergeTickets.some((t) => t.id === cand.id);
+                const isSameTenant = ticket.tenantId && cand.tenantId === ticket.tenantId;
+
+                return (
+                  <div
+                    key={cand.id}
+                    className={`${styles.mergeCandidateCard} ${isSelected ? styles.mergeCandidateCardSelected : ''}`}
+                    onClick={() => toggleMergeCandidate(cand)}
+                  >
+                    <input
+                      type="checkbox"
+                      className={styles.mergeCheckbox}
+                      checked={isSelected}
+                      onChange={() => {}}
+                    />
+                    <div className={styles.mergeCandidateMain}>
+                      <div className={styles.mergeCandidateHeader}>
+                        <span className={styles.mergeCandidateRef}>{cand.referenceNumber || cand.id.slice(0, 8)}</span>
+                        {isSameTenant && (
+                          <span className={styles.mergeSameTenantBadge}>Same Tenant</span>
+                        )}
+                        <span className={styles.mergeCandidateTitle} title={cand.title}>
+                          {cand.title}
+                        </span>
+                      </div>
+                      <div className={styles.mergeCandidateMeta}>
+                        <span>Tenant: {cand.tenantName || 'N/A'}</span>
+                        <span>•</span>
+                        <span>Status: {STATUS_LABELS[cand.status] || cand.status}</span>
+                        <span>•</span>
+                        <span>{cand.createdAt ? new Date(cand.createdAt).toLocaleDateString() : 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Optional Merge Reason / Note */}
+          <div className={styles.mergeNotesField}>
+            <label>Merge Reason / Internal Note (Optional)</label>
+            <textarea
+              rows={2}
+              placeholder="e.g. Duplicate issue reported by tenant. Merging into primary ticket."
+              value={mergeNotes}
+              onChange={(e) => setMergeNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Modal Footer Actions */}
+          <div className={styles.mergeFooter}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => setMergeModal(false)}
+              disabled={mergingLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              onClick={handleConfirmMerge}
+              disabled={selectedMergeTickets.length === 0 || mergingLoading}
+            >
+              {mergingLoading ? 'Merging…' : `Confirm Merge (${selectedMergeTickets.length} Selected)`}
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -1185,17 +1961,67 @@ export default function TicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={attachModal} title="Upload Attachment" onClose={() => setAttachModal(false)}>
+      <Modal open={attachModal} title="Upload Ticket Attachment" onClose={() => setAttachModal(false)}>
         <div className={styles.modalForm}>
-          <label>File (max 5, 10MB each)</label>
-          <input type="file" multiple onChange={(e) => setAttachFiles(e.target.files)} />
-          <button disabled={!attachFiles || attachFiles.length === 0} onClick={async () => {
-            if (!attachFiles) return;
-            const fd = new FormData();
-            Array.from(attachFiles).forEach((f) => fd.append('attachments', f));
-            await call(() => uploadTicketAttachments(ticket.id, fd), 'Uploaded');
-            setAttachFiles(null);
-          }}>Upload</button>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>Select File(s) (Max 5, 10MB each)</label>
+            <input
+              type="file"
+              multiple
+              className={styles.modalFileInput}
+              onChange={(e) => setAttachFiles(e.target.files)}
+            />
+            {attachFiles && attachFiles.length > 0 && (
+              <span className={styles.modalHint}>
+                {attachFiles.length} file(s) selected ({Array.from(attachFiles).map((f) => f.name).join(', ')})
+              </span>
+            )}
+          </div>
+
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>
+              Why are you uploading this file? (Comment / Reason)
+            </label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={3}
+              placeholder="Explain the purpose of this attachment (e.g. Screenshot of the error message, invoice receipt, proof of maintenance...)"
+              value={attachComment}
+              onChange={(e) => setAttachComment(e.target.value)}
+            />
+            <span className={styles.modalHint}>
+              This comment and your name will be visible to everyone viewing this ticket.
+            </span>
+          </div>
+
+          <div className={styles.modalFooterActions}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => { setAttachModal(false); setAttachFiles(null); setAttachComment(''); }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              disabled={!attachFiles || attachFiles.length === 0}
+              onClick={async () => {
+                if (!attachFiles) return;
+                const fd = new FormData();
+                Array.from(attachFiles).forEach((f) => fd.append('attachments', f));
+                if (attachComment.trim()) {
+                  fd.append('comment', attachComment.trim());
+                }
+                await call(() => uploadTicketAttachments(ticket.id, fd), 'Attachment uploaded successfully');
+                setAttachFiles(null);
+                setAttachComment('');
+                setAttachModal(false);
+              }}
+            >
+              Upload Attachment
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -1231,12 +2057,17 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
   const { user } = useAuth();
   const isStaff = user?.role === 'staff';
   const isManager = user?.role === 'manager';
+  const isTenant = user?.role === 'tenant';
   const canTarget = user?.role !== 'tenant';
 
-  // Staff: always department-only. Others: default to tenant.
+  const isDirect = ticket?.routingType === 'direct';
+  const deptName = ticket?.departmentName || 'department';
+  const assignedName = ticket?.assignedToName;
+
+  // Staff: always department-only. Tenants: both. Others: default to both.
   const [text, setText] = useState('');
   const [visibility, setVisibility] = useState<'tenant' | 'department' | 'both' | 'admin'>(
-    isStaff ? 'department' : 'tenant'
+    isStaff ? 'department' : isTenant ? (isDirect ? 'both' : (ticket?.departmentId ? 'both' : 'tenant')) : 'both'
   );
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [departmentId, setDepartmentId] = useState<string>('');
@@ -1265,6 +2096,22 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
 
   const submit = async () => {
     if (!text.trim()) return;
+
+    if (isTenant) {
+      try {
+        await addTicketReply(ticketId, {
+          message: text,
+          visibility: isDirect ? 'both' : (ticket?.departmentId ? 'both' : 'all'),
+          departmentIds: ticket?.departmentId || null,
+        });
+        setText('');
+        setMsg('Reply sent');
+      } catch (e: any) {
+        setMsg(e?.response?.data?.message || 'Failed');
+      }
+      return;
+    }
+
     // For staff, departmentId is the ticket department — always required
     const effectiveDeptId = isStaff ? (ticket?.departmentId || '') : (needsDept ? departmentId : null);
     if (isStaff && !effectiveDeptId) {
@@ -1287,8 +2134,56 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
     }
   };
 
+  const getPlaceholder = () => {
+    if (isStaff) return 'Write a message to your Department Manager…';
+    if (isAdminOnly) return 'Write a private note to Admin — only admins can see this…';
+    if (isTenant) {
+      if (isDirect) {
+        return `Write a reply to the ${deptName} team…`;
+      }
+      return assignedName
+        ? `Write a reply to Admin and assigned specialist (${assignedName})…`
+        : 'Write a reply to Admin and support team…';
+    }
+    if (needsDept && !departmentId) return 'Select a department to continue…';
+    if (visibility === 'department') return 'Reply visible only to the selected department…';
+    if (visibility === 'both') return 'Reply visible to tenant and the selected department…';
+    return 'Reply visible to tenant and assigned team…';
+  };
+
   return (
     <div className={styles.replyForm}>
+      {/* Tenant: Clear category routing notice */}
+      {isTenant && (
+        <div
+          className={`${styles.replyTenantRoutingNotice} ${
+            isDirect ? styles.replyTenantRoutingNoticeDirect : styles.replyTenantRoutingNoticeGeneral
+          }`}
+        >
+          <span className={styles.replyVisibilityIcon}>{isDirect ? '🏢' : '🛡️'}</span>
+          <span>
+            {isDirect ? (
+              <>
+                <strong>Direct Category Routing:</strong> Your reply will be routed directly to the{' '}
+                <strong>{deptName}</strong> team and manager, with visibility to the department and Admin.
+              </>
+            ) : (
+              <>
+                <strong>General Category Routing:</strong> Your reply will be routed to the{' '}
+                <strong>Admin</strong>
+                {assignedName ? (
+                  <> and assigned specialist (<strong>{assignedName}</strong>)</>
+                ) : ticket?.departmentName ? (
+                  <> and the <strong>{ticket.departmentName}</strong> department manager</>
+                ) : (
+                  <> for review and assignment</>
+                )}.
+              </>
+            )}
+          </span>
+        </div>
+      )}
+
       {/* Staff: locked to Department — show info notice instead of selector */}
       {isStaff ? (
         <div className={styles.replyVisibilityNotice}>
@@ -1308,9 +2203,9 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
               onChange={(e) => setVisibility(e.target.value as 'tenant' | 'department' | 'both' | 'admin')}
               className={styles.replyFormSelect}
             >
+              <option value="both">👤🏢 Tenant & Department — both can see</option>
               <option value="tenant">👤 Tenant Only — visible to the tenant</option>
               <option value="department">🏢 Department Only — hidden from tenant</option>
-              <option value="both">👤🏢 Tenant & Department — both can see</option>
               {isManager && (
                 <option value="admin">🛡️ Admin Only — private escalation note to Admin</option>
               )}
@@ -1347,25 +2242,13 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
       )}
       <textarea
         rows={3}
-        placeholder={
-          isStaff
-            ? 'Write a message to your Department Manager…'
-            : isAdminOnly
-              ? 'Write a private note to Admin — only admins can see this…'
-              : needsDept && !departmentId
-                ? 'Select a department to continue…'
-                : visibility === 'department'
-                  ? 'Reply visible only to the selected department…'
-                  : visibility === 'both'
-                    ? 'Reply visible to tenant and the selected department…'
-                    : 'Reply visible only to the tenant…'
-        }
+        placeholder={getPlaceholder()}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
       <button
         onClick={submit}
-        disabled={!text.trim() || (!isStaff && needsDept && !departmentId)}
+        disabled={!text.trim() || (!isStaff && !isTenant && needsDept && !departmentId)}
       >
         Submit Reply
       </button>

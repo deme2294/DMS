@@ -104,7 +104,7 @@ export default function CeoKnowledgeCreate() {
           <label htmlFor="content">Content</label>
           <textarea
             id="content"
-            {...register('content', { required: 'Content is required' })}
+            {...register('content', { required: 'Content is required', minLength: { value: 50, message: 'Content must be at least 50 characters' } })}
             placeholder="Write the article content here..."
           />
           {errors.content && <span className={styles.error}>{errors.content.message}</span>}

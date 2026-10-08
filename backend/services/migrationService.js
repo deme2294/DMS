@@ -16,6 +16,7 @@ export async function runAutoMigrations() {
         status ENUM('draft','published','archived') DEFAULT 'draft',
         target_audience ENUM('all','admin','manager','staff','tenant','department') DEFAULT 'all',
         expires_at DATETIME NULL,
+        published_at DATETIME NULL,
         expiry_warned TINYINT(1) NOT NULL DEFAULT 0,
         created_by CHAR(36) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -234,6 +235,14 @@ export async function runAutoMigrations() {
       }
     }
 
+    // 2e. Table notices -> Add published_at for recording the exact publication timestamp
+    if (!(await columnExists('notices', 'published_at'))) {
+      await pool.query('ALTER TABLE notices ADD COLUMN published_at DATETIME NULL AFTER expires_at');
+      console.log('[MIGRATION] Added column notices.published_at');
+      await pool.query("UPDATE notices SET published_at = created_at WHERE status = 'published' AND published_at IS NULL");
+      console.log('[MIGRATION] Backfilled published_at for existing published notices');
+    }
+
     // 3. Table tickets -> add tenant confirmation and escalation columns
     if (!(await columnExists('tickets', 'tenant_confirmation_status'))) {
       await pool.query(`ALTER TABLE tickets ADD COLUMN tenant_confirmation_status ENUM('not_required','pending','approved','rejected') NOT NULL DEFAULT 'not_required'`);
@@ -258,6 +267,11 @@ export async function runAutoMigrations() {
     if (!(await columnExists('tickets', 'reopen_reason'))) {
       await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_reason TEXT NULL`);
       console.log('[MIGRATION] Added column tickets.reopen_reason');
+    }
+
+    if (!(await columnExists('ticket_attachments', 'comment'))) {
+      await pool.query(`ALTER TABLE ticket_attachments ADD COLUMN comment TEXT NULL AFTER uploaded_by`);
+      console.log('[MIGRATION] Added column ticket_attachments.comment');
     }
 
     // 3a. Table tickets -> migrate old statuses to new primary statuses

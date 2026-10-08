@@ -136,6 +136,7 @@ export interface KnowledgeCategory {
   description?: string | null;
   icon?: string | null;
   isActive: boolean;
+  isVirtual?: boolean;
   parentId?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;

@@ -79,6 +79,10 @@ export default function KnowledgeCategories() {
 
   const handleUpdate = async () => {
     if (!editTarget) return;
+    if (editTarget.isVirtual) {
+      setError('This is a legacy category derived from article data. Create a proper category with the same name to manage it.');
+      return;
+    }
     if (!form.name.trim()) { setError('Name is required'); return; }
     await runAction(() => updateCategory(editTarget.id, { ...form, parentId: form.parentId || null, departmentId: form.departmentId || null }), 'Category updated');
     setEditTarget(null);
@@ -87,6 +91,11 @@ export default function KnowledgeCategories() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (deleteTarget.isVirtual) {
+      setError('Virtual categories cannot be deleted. They are automatically removed when no articles use that category name.');
+      setDeleteTarget(null);
+      return;
+    }
     await runAction(() => deleteCategory(deleteTarget.id), 'Category deleted');
     setDeleteTarget(null);
   };
@@ -136,7 +145,16 @@ export default function KnowledgeCategories() {
         loading={loading}
         data={pagedCategories}
         columns={[
-          { key: 'name', label: 'Name' },
+          { key: 'name', label: 'Name', render: (row) => (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {row.name}
+              {row.isVirtual && (
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', flexShrink: 0 }}>
+                  Legacy
+                </span>
+              )}
+            </span>
+          )},
           { key: 'slug', label: 'Slug' },
           {
             key: 'department',
@@ -185,12 +203,21 @@ export default function KnowledgeCategories() {
           {
             key: 'actions',
             label: 'Actions',
-            render: (row) => (
-              <div className={styles.actions}>
-                <button className={styles.edit} onClick={() => startEdit(row)}>Edit</button>
-                <button className={styles.danger} onClick={() => setDeleteTarget(row)}>Delete</button>
-              </div>
-            ),
+            render: (row) => {
+              if (row.isVirtual) {
+                return (
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', padding: '4px 8px', background: '#f1f5f9', borderRadius: 6, display: 'inline-block' }}>
+                    Auto-generated
+                  </span>
+                );
+              }
+              return (
+                <div className={styles.actions}>
+                  <button className={styles.edit} onClick={() => startEdit(row)}>Edit</button>
+                  <button className={styles.danger} onClick={() => setDeleteTarget(row)}>Delete</button>
+                </div>
+              );
+            },
           },
         ]}
       />

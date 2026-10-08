@@ -144,7 +144,7 @@ export default function CeoKnowledgeEdit() {
 
         <div className={styles.formGroup}>
           <label htmlFor="content">Content</label>
-          <textarea id="content" disabled={!editable} {...register('content', { required: 'Content is required' })} placeholder="Write the article content here..." />
+          <textarea id="content" disabled={!editable} {...register('content', { required: 'Content is required', minLength: { value: 50, message: 'Content must be at least 50 characters' } })} placeholder="Write the article content here..." />
           {errors.content && <span className={styles.error}>{errors.content.message}</span>}
         </div>
 

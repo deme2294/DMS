@@ -2184,4 +2184,131 @@
   border-left-color: #475569;
 }
 
+/* ── Article Detail Drawer Dark Mode Overrides ────────────────────────────── */
+:global([data-theme="dark"]) .drawerContainer {
+  background: #111827 !important;
+  border-left: 1px solid #252e3e !important;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.7) !important;
+}
+
+:global([data-theme="dark"]) .drawerHeader {
+  border-bottom-color: #1f2937 !important;
+  background: #0f172a !important;
+}
+
+:global([data-theme="dark"]) .drawerTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .drawerCategory {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .drawerCloseBtn {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .drawerCloseBtn:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .drawerStepperWrap {
+  background: #0f1422 !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .drawerStepperTitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .drawerStepperCurrent {
+  color: #38bdf8 !important;
+}
+
+:global([data-theme="dark"]) .drawerStepCircle {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+:global([data-theme="dark"]) .drawerStepCircleActive {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .drawerStepCircleCompleted {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+}
+
+:global([data-theme="dark"]) .drawerStepText {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .drawerStepConnector {
+  background: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .drawerStepConnectorCompleted {
+  background: #059669 !important;
+}
+
+:global([data-theme="dark"]) .drawerMetaSection {
+  background: #0b0f19 !important;
+  border-bottom-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .drawerMetaLabel {
+  color: #64748b !important;
+}
+
+:global([data-theme="dark"]) .drawerMetaValue {
+  color: #e2e8f0 !important;
+}
+
+:global([data-theme="dark"]) .drawerAlertBox {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fde68a !important;
+}
+
+:global([data-theme="dark"]) .drawerAlertDanger {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+:global([data-theme="dark"]) .drawerSummaryBox {
+  background: #0f1422 !important;
+  color: #cbd5e1 !important;
+  border-left-color: #0284c7 !important;
+}
+
+:global([data-theme="dark"]) .drawerContentText {
+  color: #f1f5f9 !important;
+}
+
+:global([data-theme="dark"]) .drawerFooter {
+  background: #0f172a !important;
+  border-top-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .drawerFooterPdfBtn {
+  background: #1e293b !important;
+  color: #38bdf8 !important;
+  border-color: #0284c7 !important;
+}
+
+:global([data-theme="dark"]) .drawerFooterPdfBtn:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
 

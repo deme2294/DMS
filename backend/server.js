@@ -143,10 +143,11 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:", "blob:"],
+            imgSrc: ["'self'", "data:", "blob:", "*"],
         },
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 // Custom header
 app.disable('x-powered-by');
@@ -350,7 +351,15 @@ app.use('/api/chat', chatRoutes);
 //    Files uploaded via multer land in  /uploads/tickets  and  /uploads/users.
 //    Accessible at  GET /uploads/<subfolder>/<filename>
 // ─────────────────────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(
+    '/uploads',
+    (req, res, next) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        next();
+    },
+    express.static(path.join(__dirname, 'uploads'))
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. In production, serve the compiled frontend from ../frontend/dist

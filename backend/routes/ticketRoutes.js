@@ -162,9 +162,15 @@ router.post(
 );
 
 // Merge duplicates
+router.get(
+  '/:id/merge-candidates',
+  requireRole('admin', 'ceo'),
+  [idParam(), validate],
+  ticketController.getMergeCandidates
+);
 router.post(
   '/:id/merge',
-  requireRole('admin'),
+  requireRole('admin', 'ceo'),
   [
     idParam(),
     body('sourceIds').isArray({ min: 1 }).withMessage('sourceIds required'),

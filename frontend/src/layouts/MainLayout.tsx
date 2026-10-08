@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { ROLE_DASHBOARD } from '../config/routes';
 import NotificationCenter from '../components/NotificationCenter';
 import UserDropdown from './UserDropdown';
+import ThemeToggle from '../components/ThemeToggle/ThemeToggle';
 import styles from './MainLayout.module.css';
 
 export default function MainLayout() {
@@ -31,6 +32,7 @@ export default function MainLayout() {
           )}
         </nav>
         <div className={styles.user}>
+          <ThemeToggle />
           {user ? (
             <>
               <NotificationCenter />

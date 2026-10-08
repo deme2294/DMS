@@ -245,11 +245,13 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
     slaAgreementAcceptedAt: new Date(),
   });
 
+  const initialComment = payload.comment || payload.attachmentComment || 'Initial ticket attachment';
   for (const file of files) {
     await ticketRepo.addAttachment({
       id: uuidv4(), ticketId: id, fileName: file.originalname,
       originalName: file.originalname, fileSize: file.size || 0,
       filePath: `/uploads/tickets/${file.filename}`, mimeType: file.mimetype, uploadedBy: user.id,
+      comment: initialComment,
     });
   }
 
@@ -715,23 +717,95 @@ export const escalateTicket = async (user, id, notes, meta = {}) => {
   return updated;
 };
 
-export const mergeTickets = async (user, targetId, sourceIds, notes, meta = {}) => {
-  const target = await ticketRepo.findById(targetId);
+export const getMergeCandidates = async (user, targetId, search) => {
+  const target = (await ticketRepo.findById(targetId)) || (await ticketRepo.findByIdOrRef(targetId));
   if (!target) throw Object.assign(new Error('Target ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, target))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
 
-  const valid = sourceIds.filter((sid) => sid !== targetId);
-  if (!valid.length) throw Object.assign(new Error('No valid source tickets'), { statusCode: 400 });
+  const rows = await ticketRepo.findMergeCandidates(target.id, target.tenant_id, search);
+  return rows.map(sanitizeTicket);
+};
 
-  await ticketRepo.mergeInto(valid, targetId);
-  for (const sid of valid) {
-    await logStatus(sid, 'merged', 'cancelled', user, `Merged into ${target.reference_number}`, meta);
+export const mergeTickets = async (user, targetId, sourceIds, notes, meta = {}) => {
+  const target = (await ticketRepo.findById(targetId)) || (await ticketRepo.findByIdOrRef(targetId));
+  if (!target) throw Object.assign(new Error('Target ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, target))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // Resolve source IDs or reference numbers
+  const resolvedSources = [];
+  const seenIds = new Set();
+
+  for (const sid of (sourceIds || [])) {
+    const raw = String(sid).trim();
+    if (!raw) continue;
+    let src = await ticketRepo.findById(raw);
+    if (!src) {
+      src = await ticketRepo.findByIdOrRef(raw);
+    }
+    if (src && src.id !== target.id && !seenIds.has(src.id)) {
+      seenIds.add(src.id);
+      resolvedSources.push(src);
+    }
   }
 
-  const updated = await getTicket(user, targetId);
-  await notificationService.notifyTicketMerged(updated, valid.length, notes);
-  sendTicketMergedEmail(updated, valid.length).catch(() => {});
-  auditService.logAction(user.id, 'merge', 'ticket', targetId, meta?.ip, { sourceIds: valid, notes }, { role: user.role, browser: meta?.browser }).catch(() => {});
+  if (!resolvedSources.length) {
+    throw Object.assign(new Error('No valid source tickets to merge. Please select or provide active tickets.'), { statusCode: 400 });
+  }
+
+  const validIds = resolvedSources.map((s) => s.id);
+  const sourceRefs = resolvedSources.map((s) => s.reference_number || s.id);
+
+  await ticketRepo.mergeInto(validIds, target.id);
+
+  for (const src of resolvedSources) {
+    const srcRef = src.reference_number || src.id;
+    const targetRef = target.reference_number || target.id;
+    await logStatus(
+      src.id,
+      src.status,
+      'cancelled',
+      user,
+      `Merged into ${targetRef}.${notes ? ` Reason: ${notes}` : ''}`,
+      meta
+    );
+  }
+
+  // Record an internal timeline event on the target ticket documenting what was merged
+  await logStatus(
+    target.id,
+    target.status,
+    target.status,
+    user,
+    `Merged ticket(s) ${sourceRefs.join(', ')} into this ticket.${notes ? ` Note: ${notes}` : ''}`,
+    meta
+  );
+
+  // Add an internal reply note on target ticket so staff and manager see the merged history
+  await ticketRepo.addReply({
+    id: uuidv4(),
+    ticketId: target.id,
+    userId: user.id,
+    message: `📎 Ticket Merged: The following ticket(s) were merged into this ticket by ${user.first_name || ''} ${user.last_name || ''}: ${sourceRefs.join(', ')}.${notes ? `\nReason / Notes: ${notes}` : ''}`,
+    visibility: 'internal',
+    attachmentId: null,
+    type: 'note',
+    isInternal: 1,
+    departmentIds: target.department_id || null,
+  }).catch(() => {});
+
+  const updated = await getTicket(user, target.id);
+  await notificationService.notifyTicketMerged(updated, validIds.length, notes);
+  sendTicketMergedEmail(updated, validIds.length).catch(() => {});
+  auditService.logAction(
+    user.id,
+    'merge',
+    'ticket',
+    target.id,
+    meta?.ip,
+    { sourceIds: validIds, sourceRefs, notes },
+    { role: user.role, browser: meta?.browser }
+  ).catch(() => {});
+
   return updated;
 };
 
@@ -1076,7 +1150,7 @@ export const addInternalNote = async (user, id, message, attachmentId = null, de
   return getTicket(user, id);
 };
 
-export const addAttachments = async (user, id, files = [], meta = {}) => {
+export const addAttachments = async (user, id, files = [], comment = null, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
@@ -1085,14 +1159,17 @@ export const addAttachments = async (user, id, files = [], meta = {}) => {
   if ((ticket.attachments?.length || 0) + files.length > 5) {
     throw Object.assign(new Error('Maximum 5 attachments allowed'), { statusCode: 400 });
   }
+  const cleanComment = typeof comment === 'string' && comment.trim() ? comment.trim() : null;
   for (const file of files) {
     await ticketRepo.addAttachment({
       id: uuidv4(), ticketId: id, fileName: file.originalname,
       originalName: file.originalname, fileSize: file.size || 0,
       filePath: `/uploads/tickets/${file.filename}`, mimeType: file.mimetype, uploadedBy: user.id,
+      comment: cleanComment,
     });
   }
-  await logStatus(id, ticket.status, ticket.status, user, `Uploaded ${files.length} file(s)`, meta);
+  const reasonText = cleanComment ? `Uploaded ${files.length} file(s) — Reason: "${cleanComment}"` : `Uploaded ${files.length} file(s)`;
+  await logStatus(id, ticket.status, ticket.status, user, reasonText, meta);
   return getTicket(user, id);
 };
 
@@ -1106,7 +1183,7 @@ export const getCategories = async () => ticketRepo.getCategories();
 //   both      -> tenant + chosen department
 const splitCsv = (v) => (v || '').toString().split(',').map((s) => s.trim()).filter(Boolean);
 
-export const isReplyVisible = (user, reply, userDeptIds = []) => {
+export const isReplyVisible = (user, reply, userDeptIds = [], ticket = null) => {
   const visibility = reply.visibility;
   const isInternal = visibility === 'internal' || visibility === 'admin' || reply.isInternal === 1 || reply.isInternal === true;
   const deptIds = splitCsv(reply.departmentIds || reply.department_ids);
@@ -1116,22 +1193,55 @@ export const isReplyVisible = (user, reply, userDeptIds = []) => {
   const isAuthor = (reply.userId && reply.userId === user.id) || (reply.user_id && reply.user_id === user.id);
   if (isAuthor) return true;
 
-  // Admin can always see everything
-  if (user.role === 'admin') return true;
+  // Admin and CEO can always see everything
+  if (user.role === 'admin' || user.role === 'ceo') return true;
 
   // Admin-only replies are strictly between the author and Admins
   if (visibility === 'admin') return false;
+
+  // Check if reply author was a tenant
+  const isAuthorTenant = reply.user_role === 'tenant' || reply.userRole === 'tenant' || reply.author_role === 'tenant' || (ticket && (ticket.created_by === (reply.user_id || reply.userId)));
 
   if (user.role === 'tenant') {
     if (visibility === 'department' || visibility === 'internal' || isInternal) return false;
     return true;
   }
 
-  // staff / manager / ceo
-  if (visibility === 'tenant') return false;
+  // Viewing user is staff, manager, or other internal role
+  const routingType = ticket?.routing_type || ticket?.routingType || 'general';
+  const ticketDeptId = ticket?.department_id || ticket?.departmentId || ticket?.auto_department_id;
+  const isAssignedUser = ticket && (ticket.assigned_to === user.id || ticket.assignedTo === user.id);
+  const isInTicketDept = ticketDeptId && userDeptIds.includes(ticketDeptId);
+  const isInReplyDepts = deptIds.length > 0 && deptIds.some((d) => userDeptIds.includes(d));
+
+  if (isAuthorTenant) {
+    if (routingType === 'direct') {
+      // Direct category: routed to the department of the ticket category
+      if (isInTicketDept) return true;
+      if (isAssignedUser) return true;
+      if (isInReplyDepts) return true;
+      return false;
+    } else {
+      // General category: routed to Admin; visible to assigned user and department manager once assigned
+      if (isAssignedUser) return true;
+      if (isInTicketDept) return true;
+      if (isInReplyDepts) return true;
+      return false;
+    }
+  }
+
+  // Staff / Manager / Admin author replies:
   if (visibility === 'all') return true;
+  if (visibility === 'tenant') {
+    // If a reply was marked tenant, assigned user and department managers can also view it
+    if (isAssignedUser || isInTicketDept) return true;
+    return false;
+  }
 
   // internal | department | both => department restricted
+  if (isAssignedUser) return true;
+  if (isInTicketDept) return true;
+
   if (deptIds.length === 0) {
     if (visibility === 'internal') {
       return authorDepts.length === 0 ? false : authorDepts.some((d) => userDeptIds.includes(d));
@@ -1146,11 +1256,44 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
 
+  let effectiveVisibility = visibility;
+  let effectiveDeptIds = departmentIds;
+
+  // When a comment or reply is created by a tenant:
+  // - Direct ticket categories: routed to the department of the ticket category
+  // - General ticket categories: routed to Admin (and visible to assigned user / manager if assigned)
+  if (user.role === 'tenant') {
+    let routingType = ticket.routing_type;
+    let targetDeptId = ticket.department_id || ticket.auto_department_id;
+
+    if (!routingType || !targetDeptId) {
+      const catInfo = await ticketRepo.getDepartmentForCategory(ticket.category).catch(() => null);
+      if (catInfo) {
+        if (!routingType) routingType = catInfo.routing_type;
+        if (!targetDeptId) targetDeptId = catInfo.department_id;
+      }
+    }
+    routingType = routingType || 'general';
+
+    if (routingType === 'direct') {
+      effectiveVisibility = 'both';
+      effectiveDeptIds = targetDeptId || null;
+    } else {
+      if (ticket.department_id) {
+        effectiveVisibility = 'both';
+        effectiveDeptIds = ticket.department_id;
+      } else {
+        effectiveVisibility = 'all';
+        effectiveDeptIds = null;
+      }
+    }
+  }
+
   const replyId = uuidv4();
-  const isInternal = (visibility === 'internal' || visibility === 'department' || visibility === 'admin') ? 1 : 0;
+  const isInternal = (effectiveVisibility === 'internal' || effectiveVisibility === 'department' || effectiveVisibility === 'admin') ? 1 : 0;
   await ticketRepo.addReply({
-    id: replyId, ticketId, userId: user.id, message, visibility, attachmentId,
-    type: 'reply', isInternal, departmentIds: departmentIds || null,
+    id: replyId, ticketId, userId: user.id, message, visibility: effectiveVisibility, attachmentId,
+    type: 'reply', isInternal, departmentIds: effectiveDeptIds || null,
   });
 
   // Track response SLA satisfaction when staff/manager/admin responds to user
@@ -1165,7 +1308,7 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   }
 
   const savedTicket = await ticketRepo.findById(ticketId);
-  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1, visibility);
+  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1, effectiveVisibility);
 
   const replies = await ticketRepo.getReplies(ticketId);
   return replies.find((r) => r.id === replyId) || { id: replyId };
@@ -1184,10 +1327,11 @@ export const getReplies = async (user, ticketId) => {
     ? []
     : await ticketRepo.getUserDepartmentIds(user.id);
 
-  const visible = replies.filter((r) => isReplyVisible(user, r, userDeptIds));
+  const visible = replies.filter((r) => isReplyVisible(user, r, userDeptIds, ticket));
 
   return visible.map((r) => ({
     id: r.id, ticketId: r.ticket_id, userId: r.user_id, userName: r.user_name,
+    userRole: r.user_role,
     message: r.message, visibility: r.visibility, type: r.type, isInternal: !!r.is_internal,
     attachmentId: r.attachment_id, createdAt: r.created_at,
     departmentIds: r.department_ids, authorDepartmentIds: r.author_department_ids,
@@ -1206,12 +1350,14 @@ export const getTimeline = async (user, ticketId) => {
     ? []
     : await ticketRepo.getUserDepartmentIds(user.id);
 
-  const filtered = events.filter((e) => e.kind !== 'comment' || isReplyVisible(user, e, userDeptIds));
+  const filtered = events.filter((e) => (e.kind !== 'comment' && e.type !== 'comment') || isReplyVisible(user, e, userDeptIds, ticket));
 
   return filtered.map((e) => ({
     id: e.id, kind: e.kind, type: e.type, message: e.message, notes: e.notes,
     fromStatus: e.from_status, toStatus: e.to_status, visibility: e.visibility,
-    role: e.role, actorName: e.actor_name, createdAt: e.created_at,
+    userRole: e.user_role,
+    isInternal: e.visibility === 'internal' || e.visibility === 'department' || e.visibility === 'admin',
+    actorName: e.actor_name, createdAt: e.created_at,
     departmentIds: e.department_ids, authorDepartmentIds: e.author_department_ids,
   }));
 };

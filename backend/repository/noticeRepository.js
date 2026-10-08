@@ -1,6 +1,65 @@
 import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Normalizes a raw database notice row to guarantee both camelCase and snake_case
+ * fields (especially createdAt, created_at, publishedAt, published_at) are present.
+ */
+export const mapNotice = (row) => {
+  if (!row) return null;
+  const createdAt = row.created_at || row.createdAt || null;
+  const updatedAt = row.updated_at || row.updatedAt || null;
+  const expiresAt = row.expires_at || row.expiresAt || null;
+  const publishedAt = row.published_at || row.publishedAt || (row.status === 'published' ? createdAt : null);
+  const targetAudience = row.target_audience || row.targetAudience || 'all';
+  const departmentId = row.department_id || row.departmentId || null;
+  const departmentName = row.department_name || row.departmentName || null;
+  const assignedTo = row.assigned_to || row.assignedTo || null;
+  const assignedBy = row.assigned_by || row.assignedBy || null;
+  const creatorRole = row.creator_role || row.creatorRole || null;
+  const createdBy = row.created_by || row.createdBy || null;
+  const attachmentName = row.attachment_name || row.attachmentName || null;
+
+  const creatorFirstName = row.creator_first_name || '';
+  const creatorLastName = row.creator_last_name || '';
+  const createdByName = creatorFirstName
+    ? `${creatorFirstName} ${creatorLastName}`.trim()
+    : (row.createdByName || 'System Admin');
+
+  return {
+    ...row,
+    createdAt,
+    created_at: createdAt,
+    updatedAt,
+    updated_at: updatedAt,
+    expiresAt,
+    expires_at: expiresAt,
+    publishedAt,
+    published_at: publishedAt,
+    targetAudience,
+    target_audience: targetAudience,
+    departmentId,
+    department_id: departmentId,
+    departmentName,
+    department_name: departmentName,
+    assignedTo,
+    assigned_to: assignedTo,
+    assignedBy,
+    assigned_by: assignedBy,
+    creatorRole,
+    creator_role: creatorRole,
+    createdBy,
+    created_by: createdBy,
+    createdByName,
+    attachmentName,
+    attachment_name: attachmentName,
+    recipientCounts: row.recipient_total !== undefined ? {
+      total: Number(row.recipient_total || 0),
+      acknowledged: Number(row.recipient_acknowledged || 0)
+    } : (row.recipientCounts || undefined),
+  };
+};
+
 export const findById = async (id) => {
   const [rows] = await pool.query(
     `SELECT notices.*,
@@ -17,7 +76,7 @@ export const findById = async (id) => {
      WHERE notices.id = ? LIMIT 1`,
     [id]
   );
-  return rows[0] || null;
+  return mapNotice(rows[0]);
 };
 
 export const findAll = async ({ search, status, priority, targetAudience, departmentId, includeExpired = false, page = 1, limit = 10 }) => {
@@ -71,7 +130,7 @@ export const findAll = async ({ search, status, priority, targetAudience, depart
   );
 
   return {
-    data: rows,
+    data: rows.map(mapNotice),
     pagination: {
       total: countRows[0].total,
       page: Number(page),
@@ -85,19 +144,22 @@ export const create = async (notice) => {
   const {
     id, title, description, image, attachment, attachmentName,
     priority, status, targetAudience, departmentId, assignedTo,
-    assignedBy, creatorRole, expiresAt, createdBy
+    assignedBy, creatorRole, expiresAt, createdBy, publishedAt
   } = notice;
+  const isPub = status === 'published';
+  const pubTime = publishedAt ?? (isPub ? new Date() : null);
+
   await pool.query(
     `INSERT INTO notices (
       id, title, description, image, attachment, attachment_name,
       priority, status, target_audience, department_id, assigned_to,
-      assigned_by, creator_role, expires_at, created_by, created_at, updated_at
+      assigned_by, creator_role, expires_at, published_at, created_by, created_at, updated_at
     )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id, title, description, image ?? null, attachment ?? null, attachmentName ?? null,
       priority, status, targetAudience, departmentId ?? null, assignedTo ?? null,
-      assignedBy ?? null, creatorRole ?? null, expiresAt ?? null, createdBy
+      assignedBy ?? null, creatorRole ?? null, expiresAt ?? null, pubTime, createdBy
     ]
   );
 };
@@ -111,6 +173,8 @@ export const update = async (id, fields) => {
     assignedTo: 'assigned_to',
     assignedBy: 'assigned_by',
     expiresAt: 'expires_at',
+    publishedAt: 'published_at',
+    published_at: 'published_at',
     createdBy: 'created_by',
     creatorRole: 'creator_role',
     attachmentName: 'attachment_name'
@@ -132,13 +196,19 @@ export const remove = async (id) => {
 
 export const getActiveNotices = async () => {
   const [rows] = await pool.query(
-    `SELECT * FROM notices
-     WHERE status = 'published'
-       AND target_audience = 'all'
-       AND (expires_at IS NULL OR expires_at > NOW())
-     ORDER BY created_at DESC`
+    `SELECT notices.*,
+            d.name AS department_name,
+            u.first_name AS creator_first_name,
+            u.last_name AS creator_last_name
+     FROM notices
+     LEFT JOIN departments d ON d.id = notices.department_id
+     LEFT JOIN users u ON u.id = notices.created_by
+     WHERE notices.status = 'published'
+       AND notices.target_audience = 'all'
+       AND (notices.expires_at IS NULL OR notices.expires_at > NOW())
+     ORDER BY COALESCE(notices.published_at, notices.created_at) DESC`
   );
-  return rows;
+  return rows.map(mapNotice);
 };
 
 export const getDistinctCategories = async () => {
@@ -315,13 +385,13 @@ export const findNoticesForUser = async (userId, userRole, userDepartmentIds = [
      LEFT JOIN users assigned_user ON assigned_user.id = notices.assigned_to
      LEFT JOIN notice_recipients nr ON nr.notice_id = notices.id AND nr.user_id = ?
      ${where}
-     ORDER BY notices.created_at DESC
+     ORDER BY COALESCE(notices.published_at, notices.created_at) DESC
      LIMIT ? OFFSET ?`,
     [userId, ...params, Number(limit), Number(offset)]
   );
 
   return {
-    data: rows,
+    data: rows.map(mapNotice),
     pagination: {
       total: countRows[0].total,
       page: Number(page),
@@ -361,13 +431,13 @@ export const findNoticesByCreator = async (creatorId, { page = 1, limit = 10, in
      LEFT JOIN departments d ON d.id = notices.department_id
      LEFT JOIN users assigned_user ON assigned_user.id = notices.assigned_to
      ${where}
-     ORDER BY notices.created_at DESC
+     ORDER BY COALESCE(notices.published_at, notices.created_at) DESC
      LIMIT ? OFFSET ?`,
     [...params, Number(limit), Number(offset)]
   );
 
   return {
-    data: rows,
+    data: rows.map(mapNotice),
     pagination: {
       total: countRows[0].total,
       page: Number(page),
@@ -396,17 +466,20 @@ export const createTargetedNotice = async (notice) => {
     assignedBy,
     expiresAt,
     createdBy,
-    creatorRole
+    creatorRole,
+    publishedAt
   } = notice;
+  const isPub = status === 'published';
+  const pubTime = publishedAt ?? (isPub ? new Date() : null);
 
   await pool.query(
     `INSERT INTO notices (
       id, title, description, image, attachment, attachment_name,
       priority, status, target_audience, department_id, assigned_to,
-      assigned_by, expires_at, created_by, creator_role,
+      assigned_by, expires_at, published_at, created_by, creator_role,
       created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       title,
@@ -421,6 +494,7 @@ export const createTargetedNotice = async (notice) => {
       assignedTo ?? null,
       assignedBy ?? null,
       expiresAt ?? null,
+      pubTime,
       createdBy,
       creatorRole ?? null
     ]
@@ -442,6 +516,8 @@ export const updateTargetedNotice = async (id, fields) => {
     assignedTo: 'assigned_to',
     assignedBy: 'assigned_by',
     expiresAt: 'expires_at',
+    publishedAt: 'published_at',
+    published_at: 'published_at',
     createdBy: 'created_by',
     creatorRole: 'creator_role',
     attachmentName: 'attachment_name'
@@ -502,7 +578,7 @@ export const findByIdWithDetails = async (id) => {
     [id]
   );
   
-  return rows[0] || null;
+  return mapNotice(rows[0]);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════

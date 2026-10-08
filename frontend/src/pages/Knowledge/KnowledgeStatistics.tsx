@@ -758,7 +758,8 @@ export default function KnowledgeStatistics() {
                       {/* Top Chips Row */}
                       <div className={styles.cardTopRow}>
                         <div className={styles.cardTopLeft}>
-                          <span
+                          <button
+                            type="button"
                             className={styles.refChip}
                             onClick={() => {
                               setSelectedArticle(art);
@@ -767,7 +768,7 @@ export default function KnowledgeStatistics() {
                             title="Click to inspect this article"
                           >
                             {art.articleReference || 'KB-ARTICLE'}
-                          </span>
+                          </button>
                           {art.category && (
                             <span className={styles.catChip}>📁 {art.category}</span>
                           )}

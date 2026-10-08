@@ -118,7 +118,7 @@ export default function KnowledgeArticleCreate() {
 
         <div className={styles.formGroup}>
           <label htmlFor="content">Content</label>
-          <textarea id="content" {...register('content', { required: 'Content is required' })} placeholder="Write the article content here..." rows={10} />
+          <textarea id="content" {...register('content', { required: 'Content is required', minLength: { value: 50, message: 'Content must be at least 50 characters' } })} placeholder="Write the article content here..." rows={10} />
           {errors.content && <span className={styles.error}>{errors.content.message}</span>}
         </div>
 

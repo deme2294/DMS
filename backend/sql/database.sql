@@ -286,6 +286,7 @@ CREATE TABLE ticket_attachments (
   file_size BIGINT NOT NULL DEFAULT 0,
   mime_type VARCHAR(100),
   uploaded_by CHAR(36) NOT NULL,
+  comment TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -363,6 +364,7 @@ CREATE TABLE notices (
   assigned_to CHAR(36) NULL,
   assigned_by CHAR(36) NULL,
   expires_at DATETIME NULL,
+  published_at DATETIME NULL,
   expiry_warned TINYINT(1) NOT NULL DEFAULT 0,
   created_by CHAR(36) NOT NULL,
   creator_role ENUM('admin','manager','ceo','staff') NULL,

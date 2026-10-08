@@ -7,6 +7,7 @@ export interface Notice {
   attachmentName?: string | null;
   priority: 'low' | 'medium' | 'high';
   status: 'draft' | 'published' | 'archived';
+  category?: string | null;
   targetAudience: 'all' | 'admin' | 'manager' | 'staff' | 'tenant' | 'department';
   target_audience?: string;
   departmentId?: string | null;
@@ -17,7 +18,11 @@ export interface Notice {
   assigned_to?: string | null;
   assignedToName?: string | null;
   creator_role?: string;
+  creatorRole?: string;
   expiresAt?: string | null;
+  expires_at?: string | null;
+  publishedAt?: string | null;
+  published_at?: string | null;
   createdBy: string;
   created_by?: string;
   createdByName?: string;
@@ -25,7 +30,9 @@ export interface Notice {
   creator_last_name?: string;
   creator_username?: string;
   createdAt?: string;
+  created_at?: string;
   updatedAt?: string;
+  updated_at?: string;
   expiryWarned?: boolean;
   acknowledged?: boolean;
   recipientCounts?: { total: number; acknowledged: number };

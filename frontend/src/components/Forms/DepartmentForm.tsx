@@ -132,9 +132,10 @@ export default function DepartmentForm({
         <textarea
           id="description"
           rows={4}
-          {...register('description')}
+          {...register('description', { minLength: { value: 50, message: 'Description must be at least 50 characters' } })}
           placeholder="Brief description of the department's responsibilities..."
         />
+        {errors.description && <span className={styles.error}>{errors.description.message}</span>}
       </div>
 
       <div className={styles.formGroup}>

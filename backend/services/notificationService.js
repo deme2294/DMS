@@ -147,6 +147,31 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
   const recipients = new Set();
   const [creator] = await pool.query('SELECT id FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
 
+  const [authorUser] = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, r.name AS role_name
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.id = :id LIMIT 1`,
+    { id: replyUserId }
+  );
+  const authorName = authorUser.length ? `${authorUser[0].first_name || ''} ${authorUser[0].last_name || ''}`.trim() : 'User';
+  const authorRole = authorUser[0]?.role_name || '';
+  const isTenantAuthor = authorRole === 'tenant' || replyUserId === ticket.created_by;
+
+  let routingType = ticket.routing_type;
+  let ticketDeptId = ticket.department_id || ticket.auto_department_id;
+  if (!routingType || !ticketDeptId) {
+    const [catRows] = await pool.query(
+      `SELECT department_id, routing_type FROM ticket_categories WHERE name = :name LIMIT 1`,
+      { name: ticket.category }
+    );
+    if (catRows.length) {
+      if (!routingType) routingType = catRows[0].routing_type;
+      if (!ticketDeptId) ticketDeptId = catRows[0].department_id;
+    }
+  }
+  routingType = routingType || 'general';
+
   if (visibility === 'admin') {
     // Only notify active admins
     const [admins] = await pool.query(
@@ -155,7 +180,61 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
     admins.forEach((a) => {
       if (a.id !== replyUserId) recipients.add(a.id);
     });
+  } else if (isTenantAuthor) {
+    // Tenant replies routing:
+    if (routingType === 'direct') {
+      // Direct category: routed to the department of the ticket category
+      if (ticketDeptId) {
+        const [deptManagers] = await pool.query(
+          `SELECT u.id FROM users u
+           JOIN user_departments ud ON ud.user_id = u.id
+           JOIN roles r ON r.id = u.role_id
+           WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
+          { deptId: ticketDeptId }
+        );
+        deptManagers.forEach((m) => {
+          if (m.id !== replyUserId) recipients.add(m.id);
+        });
+      }
+      // Notify assigned user (if assigned by admin or manager)
+      if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
+        recipients.add(ticket.assigned_to);
+      }
+      // Also notify Admins
+      const [admins] = await pool.query(
+        `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+      );
+      admins.forEach((a) => {
+        if (a.id !== replyUserId) recipients.add(a.id);
+      });
+    } else {
+      // General category: routed to Admin, and to assigned user and department manager once assigned
+      const [admins] = await pool.query(
+        `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+      );
+      admins.forEach((a) => {
+        if (a.id !== replyUserId) recipients.add(a.id);
+      });
+
+      if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
+        recipients.add(ticket.assigned_to);
+      }
+
+      if (ticket.department_id) {
+        const [deptManagers] = await pool.query(
+          `SELECT u.id FROM users u
+           JOIN user_departments ud ON ud.user_id = u.id
+           JOIN roles r ON r.id = u.role_id
+           WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
+          { deptId: ticket.department_id }
+        );
+        deptManagers.forEach((m) => {
+          if (m.id !== replyUserId) recipients.add(m.id);
+        });
+      }
+    }
   } else {
+    // Staff / Manager / Admin replies:
     if (creator.length && creator[0].id !== replyUserId && !isInternal && visibility !== 'department') {
       recipients.add(creator[0].id);
     }
@@ -170,14 +249,22 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
     }
   }
 
-  const [authorUser] = await pool.query('SELECT first_name, last_name FROM users WHERE id = :id LIMIT 1', { id: replyUserId });
-  const authorName = authorUser.length ? `${authorUser[0].first_name || ''} ${authorUser[0].last_name || ''}`.trim() : 'User';
-
   for (const userId of recipients) {
-    const title = visibility === 'admin' ? 'New Admin Note on Ticket' : 'New Reply on Ticket';
-    const message = visibility === 'admin'
-      ? `${authorName} sent a private manager reply to Admin on ticket ${ticket.reference_number}.`
-      : `A new reply has been added to ticket ${ticket.reference_number}.`;
+    let title = 'New Reply on Ticket';
+    let message = `A new reply has been added to ticket ${ticket.reference_number}.`;
+
+    if (visibility === 'admin') {
+      title = 'New Admin Note on Ticket';
+      message = `${authorName} sent a private manager reply to Admin on ticket ${ticket.reference_number}.`;
+    } else if (isTenantAuthor) {
+      if (routingType === 'direct') {
+        title = 'New Tenant Reply (Direct to Department)';
+        message = `${authorName} (Tenant) replied on ticket ${ticket.reference_number} routed directly to your department.`;
+      } else {
+        title = 'New Tenant Reply (Routed to Admin)';
+        message = `${authorName} (Tenant) replied on ticket ${ticket.reference_number}.`;
+      }
+    }
 
     await notificationRepo.createNotification(
       userId,

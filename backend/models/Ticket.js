@@ -45,7 +45,7 @@ export const sanitizeTicket = (row) => {
     reopenedAt: row.reopened_at || null,
     cancelledAt: row.cancelled_at || null,
     mergedInto: row.merged_into || null,
-    attachments: row.attachments || [],
+    attachments: (row.attachments || []).map(sanitizeAttachment),
     slaAchieved: row.sla_achieved ? true : false,
     routingType: row.routing_type || 'general',
     responseSlaBreached: row.response_sla_breached ? true : false,
@@ -56,12 +56,20 @@ export const sanitizeTicket = (row) => {
   };
 };
 
-export const sanitizeAttachment = (row) => ({
-  id: row.id,
-  ticketId: row.ticket_id,
-  fileName: row.file_name,
-  filePath: row.file_path,
-  mimeType: row.mime_type,
-  uploadedBy: row.uploaded_by,
-  createdAt: row.created_at,
-});
+export const sanitizeAttachment = (row) => {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ticketId: row.ticket_id || row.ticketId,
+    fileName: row.file_name || row.fileName,
+    originalName: row.original_name || row.originalName || row.file_name || row.fileName,
+    filePath: row.file_path || row.filePath,
+    fileSize: row.file_size != null ? Number(row.file_size) : (row.fileSize != null ? Number(row.fileSize) : 0),
+    mimeType: row.mime_type || row.mimeType,
+    uploadedBy: row.uploaded_by || row.uploadedBy,
+    uploadedByName: row.uploaded_by_name || row.uploadedByName || 'User',
+    uploadedByRole: row.uploaded_by_role || row.uploadedByRole || null,
+    comment: row.comment || null,
+    createdAt: row.created_at || row.createdAt,
+  };
+};

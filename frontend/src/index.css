@@ -52,22 +52,22 @@ input[type="radio"] {
 }
 
 [data-theme="dark"] {
-  --bg-app: #0b0f17;
-  --bg-card: #151b28;
-  --bg-surface: #111827;
-  --bg-secondary: #1e293b;
-  --bg-topbar: #101522;
+  --bg-app: #0b0f19;
+  --bg-card: #131b2a;
+  --bg-surface: #101625;
+  --bg-secondary: #1a2234;
+  --bg-topbar: #0d121f;
   --text-main: #f8fafc;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --border-color: #252e3e;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-color: #202b3e;
 
-  --input-bg: #0f1420;
-  --input-border: #2e384d;
-  --table-header-bg: #101522;
-  --table-row-hover: #192234;
-  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  --input-bg: #0c101b;
+  --input-border: #28354c;
+  --table-header-bg: #0e1321;
+  --table-row-hover: #172134;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
   /* Analytics accent colors (dark) */
   --analytics-tooltip-bg: #1e2740;
   --analytics-tooltip-color: #f1f5f9;
@@ -202,25 +202,46 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   background-color: var(--input-bg) !important;
   color: #f8fafc !important;
   border-color: var(--input-border) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) inset !important;
 }
 
 [data-theme="dark"] input::placeholder,
 [data-theme="dark"] textarea::placeholder {
-  color: #64748b !important;
+  color: #8290a6 !important;
 }
 
 [data-theme="dark"] input:focus,
 [data-theme="dark"] select:focus,
 [data-theme="dark"] textarea:focus {
-  background-color: #121724 !important;
+  background-color: #121829 !important;
   color: #ffffff !important;
   border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  outline: none !important;
 }
 
-[data-theme="dark"] option {
+[data-theme="dark"] select option {
   background-color: #101522 !important;
   color: #f8fafc !important;
+  padding: 6px 12px;
+}
+
+[data-theme="dark"] input[type="file"]::file-selector-button {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 6px !important;
+  padding: 5px 12px !important;
+  margin-right: 12px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-theme="dark"] input[type="file"]::file-selector-button:hover {
+  background-color: #2e3d5b !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
 }
 
 /* ── Filters bar ────────────────────────────────────────────────────────── */
@@ -480,11 +501,7 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   color: var(--text-main) !important;
 }
 
-/* ── Toggle container (for ThemeToggle within a dark bg) ────────────────── */
-[data-theme="dark"] [class*="ThemeToggle"] [class*="container"] {
-  background-color: #1a1f2e !important;
-  border-color: var(--input-border) !important;
-}
+/* ── ThemeToggle is styled with dedicated glassmorphism in ThemeToggle.module.css ── */
 
 /* ==========================================================================
    TAILWIND UTILITY CLASS OVERRIDES FOR DARK THEME
@@ -730,10 +747,23 @@ code {
   color: #94a3b8 !important;
 }
 
-[data-theme="dark"] [class*="description"] {
+[data-theme="dark"] [class*="ticket"] [class*="description"],
+[data-theme="dark"] [class*="TicketDetail"] [class*="description"],
+[data-theme="dark"] [class*="feedback"] [class*="description"],
+[data-theme="dark"] div[class*="card"] > p[class*="description"] {
   background-color: #0f1420 !important;
   color: #e2e8f0 !important;
   border-left-color: #3b82f6 !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+}
+
+[data-theme="dark"] [class*="PageHeader"] [class*="description"],
+[data-theme="dark"] header [class*="description"] {
+  background-color: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  padding: 0 !important;
 }
 
 /* ── Write Fields & Input Areas in Night Mode ──────────────────────────── */
@@ -1007,11 +1037,14 @@ code {
 [data-theme="dark"] [class*="badge"][class*="open"] {
   background: #172554 !important;
   color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
 }
 
-[data-theme="dark"] [class*="badge"][class*="in_progress"] {
+[data-theme="dark"] [class*="badge"][class*="in_progress"],
+[data-theme="dark"] [class*="badge"][class*="under_review"] {
   background: #422006 !important;
   color: #fde047 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
 }
 
 [data-theme="dark"] [class*="badge"][class*="resolved"],
@@ -1019,11 +1052,13 @@ code {
 [data-theme="dark"] [class*="badge"][class*="approved"] {
   background: #052e16 !important;
   color: #86efac !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
 }
 
 [data-theme="dark"] [class*="badge"][class*="closed"] {
   background: #1e293b !important;
   color: #94a3b8 !important;
+  border: 1px solid #334155 !important;
 }
 
 [data-theme="dark"] [class*="badge"][class*="rejected"],
@@ -1032,21 +1067,27 @@ code {
 [data-theme="dark"] [class*="badge"][class*="urgent"] {
   background: #450a0a !important;
   color: #fca5a5 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
 }
 
-[data-theme="dark"] [class*="badge"][class*="high"] {
+[data-theme="dark"] [class*="badge"][class*="high"],
+[data-theme="dark"] [class*="badge"][class*="waiting_tenant"],
+[data-theme="dark"] [class*="badge"][class*="pending"] {
   background: #431407 !important;
   color: #fdba74 !important;
+  border: 1px solid rgba(249, 115, 22, 0.45) !important;
 }
 
 [data-theme="dark"] [class*="badge"][class*="medium"] {
   background: #422006 !important;
   color: #fde047 !important;
+  border: 1px solid rgba(234, 179, 8, 0.45) !important;
 }
 
 [data-theme="dark"] [class*="badge"][class*="low"] {
   background: #082f49 !important;
   color: #7dd3fc !important;
+  border: 1px solid rgba(14, 165, 233, 0.45) !important;
 }
 
 /* ── Member item / card lists in dark mode ────────────────────────────── */

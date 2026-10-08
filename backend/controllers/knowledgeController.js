@@ -222,6 +222,16 @@ export const getStats = async (req, res, next) => {
   }
 };
 
+export const getCategoryById = async (req, res, next) => {
+  try {
+    const data = await knowledgeService.getCategoryById(req.params.id, req.user);
+    if (!data) return res.status(404).json({ success: false, message: 'Category not found' });
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getCategories = async (req, res, next) => {
   try {
     const data = await knowledgeService.getCategories(req.user, req.query?.departmentId);

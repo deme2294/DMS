@@ -138,9 +138,10 @@ export default function FeedbackCreate() {
             <textarea
               id="message"
               rows={4}
-              {...register('message', { required: true })}
+              {...register('message', { required: 'Feedback message is required', minLength: { value: 50, message: 'Message must be at least 50 characters' } })}
               placeholder="Describe your overall feedback about this ticket..."
             />
+            {errors.message && <span className={styles.fieldError}>{errors.message.message}</span>}
           </div>
         </div>
 

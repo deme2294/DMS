@@ -82,6 +82,11 @@ export const rejectAssignment = (id: string, reason?: string) =>
 export const escalateTicket = (id: string, notes?: string) =>
   api.post(`/tickets/${id}/escalate`, { notes });
 
+export const fetchMergeCandidates = (id: string, search?: string) =>
+  api.get<{ success: boolean; data: Ticket[] }>(`/tickets/${id}/merge-candidates`, {
+    params: search?.trim() ? { search: search.trim() } : {},
+  });
+
 export const mergeTickets = (id: string, sourceIds: string[], notes?: string) =>
   api.post(`/tickets/${id}/merge`, { sourceIds, notes });
 

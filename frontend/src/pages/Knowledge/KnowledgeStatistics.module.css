@@ -762,37 +762,55 @@
 }
 
 .refChip {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  font-family: monospace;
-  padding: 2px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 3px 9px;
   border-radius: 6px;
   background: #f1f5f9;
-  color: #334155;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
   cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
 .refChip:hover {
-  background: #e2e8f0;
+  background: #e0f2fe;
   color: #0284c7;
+  border-color: #7dd3fc;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 .catChip {
-  font-size: 0.72rem;
-  padding: 2px 8px;
+  font-size: 0.74rem;
+  padding: 3px 10px;
   border-radius: 9999px;
   background: #e0f2fe;
   color: #0369a1;
+  border: 1px solid #bae6fd;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
 }
 
 .deptChip {
-  font-size: 0.72rem;
-  padding: 2px 8px;
+  font-size: 0.74rem;
+  padding: 3px 10px;
   border-radius: 9999px;
   background: #f3e8ff;
   color: #6b21a8;
+  border: 1px solid #e9d5ff;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
 }
 
 .cardTitle {
@@ -1323,6 +1341,219 @@
 
 :global([data-theme="dark"]) .deptBar {
   background: #273549;
+}
+
+/* ── Dark Theme High-Visibility Overrides for Rated Article Cards & Chips ── */
+:global([data-theme="dark"]) .refChip {
+  background: rgba(14, 165, 233, 0.16) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .refChip:hover {
+  background: rgba(14, 165, 233, 0.3) !important;
+  color: #e0f2fe !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+:global([data-theme="dark"]) .catChip {
+  background: rgba(99, 102, 241, 0.18) !important;
+  color: #a5b4fc !important;
+  border: 1px solid rgba(129, 140, 248, 0.45) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .deptChip {
+  background: rgba(168, 85, 247, 0.18) !important;
+  color: #d8b4fe !important;
+  border: 1px solid rgba(192, 132, 252, 0.45) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticleCard {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticleCardHelpful {
+  border-left: 4px solid #10b981 !important;
+  background: linear-gradient(135deg, #111827 0%, #0c201d 100%) !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticleCardNeedingImprovement {
+  border-left: 4px solid #ef4444 !important;
+  background: linear-gradient(135deg, #111827 0%, #201414 100%) !important;
+}
+
+:global([data-theme="dark"]) .cardTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .cardTitle:hover {
+  color: #38bdf8 !important;
+}
+
+:global([data-theme="dark"]) .cardMeta {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .cardMetricsRow {
+  background: #0b0f19 !important;
+  border-color: #1f2937 !important;
+}
+
+:global([data-theme="dark"]) .pillHelpful {
+  color: #34d399 !important;
+}
+
+:global([data-theme="dark"]) .pillNotHelpful {
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .pillViews {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .pillScoreGood {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(52, 211, 153, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .pillScoreWarning {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .diagnosticSuccess {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  color: #34d399 !important;
+}
+
+:global([data-theme="dark"]) .diagnosticSuccess strong {
+  color: #4ade80 !important;
+}
+
+:global([data-theme="dark"]) .diagnosticSuccess p {
+  color: #a7f3d0 !important;
+}
+
+:global([data-theme="dark"]) .diagnosticWarning {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(248, 113, 113, 0.35) !important;
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .diagnosticWarning strong {
+  color: #fca5a5 !important;
+}
+
+:global([data-theme="dark"]) .diagnosticWarning p {
+  color: #fecaca !important;
+}
+
+:global([data-theme="dark"]) .feedbackCommentsWrap {
+  background: #0b0f19 !important;
+  border: 1px dashed #334155 !important;
+}
+
+:global([data-theme="dark"]) .feedbackCommentsTitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .commentItem {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .commentAuthor {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .commentQuote {
+  color: #e2e8f0 !important;
+}
+
+:global([data-theme="dark"]) .btnInspectAction {
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .btnInspectAction:hover {
+  background: #0369a1 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .btnEditAction {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .btnEditAction:hover {
+  background: #253347 !important;
+  border-color: #60a5fa !important;
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .btnReviseAction {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(251, 191, 36, 0.4) !important;
+  color: #fde68a !important;
+}
+
+:global([data-theme="dark"]) .btnReviseAction:hover {
+  background: rgba(245, 158, 11, 0.28) !important;
+}
+
+:global([data-theme="dark"]) .btnViewPublicAction {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  color: #86efac !important;
+}
+
+:global([data-theme="dark"]) .btnViewPublicAction:hover {
+  background: rgba(16, 185, 129, 0.28) !important;
+}
+
+:global([data-theme="dark"]) .feedbackFilterTab {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .feedbackFilterTab:hover {
+  background: #283548 !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .feedbackFilterTabActive {
+  background: rgba(14, 165, 233, 0.2) !important;
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+}
+
+:global([data-theme="dark"]) .feedbackFilterTabActiveNotHelpful {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: #f87171 !important;
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .feedbackFilterTabActiveHelpful {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: #34d399 !important;
+  color: #34d399 !important;
+}
+
+:global([data-theme="dark"]) .feedbackSearchInput {
+  background: #0b0f19 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
 }
 
 /* ── Responsive Media Queries ────────────────────────────────────────────── */

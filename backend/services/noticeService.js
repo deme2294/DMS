@@ -64,6 +64,11 @@ export const publishNotice = async (notice) => {
 
   const userIds = recipients.map((r) => r.id);
 
+  await pool.query(
+    `UPDATE notices SET published_at = COALESCE(published_at, NOW()) WHERE id = ?`,
+    [notice.id]
+  );
+
   if (userIds.length > 0) {
     await noticeRepo.addRecipients(notice.id, userIds);
     await notificationService.notifyNoticePublished(notice, recipients);
@@ -135,6 +140,7 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
     }
   }
 
+  const isPub = isPublished(data.status || 'draft');
   const notice = {
     id: uuidv4(),
     title: data.title,
@@ -150,6 +156,7 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
     assignedBy: data.assignedTo ? userId : null,
     creatorRole: userRole,
     expiresAt: data.expiresAt || null,
+    publishedAt: isPub ? new Date() : null,
     createdBy: userId,
   };
   await noticeRepo.create(notice);
@@ -205,7 +212,8 @@ export const updateNotice = async (id, data, updaterId = null, updaterRole = nul
   const allowed = [
     'title', 'description', 'image', 'attachment', 'attachmentName',
     'priority', 'status', 'targetAudience', 'departmentId',
-    'assignedTo', 'assignedBy', 'creatorRole', 'expiresAt'
+    'assignedTo', 'assignedBy', 'creatorRole', 'expiresAt',
+    'publishedAt', 'published_at'
   ];
   const updateData = {};
   Object.keys(data).forEach((key) => {
@@ -218,6 +226,9 @@ export const updateNotice = async (id, data, updaterId = null, updaterRole = nul
 
   const wasPublished = isPublished(existing.status);
   const willBePublished = isPublished(updateData.status || existing.status);
+  if (!wasPublished && willBePublished && !updateData.published_at && !updateData.publishedAt) {
+    updateData.published_at = new Date();
+  }
   const audienceOrDeptChanged = (
     (updateData.targetAudience && updateData.targetAudience !== existing.target_audience) ||
     (updateData.departmentId !== undefined && updateData.departmentId !== existing.department_id) ||
@@ -465,6 +476,7 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
     assignedTo,
     assignedBy: assignedTo ? creatorId : null,
     expiresAt: data.expiresAt || null,
+    publishedAt: isPublished(data.status || 'published') ? new Date() : null,
     createdBy: creatorId,
     creatorRole: creatorRole
   };
@@ -536,6 +548,11 @@ const publishTargetedNotice = async (notice) => {
 
   const userIds = recipients.map((r) => r.id);
   
+  await pool.query(
+    `UPDATE notices SET published_at = COALESCE(published_at, NOW()) WHERE id = ?`,
+    [notice.id]
+  );
+
   if (userIds.length > 0) {
     await noticeRepo.addRecipients(notice.id, userIds);
     await notificationService.notifyNoticePublished(notice, recipients);
@@ -634,7 +651,8 @@ export const updateTargetedNotice = async (id, data, updaterId, updaterRole) => 
   const allowed = [
     'title', 'description', 'image', 'attachment', 'attachmentName',
     'priority', 'status', 'targetAudience', 'departmentId',
-    'assignedTo', 'assignedBy', 'expiresAt'
+    'assignedTo', 'assignedBy', 'expiresAt',
+    'publishedAt', 'published_at'
   ];
   
   const updateData = {};
@@ -649,6 +667,9 @@ export const updateTargetedNotice = async (id, data, updaterId, updaterRole) => 
 
   const wasPublished = isPublished(existing.status);
   const willBePublished = isPublished(updateData.status);
+  if (!wasPublished && willBePublished && !updateData.published_at && !updateData.publishedAt) {
+    updateData.published_at = new Date();
+  }
 
   if (Object.keys(updateData).length) {
     await noticeRepo.updateTargetedNotice(id, updateData);

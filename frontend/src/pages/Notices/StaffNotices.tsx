@@ -31,6 +31,9 @@ interface Notice {
   isAcknowledged: boolean;
   acknowledgedAt: string | null;
   created_at: string;
+  createdAt?: string;
+  published_at?: string | null;
+  publishedAt?: string | null;
   expires_at: string | null;
   replyCount?: number;
 }
@@ -475,9 +478,17 @@ export default function StaffNotices() {
                         )}
 
                         <div className={styles.infoItem}>
-                          <span className={styles.infoLabel}>Date:</span>
+                          <span className={styles.infoLabel}>Published:</span>
                           <span className={styles.infoValue}>
-                            {new Date(notice.created_at).toLocaleDateString()}
+                            {notice.published_at || (notice as any).publishedAt || notice.created_at || (notice as any).createdAt
+                              ? new Date(notice.published_at || (notice as any).publishedAt || notice.created_at || (notice as any).createdAt).toLocaleString([], {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : '—'}
                           </span>
                         </div>
 

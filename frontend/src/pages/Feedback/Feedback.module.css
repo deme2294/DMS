@@ -580,3 +580,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+.fieldError {
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 4px;
+  display: block;
+}
+
+:global([data-theme="dark"]) .fieldError {
+  color: #f87171;
+}

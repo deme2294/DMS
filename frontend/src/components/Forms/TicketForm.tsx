@@ -165,9 +165,9 @@ export default function TicketForm({
             id="description"
             rows={6}
             placeholder="Provide as much detail as possible — what happened, when, and any error messages."
-            {...register('description', { required: true })}
+            {...register('description', { required: 'Description is required', minLength: { value: 50, message: 'Description must be at least 50 characters' } })}
           />
-          {errors.description && <span className={styles.error}>Description is required</span>}
+          {errors.description && <span className={styles.error}>{errors.description.message}</span>}
         </div>
       </div>
 
