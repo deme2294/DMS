@@ -1,13 +1,11 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as slaController from '../controllers/slaController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate, optionalAuthenticate } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
 import { validate } from '../middleware/validationMiddleware.js';
 
 const router = Router();
-
-router.use(authenticate);
 
 const categoryIdValidator = (field = 'categoryId') =>
   (field === 'categoryId' ? query('categoryId') : body('categoryId'))
@@ -16,17 +14,9 @@ const categoryIdValidator = (field = 'categoryId') =>
     .custom((v) => !v || v === 'null' || v === 'undefined' || /^[0-9a-z-]{1,64}$/i.test(v))
     .withMessage('Invalid categoryId');
 
-// All authenticated users may read SLA policies
-router.get(
-  '/',
-  [
-    categoryIdValidator('categoryId'),
-    validate,
-  ],
-  slaController.listPolicies
-);
-
+// SLA preview for ticket creation / forms (available to all users)
 router.get('/preview',
+  optionalAuthenticate,
   [
     categoryIdValidator('categoryId'),
     query('priority').isIn(['low', 'medium', 'high', 'urgent']),
@@ -35,6 +25,20 @@ router.get('/preview',
   ],
   slaController.previewSLA
 );
+
+// Read policies
+router.get(
+  '/',
+  optionalAuthenticate,
+  [
+    categoryIdValidator('categoryId'),
+    validate,
+  ],
+  slaController.listPolicies
+);
+
+// Admin / CEO management operations require authentication
+router.use(authenticate);
 
 router.post(
   '/:id/test-compute',

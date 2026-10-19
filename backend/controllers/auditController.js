@@ -1,6 +1,7 @@
 import * as auditService from '../services/auditService.js';
 import pool from '../config/db.js';
 import { HTTP } from '../config/constants.js';
+import { generateDomainWorkbook } from '../services/excelReportService.js';
 
 export const getAuditLogs = async (req, res, next) => {
   try {
@@ -161,7 +162,7 @@ export const exportAuditLogs = async (req, res, next) => {
       };
     });
 
-    const csv = toCsv([
+    const headers = [
       'Log ID',
       'User ID',
       'Username',
@@ -174,8 +175,17 @@ export const exportAuditLogs = async (req, res, next) => {
       'Timestamp',
       'ISO Date',
       'Details',
-    ], data);
+    ];
 
+    if (req.query.format !== 'csv') {
+      const workbook = await generateDomainWorkbook('ENTERPRISE AUDIT TRAIL & SYSTEM ACTIVITY LOG', headers, data);
+      const buffer = await workbook.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.xlsx"');
+      return res.send(buffer);
+    }
+
+    const csv = toCsv(headers, data);
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="audit-logs-export.csv"');
     res.send(csv);

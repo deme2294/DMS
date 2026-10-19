@@ -1,0 +1,34 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies & Build artifacts
+node_modules
+backend/node_modules
+frontend/node_modules
+frontend/dist
+dist
+build
+
+# Environment files with sensitive credentials (passed via docker-compose runtime)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Backups and temporary files
+backups
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# IDE & Editor files
+.vscode
+.idea

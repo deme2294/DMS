@@ -231,7 +231,7 @@ export default function Reports() {
             title="Export full comprehensive report with all columns and graph trend data as CSV"
           >
             <ArrowDownTrayIcon className={styles.btnIcon} />
-            <span>{exportingType === 'comprehensive' ? 'Generating All Columns...' : 'Export Full Report (All Columns)'}</span>
+            <span>{exportingType === 'comprehensive' ? 'Generating All Columns...' : 'Export Full Report (Excel / All Columns)'}</span>
           </button>
         </div>
       </div>
@@ -731,7 +731,7 @@ export default function Reports() {
             disabled={exportingType !== null}
           >
             <ArrowDownTrayIcon className={styles.btnIcon} />
-            <span>{exportingType === 'departments' ? 'Exporting...' : 'Export Departments CSV'}</span>
+            <span>{exportingType === 'departments' ? 'Exporting...' : 'Export Departments (Excel)'}</span>
           </button>
         </div>
 
@@ -797,7 +797,7 @@ export default function Reports() {
             disabled={exportingType !== null}
           >
             <ArrowDownTrayIcon className={styles.btnIcon} />
-            <span>{exportingType === 'staff' ? 'Exporting...' : 'Export Staff CSV'}</span>
+            <span>{exportingType === 'staff' ? 'Exporting...' : 'Export Staff (Excel)'}</span>
           </button>
         </div>
 
@@ -864,7 +864,7 @@ export default function Reports() {
               disabled={exportingType !== null}
             >
               <ArrowDownTrayIcon className={styles.btnIcon} />
-              <span>{exportingType === 'tenants' ? 'Exporting...' : 'Export Tenants CSV'}</span>
+              <span>{exportingType === 'tenants' ? 'Exporting...' : 'Export Tenants (Excel)'}</span>
             </button>
           </div>
 

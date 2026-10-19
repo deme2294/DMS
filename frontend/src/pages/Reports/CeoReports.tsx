@@ -209,7 +209,7 @@ export default function CeoReports() {
             title="Export full comprehensive report with all columns and graph trend data as CSV"
           >
             <ArrowDownTrayIcon className={styles.btnIcon} />
-            <span>{exportingType === 'comprehensive' ? 'Generating All Columns...' : 'Export Full Report (All Columns)'}</span>
+            <span>{exportingType === 'comprehensive' ? 'Generating All Columns...' : 'Export Full Report (Excel / All Columns)'}</span>
           </button>
         </div>
       </div>

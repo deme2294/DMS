@@ -33,7 +33,10 @@ import {
   CalendarDaysIcon,
   SparklesIcon,
   DocumentChartBarIcon,
+  PrinterIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+import { exportDashboardOverviewToExcel } from '../../utils/excelExportUtils';
 
 const getStatusBadgeClass = (status: string) => {
   const normalized = (status || '').toLowerCase().replace(/[\s-]+/g, '_');
@@ -55,6 +58,23 @@ export default function AdminDashboard() {
   const [slaData, setSlaData] = useState<AdminSlaDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportOverview = async () => {
+    if (!data) return;
+    setIsExporting(true);
+    try {
+      await exportDashboardOverviewToExcel(data, slaData);
+    } catch (err) {
+      console.error('[AdminDashboard] Export error:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handlePrintOverview = () => {
+    window.print();
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -102,6 +122,23 @@ export default function AdminDashboard() {
 
   return (
     <div className={styles.dashboard}>
+      {/* ── Print-only Command Center Banner ── */}
+      <div className={styles.printOnlyHeader}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <div>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>
+              Help Desk Management System — Command Center Overview
+            </h1>
+            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#475569' }}>
+              Generated: <strong>{new Date().toLocaleString()}</strong> | Scope: Enterprise Administration
+            </p>
+          </div>
+          <div style={{ background: '#1e293b', color: '#ffffff', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
+            COMMAND CENTER REPORT
+          </div>
+        </div>
+      </div>
+
       {/* ── Top Header Bar ── */}
       <div className={styles.headerRow}>
         <div className={styles.headerLeft}>
@@ -131,7 +168,29 @@ export default function AdminDashboard() {
               })}
             </span>
           </div>
-          <Link to="/admin/analytics" className={`${styles.headerActionBtn} ${styles.headerActionPrimary}`}>
+
+          <button
+            type="button"
+            onClick={handlePrintOverview}
+            className={styles.headerActionBtn}
+            title="Print command center dashboard overview"
+          >
+            <PrinterIcon style={{ width: '16px', height: '16px' }} />
+            <span>Print Overview</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportOverview}
+            disabled={isExporting}
+            className={`${styles.headerActionBtn} ${styles.headerActionPrimary}`}
+            title="Export command center overview, recent tickets, and users to professional Excel (.xlsx)"
+          >
+            <ArrowDownTrayIcon style={{ width: '16px', height: '16px' }} />
+            <span>{isExporting ? 'Generating...' : 'Export Overview (Excel)'}</span>
+          </button>
+
+          <Link to="/admin/analytics" className={styles.headerActionBtn}>
             <ArrowTrendingUpIcon className={styles.headerActionIcon} />
             <span>Analytics & Trends</span>
             <ArrowRightIcon style={{ width: '14px', height: '14px' }} />

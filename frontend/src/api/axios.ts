@@ -36,7 +36,7 @@ api.interceptors.response.use(
             if (!storedRefreshToken) {
               throw new Error('No refresh token available');
             }
-            const { data } = await api.post('/auth/refresh', { refreshToken: storedRefreshToken });
+            const { data } = await axios.post('/api/auth/refresh', { refreshToken: storedRefreshToken }, { withCredentials: true });
             const newAccessToken: string = data.data.accessToken;
             localStorage.setItem('accessToken', newAccessToken);
             // Also persist new refresh token if the server rotates it
@@ -61,10 +61,14 @@ api.interceptors.response.use(
       try {
         const newToken = await refreshPromise;
         // Retry the original request with the new token
-        error.config.headers = {
-          ...error.config.headers,
-          Authorization: `Bearer ${newToken}`,
-        };
+        if (error.config.headers?.set) {
+          error.config.headers.set('Authorization', `Bearer ${newToken}`);
+        } else {
+          error.config.headers = {
+            ...error.config.headers,
+            Authorization: `Bearer ${newToken}`,
+          };
+        }
         return api(error.config);
       } catch {
         return Promise.reject(error);

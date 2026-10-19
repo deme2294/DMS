@@ -1,6 +1,7 @@
 import * as reportService from '../services/reportService.js';
 import pool from '../config/db.js';
 import { HTTP } from '../config/constants.js';
+import { generateComprehensiveWorkbook, generateDomainWorkbook } from '../services/excelReportService.js';
 
 // ── Manager: fetch own assigned departments ───────────────────────────────────
 export const getMyDepartments = async (req, res, next) => {
@@ -142,15 +143,24 @@ const toCsv = (headers, rows) => {
 export const exportReport = async (req, res, next) => {
   try {
     const { type } = req.params;
-
-    let csv = '';
-    let filename = `report-${type}.csv`;
+    const isCsvRequested = req.query.format === 'csv';
 
     if (type === 'tickets') {
       const raw = await reportService.getTicketReports(req.query, req.user);
       const total = Number(raw.stats?.total_tickets || 0);
       const resolved = Number(raw.stats?.resolved || 0) + Number(raw.stats?.closed || 0);
       const resRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+
+      if (!isCsvRequested) {
+        const rawDepts = await reportService.getDepartmentReports(req.query, req.user).catch(() => []);
+        const rawStaff = await reportService.getStaffReports(req.query, req.user).catch(() => []);
+        const rawTenants = await reportService.getTenantReports(req.query, req.user).catch(() => []);
+        const workbook = await generateComprehensiveWorkbook({ rawTickets: raw, rawDepts, rawStaff, rawTenants });
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="report-tickets.xlsx"');
+        return res.send(buffer);
+      }
 
       const lines = [];
       lines.push('=== TICKET REPORT SUMMARY ===');
@@ -203,10 +213,23 @@ export const exportReport = async (req, res, next) => {
         lines.push(`"${r.priority}",${Number(r.resolved_count || 0)},${Number(r.avg_resolve_hours || 0).toFixed(1)}`);
       });
 
-      csv = lines.join('\r\n');
-      filename = 'report-tickets.csv';
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="report-tickets.csv"');
+      return res.send(lines.join('\r\n'));
     } else if (type === 'departments') {
       const rows = await reportService.getDepartmentReports(req.query, req.user);
+      const headers = [
+        'Department ID',
+        'Department Name',
+        'Code',
+        'Total Tickets',
+        'Open / Pending',
+        'In Progress',
+        'Resolved',
+        'Closed',
+        'Resolution Rate (%)',
+        'Avg Resolution (Hours)'
+      ];
       const formatted = rows.map((d) => {
         const total = Number(d.total_tickets || 0);
         const resolved = Number(d.resolved || 0) + Number(d.closed || 0);
@@ -214,7 +237,7 @@ export const exportReport = async (req, res, next) => {
         return {
           'Department ID': d.id,
           'Department Name': d.name,
-          'Department Code': d.code || 'N/A',
+          'Code': d.code || 'N/A',
           'Total Tickets': total,
           'Open / Pending': Number(d.open_tickets || 0),
           'In Progress': Number(d.in_progress || 0),
@@ -224,13 +247,32 @@ export const exportReport = async (req, res, next) => {
           'Avg Resolution (Hours)': Number(d.avg_resolve_hours || 0).toFixed(1),
         };
       });
-      csv = toCsv(
-        ['Department ID', 'Department Name', 'Department Code', 'Total Tickets', 'Open / Pending', 'In Progress', 'Resolved', 'Closed', 'Resolution Rate (%)', 'Avg Resolution (Hours)'],
-        formatted
-      );
-      filename = 'report-departments.csv';
+
+      if (!isCsvRequested) {
+        const workbook = await generateDomainWorkbook('DEPARTMENT OPERATIONAL PERFORMANCE MATRIX', headers, formatted);
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="report-departments.xlsx"');
+        return res.send(buffer);
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="report-departments.csv"');
+      return res.send(toCsv(headers, formatted));
     } else if (type === 'staff') {
       const rows = await reportService.getStaffReports(req.query, req.user);
+      const headers = [
+        'Staff ID',
+        'Full Name',
+        'Username',
+        'Email Address',
+        'Account Status',
+        'Total Assigned Tickets',
+        'In Progress Tickets',
+        'Resolved Tickets',
+        'Pending Workload',
+        'Resolution Rate (%)'
+      ];
       const formatted = rows.map((s) => {
         const total = Number(s.total_assigned || 0);
         const resolved = Number(s.resolved || 0);
@@ -239,11 +281,9 @@ export const exportReport = async (req, res, next) => {
         const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
         return {
           'Staff ID': s.id,
-          'First Name': s.first_name,
-          'Last Name': s.last_name,
           'Full Name': `${s.first_name} ${s.last_name}`,
           'Username': s.username || 'N/A',
-          'Email': s.email,
+          'Email Address': s.email,
           'Account Status': s.status || 'active',
           'Total Assigned Tickets': total,
           'In Progress Tickets': inProgress,
@@ -252,13 +292,30 @@ export const exportReport = async (req, res, next) => {
           'Resolution Rate (%)': `${rate}%`,
         };
       });
-      csv = toCsv(
-        ['Staff ID', 'First Name', 'Last Name', 'Full Name', 'Username', 'Email', 'Account Status', 'Total Assigned Tickets', 'In Progress Tickets', 'Resolved Tickets', 'Pending Workload', 'Resolution Rate (%)'],
-        formatted
-      );
-      filename = 'report-staff.csv';
+
+      if (!isCsvRequested) {
+        const workbook = await generateDomainWorkbook('STAFF WORKLOAD & PERFORMANCE MATRIX', headers, formatted);
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="report-staff.xlsx"');
+        return res.send(buffer);
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="report-staff.csv"');
+      return res.send(toCsv(headers, formatted));
     } else if (type === 'tenants') {
       const rows = await reportService.getTenantReports(req.query, req.user);
+      const headers = [
+        'Tenant ID',
+        'Organization Name',
+        'Email Address',
+        'Total Tickets',
+        'Resolved Tickets',
+        'Closed Tickets',
+        'Active Tickets',
+        'Resolution Rate (%)'
+      ];
       const formatted = rows.map((t) => {
         const total = Number(t.total_tickets || 0);
         const resolved = Number(t.resolved || 0) + Number(t.closed || 0);
@@ -267,7 +324,7 @@ export const exportReport = async (req, res, next) => {
         return {
           'Tenant ID': t.tenant_id,
           'Organization Name': t.organization_name,
-          'Email': t.email || 'N/A',
+          'Email Address': t.email || 'N/A',
           'Total Tickets': total,
           'Resolved Tickets': Number(t.resolved || 0),
           'Closed Tickets': Number(t.closed || 0),
@@ -275,11 +332,18 @@ export const exportReport = async (req, res, next) => {
           'Resolution Rate (%)': `${rate}%`,
         };
       });
-      csv = toCsv(
-        ['Tenant ID', 'Organization Name', 'Email', 'Total Tickets', 'Resolved Tickets', 'Closed Tickets', 'Active Tickets', 'Resolution Rate (%)'],
-        formatted
-      );
-      filename = 'report-tenants.csv';
+
+      if (!isCsvRequested) {
+        const workbook = await generateDomainWorkbook('TENANT ACTIVITY & ENGAGEMENT LEDGER', headers, formatted);
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="report-tenants.xlsx"');
+        return res.send(buffer);
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="report-tenants.csv"');
+      return res.send(toCsv(headers, formatted));
     } else if (type === 'comprehensive' || type === 'all') {
       const [rawTickets, rawDepts, rawStaff, rawTenants] = await Promise.all([
         reportService.getTicketReports(req.query, req.user),
@@ -287,6 +351,14 @@ export const exportReport = async (req, res, next) => {
         reportService.getStaffReports(req.query, req.user),
         reportService.getTenantReports(req.query, req.user),
       ]);
+
+      if (!isCsvRequested) {
+        const workbook = await generateComprehensiveWorkbook({ rawTickets, rawDepts, rawStaff, rawTenants });
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="report-comprehensive.xlsx"');
+        return res.send(buffer);
+      }
 
       const total = Number(rawTickets.stats?.total_tickets || 0);
       const resolved = Number(rawTickets.stats?.resolved || 0) + Number(rawTickets.stats?.closed || 0);
@@ -352,7 +424,7 @@ export const exportReport = async (req, res, next) => {
       lines.push('');
 
       lines.push('=== 7. DEPARTMENT OPERATIONAL PERFORMANCE ===');
-      lines.push('Department ID,Department Name,Department Code,Total Tickets,Open / Pending,In Progress,Resolved,Closed,Resolution Rate (%),Avg Resolution (Hours)');
+      lines.push('Dept ID,Department Name,Code,Total Tickets,Open / Pending,In Progress,Resolved,Closed,Resolution Rate (%),Avg Resolution (Hours)');
       rawDepts.forEach((d) => {
         const dTotal = Number(d.total_tickets || 0);
         const dResolved = Number(d.resolved || 0) + Number(d.closed || 0);
@@ -362,7 +434,7 @@ export const exportReport = async (req, res, next) => {
       lines.push('');
 
       lines.push('=== 8. STAFF PERFORMANCE MATRIX ===');
-      lines.push('Staff ID,Full Name,Username,Email,Account Status,Total Assigned Tickets,In Progress Tickets,Resolved Tickets,Pending Workload,Resolution Rate (%)');
+      lines.push('Staff ID,Full Name,Username,Email Address,Account Status,Total Assigned Tickets,In Progress Tickets,Resolved Tickets,Pending Workload,Resolution Rate (%)');
       rawStaff.forEach((s) => {
         const sTotal = Number(s.total_assigned || 0);
         const sResolved = Number(s.resolved || 0);
@@ -374,7 +446,7 @@ export const exportReport = async (req, res, next) => {
       lines.push('');
 
       lines.push('=== 9. TENANT ACTIVITY LEDGER ===');
-      lines.push('Tenant ID,Organization Name,Email,Total Tickets,Resolved Tickets,Closed Tickets,Active Tickets,Resolution Rate (%)');
+      lines.push('Tenant ID,Organization Name,Email Address,Total Tickets,Resolved Tickets,Closed Tickets,Active Tickets,Resolution Rate (%)');
       rawTenants.forEach((t) => {
         const tTotal = Number(t.total_tickets || 0);
         const tResolved = Number(t.resolved || 0) + Number(t.closed || 0);
@@ -383,15 +455,12 @@ export const exportReport = async (req, res, next) => {
         lines.push(`"${t.tenant_id}","${t.organization_name}","${t.email || 'N/A'}",${tTotal},${Number(t.resolved || 0)},${Number(t.closed || 0)},${tActive},"${tRate}%"`);
       });
 
-      csv = lines.join('\r\n');
-      filename = 'report-comprehensive.csv';
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="report-comprehensive.csv"');
+      return res.send(lines.join('\r\n'));
     } else {
       return res.status(HTTP.BAD_REQUEST).json({ success: false, message: 'Invalid report type' });
     }
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(csv);
   } catch (err) {
     next(err);
   }

@@ -42,6 +42,28 @@ export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) 
     return rows;
   } catch (err) {
     if (err.code === 'ER_NO_SUCH_TABLE') return [];
+    if (err.code === 'ER_BAD_FIELD_ERROR') {
+      try {
+        const [rows] = await pool.query(
+          `SELECT n.id, n.title, n.message, n.type, 
+                  n.ticket_id AS ticketId, 
+                  n.notice_id AS noticeId, 
+                  n.room_id AS roomId, 
+                  NULL AS articleId,
+                  n.read_at AS readAt, 
+                  n.created_at AS createdAt
+           FROM notifications n
+           WHERE n.user_id = :userId
+           ORDER BY n.created_at DESC
+           LIMIT :limit OFFSET :offset`,
+          { userId, limit: Number(limit), offset: Number(offset) }
+        );
+        return rows;
+      } catch (fallbackErr) {
+        if (fallbackErr.code === 'ER_NO_SUCH_TABLE') return [];
+        throw fallbackErr;
+      }
+    }
     throw err;
   }
 };

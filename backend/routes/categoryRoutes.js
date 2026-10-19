@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as categoryController from '../controllers/categoryController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate, optionalAuthenticate } from '../middleware/authMiddleware.js';
 import { requireRole } from '../middleware/roleMiddleware.js';
 import { validate } from '../middleware/validationMiddleware.js';
 
 const router = Router();
 
+// Read active categories for ticket forms and public views
+router.get('/', optionalAuthenticate, categoryController.getCategories);
+router.get('/:id', optionalAuthenticate, [param('id').trim().notEmpty().isLength({ min: 1, max: 64 }), validate], categoryController.getCategoryById);
+
+// Authentication required for administrative category operations
 router.use(authenticate);
 
 // Pending category requests (admin review queue)
@@ -16,10 +21,6 @@ router.get(
     [query('status').optional(), validate],
     categoryController.listRequests
 );
-
-// All authenticated users can read active categories
-router.get('/', categoryController.getCategories);
-router.get('/:id', [param('id').trim().notEmpty().isLength({ min: 1, max: 64 }), validate], categoryController.getCategoryById);
 
 // Admin and manager can create / update categories
 router.post(

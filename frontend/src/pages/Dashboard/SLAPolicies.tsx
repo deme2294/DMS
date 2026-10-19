@@ -16,6 +16,8 @@ import {
   CalendarIcon,
   ArrowTrendingUpIcon,
   InformationCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import Modal from '../../components/Modal/Modal';
@@ -60,6 +62,8 @@ export default function SLAPolicies() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,6 +202,30 @@ export default function SLAPolicies() {
     return true;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, categoryFilter, priorityFilter, pageSize]);
+
+  const totalItems = filteredPolicies.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedPolicies = filteredPolicies.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (safePage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    if (safePage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', safePage - 1, safePage, safePage + 1, '...', totalPages];
+  };
+
   const stats = {
     total: policies.length,
     active: policies.filter((p) => p.isActive).length,
@@ -297,8 +325,9 @@ export default function SLAPolicies() {
             <div className={styles.spinner} />
           </div>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <>
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -313,7 +342,7 @@ export default function SLAPolicies() {
                 </tr>
               </thead>
               <tbody>
-                {filteredPolicies.map((p) => (
+                {paginatedPolicies.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div className={styles.policyName}>{p.name}</div>
@@ -419,8 +448,78 @@ export default function SLAPolicies() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+
+          {filteredPolicies.length > 0 && (
+            <div className={styles.paginationBar}>
+              <div className={styles.paginationLeft}>
+                <span className={styles.paginationInfo}>
+                  Showing <span className={styles.paginationHighlight}>{totalItems === 0 ? 0 : startIndex + 1}</span> to{' '}
+                  <span className={styles.paginationHighlight}>{endIndex}</span> of{' '}
+                  <span className={styles.paginationHighlight}>{totalItems}</span> policies
+                </span>
+
+                <div className={styles.pageSizeWrapper}>
+                  <label htmlFor="pageSizeSelect" className={styles.pageSizeLabel}>Rows per page:</label>
+                  <select
+                    id="pageSizeSelect"
+                    className={styles.pageSizeSelect}
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.paginationControls}>
+                <button
+                  type="button"
+                  className={styles.pageNavBtn}
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  title="Previous page"
+                >
+                  <ChevronLeftIcon className={styles.pageNavIcon} />
+                  <span>Previous</span>
+                </button>
+
+                <div className={styles.pageNumbers}>
+                  {getPageNumbers().map((num, idx) => (
+                    typeof num === 'number' ? (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`${styles.pageNumberBtn} ${num === safePage ? styles.pageNumberActive : ''}`}
+                        onClick={() => setPage(num)}
+                        title={`Page ${num}`}
+                      >
+                        {num}
+                      </button>
+                    ) : (
+                      <span key={idx} className={styles.pageEllipsis}>…</span>
+                    )
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.pageNavBtn}
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  title="Next page"
+                >
+                  <span>Next</span>
+                  <ChevronRightIcon className={styles.pageNavIcon} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
 
       <Modal
         open={modalOpen}

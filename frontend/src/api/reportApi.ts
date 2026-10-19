@@ -88,10 +88,21 @@ export const exportReport = (
   params?: ReportFilter
 ) =>
   api.get<Blob>(`/reports/${type}/export`, { params, responseType: 'blob' }).then((res) => {
-    const url = window.URL.createObjectURL(new Blob([res.data]));
+    let filename = `report-${type}.xlsx`;
+    const headers = res.headers || {};
+    const disposition = String(headers['content-disposition'] || headers['Content-Disposition'] || '');
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+    }
+    const contentType = String(headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const blob = new Blob([res.data], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `report-${type}.csv`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();

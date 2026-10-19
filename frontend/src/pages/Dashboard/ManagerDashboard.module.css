@@ -595,3 +595,130 @@
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.85); }
 }
+
+.desktopTableWrap {
+  display: block;
+}
+
+.mobileCardsList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.mobileCard {
+  background: var(--mgr-subtle-bg);
+  border: 1px solid var(--mgr-card-border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobileCard:hover {
+  transform: translateY(-2px);
+  border-color: #0ea5e9;
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.15);
+}
+
+.mobileCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.refText {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+:global([data-theme="dark"]) .refText {
+  color: #38bdf8;
+}
+
+.mobileCardTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--mgr-text-primary);
+  line-height: 1.35;
+}
+
+.mobileCardMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobileCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid var(--mgr-card-border);
+}
+
+/* ── Responsive Breakpoints ── */
+@media (max-width: 900px) {
+  .desktopTableWrap {
+    display: none;
+  }
+  .mobileCardsList {
+    display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 2px 4px;
+    gap: 16px;
+  }
+  .headerRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .heading {
+    font-size: 1.55rem;
+  }
+  .deptBanner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 18px;
+    gap: 18px;
+  }
+  .deptContent {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .deptShortcuts {
+    width: 100%;
+  }
+  .shortcutLink {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+  .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .slaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 440px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+}

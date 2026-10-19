@@ -234,10 +234,10 @@ export default function Audit() {
             className={styles.primaryActionBtn}
             onClick={handleExport}
             disabled={exporting}
-            title="Export all audit logs with all columns as CSV"
+            title="Export full audit records with all columns as professional Excel (.xlsx)"
           >
             <ArrowDownTrayIcon className={styles.btnIcon} />
-            <span>{exporting ? 'Exporting...' : 'Export Audit CSV'}</span>
+            <span>{exporting ? 'Generating...' : 'Export Audit (Excel)'}</span>
           </button>
 
           <button

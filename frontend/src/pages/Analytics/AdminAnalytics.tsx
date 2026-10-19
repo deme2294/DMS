@@ -3,6 +3,7 @@ import { fetchAdminAnalytics } from '../../api/dashboardApi';
 import type { AdminAnalyticsData } from '../../api/dashboardApi';
 import { STATUS_LABELS, type TicketStatus } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { exportAnalyticsToExcel } from '../../utils/excelExportUtils';
 import styles from './AdminAnalytics.module.css';
 
 // ── Color Palettes ────────────────────────────────────────────────────────────
@@ -1227,6 +1228,26 @@ export default function AdminAnalytics({
     }));
   }, [data?.categoryBreakdown]);
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    if (!data) return;
+    setIsExportingExcel(true);
+    try {
+      const selectedDeptObj = data.departmentAnalytics?.find((d) => d.departmentId === departmentId);
+      const deptName = selectedDeptObj ? selectedDeptObj.departmentName : 'All Departments';
+      await exportAnalyticsToExcel(data, timeframe, deptName);
+    } catch (err) {
+      console.error('[AdminAnalytics] Professional Excel export error:', err);
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const exportCSV = () => {
     if (!data) return;
     const rows = [
@@ -1289,6 +1310,30 @@ export default function AdminAnalytics({
 
   return (
     <div className={styles.page}>
+      {/* ── Printable Header (Only rendered when printing / saving as PDF) ── */}
+      <div className={styles.printOnlyHeader}>
+        <div className={styles.printHeaderTop}>
+          <div>
+            <h1 className={styles.printTitle}>Help Desk Management System — Executive Analytics</h1>
+            <p className={styles.printSubtitle}>
+              Generated On: <strong>{new Date().toLocaleString()}</strong> | Scope: <strong>{isCeoView ? 'Executive CEO Suite' : 'Enterprise Administration'}</strong>
+            </p>
+          </div>
+          <div className={styles.printBadge}>
+            CONFIDENTIAL & EXECUTIVE METRICS
+          </div>
+        </div>
+        {data && (
+          <div className={styles.printFilterBar}>
+            <span>Period: <strong>{timeframe.toUpperCase()}</strong></span>
+            <span>Department Scope: <strong>{departmentId === 'all' ? 'All Departments' : data.departmentAnalytics.find(d => d.departmentId === departmentId)?.departmentName || departmentId}</strong></span>
+            <span>Total Tickets: <strong>{data.kpis.totalTickets}</strong></span>
+            <span>Resolution Rate: <strong>{data.kpis.resolutionRate}%</strong></span>
+            <span>SLA Compliance: <strong>{data.kpis.slaComplianceRate}%</strong></span>
+          </div>
+        )}
+      </div>
+
       {/* ── Top Header & Controls ─────────────────────────────────────────── */}
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
@@ -1366,15 +1411,37 @@ export default function AdminAnalytics({
             🔄 Refresh
           </button>
 
-          {/* Export CSV Action */}
+          {/* Print / PDF Visual Report Action */}
+          <button
+            type="button"
+            onClick={handlePrint}
+            className={styles.actionBtn}
+            title="Print interactive report or save as PDF"
+            disabled={!data}
+          >
+            🖨️ Print / PDF
+          </button>
+
+          {/* Professional Excel (.xlsx) Export Action */}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+            title="Export executive Excel spreadsheet (.xlsx) with auto-enlarged columns and formatted sheets"
+            disabled={!data || isExportingExcel}
+          >
+            {isExportingExcel ? '⏳ Generating...' : '📊 Export Excel (.xlsx)'}
+          </button>
+
+          {/* Export CSV Action (secondary) */}
           <button
             type="button"
             onClick={exportCSV}
-            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-            title="Export CSV report"
+            className={styles.actionBtn}
+            title="Export raw CSV data file"
             disabled={!data}
           >
-            📥 Export CSV
+            📄 CSV
           </button>
         </div>
       </div>

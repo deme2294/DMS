@@ -23,6 +23,9 @@ input[type="radio"] {
   --text-secondary: #334155;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
+  --border-light: #e2e8f0;
+  --border-subtle: #cbd5e1;
+  --bg-subtle: #f8fafc;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
   --table-header-bg: #f8fafc;
@@ -57,11 +60,14 @@ input[type="radio"] {
   --bg-surface: #101625;
   --bg-secondary: #1a2234;
   --bg-topbar: #0d121f;
+  --bg-subtle: #0f1420;
   --text-main: #f8fafc;
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --border-color: #202b3e;
+  --border-light: #26334a;
+  --border-subtle: #1e293b;
 
   --input-bg: #0c101b;
   --input-border: #28354c;
@@ -1680,4 +1686,156 @@ body:has(.login-root) #root {
 [data-theme="light"] .login-status-box {
   background: rgba(15, 23, 42, 0.55) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ==========================================================================
+   GLOBAL PRINT & PDF EXPORT STYLES
+   Ensures all printed pages & PDF exports enlarge cleanly to fill the page,
+   with no truncation, no sidebars, visible borders, and readable typography.
+   ========================================================================== */
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    text-shadow: none !important;
+  }
+
+  body,
+  html,
+  #root {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    overflow: visible !important;
+  }
+
+  /* Hide app navigation chrome & interactive buttons */
+  nav,
+  aside,
+  header[class*="topBar"],
+  div[class*="sidebar"],
+  button,
+  .no-print,
+  [class*="hamburger"],
+  [class*="backBtn"],
+  [class*="controlsGroup"],
+  [class*="pagination"],
+  [class*="actionBtn"],
+  [class*="actionsGroup"],
+  [class*="ThemeToggle"],
+  [class*="toast"],
+  [class*="modal"],
+  [class*="ConnectionStatus"] {
+    display: none !important;
+  }
+
+  /* Allow main content container to enlarge to 100% full width */
+  main,
+  div[class*="main"],
+  div[class*="layout"],
+  div[class*="content"],
+  div[class*="page"],
+  div[class*="container"] {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  /* Tables must enlarge based on data, auto-fitting the entire paper width */
+  table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+    margin: 12px 0 !important;
+    page-break-inside: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  th,
+  td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px 10px !important;
+    font-size: 9.5pt !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    color: #0f172a !important;
+    background-clip: padding-box !important;
+  }
+
+  th {
+    background-color: #f1f5f9 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 8.5pt !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  /* Cards and charts should avoid breaking across pages */
+  div[class*="Card"],
+  div[class*="card"],
+  div[class*="section"],
+  div[class*="kpiCard"],
+  div[class*="chartCard"] {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    margin-bottom: 16px !important;
+    overflow: visible !important;
+  }
+
+  /* Grids adapt for clean print layout */
+  div[class*="Grid"],
+  div[class*="grid"],
+  div[class*="kpiGrid"] {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin-bottom: 16px !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* SVGs and charts scale to fit container width cleanly */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Links don't need ugly URL expansion in app */
+  a[href]::after {
+    content: "" !important;
+  }
 }

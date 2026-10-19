@@ -41,8 +41,7 @@ import util from 'util';
 const execPromise = util.promisify(exec);
 
 // 1. Load environment variables first so every subsequent import can read them.
-import dotenv from 'dotenv';
-dotenv.config();
+import './config/env.js';
 
 import express from 'express';
 import helmet from 'helmet';
@@ -100,30 +99,57 @@ const c = {
 // 2. Verify MySQL connection & run auto migrations before binding to the port
 // ─────────────────────────────────────────────────────────────────────────────
 async function connectDB() {
-    try {
-        const connection = await pool.getConnection();
-        console.log(`  ${c.green}●${c.reset} ${c.bold}[DATABASE]${c.reset}   MySQL connected successfully ${c.dim}(${process.env.DB_NAME || 'helpdesk_db'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306})${c.reset}`);
-        connection.release();
+    const MAX_RETRIES = 10;
+    const RETRY_DELAY_MS = 2000;
 
-        // Ensure revoked_tokens table exists for scheduled cleanup
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            await pool.query(`
-                CREATE TABLE IF NOT EXISTS revoked_tokens (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    token VARCHAR(500) NOT NULL,
-                    expires_at DATETIME NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_expires_at (expires_at)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            `);
-        } catch (tableErr) {
-            console.warn('⚠️  Could not initialize revoked_tokens table:', tableErr.message);
-        }
+            const connection = await pool.getConnection();
+            const activePort = connection.config.port || process.env.DB_PORT || 3306;
+            const targetLabel = process.env.DB_TARGET 
+                ? (process.env.DB_TARGET.toLowerCase() === 'docker' ? 'Docker' : 'XAMPP')
+                : (Number(activePort) === 3307 ? 'Docker' : 'MySQL');
+            console.log(`  ${c.green}●${c.reset} ${c.bold}[DATABASE]${c.reset}   MySQL connected successfully [${targetLabel}] ${c.dim}(${connection.config.database}@${connection.config.host}:${activePort})${c.reset}`);
+            connection.release();
 
-        await runAutoMigrations();
-    } catch (err) {
-        console.error('❌  MySQL connection failed:', err.message);
-        process.exit(1); // Fatal – no point running without a database
+            // Ensure revoked_tokens table exists for scheduled cleanup
+            try {
+                await pool.query(`
+                    CREATE TABLE IF NOT EXISTS revoked_tokens (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        token VARCHAR(500) NOT NULL,
+                        expires_at DATETIME NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_expires_at (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                `);
+            } catch (tableErr) {
+                console.warn('⚠️  Could not initialize revoked_tokens table:', tableErr.message);
+            }
+
+            await runAutoMigrations();
+            return; // Successful connection
+        } catch (err) {
+            if (attempt === 1 && err.message && err.message.includes('ECONNREFUSED')) {
+                const isDockerTarget = (process.env.DB_TARGET || '').toLowerCase() === 'docker' || Number(process.env.DB_PORT) === 3307;
+                if (isDockerTarget) {
+                    console.log(`\n  💡 ${c.cyan}[HINT] Docker MySQL is not responding on 127.0.0.1:3307.${c.reset}`);
+                    console.log(`     • Start Docker container: ${c.green}docker compose up -d db${c.reset}`);
+                    console.log(`     • Or switch to XAMPP:     ${c.green}npm run dev:xampp${c.reset} (or: node server.js --target=xampp)\n`);
+                } else {
+                    console.log(`\n  💡 ${c.cyan}[HINT] XAMPP MySQL is not responding on 127.0.0.1:3306.${c.reset}`);
+                    console.log(`     • Start MySQL in XAMPP Control Panel`);
+                    console.log(`     • Or switch to Docker:    ${c.green}npm run dev:docker${c.reset} (or: node server.js --target=docker)\n`);
+                }
+            }
+            if (attempt < MAX_RETRIES) {
+                console.warn(`⚠️  Database connection attempt ${attempt}/${MAX_RETRIES} failed (${err.message}). Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+                await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            } else {
+                console.error(`❌  MySQL connection failed after ${MAX_RETRIES} attempts:`, err.message);
+                process.exit(1); // Fatal – database unreachable after all retries
+            }
+        }
     }
 }
 
@@ -199,7 +225,7 @@ app.use(
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        exposedHeaders: ['Set-Cookie'],
+        exposedHeaders: ['Set-Cookie', 'Content-Disposition'],
     })
 );
 
@@ -305,7 +331,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ── Health check & Connections checking endpoint ───────────────────────────
-app.get('/api/health', async (_req, res) => {
+app.get(['/health', '/api/health'], async (_req, res) => {
     let dbStatus = 'healthy';
     try {
         await pool.query('SELECT 1');

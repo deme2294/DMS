@@ -23,6 +23,7 @@ import {
   XMarkIcon,
   DocumentTextIcon,
 } from '@heroicons/react/24/outline';
+import { exportTableToExcel } from '../../utils/excelExportUtils';
 import styles from './Tickets.module.css';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -87,7 +88,37 @@ export default function TicketList() {
   const [assignTicket, setAssignTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
+  const [exporting, setExporting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+
+  const handleExportTickets = async () => {
+    if (!tickets.length) return;
+    setExporting(true);
+    try {
+      await exportTableToExcel<Ticket>({
+        title: 'HELP DESK MANAGEMENT SYSTEM — TICKETS LEDGER',
+        subtitle: `Generated on: ${new Date().toLocaleString()} | Total Tickets in View: ${tickets.length}`,
+        filename: `HDMS_Tickets_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        sheetName: 'Tickets',
+        columns: [
+          { header: 'Reference #', key: 'referenceNumber', formatter: (val) => val ? `#${val}` : '—' },
+          { header: 'Track #', key: 'trackNumber', formatter: (val) => val || '—' },
+          { header: 'Title', key: 'title' },
+          { header: 'Status', key: 'status', formatter: (val) => STATUS_LABELS[val as TicketStatus] || val },
+          { header: 'Priority', key: 'priority', formatter: (val) => val ? String(val).toUpperCase() : 'NORMAL' },
+          { header: 'Category', key: 'category', formatter: (val) => val || '—' },
+          { header: 'Department', key: 'departmentName', formatter: (val) => val || 'Unassigned' },
+          { header: 'Assigned Staff', key: 'assignedToName', formatter: (val) => val || 'Unassigned' },
+          { header: 'Created Date', key: 'createdAt', formatter: (val) => val ? new Date(val).toLocaleString() : '—' },
+        ],
+        data: tickets,
+      });
+    } catch (err) {
+      console.error('[TicketList] Export tickets error:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -267,6 +298,17 @@ export default function TicketList() {
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
+
+          <button
+            type="button"
+            className={styles.resetFiltersBtn}
+            onClick={handleExportTickets}
+            disabled={exporting || !tickets.length}
+            title="Export tickets table to professional Excel spreadsheet (.xlsx)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            📊 {exporting ? 'Exporting...' : 'Export (Excel)'}
+          </button>
 
           {hasActiveFilters && (
             <button

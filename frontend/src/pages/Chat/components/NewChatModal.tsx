@@ -28,8 +28,10 @@ export interface NewChatModalProps {
   modalUserTab: 'all' | 'online' | 'admin';
   userSearchQuery: string;
   selectedUserId: string;
+  selectedUserIds?: string[];
   selectedDepartmentId: string;
   selectedTicketId: string;
+  selectedDeptManager?: OnlineUser | ChatMember | null;
   newChatName: string;
   creatingRoom: boolean;
   loadingUsers: boolean;
@@ -61,6 +63,9 @@ export interface NewChatModalProps {
   onSetModalUserTab: (tab: 'all' | 'online' | 'admin') => void;
   onSetUserSearchQuery: (query: string) => void;
   onSelectUserId: (id: string) => void;
+  onToggleSelectUserId?: (id: string) => void;
+  onSelectAllUsers?: (ids: string[]) => void;
+  onClearSelectedUsers?: () => void;
   onSelectDepartmentId: (id: string) => void;
   onSelectTicketId: (id: string) => void;
   onSetNewChatName: (name: string) => void;
@@ -74,8 +79,10 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   modalUserTab,
   userSearchQuery,
   selectedUserId,
+  selectedUserIds = [],
   selectedDepartmentId,
   selectedTicketId,
+  selectedDeptManager,
   newChatName,
   creatingRoom,
   loadingUsers,
@@ -106,6 +113,9 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   onSetModalUserTab,
   onSetUserSearchQuery,
   onSelectUserId,
+  onToggleSelectUserId,
+  onSelectAllUsers,
+  onClearSelectedUsers,
   onSelectDepartmentId,
   onSelectTicketId,
   onSetNewChatName,
@@ -207,7 +217,17 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
   const endTimeLocal = getEndTimeLocal(conferenceScheduledTime, conferenceDurationMinutes);
 
-  const selectedUserObj = filteredUsers.find((u) => u.id === selectedUserId);
+  const effectiveSelectedUserIds = React.useMemo(() => {
+    if (selectedUserIds && selectedUserIds.length > 0) return selectedUserIds;
+    if (selectedUserId) return [selectedUserId];
+    return [];
+  }, [selectedUserIds, selectedUserId]);
+
+  const selectedUserObjs = React.useMemo(() => {
+    return filteredUsers.filter((u) => effectiveSelectedUserIds.includes(u.id));
+  }, [filteredUsers, effectiveSelectedUserIds]);
+
+  const selectedUserObj = selectedUserObjs[0] || filteredUsers.find((u) => u.id === selectedUserId);
   const selectedTicketObj = tickets.find((t) => t.id === selectedTicketId);
 
   const ticketRoutedDeptName = React.useMemo(() => {
@@ -634,39 +654,61 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                 {/* Target 1: Registered User Picker */}
                 {videoConferenceTarget === 'user' && (
                   <div>
-                    {selectedUserObj && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 12px',
-                          background: '#ecfdf5',
-                          border: '1px solid #a7f3d0',
-                          borderRadius: '8px',
-                          marginBottom: '10px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1rem' }}>✅</span>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#065f46' }}>
-                            Selected: {selectedUserObj.first_name} {selectedUserObj.last_name} ({selectedUserObj.role})
-                          </span>
+                    {selectedUserObjs.length > 0 && (
+                      <div className={styles.multiUserSelectionSummary}>
+                        <div className={styles.multiUserSelectionHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircleIcon style={{ width: '18px', height: '18px', color: '#059669' }} />
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#065f46' }}>
+                              Selected ({selectedUserObjs.length} participant{selectedUserObjs.length !== 1 ? 's' : ''}):
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const allFilteredIds = filteredUsers.map((u) => u.id);
+                                onSelectAllUsers?.(allFilteredIds);
+                              }}
+                              className={styles.multiSelectActionBtn}
+                            >
+                              Select All ({filteredUsers.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onClearSelectedUsers?.()}
+                              className={styles.multiSelectActionBtn}
+                              style={{ color: '#ef4444' }}
+                            >
+                              Clear All
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => onSelectUserId('')}
-                          style={{
-                            border: 'none',
-                            background: 'transparent',
-                            color: '#047857',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Change
-                        </button>
+
+                        <div className={styles.selectedUsersChipsRow}>
+                          {selectedUserObjs.map((u) => (
+                            <span key={u.id} className={styles.selectedUserChip}>
+                              <span className={styles.chipAvatar}>{u.first_name?.[0] || 'U'}</span>
+                              <span className={styles.chipName}>{u.first_name} {u.last_name}</span>
+                              <span className={styles.chipRole}>{u.role}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onToggleSelectUserId) {
+                                    onToggleSelectUserId(u.id);
+                                  } else {
+                                    onSelectUserId('');
+                                  }
+                                }}
+                                className={styles.chipRemoveBtn}
+                                title="Remove participant"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -693,17 +735,36 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
                     <div className={styles.userSelectGrid} style={{ maxHeight: '200px', overflowY: 'auto' }}>
                       {filteredUsers.map((user) => {
-                        const isSelected = selectedUserId === user.id;
+                        const isSelected = effectiveSelectedUserIds.includes(user.id);
                         const roleStyle = getRoleColor(user.role);
 
                         return (
                           <div
                             key={user.id}
                             className={`${styles.userCard} ${isSelected ? styles.userCardSelected : ''}`}
-                            onClick={() => onSelectUserId(user.id)}
+                            onClick={() => {
+                              if (onToggleSelectUserId) {
+                                onToggleSelectUserId(user.id);
+                              } else {
+                                onSelectUserId(isSelected ? '' : user.id);
+                              }
+                            }}
                             style={{ cursor: 'pointer' }}
                           >
                             <div className={styles.userCardTopRow}>
+                              <div style={{ display: 'flex', alignItems: 'center', marginRight: '6px' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  readOnly
+                                  style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    accentColor: '#2563eb',
+                                    cursor: 'pointer',
+                                  }}
+                                />
+                              </div>
                               <div className={styles.userAvatarWrapper}>
                                 <div
                                   className={styles.userAvatar}
@@ -725,7 +786,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                                   <span className={styles.userCardName}>
                                     {user.first_name} {user.last_name}
                                   </span>
-                                  {isSelected && <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.72rem' }}>✓ Selected</span>}
+                                  {isSelected && (
+                                    <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.72rem' }}>
+                                      ✓ Selected
+                                    </span>
+                                  )}
                                 </div>
                                 <div className={styles.userCardMeta}>
                                   <span className={styles.usernameTag}>@{user.username}</span>
@@ -776,6 +841,69 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                         ))}
                       </select>
                     </div>
+
+                    {selectedDepartmentId && (
+                      <div className={styles.deptManagerRoutingCard}>
+                        <div className={styles.deptManagerCardHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <ShieldCheckIcon style={{ width: '18px', height: '18px', color: '#d97706' }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#b45309' }}>
+                              Auto-Routed to Department Manager
+                            </span>
+                          </div>
+                          <span className={styles.deptRouteBadge}>Manager Routing</span>
+                        </div>
+
+                        {loadingModalMembers ? (
+                          <div style={{ fontSize: '0.78rem', color: '#64748b', padding: '6px 0' }}>
+                            Resolving department manager assignment...
+                          </div>
+                        ) : selectedDeptManager ? (
+                          <div className={styles.deptManagerCardBody}>
+                            <div
+                              className={styles.deptManagerAvatar}
+                              style={{
+                                background: getAvatarGradient(
+                                  `${selectedDeptManager.first_name} ${selectedDeptManager.last_name}`
+                                ),
+                              }}
+                            >
+                              {selectedDeptManager.first_name?.[0] || 'M'}
+                            </div>
+                            <div className={styles.deptManagerDetails}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className={styles.deptManagerName}>
+                                  {selectedDeptManager.first_name} {selectedDeptManager.last_name}
+                                </span>
+                                <span className={styles.deptManagerRoleTag}>
+                                  {selectedDeptManager.role?.toUpperCase() || 'MANAGER'}
+                                </span>
+                              </div>
+                              <div className={styles.deptManagerMeta}>
+                                <span>@{selectedDeptManager.username || 'manager'}</span>
+                                {selectedDeptManager.email && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{selectedDeptManager.email}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.78rem', color: '#92400e', padding: '4px 0' }}>
+                            👔 Channel routed to all active department supervisors and management staff.
+                          </div>
+                        )}
+
+                        <div className={styles.deptManagerFooterNote}>
+                          <span>ℹ️</span>
+                          <span>
+                            Video conference and channel invitations for this department will be routed directly to the Department Manager and member roster.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -839,59 +967,21 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
             {chatType === 'direct' && (
               <div className={styles.formSection}>
                 {/* 1-Click Fast Connect with System Admin Card */}
-                <div
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)',
-                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                    borderRadius: '12px',
-                    padding: '14px 16px',
-                    marginBottom: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    flexWrap: 'wrap',
-                  }}
-                >
+                <div className={styles.adminDirectBanner}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 260px' }}>
-                    <div
-                      style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                        color: '#ffffff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.25rem',
-                        fontWeight: 700,
-                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <div className={styles.adminDirectIconWrap}>
                       <ShieldCheckIcon style={{ width: '24px', height: '24px', color: '#ffffff' }} />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
+                        <span className={styles.adminDirectTitle}>
                           Direct Chat with System Admin
                         </span>
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            background: '#ecfdf5',
-                            color: '#065f46',
-                            border: '1px solid #a7f3d0',
-                            fontWeight: 700,
-                          }}
-                        >
+                        <span className={styles.adminDirectBadge}>
                           ⚡ Auto-Accepted
                         </span>
                       </div>
-                      <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)' }}>
+                      <p className={styles.adminDirectDesc}>
                         Start a direct conversation with registered system administrators instantly without waiting for pending approval.
                       </p>
                     </div>
@@ -1141,6 +1231,62 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                 </div>
 
                 {selectedDepartmentId && (
+                  <div className={styles.deptManagerRoutingCard} style={{ marginBottom: '12px' }}>
+                    <div className={styles.deptManagerCardHeader}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ShieldCheckIcon style={{ width: '18px', height: '18px', color: '#d97706' }} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#b45309' }}>
+                          Auto-Routed to Department Manager
+                        </span>
+                      </div>
+                      <span className={styles.deptRouteBadge}>Manager Routing</span>
+                    </div>
+
+                    {loadingModalMembers ? (
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', padding: '6px 0' }}>
+                        Resolving department manager assignment...
+                      </div>
+                    ) : selectedDeptManager ? (
+                      <div className={styles.deptManagerCardBody}>
+                        <div
+                          className={styles.deptManagerAvatar}
+                          style={{
+                            background: getAvatarGradient(
+                              `${selectedDeptManager.first_name} ${selectedDeptManager.last_name}`
+                            ),
+                          }}
+                        >
+                          {selectedDeptManager.first_name?.[0] || 'M'}
+                        </div>
+                        <div className={styles.deptManagerDetails}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className={styles.deptManagerName}>
+                              {selectedDeptManager.first_name} {selectedDeptManager.last_name}
+                            </span>
+                            <span className={styles.deptManagerRoleTag}>
+                              {selectedDeptManager.role?.toUpperCase() || 'MANAGER'}
+                            </span>
+                          </div>
+                          <div className={styles.deptManagerMeta}>
+                            <span>@{selectedDeptManager.username || 'manager'}</span>
+                            {selectedDeptManager.email && (
+                              <>
+                                <span>•</span>
+                                <span>{selectedDeptManager.email}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: '#92400e', padding: '4px 0' }}>
+                        👔 Channel routed to all active department supervisors and management staff.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedDepartmentId && (
                   <div className={styles.modalRosterBox}>
                     <div className={styles.modalRosterHeader}>
                       <span className={styles.modalRosterTitle}>
@@ -1226,63 +1372,44 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
                 {/* Live Department Routing Information Card */}
                 {selectedTicketObj && (
-                  <div
-                    style={{
-                      marginTop: '14px',
-                      background: 'var(--bg-subtle, #f8fafc)',
-                      border: '1px solid var(--border-light, #e2e8f0)',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🏷️</span> Automatic Department Routing
+                  <div className={styles.routingBox}>
+                    <div className={styles.routingHeader}>
+                      <span className={styles.routingTitle}>
+                        <span className={styles.routingTitleIcon}>🏷️</span> Automatic Department Routing
                       </span>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          background: '#ecfdf5',
-                          color: '#065f46',
-                          border: '1px solid #a7f3d0',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#059669' }} />
+                      <span className={styles.routingBadge}>
+                        <span className={styles.routingBadgeDot} />
                         Auto-Routing Active
                       </span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '12px' }}>
-                      <div style={{ background: 'var(--bg-card, #ffffff)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle, #cbd5e1)' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>Ticket Category</div>
-                        <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#2563eb', marginTop: '2px' }}>
+                    <div className={styles.routingCardsGrid}>
+                      <div className={styles.routingCard}>
+                        <div className={styles.routingCardLabel}>Ticket Category</div>
+                        <div className={styles.routingCardValueCategory}>
                           {selectedTicketObj.category || 'General Support'}
                         </div>
                       </div>
 
-                      <div style={{ background: 'var(--bg-card, #ffffff)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle, #cbd5e1)' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>Routed Department</div>
-                        <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#059669', marginTop: '2px' }}>
+                      <div className={styles.routingCard}>
+                        <div className={styles.routingCardLabel}>Routed Department</div>
+                        <div className={styles.routingCardValueDept}>
                           🏢 {ticketRoutedDeptName}
                         </div>
                       </div>
 
-                      <div style={{ background: 'var(--bg-card, #ffffff)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-subtle, #cbd5e1)' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600 }}>Timing Selected</div>
-                        <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#d97706', marginTop: '2px' }}>
+                      <div className={styles.routingCard}>
+                        <div className={styles.routingCardLabel}>Timing Selected</div>
+                        <div className={styles.routingCardValueTiming}>
                           ⚡ Start Now (Default)
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #475569)', lineHeight: 1.45, background: 'rgba(255, 255, 255, 0.7)', padding: '8px 10px', borderRadius: '6px' }}>
-                      ✅ As this ticket chat is started now, it will be automatically routed to the <strong>{ticketRoutedDeptName}</strong> department based on the category (<strong>{selectedTicketObj.category || 'General'}</strong>). All active department staff and managers are automatically connected to provide immediate assistance.
+                    <div className={styles.routingNotice}>
+                      <span>
+                        ✅ As this ticket chat is started now, it will be automatically routed to the <strong>{ticketRoutedDeptName}</strong> department based on the category (<strong>{selectedTicketObj.category || 'General'}</strong>). All active department staff and managers are automatically connected to provide immediate assistance.
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1327,11 +1454,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
               }
               disabled={
                 creatingRoom ||
-                (chatType === 'direct' && !selectedUserId) ||
+                (chatType === 'direct' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
                 (chatType === 'department' && !selectedDepartmentId) ||
                 (chatType === 'ticket' && !selectedTicketId) ||
                 (chatType === 'video_conference' &&
-                  ((videoConferenceTarget === 'user' && !selectedUserId) ||
+                  ((videoConferenceTarget === 'user' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
                     (videoConferenceTarget === 'department' && !selectedDepartmentId) ||
                     (videoConferenceTarget === 'ticket' && !selectedTicketId)))
               }
@@ -1346,8 +1473,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                   <VideoCameraIcon className={styles.btnIconSvg} />
                   <span>
                     {conferenceScheduleMode === 'now'
-                      ? '🚀 Start Video Conference (Today)'
-                      : '🗓️ Schedule Video Conference'}
+                      ? videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
+                        ? `🚀 Start Video Conference (${effectiveSelectedUserIds.length} Participants)`
+                        : '🚀 Start Video Conference (Today)'
+                      : videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
+                        ? `🗓️ Schedule Video Conference (${effectiveSelectedUserIds.length} Participants)`
+                        : '🗓️ Schedule Video Conference'}
                   </span>
                 </>
               ) : chatType === 'ticket' ? (

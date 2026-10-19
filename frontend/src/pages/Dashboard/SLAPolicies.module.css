@@ -1260,6 +1260,164 @@
   word-break: break-word;
 }
 
+/* ── PAGINATION BAR ─────────────────────────────────────────────────────────── */
+
+.paginationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: var(--sla-surface);
+  border-top: 1px solid var(--sla-border);
+  flex-wrap: wrap;
+}
+
+.paginationLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.paginationInfo {
+  font-size: 13px;
+  color: var(--sla-text-muted);
+}
+
+.paginationHighlight {
+  font-weight: 700;
+  color: var(--sla-text-main);
+}
+
+.pageSizeWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageSizeLabel {
+  font-size: 12.5px;
+  color: var(--sla-text-muted);
+}
+
+.pageSizeSelect {
+  padding: 5px 26px 5px 10px;
+  border: 1.5px solid var(--sla-border);
+  border-radius: var(--sla-radius-sm);
+  background: var(--sla-surface);
+  color: var(--sla-text-main);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color .18s, box-shadow .18s;
+  font-family: inherit;
+}
+
+.pageSizeSelect:focus {
+  outline: none;
+  border-color: var(--sla-primary);
+  box-shadow: 0 0 0 3px var(--sla-primary-light);
+}
+
+.paginationControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pageNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--sla-border);
+  border-radius: var(--sla-radius-sm);
+  background: var(--sla-surface);
+  color: var(--sla-text-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s ease;
+  font-family: inherit;
+}
+
+.pageNavBtn:hover:not(:disabled) {
+  border-color: var(--sla-primary);
+  color: var(--sla-primary);
+  background: var(--sla-primary-light);
+}
+
+.pageNavBtn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  border-color: var(--sla-border);
+  color: var(--sla-text-subtle);
+  background: transparent;
+}
+
+.pageNavIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.pageNumbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pageNumberBtn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sla-border);
+  border-radius: var(--sla-radius-sm);
+  background: var(--sla-surface);
+  color: var(--sla-text-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s ease;
+  font-family: inherit;
+}
+
+.pageNumberBtn:hover:not(.pageNumberActive) {
+  border-color: var(--sla-primary);
+  color: var(--sla-primary);
+  background: var(--sla-primary-light);
+}
+
+.pageNumberActive {
+  background: var(--sla-primary);
+  border-color: var(--sla-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37,99,235,.25);
+}
+
+:global([data-theme="dark"]) .pageNumberActive {
+  box-shadow: 0 2px 8px rgba(59,130,246,.35);
+}
+
+.pageEllipsis {
+  min-width: 28px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--sla-text-subtle);
+  user-select: none;
+}
+
 /* ── RESPONSIVE ─────────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -1272,9 +1430,22 @@
   .table th, .table td { padding: 10px 12px; }
   .detailMetricsGrid { grid-template-columns: 1fr; }
   .detailHero { flex-direction: column; align-items: flex-start; }
+  .paginationBar {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .paginationLeft {
+    justify-content: center;
+  }
+  .paginationControls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 480px) {
   .statsRow { grid-template-columns: 1fr; }
   .detailHeroTop { flex-direction: column; align-items: flex-start; }
 }
+

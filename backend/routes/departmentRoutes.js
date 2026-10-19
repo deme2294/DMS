@@ -1,19 +1,20 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as departmentController from '../controllers/departmentController.js';
-import { authenticate } from '../middleware/authMiddleware.js';
+import { authenticate, optionalAuthenticate } from '../middleware/authMiddleware.js';
 import { authorize } from '../middleware/roleMiddleware.js';
 import { validate, departmentIdParam } from '../middleware/validationMiddleware.js';
 
 const router = Router();
 
-router.use(authenticate);
-
+// Reference list of active departments for dropdowns (tickets, communications, matrix)
 router.get(
   '/active',
-  authorize('departments.manage', 'users.read', 'users.create', 'users.update', 'matrix.manage', 'knowledge.create'),
+  optionalAuthenticate,
   departmentController.getActiveDepartments
 );
+
+router.use(authenticate);
 
 router.get(
   '/heads',

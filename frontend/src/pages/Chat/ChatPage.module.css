@@ -3640,6 +3640,191 @@
   border-left: 3px solid #cbd5e1;
 }
 
+/* ── Ticket Automatic Routing Box ────────────────────────────────────────── */
+
+.routingBox {
+  margin-top: 14px;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 12px;
+  padding: 15px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.routingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.routingTitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.routingTitleIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 0.85rem;
+}
+
+.routingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.routingBadgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.routingCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.routingCard {
+  background: var(--bg-card, #ffffff);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.routingCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.routingCardLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+
+.routingCardValueCategory {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.routingCardValueDept {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #059669;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.routingCardValueTiming {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #d97706;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.routingNotice {
+  font-size: 0.80rem;
+  line-height: 1.55;
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  border-left: 3px solid #10b981;
+  color: #166534;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.routingNotice strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* ── Admin Direct Chat Banner ────────────────────────────────────────────── */
+
+.adminDirectBanner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.adminDirectIconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  flex-shrink: 0;
+}
+
+.adminDirectTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+}
+
+.adminDirectBadge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+
+.adminDirectDesc {
+  margin: 2px 0 0 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.45;
+}
+
 .memberAvatarWrapper {
   position: relative;
   flex-shrink: 0;
@@ -5078,6 +5263,86 @@
   color: #ffffff;
 }
 
+/* Dark Theme Overrides for Automatic Routing Box */
+:global([data-theme='dark']) .routingBox {
+  background: #0f1420;
+  border-color: #26334a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+:global([data-theme='dark']) .routingTitle {
+  color: #f8fafc;
+}
+
+:global([data-theme='dark']) .routingTitleIcon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+:global([data-theme='dark']) .routingBadge {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+:global([data-theme='dark']) .routingCard {
+  background: #151b28;
+  border-color: #26334a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+:global([data-theme='dark']) .routingCard:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme='dark']) .routingCardLabel {
+  color: #94a3b8;
+}
+
+:global([data-theme='dark']) .routingCardValueCategory {
+  color: #60a5fa;
+}
+
+:global([data-theme='dark']) .routingCardValueDept {
+  color: #34d399;
+}
+
+:global([data-theme='dark']) .routingCardValueTiming {
+  color: #fbbf24;
+}
+
+:global([data-theme='dark']) .routingNotice {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  border-left-color: #10b981;
+  color: #a7f3d0;
+}
+
+:global([data-theme='dark']) .routingNotice strong {
+  color: #ffffff;
+}
+
+/* Dark Theme Overrides for Admin Direct Banner */
+:global([data-theme='dark']) .adminDirectBanner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+:global([data-theme='dark']) .adminDirectTitle {
+  color: #f8fafc;
+}
+
+:global([data-theme='dark']) .adminDirectBadge {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+:global([data-theme='dark']) .adminDirectDesc {
+  color: #cbd5e1;
+}
+
 /* Delete Message Modal Dark Mode Overrides */
 :global([data-theme='dark']) .deleteModalContainer {
   background: #151b28 !important;
@@ -5181,5 +5446,934 @@
   border-color: #475569 !important;
   color: #ffffff !important;
 }
+
+/* ==========================================================================
+   16. REAL-TIME WORKSPACE HERO & SIDEBAR EMPTY STATE POLISH
+   ========================================================================== */
+.noRoomSelected {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow-y: auto;
+  min-height: 100%;
+  box-sizing: border-box;
+  animation: fadeInHero 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  background: radial-gradient(circle at 50% 25%, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.03) 45%, transparent 75%);
+}
+
+@keyframes fadeInHero {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.heroWelcomeCard {
+  max-width: 680px;
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  box-shadow: 0 20px 48px -12px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.06);
+  padding: 36px 32px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.heroWelcomeCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+}
+
+.heroBadgeWrapper {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.heroBadgeGlow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.45), rgba(139, 92, 246, 0.45));
+  filter: blur(14px);
+  opacity: 0.65;
+  animation: pulseHeroGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes pulseHeroGlow {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0.8;
+  }
+}
+
+.heroBadgeIcon {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 25px -4px rgba(79, 70, 229, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.heroMainSvg {
+  width: 32px;
+  height: 32px;
+  color: #ffffff;
+}
+
+.heroHeaderSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.heroTagline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: var(--primary-blue);
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.heroTagDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6;
+}
+
+.heroTitle {
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 8px 0;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.heroSubtitle {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 520px;
+}
+
+.heroActionButtons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 26px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.heroPrimaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.heroPrimaryBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+}
+
+.heroSecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: var(--bg-hover);
+  color: var(--text-main);
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.heroSecondaryBtn:hover {
+  background: var(--bg-active);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btnIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.heroFeaturesGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+  .heroFeaturesGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.heroFeatureCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  position: relative;
+  user-select: none;
+}
+
+.heroFeatureCard:hover {
+  background: var(--bg-hover);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.heroFeatureCard:hover .featureArrow {
+  transform: translateX(3px);
+  color: var(--primary-blue);
+}
+
+.featureIconBadge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.featureIconBadge svg {
+  width: 20px;
+  height: 20px;
+}
+
+.featureVideo {
+  background: rgba(236, 72, 153, 0.14);
+  color: #ec4899;
+  border: 1px solid rgba(236, 72, 153, 0.28);
+}
+
+.featureDirect {
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.featureDept {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.featureTicket {
+  background: rgba(139, 92, 246, 0.14);
+  color: #a855f7;
+  border: 1px solid rgba(139, 92, 246, 0.28);
+}
+
+.featureInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.featureInfo h4 {
+  margin: 0 0 2px 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.featureInfo p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.featureArrow {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.heroFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.engineStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.statusPulseLive {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  animation: pulseLiveDot 2s infinite;
+}
+
+@keyframes pulseLiveDot {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.securityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.securityIcon {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
+}
+
+/* Sidebar header & button icons */
+.sidebarIconBubble {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-blue-light);
+  border: 1px solid var(--primary-blue-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+.sidebarHeaderSvg {
+  width: 18px;
+  height: 18px;
+}
+
+.btnSvgIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.btnSmallIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Sidebar Empty State */
+.sidebarEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 26px 16px;
+  margin: 12px 10px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px dashed var(--border-light);
+  box-sizing: border-box;
+}
+
+.sidebarEmptyIconWrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebarEmptyIcon {
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+}
+
+.sidebarEmptyTitle {
+  margin: 0 0 4px 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.sidebarEmptySubtitle {
+  margin: 0 0 14px 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+.sidebarEmptyActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.sidebarEmptyVideoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.sidebarEmptyVideoBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.5);
+}
+
+.sidebarEmptyChatBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--primary-blue-light);
+  border: 1px solid var(--primary-blue-border);
+  color: var(--primary-blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.sidebarEmptyChatBtn:hover {
+  background: var(--primary-blue-hover);
+  color: #ffffff;
+  border-color: var(--primary-blue-hover);
+}
+
+/* Fallback backward compatibility for legacy classnames */
+.noRoomGraphic {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+/* --------------------------------------------------------------------------
+   DARK THEME OVERRIDES FOR HERO & SIDEBAR EMPTY STATE
+   -------------------------------------------------------------------------- */
+:global([data-theme='dark']) .noRoomSelected {
+  background: radial-gradient(circle at 50% 25%, rgba(99, 102, 241, 0.12) 0%, rgba(59, 130, 246, 0.05) 45%, transparent 75%) !important;
+}
+
+:global([data-theme='dark']) .heroWelcomeCard {
+  background: #111827 !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+:global([data-theme='dark']) .heroWelcomeCard::before {
+  background: linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%) !important;
+}
+
+:global([data-theme='dark']) .heroTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme='dark']) .heroSubtitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='dark']) .heroTagline {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+:global([data-theme='dark']) .heroSecondaryBtn {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+:global([data-theme='dark']) .heroSecondaryBtn:hover {
+  background: #28374d !important;
+  border-color: #475569 !important;
+}
+
+:global([data-theme='dark']) .heroFeatureCard {
+  background: #0f1523 !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme='dark']) .heroFeatureCard:hover {
+  background: #172033 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+:global([data-theme='dark']) .heroFeatureCard:hover .featureArrow {
+  color: #60a5fa !important;
+}
+
+:global([data-theme='dark']) .featureInfo h4 {
+  color: #f8fafc !important;
+}
+
+:global([data-theme='dark']) .featureInfo p {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='dark']) .heroFooter {
+  border-top-color: #1e293b !important;
+  color: #64748b !important;
+}
+
+:global([data-theme='dark']) .sidebarIconBubble {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #60a5fa !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyState {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyIconWrapper {
+  background: #151b28 !important;
+  border-color: #252e3e !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyIcon {
+  color: #64748b !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptySubtitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyChatBtn {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+:global([data-theme='dark']) .sidebarEmptyChatBtn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* --------------------------------------------------------------------------
+   LIGHT THEME OVERRIDES FOR HERO & SIDEBAR EMPTY STATE
+   -------------------------------------------------------------------------- */
+:global([data-theme='light']) .noRoomSelected {
+  background: radial-gradient(circle at 50% 25%, rgba(59, 130, 246, 0.07) 0%, rgba(139, 92, 246, 0.03) 45%, transparent 75%) !important;
+}
+
+:global([data-theme='light']) .heroWelcomeCard {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.09), 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+:global([data-theme='light']) .heroTitle {
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .heroSubtitle {
+  color: #64748b !important;
+}
+
+:global([data-theme='light']) .heroSecondaryBtn {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .heroSecondaryBtn:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+:global([data-theme='light']) .heroFeatureCard {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .heroFeatureCard:hover {
+  background: #ffffff !important;
+  border-color: #bfdbfe !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08) !important;
+}
+
+:global([data-theme='light']) .featureInfo h4 {
+  color: #0f172a !important;
+}
+
+:global([data-theme='light']) .featureInfo p {
+  color: #64748b !important;
+}
+
+:global([data-theme='light']) .sidebarEmptyState {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global([data-theme='light']) .sidebarEmptyIconWrapper {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* ==========================================================================
+   17. MULTI-USER SELECTION & DEPARTMENT MANAGER ROUTING
+   ========================================================================== */
+.multiUserSelectionSummary {
+  background: var(--primary-blue-light);
+  border: 1px solid var(--primary-blue-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeInHero 0.2s ease;
+}
+
+.multiUserSelectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.multiSelectActionBtn {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary-blue);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.multiSelectActionBtn:hover {
+  background: rgba(37, 99, 235, 0.1);
+  text-decoration: underline;
+}
+
+.selectedUsersChipsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 90px;
+  overflow-y: auto;
+}
+
+.selectedUserChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 9999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-size: 0.78rem;
+  color: var(--text-main);
+  animation: fadeInHero 0.15s ease;
+}
+
+.chipAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.chipName {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipRole {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.chipRemoveBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.chipRemoveBtn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Department Manager Auto-Routing Card */
+.deptManagerRoutingCard {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.04) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeInHero 0.25s ease;
+}
+
+.deptManagerCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.deptRouteBadge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.deptManagerCardBody {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.deptManagerAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.deptManagerDetails {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deptManagerName {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deptManagerRoleTag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  letter-spacing: 0.04em;
+}
+
+.deptManagerMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.deptManagerFooterNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+:global([data-theme='dark']) .multiUserSelectionSummary {
+  background: rgba(37, 99, 235, 0.16) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+:global([data-theme='dark']) .selectedUserChip {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme='dark']) .chipRole {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+
+:global([data-theme='dark']) .deptManagerRoutingCard {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+:global([data-theme='dark']) .deptRouteBadge {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+:global([data-theme='dark']) .deptManagerCardBody {
+  background: #111827 !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme='dark']) .deptManagerName {
+  color: #f8fafc !important;
+}
+
+
 
 

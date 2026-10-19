@@ -264,93 +264,149 @@ export default function ManagerDashboard() {
             <p className={styles.emptyText}>No recent department tickets found.</p>
           </div>
         ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.ticketTable}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Ticket Title & Reference</th>
-                  <th className={styles.th}>Status</th>
-                  <th className={styles.th}>Priority</th>
-                  <th className={styles.th}>Created Date</th>
-                  <th className={styles.th} style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentTickets.map((t) => {
-                  const sStyle = STATUS_STYLE[t.status] || {
-                    bg: 'rgba(148, 163, 184, 0.15)',
-                    color: '#475569',
-                    border: 'rgba(148, 163, 184, 0.3)',
-                  };
-                  const pStyle = PRIORITY_STYLE[t.priority?.toLowerCase()] || {
-                    color: '#64748b',
-                    dot: '#94a3b8',
-                    bg: 'rgba(148, 163, 184, 0.1)',
-                  };
-
-                  return (
-                    <tr key={t.id} className={styles.tr}>
-                      <td className={styles.td}>
-                        <Link to={`/manager/tickets/${t.id}`} className={styles.ticketTitleLink}>
-                          {t.title}
-                        </Link>
-                        {t.referenceNumber && (
-                          <div className={styles.ticketMetaText}>
-                            Ref: <strong>{t.referenceNumber}</strong>
-                          </div>
-                        )}
-                      </td>
-                      <td className={styles.td}>
-                        <span
-                          className={styles.statusPill}
-                          style={{
-                            background: sStyle.bg,
-                            color: sStyle.color,
-                            border: `1px solid ${sStyle.border}`,
-                          }}
-                        >
-                          {t.status?.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className={styles.td}>
-                        <span
-                          className={styles.priorityPill}
-                          style={{
-                            color: pStyle.color,
-                            background: pStyle.bg,
-                          }}
-                        >
-                          <span
-                            className={styles.priorityDot}
-                            style={{ background: pStyle.dot }}
-                          />
-                          {t.priority}
-                        </span>
-                      </td>
-                      <td className={styles.td} style={{ color: 'var(--mgr-text-muted)', whiteSpace: 'nowrap' }}>
-                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                      </td>
-                      <td className={styles.td} style={{ textAlign: 'right' }}>
-                        <Link
-                          to={`/manager/tickets/${t.id}`}
-                          style={{
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            color: '#0284c7',
-                            textDecoration: 'none',
-                          }}
-                        >
-                          Manage →
-                        </Link>
-                      </td>
+          <>
+            {/* Desktop Table View */}
+            <div className={styles.desktopTableWrap}>
+              <div className={styles.tableWrapper}>
+                <table className={styles.ticketTable}>
+                  <thead>
+                    <tr>
+                      <th className={styles.th}>Ticket Title & Reference</th>
+                      <th className={styles.th}>Status</th>
+                      <th className={styles.th}>Priority</th>
+                      <th className={styles.th}>Created Date</th>
+                      <th className={styles.th} style={{ textAlign: 'right' }}>Action</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {data.recentTickets.map((t) => {
+                      const sStyle = STATUS_STYLE[t.status] || {
+                        bg: 'rgba(148, 163, 184, 0.15)',
+                        color: '#475569',
+                        border: 'rgba(148, 163, 184, 0.3)',
+                      };
+                      const pStyle = PRIORITY_STYLE[t.priority?.toLowerCase()] || {
+                        color: '#64748b',
+                        dot: '#94a3b8',
+                        bg: 'rgba(148, 163, 184, 0.1)',
+                      };
+
+                      return (
+                        <tr key={t.id} className={styles.tr}>
+                          <td className={styles.td}>
+                            <Link to={`/manager/tickets/${t.id}`} className={styles.ticketTitleLink}>
+                              {t.title}
+                            </Link>
+                            {t.referenceNumber && (
+                              <div className={styles.ticketMetaText}>
+                                Ref: <strong>{t.referenceNumber}</strong>
+                              </div>
+                            )}
+                          </td>
+                          <td className={styles.td}>
+                            <span
+                              className={styles.statusPill}
+                              style={{
+                                background: sStyle.bg,
+                                color: sStyle.color,
+                                border: `1px solid ${sStyle.border}`,
+                              }}
+                            >
+                              {t.status?.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className={styles.td}>
+                            <span
+                              className={styles.priorityPill}
+                              style={{
+                                color: pStyle.color,
+                                background: pStyle.bg,
+                              }}
+                            >
+                              <span
+                                className={styles.priorityDot}
+                                style={{ background: pStyle.dot }}
+                              />
+                              {t.priority}
+                            </span>
+                          </td>
+                          <td className={styles.td} style={{ color: 'var(--mgr-text-muted)', whiteSpace: 'nowrap' }}>
+                            {t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                          </td>
+                          <td className={styles.td} style={{ textAlign: 'right' }}>
+                            <Link
+                              to={`/manager/tickets/${t.id}`}
+                              style={{
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                color: '#0284c7',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              Manage →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Touch-Friendly Card View */}
+            <div className={styles.mobileCardsList}>
+              {data.recentTickets.map((t) => {
+                const sStyle = STATUS_STYLE[t.status] || {
+                  bg: 'rgba(148, 163, 184, 0.15)',
+                  color: '#475569',
+                  border: 'rgba(148, 163, 184, 0.3)',
+                };
+                const pStyle = PRIORITY_STYLE[t.priority?.toLowerCase()] || {
+                  color: '#64748b',
+                  dot: '#94a3b8',
+                  bg: 'rgba(148, 163, 184, 0.1)',
+                };
+
+                return (
+                  <Link key={t.id} to={`/manager/tickets/${t.id}`} className={styles.mobileCard}>
+                    <div className={styles.mobileCardHeader}>
+                      <span className={styles.refText}>{t.referenceNumber ?? '—'}</span>
+                      <span
+                        className={styles.priorityPill}
+                        style={{ color: pStyle.color, background: pStyle.bg }}
+                      >
+                        <span className={styles.priorityDot} style={{ background: pStyle.dot }} />
+                        {t.priority}
+                      </span>
+                    </div>
+
+                    <div className={styles.mobileCardTitle}>{t.title}</div>
+
+                    <div className={styles.mobileCardMetaRow}>
+                      <span
+                        className={styles.statusPill}
+                        style={{ background: sStyle.bg, color: sStyle.color, border: `1px solid ${sStyle.border}` }}
+                      >
+                        {t.status?.replace(/_/g, ' ')}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--mgr-text-muted)' }}>
+                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}
+                      </span>
+                    </div>
+
+                    <div className={styles.mobileCardFooter}>
+                      <span style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.8rem' }}>Manage Ticket →</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>
   );
 }
+
+

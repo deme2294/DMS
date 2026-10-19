@@ -1,37 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { fetchStaffDashboard, fetchStaffSlaDashboard } from '../../api/dashboardApi';
 import type { StaffDashboardData, StaffSlaDashboard, StaffSlaTicketItem } from '../../api/dashboardApi';
 import { useAuth } from '../../context/AuthContext';
+import styles from './StaffDashboard.module.css';
 
-const STATUS_COLORS: Record<string, string> = {
-  assigned_staff: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  pending_approval: 'bg-orange-100 text-orange-700',
-  resolved: 'bg-green-100 text-green-700',
-  open: 'bg-sky-100 text-sky-700',
-  assigned: 'bg-indigo-100 text-indigo-700',
-  accepted: 'bg-teal-100 text-teal-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  waiting_tenant: 'bg-gray-100 text-gray-700',
-  waiting_vendor: 'bg-gray-100 text-gray-700',
-  escalated: 'bg-red-100 text-red-700',
-  reopened: 'bg-purple-100 text-purple-700',
-};
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-sky-100 text-sky-700',
-  medium: 'bg-yellow-100 text-yellow-700',
-  high: 'bg-orange-100 text-orange-700',
-  critical: 'bg-red-100 text-red-700',
-  urgent: 'bg-red-100 text-red-700',
+import {
+  TicketIcon,
+  InboxIcon,
+  WrenchScrewdriverIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationCircleIcon,
+  ArrowRightIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  FunnelIcon,
+} from '@heroicons/react/24/outline';
+
+const getPriorityClass = (priority: string) => {
+  const p = (priority || '').toLowerCase();
+  if (p === 'critical' || p === 'urgent') return styles.priority_critical;
+  if (p === 'high') return styles.priority_high;
+  if (p === 'medium') return styles.priority_medium;
+  return styles.priority_low;
 };
 
-const SLA_STATUS_COLORS: Record<string, string> = {
-  on_track: 'bg-green-100 text-green-700',
-  approaching: 'bg-amber-100 text-amber-700',
-  response_breached: 'bg-red-100 text-red-700',
-  escalation_breached: 'bg-red-100 text-red-700',
-  overdue: 'bg-red-100 text-red-700',
+const getSlaPillClass = (status: string) => {
+  const s = (status || '').toLowerCase();
+  if (s === 'overdue' || s === 'response_breached' || s === 'escalation_breached') {
+    return styles.slaBreached;
+  }
+  if (s === 'approaching') {
+    return styles.slaApproaching;
+  }
+  return styles.slaOnTrack;
 };
 
 export default function StaffDashboard() {
@@ -40,132 +43,317 @@ export default function StaffDashboard() {
   const [slaData, setSlaData] = useState<StaffSlaDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'high' | 'approaching' | 'breached'>('all');
 
   useEffect(() => {
     fetchStaffDashboard()
       .then((r) => setData(r.data.data))
-      .catch(() => setError('Failed to load dashboard'))
+      .catch(() => setError('Failed to load dashboard data'))
       .finally(() => setLoading(false));
-    fetchStaffSlaDashboard().then((r) => setSlaData(r.data.data)).catch(() => { });
+
+    fetchStaffSlaDashboard()
+      .then((r) => setSlaData(r.data.data))
+      .catch(() => { });
   }, []);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-    </div>
-  );
-  if (error) return <div className="p-6 text-red-600 bg-red-50 rounded-xl border border-red-200">{error}</div>;
+  const slaTickets = useMemo(() => {
+    const list = slaData?.assignedTickets || [];
+    if (filterMode === 'high') {
+      return list.filter((t) => ['high', 'urgent', 'critical'].includes((t.priority || '').toLowerCase()));
+    }
+    if (filterMode === 'approaching') {
+      return list.filter((t) => (t.slaStatus || '').toLowerCase() === 'approaching');
+    }
+    if (filterMode === 'breached') {
+      return list.filter((t) =>
+        ['overdue', 'response_breached', 'escalation_breached'].includes((t.slaStatus || '').toLowerCase())
+      );
+    }
+    return list;
+  }, [slaData, filterMode]);
 
-  const s = data!.stats;
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
+        <span className={styles.loadingText}>Loading Staff Operations Desk...</span>
+      </div>
+    );
+  }
 
-  const statCards = [
-    { label: 'Total Assigned', value: s.assignedTickets, icon: '🎫', color: 'from-blue-500 to-blue-600' },
-    { label: 'New / Open', value: s.openTickets, icon: '📬', color: 'from-amber-500 to-amber-600' },
-    { label: 'In Progress', value: s.inProgressTickets, icon: '⚙️', color: 'from-indigo-500 to-indigo-600' },
-    { label: 'Resolved Today', value: s.resolvedToday, icon: '✅', color: 'from-green-500 to-green-600' },
-  ];
+  if (error || !data) {
+    return (
+      <div className={styles.dashboard}>
+        <div style={{ padding: '24px', background: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          {error || 'Unable to load dashboard information'}
+        </div>
+      </div>
+    );
+  }
 
-  const slaTickets = slaData?.assignedTickets || [];
+  const s = data.stats;
   const slaStats = slaData?.stats;
 
+  const statCards = [
+    {
+      label: 'Assigned to Me',
+      value: s.assignedTickets || 0,
+      icon: <TicketIcon style={{ width: 22, height: 22, color: '#2563eb' }} />,
+      bg: 'rgba(37, 99, 235, 0.12)',
+      hint: 'Current queue',
+    },
+    {
+      label: 'Active / Open',
+      value: s.openTickets || 0,
+      icon: <InboxIcon style={{ width: 22, height: 22, color: '#d97706' }} />,
+      bg: 'rgba(245, 158, 11, 0.12)',
+      hint: 'Awaiting first response',
+    },
+    {
+      label: 'In Progress',
+      value: s.inProgressTickets || 0,
+      icon: <WrenchScrewdriverIcon style={{ width: 22, height: 22, color: '#7c3aed' }} />,
+      bg: 'rgba(124, 58, 237, 0.12)',
+      hint: 'Under active resolution',
+    },
+    {
+      label: 'Resolved Today',
+      value: s.resolvedToday || 0,
+      icon: <CheckCircleIcon style={{ width: 22, height: 22, color: '#059669' }} />,
+      bg: 'rgba(16, 185, 129, 0.12)',
+      hint: 'Closed / completed',
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Staff Dashboard</h1>
-        <p className="text-slate-500 mt-1">
-          Welcome back, <span className="font-medium text-slate-700">{user?.firstName} {user?.lastName}</span> · Your assigned work
-        </p>
+    <div className={styles.dashboard}>
+      {/* ── Top Header Section ── */}
+      <div className={styles.headerRow}>
+        <div className={styles.headerLeft}>
+          <div className={styles.headingBadgeRow}>
+            <span className={styles.headingBadge}>
+              <SparklesIcon style={{ width: 14, height: 14 }} /> Staff Operations Desk
+            </span>
+            <span className={styles.headingBadge} style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669', borderColor: 'rgba(16, 185, 129, 0.25)' }}>
+              Live Sync
+            </span>
+          </div>
+          <h1 className={styles.heading}>Staff Command Center</h1>
+          <p className={styles.subheading}>
+            Welcome back, <span className={styles.highlightName}>{user?.firstName} {user?.lastName}</span> · Track and resolve assigned incident tickets.
+          </p>
+        </div>
+
+        <div className={styles.headerRight}>
+          <Link to="/staff/tickets" className={`${styles.actionBtn} ${styles.primaryBtn}`}>
+            <span>View All Tickets</span>
+            <ArrowRightIcon style={{ width: 16, height: 16 }} />
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(({ label, value, icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-lg mb-3`}>{icon}</div>
-            <div className="text-2xl font-bold text-slate-800">{value}</div>
-            <div className="text-sm text-slate-500 mt-0.5">{label}</div>
+      {/* ── Primary KPI Metrics ── */}
+      <div className={styles.statsGrid}>
+        {statCards.map((card) => (
+          <div key={card.label} className={styles.statCard}>
+            <div className={styles.statHeader}>
+              <div className={styles.statIconWrap} style={{ background: card.bg }}>
+                {card.icon}
+              </div>
+            </div>
+            <div className={styles.statValue}>{card.value}</div>
+            <div className={styles.statLabel}>{card.label}</div>
+            <div className={styles.statFooter}>
+              <span>{card.hint}</span>
+            </div>
           </div>
         ))}
       </div>
 
+      {/* ── SLA Health Metric Strip ── */}
       {slaStats && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h2 className="text-base font-semibold text-slate-700 mb-4">SLA Overview</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
-              <div className="text-xl font-bold text-blue-600">{slaStats.assignedTickets}</div>
-              <div className="text-xs text-blue-500">Assigned Tickets</div>
+        <div className={styles.slaSection}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              <ShieldCheckIcon style={{ width: 22, height: 22, color: '#2563eb' }} />
+              <span>SLA Compliance Overview</span>
+            </h2>
+          </div>
+
+          <div className={styles.slaGrid}>
+            <div className={`${styles.slaCard} ${styles.slaBlue}`}>
+              <span className={styles.slaVal}>{slaStats.assignedTickets}</span>
+              <span className={styles.slaLbl}>Assigned Under SLA</span>
             </div>
-            <div className="rounded-xl bg-red-50 border border-red-100 p-3">
-              <div className="text-xl font-bold text-red-600">{slaStats.overdueTickets}</div>
-              <div className="text-xs text-red-500">Overdue</div>
+            <div className={`${styles.slaCard} ${styles.slaGreen}`}>
+              <span className={styles.slaVal}>
+                {Math.max(0, slaStats.assignedTickets - (slaStats.overdueTickets || 0))}
+              </span>
+              <span className={styles.slaLbl}>Within SLA Target</span>
             </div>
-            <div className="rounded-xl bg-amber-50 border border-amber-100 p-3">
-              <div className="text-xl font-bold text-amber-600">{slaStats.upcomingDeadlines}</div>
-              <div className="text-xs text-amber-500">Upcoming Deadlines</div>
+            <div className={`${styles.slaCard} ${styles.slaAmber}`}>
+              <span className={styles.slaVal}>{slaStats.upcomingDeadlines || 0}</span>
+              <span className={styles.slaLbl}>Upcoming Deadlines (&lt;4h)</span>
+            </div>
+            <div className={`${styles.slaCard} ${styles.slaRed}`}>
+              <span className={styles.slaVal}>{slaStats.overdueTickets || 0}</span>
+              <span className={styles.slaLbl}>Overdue Breaches</span>
             </div>
           </div>
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-slate-700">My Assigned Tickets</h2>
-          <Link to="/staff/tickets" className="text-sm text-blue-600 hover:text-blue-700 font-medium">View all →</Link>
+      {/* ── Assigned Tickets Workspace ── */}
+      <div className={styles.tableCard}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>
+            <TicketIcon style={{ width: 22, height: 22, color: '#2563eb' }} />
+            <span>My Assigned Action Queue</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--staff-text-muted)', marginLeft: 6 }}>
+              ({slaTickets.length})
+            </span>
+          </h2>
+
+          <div className={styles.filterRow}>
+            <button
+              type="button"
+              className={`${styles.filterBtn} ${filterMode === 'all' ? styles.filterActive : ''}`}
+              onClick={() => setFilterMode('all')}
+            >
+              All ({slaData?.assignedTickets?.length || 0})
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterBtn} ${filterMode === 'high' ? styles.filterActive : ''}`}
+              onClick={() => setFilterMode('high')}
+            >
+              High Priority
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterBtn} ${filterMode === 'approaching' ? styles.filterActive : ''}`}
+              onClick={() => setFilterMode('approaching')}
+            >
+              Approaching
+            </button>
+            <button
+              type="button"
+              className={`${styles.filterBtn} ${filterMode === 'breached' ? styles.filterActive : ''}`}
+              onClick={() => setFilterMode('breached')}
+            >
+              Overdue
+            </button>
+          </div>
         </div>
+
         {slaTickets.length === 0 ? (
-          <div className="py-10 text-center">
-            <div className="text-3xl mb-2 opacity-40">📭</div>
-            <p className="text-slate-400 text-sm">No tickets assigned to you</p>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>📭</div>
+            <div className={styles.emptyTitle}>Queue Clean & Up to Date</div>
+            <p className={styles.emptySubtitle}>
+              {filterMode === 'all'
+                ? 'No tickets are currently assigned to your staff queue.'
+                : 'No tickets match the selected filter criteria.'}
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Reference</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Title</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Category</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Priority</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Assigned</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Response Due</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Resolution Due</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">Remaining</th>
-                  <th className="text-left py-3 px-4 text-slate-500 font-medium">SLA Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slaTickets.map((t: StaffSlaTicketItem) => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4 font-mono text-xs text-slate-500">{t.referenceNumber}</td>
-                    <td className="py-3 px-4">
-                      <Link to={`/staff/tickets/${t.id}`} className="font-medium text-slate-800 hover:text-blue-600 line-clamp-1">{t.title}</Link>
-                    </td>
-                    <td className="py-3 px-4 text-slate-500">{t.category}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PRIORITY_COLORS[t.priority] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-400 whitespace-nowrap">{new Date(t.assignedDate).toLocaleDateString()}</td>
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{t.responseDue ? new Date(t.responseDue).toLocaleString() : '—'}</td>
-                    <td className="py-3 px-4 text-slate-500 whitespace-nowrap">{t.resolutionDue ? new Date(t.resolutionDue).toLocaleString() : '—'}</td>
-                    <td className="py-3 px-4 font-medium whitespace-nowrap">{t.remainingTime || '—'}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${SLA_STATUS_COLORS[t.slaStatus] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {t.slaStatus.replace(/_/g, ' ')}
-                      </span>
-                      {t.slaStatus === 'approaching' && (
-                        <div className="text-xs text-amber-600 mt-1 font-medium">⚠ Deadline approaching</div>
-                      )}
-                      {(t.slaStatus === 'overdue' || t.slaStatus === 'response_breached' || t.slaStatus === 'escalation_breached') && (
-                        <div className="text-xs text-red-600 mt-1 font-medium">🔴 SLA Overdue</div>
-                      )}
-                    </td>
+          <>
+            {/* Desktop Table */}
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Reference</th>
+                    <th>Ticket Title</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Assigned Date</th>
+                    <th>Response Due</th>
+                    <th>Resolution Due</th>
+                    <th>Remaining Time</th>
+                    <th>SLA Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {slaTickets.map((t: StaffSlaTicketItem) => (
+                    <tr key={t.id}>
+                      <td className={styles.refCell}>{t.referenceNumber}</td>
+                      <td>
+                        <Link to={`/staff/tickets/${t.id}`} className={styles.ticketTitleLink}>
+                          {t.title}
+                        </Link>
+                      </td>
+                      <td>{t.category || 'General'}</td>
+                      <td>
+                        <span className={`${styles.badge} ${getPriorityClass(t.priority)}`}>
+                          {t.priority}
+                        </span>
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                        {t.assignedDate ? new Date(t.assignedDate).toLocaleDateString() : '—'}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                        {t.responseDue ? new Date(t.responseDue).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) : '—'}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                        {t.resolutionDue ? new Date(t.resolutionDue).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) : '—'}
+                      </td>
+                      <td style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {t.remainingTime || '—'}
+                      </td>
+                      <td>
+                        <div className={styles.slaBadge}>
+                          <span className={`${styles.slaPill} ${getSlaPillClass(t.slaStatus)}`}>
+                            {t.slaStatus.replace(/_/g, ' ')}
+                          </span>
+                          {t.slaStatus === 'approaching' && (
+                            <span className={styles.slaWarningText} style={{ color: '#d97706' }}>
+                              ⚠️ Approaching
+                            </span>
+                          )}
+                          {(t.slaStatus === 'overdue' || t.slaStatus === 'response_breached' || t.slaStatus === 'escalation_breached') && (
+                            <span className={styles.slaWarningText}>
+                              🔴 SLA Breached
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Touch-Friendly Card View */}
+            <div className={styles.mobileCardsList}>
+              {slaTickets.map((t: StaffSlaTicketItem) => (
+                <Link key={t.id} to={`/staff/tickets/${t.id}`} className={styles.mobileCard}>
+                  <div className={styles.mobileCardHeader}>
+                    <span className={styles.refCell}>{t.referenceNumber}</span>
+                    <span className={`${styles.badge} ${getPriorityClass(t.priority)}`}>
+                      {t.priority}
+                    </span>
+                  </div>
+
+                  <div className={styles.mobileCardTitle}>{t.title}</div>
+
+                  <div className={styles.mobileCardMetaRow}>
+                    <span>Category: <strong>{t.category || 'General'}</strong></span>
+                    <span>Remaining: <strong>{t.remainingTime || '—'}</strong></span>
+                  </div>
+
+                  <div className={styles.mobileCardFooter}>
+                    <span className={`${styles.slaPill} ${getSlaPillClass(t.slaStatus)}`}>
+                      {t.slaStatus.replace(/_/g, ' ')}
+                    </span>
+                    <span style={{ color: '#2563eb', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      Open Ticket →
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

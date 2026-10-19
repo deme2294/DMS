@@ -19,6 +19,15 @@ import { ChatMembersPanel } from './components/ChatMembersPanel';
 import { NewChatModal } from './components/NewChatModal';
 import { MeetingInviteModal } from './components/MeetingInviteModal';
 import { DeleteMessageModal } from './components/DeleteMessageModal';
+import {
+  VideoCameraIcon,
+  ChatBubbleLeftRightIcon,
+  UserGroupIcon,
+  BuildingOffice2Icon,
+  TicketIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/solid';
 
 import styles from './ChatPage.module.css';
 
@@ -63,6 +72,7 @@ export default function ChatPage() {
   const [modalUserTab, setModalUserTab] = useState<'all' | 'online' | 'admin'>('all');
   const [chatType, setChatType] = useState<'direct' | 'department' | 'ticket' | 'video_conference'>('direct');
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState('');
   const [selectedTicketId, setSelectedTicketId] = useState('');
   const [newChatName, setNewChatName] = useState('');
@@ -659,9 +669,67 @@ export default function ChatPage() {
   };
 
   // ===================== NEW CHAT MODAL LOGIC =====================
+  const handleToggleSelectUserId = (userId: string) => {
+    setSelectedUserIds((prev) => {
+      const exists = prev.includes(userId);
+      const next = exists ? prev.filter((id) => id !== userId) : [...prev, userId];
+      setSelectedUserId(next[0] || '');
+      return next;
+    });
+  };
+
+  const handleSelectAllUsers = (userIds: string[]) => {
+    setSelectedUserIds(userIds);
+    setSelectedUserId(userIds[0] || '');
+  };
+
+  const handleClearSelectedUsers = () => {
+    setSelectedUserIds([]);
+    setSelectedUserId('');
+  };
+
+  // Automatically fetch department members when selectedDepartmentId changes
+  useEffect(() => {
+    if (selectedDepartmentId) {
+      setLoadingModalMembers(true);
+      chatApi
+        .fetchDepartmentChatMembers(selectedDepartmentId)
+        .then((res) => {
+          setModalMembers(res.data.data || []);
+        })
+        .catch((err) => {
+          console.warn('Could not fetch department chat members:', err);
+          setModalMembers([]);
+        })
+        .finally(() => {
+          setLoadingModalMembers(false);
+        });
+    } else {
+      setModalMembers([]);
+    }
+  }, [selectedDepartmentId]);
+
+  // Resolve the department manager for the selected department
+  const selectedDeptManager = useMemo(() => {
+    if (!selectedDepartmentId) return null;
+    const mgrInModal = modalMembers.find(
+      (m) => m.role?.toLowerCase().includes('manager') || m.role?.toLowerCase().includes('dept_head')
+    );
+    if (mgrInModal) return mgrInModal;
+    const mgrInUsers = allUsers.find(
+      (u) =>
+        (u as any).department_id === selectedDepartmentId &&
+        (u.role?.toLowerCase().includes('manager') || u.role?.toLowerCase().includes('dept_head'))
+    );
+    if (mgrInUsers) return mgrInUsers;
+    return allUsers.find((u) => u.role?.toLowerCase() === 'manager') || null;
+  }, [selectedDepartmentId, modalMembers, allUsers]);
+
   const handleStartNewChat = async () => {
     setShowNewChatModal(true);
     setLoadingUsers(true);
+    setSelectedUserIds([]);
+    setSelectedUserId('');
     try {
       const [usersRes, deptsRes, ticketsRes] = await Promise.all([
         chatApi.fetchChatUsers(),
@@ -683,6 +751,8 @@ export default function ChatPage() {
     setVideoConferenceTarget('user');
     setConferenceTitle('');
     setConferenceScheduleMode('now');
+    setSelectedUserIds([]);
+    setSelectedUserId('');
     const defaultDate = new Date(Date.now() + 15 * 60 * 1000);
     const isoLocal = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000)
       .toISOString()
@@ -720,13 +790,15 @@ export default function ChatPage() {
       let targetRoomId: string | undefined = undefined;
 
       if (videoConferenceTarget === 'user') {
-        const targetUser = allUsers.find((u) => u.id === selectedUserId);
-        if (!targetUser?.email) {
-          alert('Please select a registered user to invite to the video conference.');
+        const effectiveUserIds =
+          selectedUserIds.length > 0 ? selectedUserIds : selectedUserId ? [selectedUserId] : [];
+        const targetUsers = allUsers.filter((u) => effectiveUserIds.includes(u.id));
+        if (targetUsers.length === 0) {
+          alert('Please select at least one registered user to invite to the video conference.');
           setCreatingRoom(false);
           return;
         }
-        targetEmails = [targetUser.email.toLowerCase()];
+        targetEmails = Array.from(new Set(targetUsers.map((u) => u.email?.toLowerCase()).filter(Boolean)));
       } else if (videoConferenceTarget === 'department') {
         if (!selectedDepartmentId) {
           alert('Please select a department channel.');
@@ -745,7 +817,17 @@ export default function ChatPage() {
         try {
           const membersRes = await chatApi.fetchDepartmentChatMembers(selectedDepartmentId);
           const members = membersRes.data.data || [];
-          targetEmails = members.map((m: any) => m.email).filter(Boolean);
+          
+          // Explicitly route to Department Manager(s) of this department
+          const deptManagers = members.filter((m: any) => m.role?.toLowerCase().includes('manager'));
+          const managerEmails = deptManagers.map((m: any) => m.email?.toLowerCase()).filter(Boolean);
+          const otherMemberEmails = members
+            .filter((m: any) => !m.role?.toLowerCase().includes('manager'))
+            .map((m: any) => m.email?.toLowerCase())
+            .filter(Boolean);
+          
+          // Department Manager is prioritized first in the target recipient routing list
+          targetEmails = Array.from(new Set([...managerEmails, ...otherMemberEmails]));
         } catch {}
         if (targetEmails.length === 0 && currentUser.email) {
           targetEmails = [currentUser.email];
@@ -1343,25 +1425,133 @@ export default function ChatPage() {
             </>
           ) : (
             <div className={styles.noRoomSelected}>
-              <div className={styles.noRoomGraphic}>💬</div>
-              <h3>No Conversation Selected</h3>
-              <p>Choose a conversation from the sidebar or start a new chat channel.</p>
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <button
-                  type="button"
-                  className={styles.newConferenceBtn}
-                  onClick={handleOpenVideoConferenceModal}
-                  style={{ padding: '9px 18px', fontSize: '0.85rem' }}
-                >
-                  📹 Start Video Conference (Today)
-                </button>
-                <button
-                  type="button"
-                  className={styles.startChatBtn}
-                  onClick={handleStartNewChat}
-                >
-                  ➕ Start New Conversation
-                </button>
+              <div className={styles.heroWelcomeCard}>
+                <div className={styles.heroBadgeWrapper}>
+                  <div className={styles.heroBadgeGlow} />
+                  <div className={styles.heroBadgeIcon}>
+                    <ChatBubbleLeftRightIcon className={styles.heroMainSvg} />
+                  </div>
+                </div>
+
+                <div className={styles.heroHeaderSection}>
+                  <div className={styles.heroTagline}>
+                    <span className={styles.heroTagDot} />
+                    <span>Real-Time Workspace</span>
+                  </div>
+                  <h2 className={styles.heroTitle}>Help Desk Communications</h2>
+                  <p className={styles.heroSubtitle}>
+                    Select an ongoing conversation from the sidebar or start collaborating instantly with HD video
+                    conferencing, direct chats, and department channels.
+                  </p>
+                </div>
+
+                <div className={styles.heroActionButtons}>
+                  <button
+                    type="button"
+                    className={styles.heroPrimaryBtn}
+                    onClick={handleOpenVideoConferenceModal}
+                  >
+                    <VideoCameraIcon className={styles.btnIcon} />
+                    <span>Start Video Conference</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.heroSecondaryBtn}
+                    onClick={() => {
+                      setChatType('direct');
+                      handleStartNewChat();
+                    }}
+                  >
+                    <PlusIcon className={styles.btnIcon} />
+                    <span>New Conversation</span>
+                  </button>
+                </div>
+
+                <div className={styles.heroFeaturesGrid}>
+                  <div
+                    className={styles.heroFeatureCard}
+                    onClick={handleOpenVideoConferenceModal}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={`${styles.featureIconBadge} ${styles.featureVideo}`}>
+                      <VideoCameraIcon />
+                    </div>
+                    <div className={styles.featureInfo}>
+                      <h4>HD Video Meetings</h4>
+                      <p>In-app native WebRTC calls with live screen sharing.</p>
+                    </div>
+                    <span className={styles.featureArrow}>→</span>
+                  </div>
+
+                  <div
+                    className={styles.heroFeatureCard}
+                    onClick={() => {
+                      setChatType('direct');
+                      handleStartNewChat();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={`${styles.featureIconBadge} ${styles.featureDirect}`}>
+                      <UserGroupIcon />
+                    </div>
+                    <div className={styles.featureInfo}>
+                      <h4>Direct Messaging</h4>
+                      <p>1-on-1 private messaging with live presence & typing indicators.</p>
+                    </div>
+                    <span className={styles.featureArrow}>→</span>
+                  </div>
+
+                  <div
+                    className={styles.heroFeatureCard}
+                    onClick={() => {
+                      setChatType('department');
+                      handleStartNewChat();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={`${styles.featureIconBadge} ${styles.featureDept}`}>
+                      <BuildingOffice2Icon />
+                    </div>
+                    <div className={styles.featureInfo}>
+                      <h4>Department Channels</h4>
+                      <p>Team collaboration rooms for IT, Operations, and Management.</p>
+                    </div>
+                    <span className={styles.featureArrow}>→</span>
+                  </div>
+
+                  <div
+                    className={styles.heroFeatureCard}
+                    onClick={() => {
+                      setChatType('ticket');
+                      handleStartNewChat();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <div className={`${styles.featureIconBadge} ${styles.featureTicket}`}>
+                      <TicketIcon />
+                    </div>
+                    <div className={styles.featureInfo}>
+                      <h4>Ticket Discussions</h4>
+                      <p>Contextual resolution chat linked directly to active tickets.</p>
+                    </div>
+                    <span className={styles.featureArrow}>→</span>
+                  </div>
+                </div>
+
+                <div className={styles.heroFooter}>
+                  <div className={styles.engineStatus}>
+                    <span className={styles.statusPulseLive} />
+                    <span>Communications Engine Online</span>
+                  </div>
+                  <div className={styles.securityBadge}>
+                    <ShieldCheckIcon className={styles.securityIcon} />
+                    <span>Role-Based Access Protected</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1384,8 +1574,10 @@ export default function ChatPage() {
         modalUserTab={modalUserTab}
         userSearchQuery={userSearchQuery}
         selectedUserId={selectedUserId}
+        selectedUserIds={selectedUserIds}
         selectedDepartmentId={selectedDepartmentId}
         selectedTicketId={selectedTicketId}
+        selectedDeptManager={selectedDeptManager}
         newChatName={newChatName}
         creatingRoom={creatingRoom}
         loadingUsers={loadingUsers}
@@ -1416,6 +1608,9 @@ export default function ChatPage() {
         onSetModalUserTab={(tab) => setModalUserTab(tab)}
         onSetUserSearchQuery={(q) => setUserSearchQuery(q)}
         onSelectUserId={(id) => setSelectedUserId(id)}
+        onToggleSelectUserId={handleToggleSelectUserId}
+        onSelectAllUsers={handleSelectAllUsers}
+        onClearSelectedUsers={handleClearSelectedUsers}
         onSelectDepartmentId={(id) => setSelectedDepartmentId(id)}
         onSelectTicketId={(id) => setSelectedTicketId(id)}
         onSetNewChatName={(name) => setNewChatName(name)}

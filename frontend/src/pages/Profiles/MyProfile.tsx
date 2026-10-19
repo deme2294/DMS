@@ -19,6 +19,7 @@ import {
   BuildingOfficeIcon,
   BuildingOffice2Icon,
   InformationCircleIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, ThemePreference } from '../../context/ThemeContext';
@@ -288,7 +289,7 @@ export default function MyProfile() {
         <div className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionTitleGroup}>
-              <div className={styles.sectionIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <div className={`${styles.sectionIconWrap} ${styles.sectionIconWrapPersonal}`}>
                 <UserCircleIcon className={styles.sectionIcon} />
               </div>
               <div>
@@ -306,6 +307,7 @@ export default function MyProfile() {
                   <span className={styles.requiredStar}>*</span>
                 </label>
                 <div className={styles.inputWrapper}>
+                  <UserIcon className={styles.inputIcon} />
                   <input
                     type="text"
                     className={styles.inputField}
@@ -321,6 +323,7 @@ export default function MyProfile() {
                   <span className={styles.requiredStar}>*</span>
                 </label>
                 <div className={styles.inputWrapper}>
+                  <UserIcon className={styles.inputIcon} />
                   <input
                     type="text"
                     className={styles.inputField}
@@ -385,7 +388,7 @@ export default function MyProfile() {
         <div className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionTitleGroup}>
-              <div className={styles.sectionIconWrap} style={{ background: '#f0fdf4', color: '#16a34a' }}>
+              <div className={`${styles.sectionIconWrap} ${styles.sectionIconWrapDept}`}>
                 <BuildingOffice2Icon className={styles.sectionIcon} />
               </div>
               <div>
@@ -400,7 +403,9 @@ export default function MyProfile() {
               <div className={styles.deptDisplayItem}>
                 <span className={styles.deptItemLabel}>Operational Department</span>
                 <div className={styles.deptItemValue}>
-                  <BuildingOffice2Icon style={{ width: 18, height: 18, color: '#2563eb', flexShrink: 0 }} />
+                  <div className={styles.deptIconBadgeBlue}>
+                    <BuildingOffice2Icon className={styles.deptMiniIcon} />
+                  </div>
                   <span>{departmentDisplayText}</span>
                 </div>
               </div>
@@ -408,7 +413,9 @@ export default function MyProfile() {
               <div className={styles.deptDisplayItem}>
                 <span className={styles.deptItemLabel}>Workflow Gate & Scope</span>
                 <div className={styles.deptItemValue}>
-                  <ShieldCheckIcon style={{ width: 18, height: 18, color: '#10b981', flexShrink: 0 }} />
+                  <div className={styles.deptIconBadgeGreen}>
+                    <ShieldCheckIcon className={styles.deptMiniIcon} />
+                  </div>
                   <span>
                     {user.role === 'admin'
                       ? 'Full System & Central Compliance'
@@ -427,8 +434,10 @@ export default function MyProfile() {
                 <div className={styles.deptDisplayItem}>
                   <span className={styles.deptItemLabel}>Registered User ID</span>
                   <div className={styles.deptItemValue}>
-                    <IdentificationIcon style={{ width: 18, height: 18, color: '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'monospace' }}>{user.userCode}</span>
+                    <div className={styles.deptIconBadgeAmber}>
+                      <IdentificationIcon className={styles.deptMiniIcon} />
+                    </div>
+                    <span className={styles.userCodeText}>{user.userCode}</span>
                   </div>
                 </div>
               )}
@@ -464,7 +473,7 @@ export default function MyProfile() {
         <div className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionTitleGroup}>
-              <div className={styles.sectionIconWrap} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
+              <div className={`${styles.sectionIconWrap} ${styles.sectionIconWrapTheme}`}>
                 <PaintBrushIcon className={styles.sectionIcon} />
               </div>
               <div>
@@ -505,11 +514,11 @@ export default function MyProfile() {
           </div>
         </div>
 
-        {/* Section 3: Security & Password Management */}
+        {/* Section 4: Security & Password Management */}
         <div className={styles.sectionCard}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionTitleGroup}>
-              <div className={styles.sectionIconWrap} style={{ background: '#fffbeb', color: '#d97706' }}>
+              <div className={`${styles.sectionIconWrap} ${styles.sectionIconWrapSecurity}`}>
                 <KeyIcon className={styles.sectionIcon} />
               </div>
               <div>

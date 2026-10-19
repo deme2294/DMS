@@ -6,14 +6,20 @@
   "type": "module",
   "scripts": {
     "start": "node start.cjs",
-    "dev": "node --watch start.cjs"
+    "dev": "node --watch start.cjs",
+    "start:xampp": "node start.cjs --target=xampp",
+    "dev:xampp": "node --watch start.cjs --target=xampp",
+    "start:docker": "node start.cjs --target=docker",
+    "dev:docker": "node --watch start.cjs --target=docker",
+    "use:xampp": "node -e \"const fs=require('fs'); let c=fs.readFileSync('.env','utf8').replace(/^DB_TARGET=\\w+/m, 'DB_TARGET=xampp'); fs.writeFileSync('.env', c); console.log('✅ Switched DB_TARGET=xampp in .env');\"",
+    "use:docker": "node -e \"const fs=require('fs'); let c=fs.readFileSync('.env','utf8').replace(/^DB_TARGET=\\w+/m, 'DB_TARGET=docker'); fs.writeFileSync('.env', c); console.log('✅ Switched DB_TARGET=docker in .env');\""
   },
-
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",

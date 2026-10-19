@@ -99,54 +99,89 @@ export default function TenantDashboard() {
             </Link>
           </div>
         ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.ticketsTable}>
-              <thead>
-                <tr>
-                  <th>Reference</th>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Priority</th>
-                  <th>Response Due</th>
-                  <th>Resolution Due</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data!.recentTickets.map((t: any) => {
-                  const statusKey = `status_${t.status}`;
-                  const statusClass = styles[statusKey] || styles.status_submitted;
-                  const priorityKey = `priority_${t.priority}`;
-                  const priorityClass = styles[priorityKey] || styles.priority_medium;
-                  return (
-                    <tr key={t.id} className={styles.ticketRow}>
-                      <td className={styles.ticketRef}>{t.referenceNumber ?? '—'}</td>
-                      <td>
-                        <Link to={`/tenant/tickets/${t.id}`} className={styles.ticketTitleLink} title={t.title}>
-                          {t.title}
-                        </Link>
-                      </td>
-                      <td>
-                        <span className={`${styles.badge} ${statusClass}`}>
-                          {t.status.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`${styles.badge} ${priorityClass}`}>
-                          {t.priority}
-                        </span>
-                      </td>
-                      <td className={styles.ticketDate}>{formatDate((t as any).responseDueDate)}</td>
-                      <td className={styles.ticketDate}>{formatDate((t as any).dueDate)}</td>
-                      <td className={styles.ticketDateCreated}>
-                        {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}
-                      </td>
+          <>
+            {/* Desktop Table View */}
+            <div className={styles.desktopTableWrap}>
+              <div className={styles.tableContainer}>
+                <table className={styles.ticketsTable}>
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Title</th>
+                      <th>Status</th>
+                      <th>Priority</th>
+                      <th>Response Due</th>
+                      <th>Resolution Due</th>
+                      <th>Created</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {data!.recentTickets.map((t: any) => {
+                      const statusKey = `status_${t.status}`;
+                      const statusClass = styles[statusKey] || styles.status_submitted;
+                      const priorityKey = `priority_${t.priority}`;
+                      const priorityClass = styles[priorityKey] || styles.priority_medium;
+                      return (
+                        <tr key={t.id} className={styles.ticketRow}>
+                          <td className={styles.ticketRef}>{t.referenceNumber ?? '—'}</td>
+                          <td>
+                            <Link to={`/tenant/tickets/${t.id}`} className={styles.ticketTitleLink} title={t.title}>
+                              {t.title}
+                            </Link>
+                          </td>
+                          <td>
+                            <span className={`${styles.badge} ${statusClass}`}>
+                              {t.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`${styles.badge} ${priorityClass}`}>
+                              {t.priority}
+                            </span>
+                          </td>
+                          <td className={styles.ticketDate}>{formatDate((t as any).responseDueDate)}</td>
+                          <td className={styles.ticketDate}>{formatDate((t as any).dueDate)}</td>
+                          <td className={styles.ticketDateCreated}>
+                            {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Touch-Friendly Card View */}
+            <div className={styles.mobileCardsList}>
+              {data!.recentTickets.map((t: any) => {
+                const statusKey = `status_${t.status}`;
+                const statusClass = styles[statusKey] || styles.status_submitted;
+                const priorityKey = `priority_${t.priority}`;
+                const priorityClass = styles[priorityKey] || styles.priority_medium;
+                return (
+                  <Link key={t.id} to={`/tenant/tickets/${t.id}`} className={styles.mobileCard}>
+                    <div className={styles.mobileCardHeader}>
+                      <span className={styles.ticketRef}>{t.referenceNumber ?? '—'}</span>
+                      <span className={`${styles.badge} ${priorityClass}`}>{t.priority}</span>
+                    </div>
+
+                    <div className={styles.mobileCardTitle}>{t.title}</div>
+
+                    <div className={styles.mobileCardMetaRow}>
+                      <span>Created: {t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</span>
+                      <span className={`${styles.badge} ${statusClass}`}>{t.status.replace(/_/g, ' ')}</span>
+                    </div>
+
+                    <div className={styles.mobileCardFooter}>
+                      <span className={styles.ticketDate}>Due: {formatDate((t as any).dueDate)}</span>
+                      <span className={styles.mobileCardArrow}>View Ticket →</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

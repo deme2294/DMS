@@ -1,5 +1,9 @@
 import React from 'react';
-import { VideoCameraIcon } from '@heroicons/react/24/solid';
+import {
+  VideoCameraIcon,
+  ChatBubbleLeftRightIcon,
+  PlusIcon,
+} from '@heroicons/react/24/solid';
 import type { ChatRoom } from '../../../api/chatApi';
 import { getAvatarGradient, formatTimeOnly } from '../types';
 import styles from '../ChatPage.module.css';
@@ -56,7 +60,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div className={styles.sidebarHeader}>
         <div className={styles.sidebarTitleRow}>
           <div className={styles.sidebarTitleGroup}>
-            <span className={styles.sidebarIcon}>💬</span>
+            <div className={styles.sidebarIconBubble}>
+              <ChatBubbleLeftRightIcon className={styles.sidebarHeaderSvg} />
+            </div>
             <h2>Conversations</h2>
           </div>
         </div>
@@ -68,7 +74,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             onClick={onStartVideoConference}
             title="Start or schedule Video Conference (Today or custom date)"
           >
-            <span>📹</span>
+            <VideoCameraIcon className={styles.btnSvgIcon} />
             <span className={styles.newChatBtnText}>Video Call</span>
           </button>
           <button
@@ -77,7 +83,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             onClick={onStartNewChat}
             title="Start new conversation"
           >
-            <span>➕</span>
+            <PlusIcon className={styles.btnSvgIcon} />
             <span className={styles.newChatBtnText}>New Chat</span>
           </button>
         </div>
@@ -174,35 +180,40 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <p>Loading your conversations...</p>
           </div>
         ) : displayRooms.length === 0 ? (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyStateIcon}>
-              {activeFilter === 'video' ? '📹' : '💬'}
+          <div className={styles.sidebarEmptyState}>
+            <div className={styles.sidebarEmptyIconWrapper}>
+              {activeFilter === 'video' ? (
+                <VideoCameraIcon className={styles.sidebarEmptyIcon} />
+              ) : (
+                <ChatBubbleLeftRightIcon className={styles.sidebarEmptyIcon} />
+              )}
             </div>
-            <h4>
-              {activeFilter === 'video' ? 'No video conferences found' : 'No conversations found'}
+            <h4 className={styles.sidebarEmptyTitle}>
+              {activeFilter === 'video' ? 'No video conferences' : 'No conversations'}
             </h4>
-            <p>
+            <p className={styles.sidebarEmptySubtitle}>
               {searchTerm
                 ? 'No chats match your search query.'
                 : activeFilter === 'video'
-                ? 'Start a video conference today or schedule one with your team.'
+                ? 'Launch or schedule an in-app video conference.'
                 : 'Start a direct chat, department channel, or ticket discussion.'}
             </p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <div className={styles.sidebarEmptyActions}>
               <button
                 type="button"
-                className={styles.newConferenceBtn}
+                className={styles.sidebarEmptyVideoBtn}
                 onClick={onStartVideoConference}
-                style={{ padding: '8px 14px' }}
               >
-                📹 Start Video Conference
+                <VideoCameraIcon className={styles.btnSmallIcon} />
+                <span>Video Conference</span>
               </button>
               <button
                 type="button"
-                className={styles.startChatBtn}
+                className={styles.sidebarEmptyChatBtn}
                 onClick={onStartNewChat}
               >
-                ➕ Start First Chat
+                <PlusIcon className={styles.btnSmallIcon} />
+                <span>Start New Chat</span>
               </button>
             </div>
           </div>

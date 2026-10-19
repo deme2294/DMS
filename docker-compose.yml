@@ -1,0 +1,213 @@
+name: dms
+
+# ==============================================================================
+# DMS FULL STACK PRODUCTION DOCKER ARCHITECTURE & DEPENDENCY SPECIFICATION
+# ==============================================================================
+#
+#   DEPENDENCY ORDER & STARTUP SEQUENCE:
+#
+#   1. DATABASE LAYER (Foundation):
+#      ┌─────────────────────────────────────────────────────────────┐
+#      │ dms-db (MariaDB 10.11 LTS)                                  │
+#      │ • Port: 3307 (Loopback only: 127.0.0.1:3307 -> 3306)        │
+#      │ • Dedicated least-privilege user `dms_app` + root for admin  │
+#      │ • Preserves host port 3306 for local XAMPP MySQL            │
+#      └──────────────────────────────┬──────────────────────────────┘
+#                                     │
+#                                     │ depends_on: db (service_healthy)
+#                                     ▼
+#   2. BACKEND API & WEBSOCKET LAYER:
+#      ┌─────────────────────────────────────────────────────────────┐
+#      │ dms-backend (Node.js 20 LTS Alpine)                         │
+#      │ • Internal port 5000; loopback bound (127.0.0.1:5000)       │
+#      │ • Non-root user (node:node), healthcheck at /api/health     │
+#      │ • Connects to DB via internal Docker network: db:3306       │
+#      └──────────────────────────────┬──────────────────────────────┘
+#                                     │
+#                                     │ depends_on: backend (service_healthy)
+#                                     ▼
+#   3. FRONTEND CLIENT & REVERSE PROXY LAYER (Public Gateway):
+#      ┌─────────────────────────────────────────────────────────────┐
+#      │ dms-frontend (React 19 SPA + Nginx 1.27 Alpine)             │
+#      │ • Public Port: ${FRONTEND_PORT:-80} -> 80                   │
+#      │ • Single entry point: serves SPA + proxies /api, /uploads,  │
+#      │   and /socket.io directly to backend:5000                   │
+#      └─────────────────────────────────────────────────────────────┘
+#
+#   4. OPTIONAL TOOLS (On-demand via profile: --profile tools):
+#      ┌─────────────────────────────────────────────────────────────┐
+#      │ dms-phpmyadmin (phpMyAdmin 5.2.2 Apache)                     │
+#      │ • Profile: "tools" / "admin" (disabled by default in prod)  │
+#      │ • Bound strictly to loopback: 127.0.0.1:8081                │
+#      └─────────────────────────────────────────────────────────────┘
+#
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # 1. Database Service (MariaDB 10.11 LTS with pre-seeded schema & tuning)
+  # ============================================================================
+  db:
+    build:
+      context: .
+      dockerfile: docker/database/Dockerfile
+
+    image: deme22/dms:database-1.0.0
+    container_name: dms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required in .env}
+      MYSQL_DATABASE: ${DB_NAME:-helpdesk_db}
+      MYSQL_USER: ${DB_USER:-dms_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in .env}
+    ports:
+      # Bound to loopback by default to prevent exposing database port to public WAN
+      - "${DB_BIND_IP:-127.0.0.1}:${DB_PORT:-3307}:3306"
+    volumes:
+      - dms_db_data:/var/lib/mysql
+      - ./backend/sql/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dms-network
+
+  # ============================================================================
+  # 2. Backend API & WebSocket Service (Node.js 20 LTS Express + Socket.IO)
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: deme22/dms:backend-1.0.0
+    container_name: dms-backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-helpdesk_db}
+      DB_USER: ${DB_USER:-dms_app}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required in .env}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required in .env}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required in .env}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required in .env}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-1h}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER:-}
+      EMAIL_PASS: ${EMAIL_PASS:-}
+      MAX_LOGIN_ATTEMPTS: ${MAX_LOGIN_ATTEMPTS:-5}
+      LOCKOUT_MINUTES: ${LOCKOUT_MINUTES:-30}
+    ports:
+      # Bound to loopback for direct debugging/diagnostics; Nginx serves public traffic
+      - "${BACKEND_BIND_IP:-127.0.0.1}:${BACKEND_PORT:-5000}:5000"
+    volumes:
+      - dms_uploads:/usr/src/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dms-network
+
+  # ============================================================================
+  # 3. Frontend Web Service & Reverse Proxy (React 19 + Vite + Nginx Alpine)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    image: deme22/dms:frontend-1.0.0
+    container_name: dms-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dms-network
+
+  # ============================================================================
+  # 4. Optional Administration Tool: phpMyAdmin (Isolated Profile)
+  # ============================================================================
+  phpmyadmin:
+    image: phpmyadmin:5.2.2-apache
+    container_name: dms-phpmyadmin
+    restart: unless-stopped
+    profiles:
+      - tools
+      - admin
+    ports:
+      # Strictly loopback bound so it cannot be reached from the public internet
+      - "${PMA_BIND_IP:-127.0.0.1}:${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: ${PMA_UPLOAD_LIMIT:-128M}
+      MEMORY_LIMIT: ${PMA_MEMORY_LIMIT:-256M}
+      MAX_EXECUTION_TIME: 600
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dms-network
+
+# ==============================================================================
+# Persistent Named Volumes & Networks
+# ==============================================================================
+volumes:
+  dms_db_data:
+    name: dms_db_data
+  dms_uploads:
+    name: dms_uploads
+
+networks:
+  dms-network:
+    name: dms-network
+    driver: bridge
