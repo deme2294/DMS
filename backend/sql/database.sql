@@ -592,6 +592,7 @@ CREATE TABLE office_feedback (
   user_id CHAR(36) NOT NULL,
   subject VARCHAR(200) NOT NULL,
   message TEXT NOT NULL,
+  
   rating INT NULL,
   status ENUM('pending','read','resolved') DEFAULT 'pending',
   admin_response TEXT NULL,
