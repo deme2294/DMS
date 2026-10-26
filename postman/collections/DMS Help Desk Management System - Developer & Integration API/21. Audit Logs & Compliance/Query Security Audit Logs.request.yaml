@@ -1,0 +1,15 @@
+$kind: http-request
+description: Retrieves chronological audit trail of user logins, role modifications, status changes, and administrative actions.
+url: "{{baseUrl}}/api/audit?page=1&limit=50&userId=&action=&entityType="
+method: GET
+queryParams:
+  page: "1"
+  limit: "50"
+  userId: ""
+  action: ""
+  entityType: ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

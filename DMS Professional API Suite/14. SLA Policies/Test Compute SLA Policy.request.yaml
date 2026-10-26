@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/sla/:slaPolicyId/test-compute"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: slaPolicyId
+    value: "{{slaPolicyId}}"
+    description: Path parameter slaPolicyId
+body:
+  type: text
+  content: |-
+    {
+      "createdAt": "2026-09-21T10:00:00Z"
+    }
+order: 4000

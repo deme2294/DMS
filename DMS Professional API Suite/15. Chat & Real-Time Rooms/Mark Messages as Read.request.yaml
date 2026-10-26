@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/rooms/:roomId/read"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: roomId
+    value: "{{roomId}}"
+    description: Path parameter roomId
+body:
+  type: text
+  content: |-
+    {
+      "messageIds": []
+    }
+order: 12000

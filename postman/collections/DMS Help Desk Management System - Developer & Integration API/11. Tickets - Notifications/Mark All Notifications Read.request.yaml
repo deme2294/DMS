@@ -1,0 +1,9 @@
+$kind: http-request
+description: Mark All Notifications Read
+url: "{{baseUrl}}/api/tickets/notifications/read-all"
+method: PATCH
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

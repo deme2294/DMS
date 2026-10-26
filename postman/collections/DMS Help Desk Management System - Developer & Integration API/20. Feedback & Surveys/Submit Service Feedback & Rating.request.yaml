@@ -1,0 +1,19 @@
+$kind: http-request
+description: Submit Service Feedback & Rating
+url: "{{baseUrl}}/api/feedback"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "subject": "Helpdesk response speed",
+      "message": "The network team addressed our issue in less than 30 minutes.",
+      "rating": 5
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

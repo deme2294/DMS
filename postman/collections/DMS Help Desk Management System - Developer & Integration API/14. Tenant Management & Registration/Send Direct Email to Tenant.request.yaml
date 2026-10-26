@@ -1,0 +1,20 @@
+$kind: http-request
+description: Send Direct Email to Tenant
+url: "{{baseUrl}}/api/tenants/send-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "to": "tenant@example.com",
+      "toName": "Customer Representative",
+      "subject": "Important Account Update",
+      "message": "Your tenant profile verification has been approved."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 12000

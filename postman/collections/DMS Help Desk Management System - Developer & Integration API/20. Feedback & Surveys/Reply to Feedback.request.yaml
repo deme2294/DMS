@@ -1,0 +1,19 @@
+$kind: http-request
+description: Reply to Feedback
+url: "{{baseUrl}}/api/feedback/:id/replies"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "message": "Thank you for your kind feedback! We are thrilled to hear that."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

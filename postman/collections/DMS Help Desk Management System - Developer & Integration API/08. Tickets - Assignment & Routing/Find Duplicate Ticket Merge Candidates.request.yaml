@@ -1,0 +1,11 @@
+$kind: http-request
+description: Admin or CEO scans for similar open tickets with matching keywords or category.
+url: "{{baseUrl}}/api/tickets/:id/merge-candidates"
+method: GET
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 9000

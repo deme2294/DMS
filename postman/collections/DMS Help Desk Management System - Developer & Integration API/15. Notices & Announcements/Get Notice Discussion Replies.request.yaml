@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get Notice Discussion Replies
+url: "{{baseUrl}}/api/notices/:id/replies"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

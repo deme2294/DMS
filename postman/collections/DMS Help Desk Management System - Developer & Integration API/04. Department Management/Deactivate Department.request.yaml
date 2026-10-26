@@ -1,0 +1,11 @@
+$kind: http-request
+description: Disables department from new ticket routing.
+url: "{{baseUrl}}/api/departments/:id/deactivate"
+method: PATCH
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 11000

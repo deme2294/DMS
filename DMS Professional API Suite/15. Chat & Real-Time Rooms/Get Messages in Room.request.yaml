@@ -1,0 +1,14 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/rooms/:roomId/messages?limit=50&offset=0"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  limit: "50"
+  offset: "0"
+pathVariables:
+  - key: roomId
+    value: "{{roomId}}"
+    description: Path parameter roomId
+order: 8000

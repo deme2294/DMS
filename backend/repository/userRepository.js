@@ -53,7 +53,7 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
   );
 
   const [rows] = await pool.query(
-    `SELECT u.id, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
+    `SELECT u.id, u.user_num, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
             u.first_name, u.last_name, u.phone, u.profile_image, u.status, u.theme_preference,
             u.user_code, u.last_login_at, u.created_at, u.updated_at
       FROM users u
@@ -85,6 +85,7 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
   return {
     data: rows.map((row) => ({
       ...row,
+      userNum: row.user_num != null ? row.user_num : null,
       departments: departmentsMap[row.id] || [],
     })),
     pagination: {
@@ -96,18 +97,51 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
   };
 };
 
-export const findById = async (id) => {
+export const resolveUserId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const isNumeric = /^\d+$/.test(str);
   const [rows] = await pool.query(
-    `SELECT u.id, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
+    `SELECT id FROM users
+     WHERE id = :str
+        OR id LIKE CONCAT(:str, '%')
+        OR user_code = :str
+        ${isNumeric ? 'OR user_num = :num' : ''}
+     ORDER BY CASE
+       WHEN id = :str THEN 1
+       WHEN ${isNumeric ? 'user_num = :num' : '0'} THEN 2
+       WHEN user_code = :str THEN 3
+       ELSE 4
+     END
+     LIMIT 1`,
+    { str, num: isNumeric ? Number(str) : 0 }
+  );
+  return rows[0]?.id || idOrShort;
+};
+
+export const findById = async (id) => {
+  const str = String(id).trim();
+  const isNumeric = /^\d+$/.test(str);
+  const [rows] = await pool.query(
+    `SELECT u.id, u.user_num, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
             u.first_name, u.last_name, u.phone, u.profile_image, u.status, u.theme_preference,
             u.user_code, u.last_login_at, u.created_at, u.updated_at,
             t.organization_name AS tenant_name
       FROM users u
       JOIN roles r ON r.id = u.role_id
       LEFT JOIN tenants t ON t.id = u.tenant_id
-      WHERE u.id = :id OR u.user_code = :id
+      WHERE u.id = :str
+         OR u.id LIKE CONCAT(:str, '%')
+         OR u.user_code = :str
+         ${isNumeric ? 'OR u.user_num = :num' : ''}
+      ORDER BY CASE
+        WHEN u.id = :str THEN 1
+        WHEN ${isNumeric ? 'u.user_num = :num' : '0'} THEN 2
+        WHEN u.user_code = :str THEN 3
+        ELSE 4
+      END
       LIMIT 1`,
-    { id }
+    { str, num: isNumeric ? Number(str) : 0 }
   );
   if (!rows.length) return null;
   const user = rows[0];
@@ -116,12 +150,13 @@ export const findById = async (id) => {
     `SELECT d.id, d.name, d.code
      FROM user_departments ud
      JOIN departments d ON d.id = ud.department_id
-     WHERE ud.user_id = :id`,
-    { id }
+     WHERE ud.user_id = :userId`,
+    { userId: user.id }
   );
 
   return {
     ...user,
+    userNum: user.user_num != null ? user.user_num : null,
     departments: deptRows.map((r) => ({ id: r.id, name: r.name, code: r.code })),
   };
 };
@@ -159,9 +194,10 @@ export const create = async (user) => {
 };
 
 export const update = async (id, fields) => {
+  const actualId = await resolveUserId(id);
   const allowed = ['tenant_id', 'role_id', 'username', 'email', 'first_name', 'last_name', 'phone', 'profile_image', 'status', 'theme_preference'];
   const sets = [];
-  const params = { id };
+  const params = { id: actualId };
 
   Object.entries(fields).forEach(([key, value]) => {
     if (allowed.includes(key) && value !== undefined) {

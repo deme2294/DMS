@@ -808,6 +808,20 @@
   font-weight: 600;
 }
 
+.slaRuleBanner {
+  background: var(--sla-primary-light);
+  border: 1px solid var(--sla-primary-border);
+  color: var(--sla-primary);
+  padding: 10px 14px;
+  border-radius: var(--sla-radius-sm);
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .formGrid {
   display: flex;
   flex-direction: column;

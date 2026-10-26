@@ -1,0 +1,40 @@
+$kind: http-request
+description: Creates a new ticket bound to the authenticated tenant organization.
+url: "{{baseUrl}}/api/tickets"
+method: POST
+headers:
+  Authorization: Bearer {{tenantToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: title
+      value: Database connection timeout during night batch
+    - type: text
+      key: description
+      value: Connections to MySQL pool exhausted at 02:00 UTC during invoice generation.
+    - type: text
+      key: category
+      value: Account Access
+    - type: text
+      key: priority
+      value: high
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 201', function () {
+          pm.response.to.have.status(201);
+      });
+      var jsonData = pm.response.json();
+      pm.test('Ticket created with valid structure', function () {
+          pm.expect(jsonData.success).to.be.true;
+          pm.expect(jsonData.data).to.have.property('id');
+          pm.expect(jsonData.data).to.have.property('referenceNumber');
+          pm.expect(jsonData.data).to.have.property('trackNumber');
+          pm.expect(jsonData.data.status).to.eql('open');
+      });
+      if (jsonData.data && jsonData.data.id) {
+          pm.collectionVariables.set('ticketId', jsonData.data.id);
+      }
+    language: text/javascript
+order: 1000

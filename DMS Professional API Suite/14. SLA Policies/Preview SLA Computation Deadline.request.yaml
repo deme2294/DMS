@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/sla/preview?priority=high"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  priority: high
+order: 2000

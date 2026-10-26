@@ -279,7 +279,7 @@ export default function StaffDashboard() {
                     <tr key={t.id}>
                       <td className={styles.refCell}>{t.referenceNumber}</td>
                       <td>
-                        <Link to={`/staff/tickets/${t.id}`} className={styles.ticketTitleLink}>
+                        <Link to={`/staff/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.ticketTitleLink}>
                           {t.title}
                         </Link>
                       </td>
@@ -327,7 +327,7 @@ export default function StaffDashboard() {
             {/* Mobile Touch-Friendly Card View */}
             <div className={styles.mobileCardsList}>
               {slaTickets.map((t: StaffSlaTicketItem) => (
-                <Link key={t.id} to={`/staff/tickets/${t.id}`} className={styles.mobileCard}>
+                <Link key={t.id} to={`/staff/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.mobileCard}>
                   <div className={styles.mobileCardHeader}>
                     <span className={styles.refCell}>{t.referenceNumber}</span>
                     <span className={`${styles.badge} ${getPriorityClass(t.priority)}`}>

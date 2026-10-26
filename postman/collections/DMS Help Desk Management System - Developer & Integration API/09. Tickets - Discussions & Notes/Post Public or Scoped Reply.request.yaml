@@ -1,0 +1,22 @@
+$kind: http-request
+description: Adds a message reply to the ticket discussion. Broadcasts real-time notification to participants.
+url: "{{baseUrl}}/api/tickets/:id/replies"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "message": "We have applied an updated configuration to your gateway. Please verify.",
+      "visibility": "all",
+      "attachmentId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "targetUserId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

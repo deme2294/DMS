@@ -1,4 +1,4 @@
-const ACTIVE = ['open', 'assigned', 'in_progress', 'pending', 'waiting_tenant', 'waiting_vendor', 'escalated', 'reopened'];
+const ACTIVE = ['open', 'assigned', 'in_progress', 'pending', 'waiting_tenant', 'escalated', 'reopened'];
 
 export const sanitizeTicket = (row) => {
   if (!row) return null;
@@ -12,12 +12,18 @@ export const sanitizeTicket = (row) => {
   }
   return {
     id: row.id,
+    ticketNum: row.ticket_num != null ? row.ticket_num : null,
     referenceNumber: row.reference_number,
     trackNumber: row.track_number,
     tenantId: row.tenant_id,
     tenantName: row.tenant_name || null,
+    tenantEmail: row.tenant_email || row.created_by_email || null,
+    tenantPhone: row.tenant_phone || row.created_by_phone || null,
+    tenantContactPerson: row.tenant_contact_person || null,
     createdBy: row.created_by,
     createdByName: row.created_by_name || null,
+    createdByEmail: row.created_by_email || row.tenant_email || null,
+    createdByPhone: row.created_by_phone || row.tenant_phone || null,
     departmentId: row.department_id,
     departmentName: row.department_name || null,
     assignedTo: row.assigned_to,
@@ -43,6 +49,10 @@ export const sanitizeTicket = (row) => {
     approvedAt: row.approved_at || null,
     escalatedAt: row.escalated_at || null,
     reopenedAt: row.reopened_at || null,
+    reopenedBy: row.reopened_by || null,
+    reopenedByName: row.reopened_by_name || null,
+    reopenReason: row.reopen_reason || null,
+    firstResponseAt: row.first_response_at || null,
     cancelledAt: row.cancelled_at || null,
     mergedInto: row.merged_into || null,
     attachments: (row.attachments || []).map(sanitizeAttachment),

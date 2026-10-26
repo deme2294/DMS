@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get Feedback Details
+url: "{{baseUrl}}/api/feedback/:id"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

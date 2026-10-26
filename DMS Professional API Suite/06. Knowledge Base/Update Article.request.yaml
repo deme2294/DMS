@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge/:articleId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: articleId
+    value: "{{articleId}}"
+    description: Path parameter articleId
+body:
+  type: text
+  content: |-
+    {
+      "title": "Updated Guest Wi-Fi Setup Guide",
+      "content": "Added troubleshooting steps."
+    }
+order: 6000

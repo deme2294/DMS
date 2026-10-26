@@ -1,0 +1,9 @@
+$kind: http-request
+description: Get Notices Created by Current User
+url: "{{baseUrl}}/api/notices/my/created"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

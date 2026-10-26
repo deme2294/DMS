@@ -4,9 +4,15 @@ import { v4 as uuidv4 } from 'uuid';
 const baseSelect = `
   t.*,
   tn.organization_name AS tenant_name,
+  tn.email AS tenant_email,
+  tn.phone AS tenant_phone,
+  tn.contact_person AS tenant_contact_person,
   CONCAT(cu.first_name, ' ', cu.last_name) AS created_by_name,
+  cu.email AS created_by_email,
+  cu.phone AS created_by_phone,
   d.name AS department_name,
-  CONCAT(au.first_name, ' ', au.last_name) AS assigned_to_name
+  CONCAT(au.first_name, ' ', au.last_name) AS assigned_to_name,
+  CONCAT(ru.first_name, ' ', ru.last_name) AS reopened_by_name
 `;
 
 const attachmentSelect = `'' AS attachments_placeholder`;
@@ -18,7 +24,32 @@ const parseAttachments = (row) => {
   return row;
 };
 
+export const resolveTicketId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const isNumeric = /^\d+$/.test(str);
+  const [rows] = await pool.query(
+    `SELECT id FROM tickets
+     WHERE id = :str
+        OR id LIKE CONCAT(:str, '%')
+        OR reference_number = :str
+        OR track_number = :str
+        ${isNumeric ? 'OR ticket_num = :num' : ''}
+     ORDER BY CASE
+       WHEN id = :str THEN 1
+       WHEN ${isNumeric ? 'ticket_num = :num' : '0'} THEN 2
+       WHEN reference_number = :str THEN 3
+       WHEN track_number = :str THEN 4
+       ELSE 5
+     END
+     LIMIT 1`,
+    { str, num: isNumeric ? Number(str) : 0 }
+  );
+  return rows[0]?.id || idOrShort;
+};
+
 const fetchAttachmentsByTicketId = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
   const [rows] = await pool.query(
     `SELECT a.id, a.ticket_id, a.file_name, a.original_name, a.file_path, a.file_size, a.mime_type,
             a.uploaded_by, a.comment, a.created_at,
@@ -29,7 +60,7 @@ const fetchAttachmentsByTicketId = async (ticketId) => {
      LEFT JOIN roles r ON r.id = u.role_id
      WHERE a.ticket_id = ?
      ORDER BY a.created_at ASC`,
-    [ticketId]
+    [actualId]
   );
   return rows;
 };
@@ -109,6 +140,7 @@ export const findAll = async ({
      LEFT JOIN users cu ON cu.id = t.created_by
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
+     LEFT JOIN users ru ON ru.id = t.reopened_by
      ${where}
      ORDER BY t.${orderCol} ${orderDir}
      LIMIT :limit OFFSET :offset`,
@@ -149,7 +181,10 @@ export const findAll = async ({
   };
 };
 
-export const findById = async (id) => {
+export const findById = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const isNumeric = /^\d+$/.test(str);
   const [rows] = await pool.query(
     `SELECT ${baseSelect}
      FROM tickets t
@@ -157,12 +192,24 @@ export const findById = async (id) => {
      LEFT JOIN users cu ON cu.id = t.created_by
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
-     WHERE t.id = :id
+     LEFT JOIN users ru ON ru.id = t.reopened_by
+     WHERE t.id = :str
+        OR t.id LIKE CONCAT(:str, '%')
+        OR t.reference_number = :str
+        OR t.track_number = :str
+        ${isNumeric ? 'OR t.ticket_num = :num' : ''}
+     ORDER BY CASE
+       WHEN t.id = :str THEN 1
+       WHEN ${isNumeric ? 't.ticket_num = :num' : '0'} THEN 2
+       WHEN t.reference_number = :str THEN 3
+       WHEN t.track_number = :str THEN 4
+       ELSE 5
+     END
      LIMIT 1`,
-    { id }
+    { str, num: isNumeric ? Number(str) : 0 }
   );
   if (!rows[0]) return null;
-  const attachments = await fetchAttachmentsByTicketId(id);
+  const attachments = await fetchAttachmentsByTicketId(rows[0].id);
   return { ...rows[0], attachments };
 };
 
@@ -174,6 +221,7 @@ export const findByTrackNumber = async (trackNumber) => {
      LEFT JOIN users cu ON cu.id = t.created_by
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
+     LEFT JOIN users ru ON ru.id = t.reopened_by
      WHERE t.track_number = :trackNumber
      LIMIT 1`,
     { trackNumber }
@@ -200,6 +248,7 @@ export const create = async (ticket) => {
 };
 
 export const update = async (id, fields) => {
+  const actualId = await resolveTicketId(id);
   const allowed = [
     'department_id', 'assigned_to', 'title', 'description',
     'priority', 'category', 'status', 'resolved_at', 'closed_at',
@@ -207,10 +256,11 @@ export const update = async (id, fields) => {
     'completed_at', 'approved_at',
     'escalated_at', 'reopened_at', 'cancelled_at',     'merged_into',
     'tenant_confirmation_status', 'is_escalated', 'approved_by', 'reopened_by', 'reopen_reason',
+    'first_response_at',
     'routing_type', 'sla_agreement_accepted', 'sla_agreement_accepted_at',
   ];
   const sets = [];
-  const params = { id };
+  const params = { id: actualId };
 
   Object.entries(fields).forEach(([key, value]) => {
     if (allowed.includes(key) && value !== undefined) {
@@ -235,7 +285,8 @@ export const getDepartmentForCategory = async (categoryName) => {
 };
 
 export const remove = async (id) => {
-  await pool.query('DELETE FROM tickets WHERE id = :id', { id });
+  const actualId = await resolveTicketId(id);
+  await pool.query('DELETE FROM tickets WHERE id = :id', { id: actualId });
 };
 
 export const addAttachment = async (attachment) => {
@@ -276,13 +327,14 @@ export const logStatusHistory = async ({ id, ticketId, fromStatus, toStatus, cha
 };
 
 export const getStatusHistory = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
   const [rows] = await pool.query(
     `SELECT h.*, CONCAT(u.first_name, ' ', u.last_name) AS changed_by_name
      FROM ticket_status_history h
      LEFT JOIN users u ON u.id = h.changed_by
-     WHERE h.ticket_id = :ticketId
+     WHERE h.ticket_id = :actualId
      ORDER BY h.created_at ASC`,
-    { ticketId }
+    { actualId }
   );
   return rows;
 };
@@ -459,8 +511,8 @@ export const getCategories = async () => {
 
 export const addReply = async (reply) => {
   await pool.query(
-    `INSERT INTO ticket_replies (id, ticket_id, user_id, message, visibility, attachment_id, type, is_internal, department_ids)
-     VALUES (:id, :ticketId, :userId, :message, :visibility, :attachmentId, :type, :isInternal, :departmentIds)`,
+    `INSERT INTO ticket_replies (id, ticket_id, user_id, message, visibility, attachment_id, type, is_internal, department_ids, target_user_id)
+     VALUES (:id, :ticketId, :userId, :message, :visibility, :attachmentId, :type, :isInternal, :departmentIds, :targetUserId)`,
     {
       id: reply.id,
       ticketId: reply.ticketId,
@@ -471,23 +523,29 @@ export const addReply = async (reply) => {
       type: reply.type || 'reply',
       isInternal: reply.isInternal || 0,
       departmentIds: reply.departmentIds || null,
+      targetUserId: reply.targetUserId || null,
     }
   );
 };
 
 export const getReplies = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
   const [rows] = await pool.query(
     `SELECT r.*, CONCAT(u.first_name, ' ', u.last_name) AS user_name,
             ro.name AS user_role,
+            CONCAT(tu.first_name, ' ', tu.last_name) AS target_user_name,
+            tro.name AS target_user_role,
             COALESCE(GROUP_CONCAT(ud.department_id), '') AS author_department_ids
      FROM ticket_replies r
      LEFT JOIN users u ON u.id = r.user_id
      LEFT JOIN roles ro ON ro.id = u.role_id
+     LEFT JOIN users tu ON tu.id = r.target_user_id
+     LEFT JOIN roles tro ON tro.id = tu.role_id
      LEFT JOIN user_departments ud ON ud.user_id = r.user_id
-     WHERE r.ticket_id = :ticketId
+     WHERE r.ticket_id = :actualId
      GROUP BY r.id
      ORDER BY r.created_at ASC`,
-    { ticketId }
+    { actualId }
   );
   return rows;
 };
@@ -519,8 +577,9 @@ export const createAssignment = async ({
 };
 
 export const findActiveAssignment = async (ticketId, role) => {
-  let sql = `SELECT * FROM assignments WHERE ticket_id = :ticketId AND status IN ('pending', 'accepted')`;
-  const params = { ticketId };
+  const actualId = await resolveTicketId(ticketId);
+  let sql = `SELECT * FROM assignments WHERE ticket_id = :actualId AND status IN ('pending', 'accepted')`;
+  const params = { actualId };
   if (role) { sql += ' AND role = :role'; params.role = role; }
   sql += ' ORDER BY created_at DESC LIMIT 1';
   const [rows] = await pool.query(sql, params);
@@ -564,14 +623,15 @@ export const updateAssignment = async (id, fields) => {
 };
 
 export const getAssignments = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
   const [rows] = await pool.query(
     `SELECT a.*, CONCAT(b.first_name,' ',b.last_name) AS assigned_by_name,
             CONCAT(t.first_name,' ',t.last_name) AS assigned_to_name
      FROM assignments a
      LEFT JOIN users b ON b.id = a.assigned_by
      LEFT JOIN users t ON t.id = a.assigned_to
-     WHERE a.ticket_id = :ticketId ORDER BY a.created_at ASC`,
-    { ticketId }
+     WHERE a.ticket_id = :actualId ORDER BY a.created_at ASC`,
+    { actualId }
   );
   return rows;
 };
@@ -596,6 +656,7 @@ export const findByIdOrRef = async (idOrRef) => {
      LEFT JOIN users cu ON cu.id = t.created_by
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
+     LEFT JOIN users ru ON ru.id = t.reopened_by
      WHERE t.id = :idOrRef OR t.reference_number = :idOrRef OR t.track_number = :idOrRef
      LIMIT 1`,
     { idOrRef }
@@ -614,6 +675,7 @@ export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
     LEFT JOIN users cu ON cu.id = t.created_by
     LEFT JOIN departments d ON d.id = t.department_id
     LEFT JOIN users au ON au.id = t.assigned_to
+    LEFT JOIN users ru ON ru.id = t.reopened_by
     WHERE t.id != :targetTicketId
       AND t.merged_into IS NULL
       AND t.status NOT IN ('cancelled', 'closed')
@@ -636,13 +698,14 @@ export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
 
 // ── Timeline aggregation (status history + replies + attachments) ──
 export const getTimeline = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
   const [status] = await pool.query(
     `SELECT h.id, 'status' AS type, h.from_status, h.to_status, h.notes, h.role,
             h.created_at, CONCAT(u.first_name,' ',u.last_name) AS actor_name
      FROM ticket_status_history h
      LEFT JOIN users u ON u.id = h.changed_by
-     WHERE h.ticket_id = :ticketId`,
-    { ticketId }
+     WHERE h.ticket_id = :actualId`,
+    { actualId }
   );
   const [comments] = await pool.query(
     `SELECT r.id, 'comment' AS type, r.message, r.visibility, r.type AS comment_type,
@@ -653,26 +716,26 @@ export const getTimeline = async (ticketId) => {
      LEFT JOIN users u ON u.id = r.user_id
      LEFT JOIN roles ro ON ro.id = u.role_id
      LEFT JOIN user_departments ud ON ud.user_id = r.user_id
-     WHERE r.ticket_id = :ticketId
+     WHERE r.ticket_id = :actualId
      GROUP BY r.id
      ORDER BY r.created_at ASC`,
-    { ticketId }
+    { actualId }
   );
   const [attachments] = await pool.query(
     `SELECT a.id, 'attachment' AS type, a.file_name AS message, a.file_path, a.mime_type,
             a.created_at, CONCAT(u.first_name,' ',u.last_name) AS actor_name
      FROM ticket_attachments a
      LEFT JOIN users u ON u.id = a.uploaded_by
-     WHERE a.ticket_id = :ticketId`,
-    { ticketId }
+     WHERE a.ticket_id = :actualId`,
+    { actualId }
   );
   const [assignments] = await pool.query(
     `SELECT a.id, 'assignment' AS type, a.role, a.status, a.notes,
             a.created_at, CONCAT(t.first_name,' ',t.last_name) AS actor_name
      FROM assignments a
      LEFT JOIN users t ON t.id = a.assigned_to
-     WHERE a.ticket_id = :ticketId`,
-    { ticketId }
+     WHERE a.ticket_id = :actualId`,
+    { actualId }
   );
 
   const events = [

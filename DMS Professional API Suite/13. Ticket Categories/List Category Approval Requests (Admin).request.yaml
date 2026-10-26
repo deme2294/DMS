@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/ticket-categories/requests?status=pending"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  status: pending
+order: 3000

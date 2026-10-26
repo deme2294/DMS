@@ -1,0 +1,38 @@
+$kind: http-request
+name: Create / Provision User Account
+description: Admin creates a new user with designated role, department, and profile image.
+url: "{{baseUrl}}/api/users"
+method: POST
+body:
+  type: formdata
+  content:
+    - type: text
+      key: username
+      value: new_staff_01
+    - type: text
+      key: email
+      value: staff01@example.com
+    - type: text
+      key: password
+      value: SecureStaff@123
+    - type: text
+      key: firstName
+      value: Michael
+    - type: text
+      key: lastName
+      value: Scott
+    - type: text
+      key: roleId
+      value: "3"
+    - type: text
+      key: status
+      value: active
+    - type: file
+      key: profileImage
+      src:
+        - ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

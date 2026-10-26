@@ -1,0 +1,9 @@
+$kind: http-request
+description: Allows external customers or tenants to query ticket status by public tracking number without authenticating.
+url: "{{baseUrl}}/api/tickets/track/:trackNumber"
+method: GET
+pathVariables:
+  trackNumber: TICK-20261022-4821
+auth:
+  type: noauth
+order: 1000

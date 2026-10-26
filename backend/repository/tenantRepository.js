@@ -63,13 +63,41 @@ export const findAll = async ({
   };
 };
 
+export const resolveTenantId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const isNumeric = /^\d+$/.test(str);
+  const [rows] = await pool.query(
+    `SELECT id FROM tenants
+     WHERE id = :str
+        OR id LIKE CONCAT(:str, '%')
+        ${isNumeric ? 'OR tenant_id = :str' : ''}
+        OR registration_number = :str
+        OR username = :str
+     LIMIT 1`,
+    { str }
+  );
+  return rows[0]?.id || idOrShort;
+};
+
 export const findById = async (id) => {
+  const str = String(id).trim();
+  const isNumeric = /^\d+$/.test(str);
   const [rows] = await pool.query(
     `SELECT t.*, ${statsSelect}
      FROM tenants t
-     WHERE t.id = :id
+     WHERE t.id = :str
+        OR t.id LIKE CONCAT(:str, '%')
+        ${isNumeric ? 'OR t.tenant_id = :str' : ''}
+        OR t.registration_number = :str
+        OR t.username = :str
+     ORDER BY CASE
+       WHEN t.id = :str THEN 1
+       WHEN ${isNumeric ? 't.tenant_id = :str' : '0'} THEN 2
+       ELSE 3
+     END
      LIMIT 1`,
-    { id }
+    { str }
   );
   return rows[0] || null;
 };
@@ -118,6 +146,7 @@ export const create = async (tenant) => {
 };
 
 export const update = async (id, fields) => {
+  const actualId = await resolveTenantId(id);
   const allowed = [
     'organization_name',
     'registration_number',
@@ -132,7 +161,7 @@ export const update = async (id, fields) => {
     'created_by',
   ];
   const sets = [];
-  const params = { id };
+  const params = { id: actualId };
 
   Object.entries(fields).forEach(([key, value]) => {
     if (allowed.includes(key) && value !== undefined) {
@@ -146,21 +175,24 @@ export const update = async (id, fields) => {
 };
 
 export const remove = async (id) => {
-  await pool.query('DELETE FROM tenants WHERE id = :id', { id });
+  const actualId = await resolveTenantId(id);
+  await pool.query('DELETE FROM tenants WHERE id = :id', { id: actualId });
 };
 
 export const countUsers = async (id) => {
+  const actualId = await resolveTenantId(id);
   const [rows] = await pool.query(
     'SELECT COUNT(*) AS total FROM users WHERE tenant_id = :id',
-    { id }
+    { id: actualId }
   );
   return rows[0].total;
 };
 
 export const countTickets = async (id) => {
+  const actualId = await resolveTenantId(id);
   const [rows] = await pool.query(
     'SELECT COUNT(*) AS total FROM tickets WHERE tenant_id = :id',
-    { id }
+    { id: actualId }
   );
   return rows[0].total;
 };
@@ -183,13 +215,14 @@ export const createTenantUser = async (user) => {
 };
 
 export const findUsersByTenantId = async (tenantId) => {
+  const actualId = await resolveTenantId(tenantId);
   const [rows] = await pool.query(
-    `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.phone, u.status, u.last_login_at
+    `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.phone, u.status, u.profile_image, u.user_code, u.created_at, u.last_login_at, r.name AS role
      FROM users u
-     JOIN roles r ON r.id = u.role_id
-     WHERE u.tenant_id = :tenantId AND r.name = 'tenant'
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.tenant_id = :actualId
      ORDER BY u.created_at DESC`,
-    { tenantId }
+    { actualId }
   );
   return rows;
 };

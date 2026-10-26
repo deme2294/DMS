@@ -1,0 +1,16 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/feedback"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "subject": "Cafeteria cleanliness and waste disposal",
+      "message": "Bins on the north terrace need to be emptied more frequently.",
+      "rating": 4
+    }
+order: 2000

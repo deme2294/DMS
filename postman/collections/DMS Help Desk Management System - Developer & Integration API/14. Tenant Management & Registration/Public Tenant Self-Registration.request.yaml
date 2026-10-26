@@ -1,0 +1,23 @@
+$kind: http-request
+description: External organization registers an account and primary administrative user.
+url: "{{baseUrl}}/api/tenants/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "organizationName": "Acme Enterprise Ltd",
+      "contactPerson": "Alice Johnson",
+      "email": "alice@acme.com",
+      "username": "acme_admin",
+      "password": "TenantPassword@123",
+      "confirmPassword": "TenantPassword@123",
+      "phone": "+1-555-0199",
+      "address": "100 Innovation Blvd",
+      "registrationNumber": "CORP-88291"
+    }
+auth:
+  type: noauth
+order: 1000

@@ -1,0 +1,9 @@
+$kind: http-request
+description: Validates bearer token and returns caller identity, role, department affiliations, tenant bindings, and assigned permission list.
+url: "{{baseUrl}}/api/auth/me"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

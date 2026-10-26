@@ -1,0 +1,11 @@
+$kind: http-request
+description: Deletes user record. Requires `users.delete` permission.
+url: "{{baseUrl}}/api/users/:id"
+method: DELETE
+pathVariables:
+  id: a9b8c7d6-e5f4-4a3b-2c1d-0e9f8a7b6c5d
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

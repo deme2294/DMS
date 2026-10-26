@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
+import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
   fetchTickets, deleteTicket, assignDepartment, assignStaff,
 } from '../../api/ticketApi';
@@ -22,6 +23,9 @@ import {
   TrashIcon,
   XMarkIcon,
   DocumentTextIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import { exportTableToExcel } from '../../utils/excelExportUtils';
 import styles from './Tickets.module.css';
@@ -54,7 +58,6 @@ const STAT_CARDS: { key: keyof TicketStatistics; label: string; cls?: string }[]
   { key: 'inProgress', label: 'In Progress', cls: 'statInProgress' },
   { key: 'resolved', label: 'Resolved', cls: 'statResolved' },
   { key: 'closed', label: 'Closed', cls: 'statClosed' },
-  { key: 'completed', label: 'Completed', cls: 'statCompleted' },
   { key: 'reopened', label: 'Reopened', cls: 'statReopened' },
   { key: 'escalated', label: 'Escalated', cls: 'statEscalated' },
   { key: 'overdue', label: 'Overdue', cls: 'statOverdue' },
@@ -86,6 +89,8 @@ export default function TicketList() {
   const [selectedStaff, setSelectedStaff] = useState('');
   const [assignNotes, setAssignNotes] = useState('');
   const [assignTicket, setAssignTicket] = useState<Ticket | null>(null);
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
+  const [contactSubject, setContactSubject] = useState('');
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -104,6 +109,18 @@ export default function TicketList() {
           { header: 'Reference #', key: 'referenceNumber', formatter: (val) => val ? `#${val}` : '—' },
           { header: 'Track #', key: 'trackNumber', formatter: (val) => val || '—' },
           { header: 'Title', key: 'title' },
+          { header: 'Tenant', key: 'tenantName', formatter: (val, row) => val || (row as Ticket)?.createdByName || '—' },
+          {
+            header: 'Tenant Contact',
+            key: 'tenantContact',
+            formatter: (_val, row) => {
+              const r = row as Ticket;
+              const email = r?.tenantEmail || r?.createdByEmail;
+              const phone = r?.tenantPhone || r?.createdByPhone;
+              const parts = [email, phone].filter(Boolean);
+              return parts.length > 0 ? parts.join(' | ') : '—';
+            },
+          },
           { header: 'Status', key: 'status', formatter: (val) => STATUS_LABELS[val as TicketStatus] || val },
           { header: 'Priority', key: 'priority', formatter: (val) => val ? String(val).toUpperCase() : 'NORMAL' },
           { header: 'Category', key: 'category', formatter: (val) => val || '—' },
@@ -193,7 +210,7 @@ export default function TicketList() {
   const setStatFilter = (key: keyof TicketStatistics) => {
     const map: Record<string, string> = {
       open: 'open', assigned: 'assigned', pending: 'pending', inProgress: 'in_progress',
-      resolved: 'resolved', closed: 'closed', completed: 'completed', reopened: 'reopened',
+      resolved: 'resolved', closed: 'closed', reopened: 'reopened',
       escalated: 'escalated', overdue: '', total: '',
     };
     const target = map[key as string] ?? '';
@@ -225,7 +242,7 @@ export default function TicketList() {
       />
 
       {tenantIdFilter && (
-        <div className={styles.toast} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.filterBannerToast} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Showing tickets filtered by tenant ID: <strong>{tenantIdFilter}</strong></span>
           <button
             onClick={() => { setSearchParams((prev) => { prev.delete('tenantId'); return prev; }); }}
@@ -330,11 +347,14 @@ export default function TicketList() {
           {
             key: 'reference',
             label: 'Reference',
-            render: (row) => (
-              <Link to={`${base}/${row.id}`} className={styles.ticketRefLink} title={`View ticket #${row.referenceNumber}`}>
-                #{row.referenceNumber}
-              </Link>
-            ),
+            render: (row) => {
+              const shortId = row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id);
+              return (
+                <Link to={`${base}/${shortId}`} className={styles.ticketRefLink} title={`View ticket #${row.ticketNum || row.referenceNumber}`}>
+                  #{row.ticketNum ?? row.referenceNumber}
+                </Link>
+              );
+            },
           },
           {
             key: 'title',
@@ -345,6 +365,64 @@ export default function TicketList() {
                 {row.trackNumber && <span className={styles.ticketTrackNo}>TRK: {row.trackNumber}</span>}
               </div>
             ),
+          },
+          {
+            key: 'tenantName',
+            label: 'Tenant Name',
+            render: (row: Ticket) => (
+              <div className={styles.tenantCell}>
+                <span className={styles.tenantOrg}>{row.tenantName || row.createdByName || '—'}</span>
+                {row.tenantContactPerson && (
+                  <span className={styles.tenantSubContact} title="Primary Contact">
+                    <UserIcon className={styles.contactIconSmall} />
+                    <span>{row.tenantContactPerson}</span>
+                  </span>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'tenantContact',
+            label: 'Tenant Contact',
+            render: (row: Ticket) => {
+              const email = row.tenantEmail || row.createdByEmail;
+              const phone = row.tenantPhone || row.createdByPhone;
+              if (!email && !phone) return <span className={styles.textMuted}>—</span>;
+              return (
+                <div className={styles.tenantContactCell}>
+                  {email && (
+                    <button
+                      type="button"
+                      className={styles.tenantEmailLink}
+                      title={`Send direct email to ${email}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setContactSubject(`Regarding Ticket #${row.referenceNumber}: ${row.title}`);
+                        setContactTarget({
+                          email,
+                          name: row.tenantName || row.createdByName || row.tenantContactPerson || 'Ticket Submitter',
+                          roleOrType: 'Ticket Submitter',
+                        });
+                      }}
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailText}>{email}</span>
+                    </button>
+                  )}
+                  {phone && (
+                    <a
+                      href={`tel:${phone}`}
+                      className={styles.tenantPhoneLink}
+                      title={`Call ${phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span>{phone}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            },
           },
           { key: 'category', label: 'Category' },
           {
@@ -388,7 +466,7 @@ export default function TicketList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
-                <Link to={`${base}/${row.id}`} className={styles.actionBtnView} title="View Details">
+                <Link to={`${base}/${row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id)}`} className={styles.actionBtnView} title="View Details">
                   <EyeIcon className={styles.actionIcon} />
                   <span>View</span>
                 </Link>
@@ -570,6 +648,15 @@ export default function TicketList() {
           </div>
         </div>
       </Modal>
+
+      <ContactModal
+        open={!!contactTarget}
+        target={contactTarget}
+        defaultSubject={contactSubject}
+        onClose={() => setContactTarget(null)}
+      />
     </div>
   );
 }
+
+

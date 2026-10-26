@@ -1,0 +1,13 @@
+$kind: http-request
+description: Public tracking
+url: "{{baseUrl}}/tickets/track/:trackNumber"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: trackNumber
+    value: "{{trackNumber}}"
+    description: Path parameter trackNumber
+auth:
+  type: noauth
+order: 1000

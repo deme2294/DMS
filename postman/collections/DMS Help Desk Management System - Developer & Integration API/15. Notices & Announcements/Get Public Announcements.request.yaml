@@ -1,0 +1,7 @@
+$kind: http-request
+description: Get Public Announcements
+url: "{{baseUrl}}/api/notices/public"
+method: GET
+auth:
+  type: noauth
+order: 1000

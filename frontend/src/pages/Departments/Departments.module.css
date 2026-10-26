@@ -963,5 +963,32 @@
   .filterChipsRow {
     overflow-x: auto;
     padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px 28px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .filterCard {
+    padding: 12px 10px;
+  }
+
+  .modalContent {
+    width: min(92vw, 500px);
+    padding: 16px 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px 20px;
   }
 }

@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns real-time presence indicators of users connected to Socket.IO.
+url: "{{baseUrl}}/api/chat/online-users"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 9000

@@ -1,0 +1,9 @@
+$kind: http-request
+description: Get Category by ID
+url: "{{baseUrl}}/api/ticket-categories/:id"
+method: GET
+pathVariables:
+  id: cat-infra-01
+auth:
+  type: noauth
+order: 4000

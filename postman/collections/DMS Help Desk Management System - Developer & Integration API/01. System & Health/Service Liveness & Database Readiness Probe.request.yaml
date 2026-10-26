@@ -1,0 +1,7 @@
+$kind: http-request
+description: Heartbeat probe for load balancers and container orchestration (Kubernetes/Docker). Verifies active MySQL connection.
+url: "{{baseUrl}}/api/health"
+method: GET
+auth:
+  type: noauth
+order: 2000

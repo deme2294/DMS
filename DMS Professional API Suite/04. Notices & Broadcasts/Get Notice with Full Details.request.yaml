@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/:noticeId/details"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: noticeId
+    value: "{{noticeId}}"
+    description: Path parameter noticeId
+order: 11000

@@ -1,0 +1,440 @@
+/* ==========================================================================
+   CAMERA CAPTURE MODAL STYLES
+   High-end, state-of-the-art camera capture dialog with circular framing guide
+   ========================================================================== */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 17, 32, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 20px;
+  animation: modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 22px;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  box-shadow: 
+    0 24px 60px -12px rgba(15, 23, 42, 0.35),
+    0 12px 28px -6px rgba(15, 23, 42, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  display: flex;
+  flex-direction: column;
+  animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:global([data-theme="dark"]) .modal {
+  background: #111827;
+  border-color: #1f2937;
+  box-shadow: 
+    0 25px 65px -12px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(37, 99, 235, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+:global([data-theme="dark"]) .modalHeader {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.headerTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerIconBadge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:global([data-theme="dark"]) .headerIconBadge {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.headerIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+:global([data-theme="dark"]) .modalTitle {
+  color: #f8fafc;
+}
+
+.modalSubtitle {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+:global([data-theme="dark"]) .modalSubtitle {
+  color: #94a3b8;
+}
+
+.closeBtn {
+  background: transparent;
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.closeBtn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+:global([data-theme="dark"]) .closeBtn:hover {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.closeIcon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Camera Viewport & Framing Area ───────────────────────────────────────── */
+.viewportContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 420px;
+  background: #000000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.videoElement,
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror camera for natural selfie view */
+}
+
+.previewImage {
+  transform: none; /* Already mirrored in canvas */
+}
+
+/* ── Circular Face Guide Overlay ─────────────────────────────────────────── */
+.guideOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guideCircle {
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 0 0 9999px rgba(0, 0, 0, 0.45),
+    0 0 20px rgba(37, 99, 235, 0.5) inset;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.guideHint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Camera Flip & Switch Button ─────────────────────────────────────────── */
+.switchCameraBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.switchCameraBtn:hover {
+  background: rgba(37, 99, 235, 0.85);
+  transform: rotate(180deg);
+}
+
+.switchCameraIcon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Loading & Error States ──────────────────────────────────────────────── */
+.loadingState,
+.errorState {
+  padding: 32px 24px;
+  text-align: center;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.errorState {
+  color: #fca5a5;
+  background: rgba(153, 27, 27, 0.85);
+  border-radius: 16px;
+  margin: 20px;
+}
+
+.errorTitle {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.errorMsg {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: #fee2e2;
+}
+
+.retryBtn {
+  margin-top: 6px;
+  padding: 8px 18px;
+  background: #ffffff;
+  color: #991b1b;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* ── Modal Footer Controls ───────────────────────────────────────────────── */
+.modalFooter {
+  padding: 20px 24px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+:global([data-theme="dark"]) .modalFooter {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+/* Big Circular Shutter Capture Button */
+.shutterBtn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 4px solid #2563eb;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.35);
+}
+
+.shutterBtn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.5);
+}
+
+.shutterBtn:active {
+  transform: scale(0.95);
+}
+
+.shutterInner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #2563eb;
+  transition: all 0.15s ease;
+}
+
+.shutterBtn:hover .shutterInner {
+  background: #1d4ed8;
+}
+
+/* Review / Confirm Actions */
+.reviewActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.retakeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 11px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+:global([data-theme="dark"]) .retakeBtn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.retakeBtn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+:global([data-theme="dark"]) .retakeBtn:hover {
+  background: #27354a;
+  color: #ffffff;
+}
+
+.confirmBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border: none;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border-radius: 11px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+  transition: all 0.18s ease;
+}
+
+.confirmBtn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+}
+
+.actionBtnIcon {
+  width: 18px;
+  height: 18px;
+}

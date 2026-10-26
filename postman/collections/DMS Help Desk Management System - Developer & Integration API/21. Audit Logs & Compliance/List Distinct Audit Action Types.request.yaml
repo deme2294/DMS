@@ -1,0 +1,9 @@
+$kind: http-request
+description: List Distinct Audit Action Types
+url: "{{baseUrl}}/api/audit/actions"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

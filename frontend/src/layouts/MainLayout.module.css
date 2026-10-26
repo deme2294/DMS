@@ -102,11 +102,33 @@
 @media (max-width: 768px) {
   .header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    padding: 14px 16px;
+    gap: 12px;
   }
 
   .nav {
     flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .user {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .main {
+    padding: 16px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 12px 10px;
+  }
+
+  .main {
+    padding: 12px 8px;
   }
 }
 

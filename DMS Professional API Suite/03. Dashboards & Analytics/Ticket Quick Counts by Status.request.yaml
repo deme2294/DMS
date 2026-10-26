@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/dashboard/tickets/stats"
+method: GET
+headers:
+  Accept: application/json
+order: 15000

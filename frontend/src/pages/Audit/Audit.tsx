@@ -391,34 +391,36 @@ export default function Audit() {
             </div>
 
             {/* Date Range */}
-            <div className={styles.dateInputWrapper}>
-              <CalendarDaysIcon className={styles.inputFieldIcon} />
-              <input
-                type="date"
-                className={styles.dateInput}
-                value={filter.startDate ?? ''}
-                onChange={(e) => {
-                  setActivePreset('custom');
-                  handleFilterChange({ startDate: e.target.value || undefined });
-                }}
-                title="Start Date"
-              />
-            </div>
+            <div className={styles.dateRangeGroup}>
+              <div className={styles.dateInputWrapper}>
+                <CalendarDaysIcon className={styles.inputFieldIcon} />
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={filter.startDate ?? ''}
+                  onChange={(e) => {
+                    setActivePreset('custom');
+                    handleFilterChange({ startDate: e.target.value || undefined });
+                  }}
+                  title="Start Date"
+                />
+              </div>
 
-            <span className={styles.dateDivider}>to</span>
+              <span className={styles.dateDivider}>to</span>
 
-            <div className={styles.dateInputWrapper}>
-              <CalendarDaysIcon className={styles.inputFieldIcon} />
-              <input
-                type="date"
-                className={styles.dateInput}
-                value={filter.endDate ?? ''}
-                onChange={(e) => {
-                  setActivePreset('custom');
-                  handleFilterChange({ endDate: e.target.value || undefined });
-                }}
-                title="End Date"
-              />
+              <div className={styles.dateInputWrapper}>
+                <CalendarDaysIcon className={styles.inputFieldIcon} />
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={filter.endDate ?? ''}
+                  onChange={(e) => {
+                    setActivePreset('custom');
+                    handleFilterChange({ endDate: e.target.value || undefined });
+                  }}
+                  title="End Date"
+                />
+              </div>
             </div>
           </div>
         </div>

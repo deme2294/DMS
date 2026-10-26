@@ -1,0 +1,36 @@
+$kind: http-request
+description: Updates user metadata, names, email, role, or status.
+url: "{{baseUrl}}/api/users/:id"
+method: PUT
+pathVariables:
+  id: a9b8c7d6-e5f4-4a3b-2c1d-0e9f8a7b6c5d
+body:
+  type: formdata
+  content:
+    - type: text
+      key: username
+      value: john_doe_modified
+    - type: text
+      key: email
+      value: john.modified@example.com
+    - type: text
+      key: firstName
+      value: Jonathan
+    - type: text
+      key: lastName
+      value: Doe
+    - type: text
+      key: roleId
+      value: "2"
+    - type: text
+      key: status
+      value: active
+    - type: file
+      key: profileImage
+      src:
+        - ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

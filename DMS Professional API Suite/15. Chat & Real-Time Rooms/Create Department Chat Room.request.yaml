@@ -1,0 +1,15 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/rooms/department"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "departmentId": "{{departmentId}}",
+      "name": "IT Dept Channel"
+    }
+order: 4000

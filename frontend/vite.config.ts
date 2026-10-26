@@ -22,9 +22,9 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err) => {
-            // Suppress benign ECONNRESET socket disconnect errors on client browser page reload
-            if ((err as any).code !== 'ECONNRESET') {
+          proxy.on('error', (err: any) => {
+            // Suppress noisy ECONNREFUSED / ECONNRESET when backend server is restarting or offline
+            if (err.code !== 'ECONNRESET' && err.code !== 'ECONNREFUSED') {
               console.error('[vite ws proxy error]', err.message);
             }
           });

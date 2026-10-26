@@ -1,0 +1,19 @@
+$kind: http-request
+description: Simulates SLA timeline calculation from a test start timestamp.
+url: "{{baseUrl}}/api/sla/:id/test-compute"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "createdAt": "2026-10-23T08:00:00.000Z"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

@@ -1,0 +1,16 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/messages"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "roomId": "{{roomId}}",
+      "message": "Hello team, looking into the ticket now.",
+      "messageType": "text"
+    }
+order: 9000

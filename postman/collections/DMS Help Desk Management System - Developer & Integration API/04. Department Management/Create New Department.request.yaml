@@ -1,0 +1,24 @@
+$kind: http-request
+description: Creates a department with unique code and assigns department head and members.
+url: "{{baseUrl}}/api/departments"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Security Operations Center",
+      "code": "SOC",
+      "description": "Incident response, threat hunting, and compliance",
+      "headUserId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "status": "active",
+      "memberIds": [
+        "string"
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

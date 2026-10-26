@@ -1,0 +1,3 @@
+$kind: collection
+description: Service catalog categories, routing rules, and manager request review queue
+order: 12000

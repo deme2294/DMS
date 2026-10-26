@@ -1,0 +1,20 @@
+$kind: http-request
+name: Mark Work Completed (Technician/Manager)
+description: Staff or manager submits resolution notes and moves ticket to pending verification.
+url: "{{baseUrl}}/api/tickets/:id/complete"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "notes": "Memory leak patched, application pod pool recycled and verified operational."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

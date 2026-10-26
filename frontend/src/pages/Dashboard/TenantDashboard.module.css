@@ -618,7 +618,23 @@
 }
 
 @media (max-width: 420px) {
+  .page {
+    padding: 10px 6px;
+  }
   .statsGrid {
     grid-template-columns: 1fr;
+  }
+  .recentSection {
+    padding: 14px 10px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .headerTitle {
+    font-size: 1.35rem;
+  }
+  .statValue {
+    font-size: 1.35rem;
   }
 }

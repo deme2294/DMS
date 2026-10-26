@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get Chat Room Details
+url: "{{baseUrl}}/api/chat/rooms/:roomId"
+method: GET
+pathVariables:
+  roomId: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

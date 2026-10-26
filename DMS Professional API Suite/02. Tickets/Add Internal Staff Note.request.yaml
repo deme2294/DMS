@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/internal-note"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "message": "Switched port on switch 2B. Verifying packets.",
+      "departmentId": "{{departmentId}}"
+    }
+order: 18000

@@ -1,0 +1,9 @@
+$kind: http-request
+description: List All SLA Policies
+url: "{{baseUrl}}/api/sla?categoryId="
+method: GET
+queryParams:
+  categoryId: ""
+auth:
+  type: noauth
+order: 2000

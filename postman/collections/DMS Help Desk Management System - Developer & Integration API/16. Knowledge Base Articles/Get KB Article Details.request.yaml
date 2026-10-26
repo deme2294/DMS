@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get KB Article Details
+url: "{{baseUrl}}/api/knowledge/:id"
+method: GET
+pathVariables:
+  id: kb-auth-502-troubleshoot
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

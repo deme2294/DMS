@@ -9,6 +9,7 @@ export interface DepartmentRef {
 
 export interface User {
   id: string;
+  userNum?: number | null;
   tenantId?: string | null;
   roleId?: number;
   role: UserRole;

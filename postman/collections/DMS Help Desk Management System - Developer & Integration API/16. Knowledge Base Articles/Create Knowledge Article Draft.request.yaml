@@ -1,0 +1,19 @@
+$kind: http-request
+description: Staff or Manager creates a new article in draft state.
+url: "{{baseUrl}}/api/knowledge"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Nginx Gateway 502 Troubleshooting Runbook",
+      "content": "# Nginx Troubleshooting\n1. Check error.log\n2. Inspect upstream keepalive timeout...",
+      "category": "Infrastructure"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

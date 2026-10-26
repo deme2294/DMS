@@ -1,0 +1,7 @@
+$kind: http-request
+description: Returns logged in user identity, roles, and permissions
+url: "{{baseUrl}}/auth/me"
+method: GET
+headers:
+  Accept: application/json
+order: 3000

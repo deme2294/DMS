@@ -1,0 +1,14 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/matrix/pair/:userId/:departmentId"
+method: DELETE
+headers:
+  Accept: application/json
+pathVariables:
+  - key: userId
+    value: "{{userId}}"
+    description: Path parameter userId
+  - key: departmentId
+    value: "{{departmentId}}"
+    description: Path parameter departmentId
+order: 6000

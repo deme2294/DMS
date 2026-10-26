@@ -1,0 +1,19 @@
+$kind: http-request
+name: Reject Completion (Admin/Tenant)
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/reject-completion"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "notes": "Still experiencing intermittent packet drops."
+    }
+order: 21000

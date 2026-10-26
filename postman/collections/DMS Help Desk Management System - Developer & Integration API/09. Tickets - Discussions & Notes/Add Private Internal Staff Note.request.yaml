@@ -1,0 +1,20 @@
+$kind: http-request
+description: Creates a private diagnostic note visible only to staff, managers, and administrators (hidden from tenant callers).
+url: "{{baseUrl}}/api/tickets/:id/internal-note"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "message": "Internal: Checked logs. Redis cluster connection timeout at 08:31 UTC.",
+      "departmentId": "dept-infra-01"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

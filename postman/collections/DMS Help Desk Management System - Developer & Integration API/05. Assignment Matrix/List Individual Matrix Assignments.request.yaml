@@ -1,0 +1,14 @@
+$kind: http-request
+description: Queries user-to-department assignments with optional filtering by user or department.
+url: "{{baseUrl}}/api/matrix?page=1&limit=50&userId=&departmentId="
+method: GET
+queryParams:
+  page: "1"
+  limit: "50"
+  userId: ""
+  departmentId: ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

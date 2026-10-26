@@ -1,0 +1,10 @@
+$kind: http-request
+description: "Fetches static uploaded file (ticket attachment, avatar, chat file, or knowledge document). Cross-Origin Resource Policy: `cross-origin`."
+url: "{{baseUrl}}/uploads/:subfolder/:filename"
+method: GET
+pathVariables:
+  subfolder: tickets
+  filename: gateway_logs-1729600000000.log
+auth:
+  type: noauth
+order: 1000

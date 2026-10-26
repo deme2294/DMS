@@ -9,6 +9,10 @@ export interface TenantUser {
   phone?: string | null;
   status: string;
   lastLoginAt?: string | null;
+  profileImage?: string | null;
+  role?: string | null;
+  userCode?: string | null;
+  createdAt?: string | null;
 }
 
 export interface Tenant {

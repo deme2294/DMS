@@ -1,0 +1,11 @@
+$kind: http-request
+description: Retrieves department details by identifier.
+url: "{{baseUrl}}/api/departments/:id"
+method: GET
+pathVariables:
+  id: dept-infra-01
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

@@ -23,7 +23,20 @@ import { fetchActiveDepartments } from '../../api/departmentApi';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
 import Modal from '../../components/Modal/Modal';
-import { TrashIcon } from '@heroicons/react/24/outline';
+import {
+  TrashIcon,
+  GlobeAltIcon,
+  PaperAirplaneIcon,
+  CheckIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon,
+  EyeSlashIcon,
+  ArchiveBoxIcon,
+  ArrowPathIcon,
+  DocumentTextIcon,
+  XMarkIcon,
+  PencilSquareIcon,
+} from '@heroicons/react/24/outline';
 import { RevisionThreadCard } from './components/RevisionThreadCard';
 import styles from './KnowledgeArticleEdit.module.css';
 
@@ -291,59 +304,69 @@ export default function KnowledgeArticleEdit() {
               disabled={busy || saving}
               onClick={() => setDeleteTarget(true)}
             >
-              <TrashIcon style={{ width: 16, height: 16 }} />
-              Delete
+              <TrashIcon className={styles.btnIcon} />
+              <span>Delete</span>
             </button>
           )}
 
           {role === 'staff' && article.authorId === user?.id && article.status === 'draft' && (
             <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Submit for Review
+              <PaperAirplaneIcon className={styles.btnIcon} />
+              <span>Submit for Review</span>
             </button>
           )}
           {role === 'staff' && article.authorId === user?.id && article.status === 'needs_revision' && (
             <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Resubmit to Manager
+              <PaperAirplaneIcon className={styles.btnIcon} />
+              <span>Resubmit to Manager</span>
             </button>
           )}
           {role !== 'staff' && article.status === 'needs_revision' && (
             <button type="button" className={styles.submitBtn} disabled={busy || saving} onClick={handleSubmitForReview}>
-              Resubmit to Admin
+              <PaperAirplaneIcon className={styles.btnIcon} />
+              <span>Resubmit to Admin</span>
             </button>
           )}
           {can('knowledge.request_revision') && article.status === 'pending_approval' && article.authorId !== user?.id && (
             <button type="button" className={styles.warningBtn} disabled={busy || saving} onClick={() => setShowRevisionModal(true)}>
-              Request Changes
+              <ExclamationTriangleIcon className={styles.btnIcon} />
+              <span>Request Changes</span>
             </button>
           )}
           {can('knowledge.reject') && article.status === 'pending_approval' && article.authorId !== user?.id && (
             <button type="button" className={styles.dangerBtn} disabled={busy || saving} onClick={() => setShowRejectModal(true)}>
-              Reject
+              <XCircleIcon className={styles.btnIcon} />
+              <span>Reject</span>
             </button>
           )}
           {can('knowledge.approve') && article.status === 'pending_approval' && article.authorId !== user?.id && (
             <button type="button" className={styles.approveBtn} disabled={busy || saving} onClick={handleApprove}>
-              Approve
+              <CheckIcon className={styles.btnIcon} />
+              <span>Approve</span>
             </button>
           )}
           {can('knowledge.publish') && article.status === 'approved' && (
             <button type="button" className={styles.publishBtn} disabled={busy || saving} onClick={handlePublish}>
-              Publish
+              <GlobeAltIcon className={styles.btnIcon} />
+              <span>Publish</span>
             </button>
           )}
           {can('knowledge.unpublish') && article.status === 'published' && (
             <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={() => setShowUnpublishModal(true)}>
-              Unpublish
+              <EyeSlashIcon className={styles.btnIcon} />
+              <span>Unpublish</span>
             </button>
           )}
           {can('knowledge.archive') && (article.status === 'published' || article.status === 'unpublished') && (
             <button type="button" className={styles.secondaryBtn} disabled={busy || saving} onClick={handleArchive}>
-              📦 Retire (Archive)
+              <ArchiveBoxIcon className={styles.btnIcon} />
+              <span>Retire (Archive)</span>
             </button>
           )}
           {can('knowledge.archive') && article.status === 'archived' && (
             <button type="button" className={styles.approveBtn} disabled={busy || saving} onClick={handleRestore}>
-              🔄 Restore
+              <ArrowPathIcon className={styles.btnIcon} />
+              <span>Restore</span>
             </button>
           )}
           {article.status === 'restored' && (
@@ -356,7 +379,8 @@ export default function KnowledgeArticleEdit() {
                   onClick={handleMoveToDraft}
                   title="Move restored article to Draft"
                 >
-                  📝 Move to Draft
+                  <DocumentTextIcon className={styles.btnIcon} />
+                  <span>Move to Draft</span>
                 </button>
               )}
               {role === 'admin' && (
@@ -367,19 +391,31 @@ export default function KnowledgeArticleEdit() {
                   onClick={handlePublish}
                   title="Directly re-publish to tenants"
                 >
-                  🚀 Re-publish to Tenants
+                  <GlobeAltIcon className={styles.btnIcon} />
+                  <span>Re-publish to Tenants</span>
                 </button>
               )}
             </>
           )}
 
           <button type="button" className={styles.cancelBtn} onClick={() => navigate('/admin/knowledge')}>
-            Cancel
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
           </button>
 
           {editable && (
             <button type="submit" className={styles.submitBtn} disabled={saving || busy}>
-              {saving ? 'Saving...' : 'Update Article'}
+              {saving ? (
+                <>
+                  <ArrowPathIcon className={styles.spinnerIcon} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <PencilSquareIcon className={styles.btnIcon} />
+                  <span>Update Article</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -389,8 +425,14 @@ export default function KnowledgeArticleEdit() {
         <p>Please provide revision notes:</p>
         <textarea value={revisionReason} onChange={(e) => setRevisionReason(e.target.value)} placeholder="Enter revision notes..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
-          <button className={styles.submitBtn} onClick={handleRequestRevision}>Submit</button>
-          <button className={styles.cancelBtn} onClick={() => { setShowRevisionModal(false); setRevisionReason(''); }}>Cancel</button>
+          <button className={styles.submitBtn} onClick={handleRequestRevision}>
+            <CheckIcon className={styles.btnIcon} />
+            <span>Submit</span>
+          </button>
+          <button className={styles.cancelBtn} onClick={() => { setShowRevisionModal(false); setRevisionReason(''); }}>
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
+          </button>
         </div>
       </Modal>
 
@@ -398,8 +440,14 @@ export default function KnowledgeArticleEdit() {
         <p>Please provide a rejection reason:</p>
         <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
-          <button className={styles.danger} onClick={handleReject}>Reject</button>
-          <button className={styles.cancelBtn} onClick={() => { setShowRejectModal(false); setRejectReason(''); }}>Cancel</button>
+          <button className={styles.dangerBtn} onClick={handleReject}>
+            <XCircleIcon className={styles.btnIcon} />
+            <span>Reject</span>
+          </button>
+          <button className={styles.cancelBtn} onClick={() => { setShowRejectModal(false); setRejectReason(''); }}>
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
+          </button>
         </div>
       </Modal>
 
@@ -407,16 +455,28 @@ export default function KnowledgeArticleEdit() {
         <p>Please provide a reason for unpublishing (optional):</p>
         <textarea value={unpublishReason} onChange={(e) => setUnpublishReason(e.target.value)} placeholder="Enter reason..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
-          <button className={styles.cancelBtn} onClick={handleUnpublish}>Unpublish</button>
-          <button className={styles.submitBtn} onClick={() => setShowUnpublishModal(false)}>Cancel</button>
+          <button className={styles.secondaryBtn} onClick={handleUnpublish}>
+            <EyeSlashIcon className={styles.btnIcon} />
+            <span>Unpublish</span>
+          </button>
+          <button className={styles.cancelBtn} onClick={() => setShowUnpublishModal(false)}>
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
+          </button>
         </div>
       </Modal>
 
       <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)}>
         <p>Are you sure you want to delete "{article.title}"? This action cannot be undone.</p>
         <div className={styles.formActions}>
-          <button className={styles.danger} onClick={handleDelete}>Delete</button>
-          <button className={styles.cancelBtn} onClick={() => setDeleteTarget(false)}>Cancel</button>
+          <button className={styles.dangerBtn} onClick={handleDelete}>
+            <TrashIcon className={styles.btnIcon} />
+            <span>Delete</span>
+          </button>
+          <button className={styles.cancelBtn} onClick={() => setDeleteTarget(false)}>
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
+          </button>
         </div>
       </Modal>
     </div>

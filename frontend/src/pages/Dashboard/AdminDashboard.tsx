@@ -35,6 +35,8 @@ import {
   DocumentChartBarIcon,
   PrinterIcon,
   ArrowDownTrayIcon,
+  TagIcon,
+  ExclamationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { exportDashboardOverviewToExcel } from '../../utils/excelExportUtils';
 
@@ -83,9 +85,9 @@ export default function AdminDashboard() {
       .catch(() => setError('Failed to load dashboard data'))
       .finally(() => setLoading(false));
 
-    fetchTicketStats().then((r) => setTicketStats(r.data.data)).catch(() => {});
-    fetchTicketCharts().then((r) => setCharts(r.data.data)).catch(() => {});
-    fetchAdminSlaDashboard().then((r) => setSlaData(r.data.data)).catch(() => {});
+    fetchTicketStats().then((r) => setTicketStats(r.data.data)).catch(() => { });
+    fetchTicketCharts().then((r) => setCharts(r.data.data)).catch(() => { });
+    fetchAdminSlaDashboard().then((r) => setSlaData(r.data.data)).catch(() => { });
   }, [user]);
 
   if (loading) {
@@ -109,15 +111,15 @@ export default function AdminDashboard() {
   const statusBreakdown = data.statusBreakdown || [];
 
   const statCards = [
-    { label: 'Total Users', value: s.totalUsers, icon: UserGroupIcon, colorClass: styles.statBlue, link: '/admin/users' },
-    { label: 'Active Users', value: s.activeUsers, icon: CheckCircleIcon, colorClass: styles.statGreen, link: '/admin/users' },
-    { label: 'Total Tenants', value: s.totalTenants, icon: BuildingOffice2Icon, colorClass: styles.statPurple, link: '/admin/tenants' },
-    { label: 'Active Tenants', value: s.activeTenants, icon: BuildingStorefrontIcon, colorClass: styles.statGreen, link: '/admin/tenants' },
-    { label: 'Total Tickets', value: s.totalTickets, icon: TicketIcon, colorClass: styles.statPurple, link: '/admin/tickets' },
-    { label: 'Open Tickets', value: s.openTickets, icon: InboxIcon, colorClass: styles.statAmber, link: '/admin/tickets' },
-    { label: 'Departments', value: s.totalDepartments, icon: BuildingLibraryIcon, colorClass: styles.statCyan, link: '/admin/departments' },
-    { label: 'Pending Feedback', value: s.pendingFeedback, icon: ChatBubbleBottomCenterTextIcon, colorClass: styles.statRose, link: '/admin/feedback' },
-    { label: 'Inactive Users', value: s.deactiveUsers, icon: UserMinusIcon, colorClass: styles.statSlate, link: '/admin/deactiveusers' },
+    { label: 'Total Users', value: s.totalUsers, icon: UserGroupIcon, colorClass: styles.statBlue, link: '/admin/users', badge: `${s.activeUsers} active` },
+    { label: 'Active Users', value: s.activeUsers, icon: CheckCircleIcon, colorClass: styles.statGreen, link: '/admin/users', badge: 'Operational' },
+    { label: 'Total Tenants', value: s.totalTenants, icon: BuildingOffice2Icon, colorClass: styles.statPurple, link: '/admin/tenants', badge: `${s.activeTenants} active` },
+    { label: 'Active Tenants', value: s.activeTenants, icon: BuildingStorefrontIcon, colorClass: styles.statTeal, link: '/admin/tenants', badge: 'Registered' },
+    { label: 'Total Tickets', value: s.totalTickets, icon: TicketIcon, colorClass: styles.statIndigo, link: '/admin/tickets', badge: 'All time' },
+    { label: 'Open Tickets', value: s.openTickets, icon: InboxIcon, colorClass: styles.statAmber, link: '/admin/tickets', badge: s.openTickets > 0 ? 'Requires action' : 'Zero queue' },
+    { label: 'Departments', value: s.totalDepartments, icon: BuildingLibraryIcon, colorClass: styles.statCyan, link: '/admin/departments', badge: 'Active units' },
+    { label: 'Pending Feedback', value: s.pendingFeedback, icon: ChatBubbleBottomCenterTextIcon, colorClass: styles.statRose, link: '/admin/feedback', badge: s.pendingFeedback > 0 ? 'To review' : 'No backlog' },
+    { label: 'Inactive Users', value: s.deactiveUsers, icon: UserMinusIcon, colorClass: styles.statSlate, link: '/admin/deactiveusers', badge: 'Deactivated' },
   ];
 
   return (
@@ -127,14 +129,14 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: '#0f172a' }}>
-              Help Desk Management System — Command Center Overview
+              Help Desk Management System — Dashboard Overview
             </h1>
             <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#475569' }}>
               Generated: <strong>{new Date().toLocaleString()}</strong> | Scope: Enterprise Administration
             </p>
           </div>
           <div style={{ background: '#1e293b', color: '#ffffff', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>
-            COMMAND CENTER REPORT
+            DASHBOARD REPORT
           </div>
         </div>
       </div>
@@ -172,10 +174,10 @@ export default function AdminDashboard() {
           <button
             type="button"
             onClick={handlePrintOverview}
-            className={styles.headerActionBtn}
+            className={`${styles.headerActionBtn} ${styles.headerActionSecondary}`}
             title="Print command center dashboard overview"
           >
-            <PrinterIcon style={{ width: '16px', height: '16px' }} />
+            <PrinterIcon style={{ width: '14px', height: '10px' }} />
             <span>Print Overview</span>
           </button>
 
@@ -186,31 +188,37 @@ export default function AdminDashboard() {
             className={`${styles.headerActionBtn} ${styles.headerActionPrimary}`}
             title="Export command center overview, recent tickets, and users to professional Excel (.xlsx)"
           >
-            <ArrowDownTrayIcon style={{ width: '16px', height: '16px' }} />
+            <ArrowDownTrayIcon style={{ width: '14px', height: '10px' }} />
             <span>{isExporting ? 'Generating...' : 'Export Overview (Excel)'}</span>
           </button>
 
-          <Link to="/admin/analytics" className={styles.headerActionBtn}>
+          <Link to="/admin/analytics" className={`${styles.headerActionBtn} ${styles.headerActionSecondary}`}>
             <ArrowTrendingUpIcon className={styles.headerActionIcon} />
             <span>Analytics & Trends</span>
-            <ArrowRightIcon style={{ width: '14px', height: '14px' }} />
+            <ArrowRightIcon style={{ width: '13px', height: '13px' }} />
           </Link>
         </div>
       </div>
 
+
       {/* ── KPI Stats Overview Grid ── */}
       <div className={styles.statsGrid}>
-        {statCards.map(({ label, value, icon: Icon, colorClass, link }) => (
+        {statCards.map(({ label, value, icon: Icon, colorClass, link, badge }) => (
           <Link key={label} to={link} className={`${styles.statCard} ${colorClass}`}>
             <div className={styles.statCardTop}>
               <div className={styles.statIconBox}>
                 <Icon className={styles.statIconBoxSvg} />
               </div>
-              <ArrowRightIcon className={styles.statCardArrow} />
+              <div className={styles.statArrowBtn}>
+                <ArrowRightIcon className={styles.statCardArrow} />
+              </div>
             </div>
-            <div>
+            <div className={styles.statCardBottom}>
               <div className={styles.statValue}>{value ?? 0}</div>
-              <div className={styles.statLabel}>{label}</div>
+              <div className={styles.statLabelRow}>
+                <span className={styles.statLabel}>{label}</span>
+                {badge && <span className={styles.statPillBadge}>{badge}</span>}
+              </div>
             </div>
           </Link>
         ))}
@@ -332,10 +340,10 @@ export default function AdminDashboard() {
       {/* ── Visual Analytics & Distribution Charts ── */}
       {charts && (
         <div className={styles.chartsGrid}>
-          <BarChart title="Tickets by Category" data={charts.byCategory} labelKey="category" />
-          <BarChart title="Tickets by Department" data={charts.byDepartment} labelKey="name" />
-          <BarChart title="Tickets by Priority" data={charts.byPriority} labelKey="priority" />
-          <BarChart title="Tickets by Status" data={charts.byStatus} labelKey="status" />
+          <BarChart title="Tickets by Category" data={charts.byCategory} labelKey="category" type="category" />
+          <BarChart title="Tickets by Department" data={charts.byDepartment} labelKey="name" type="department" />
+          <BarChart title="Tickets by Priority" data={charts.byPriority} labelKey="priority" type="priority" />
+          <BarChart title="Tickets by Status" data={charts.byStatus} labelKey="status" type="status" />
         </div>
       )}
 
@@ -376,7 +384,7 @@ export default function AdminDashboard() {
                 {data.recentTickets.map((t) => (
                   <tr key={t.id} className={styles.recentTableRow}>
                     <td>
-                      <Link to={`/admin/tickets/${t.id}`} className={styles.ticketTitleLink}>
+                      <Link to={`/admin/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.ticketTitleLink}>
                         {t.title}
                       </Link>
                       <div className={styles.ticketRefTag}>{t.referenceNumber}</div>
@@ -410,23 +418,235 @@ export default function AdminDashboard() {
   );
 }
 
+interface DistributionColorStyle {
+  gradient: string;
+  dot: string;
+  glow?: string;
+}
+
+function getDistributionColorStyle(
+  type: 'category' | 'department' | 'priority' | 'status',
+  rawValue: string,
+  index = 0
+): DistributionColorStyle {
+  const val = (rawValue || '').toLowerCase().trim();
+
+  // Priority
+  if (type === 'priority') {
+    if (val === 'high' || val === 'urgent' || val === 'critical') {
+      return {
+        gradient: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)',
+        dot: '#ef4444',
+        glow: 'rgba(239, 68, 68, 0.3)',
+      };
+    }
+    if (val === 'medium') {
+      return {
+        gradient: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+        dot: '#f59e0b',
+        glow: 'rgba(245, 158, 11, 0.3)',
+      };
+    }
+    return {
+      gradient: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+      dot: '#10b981',
+      glow: 'rgba(16, 185, 129, 0.3)',
+    };
+  }
+
+  // Status
+  if (type === 'status') {
+    switch (val) {
+      case 'open':
+        return {
+          gradient: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)',
+          dot: '#3b82f6',
+          glow: 'rgba(59, 130, 246, 0.3)',
+        };
+      case 'assigned':
+        return {
+          gradient: 'linear-gradient(90deg, #06b6d4 0%, #0891b2 100%)',
+          dot: '#06b6d4',
+          glow: 'rgba(6, 182, 212, 0.3)',
+        };
+      case 'in_progress':
+        return {
+          gradient: 'linear-gradient(90deg, #f59e0b 0%, #ea580c 100%)',
+          dot: '#f59e0b',
+          glow: 'rgba(245, 158, 11, 0.3)',
+        };
+      case 'pending':
+        return {
+          gradient: 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)',
+          dot: '#8b5cf6',
+          glow: 'rgba(139, 92, 246, 0.3)',
+        };
+      case 'resolved':
+        return {
+          gradient: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+          dot: '#10b981',
+          glow: 'rgba(16, 185, 129, 0.3)',
+        };
+      case 'closed':
+        return {
+          gradient: 'linear-gradient(90deg, #14b8a6 0%, #0f766e 100%)',
+          dot: '#14b8a6',
+          glow: 'rgba(20, 184, 166, 0.3)',
+        };
+      case 'reopened':
+        return {
+          gradient: 'linear-gradient(90deg, #f97316 0%, #c2410c 100%)',
+          dot: '#f97316',
+          glow: 'rgba(249, 115, 22, 0.3)',
+        };
+      case 'escalated':
+        return {
+          gradient: 'linear-gradient(90deg, #e11d48 0%, #9f1239 100%)',
+          dot: '#e11d48',
+          glow: 'rgba(225, 29, 72, 0.3)',
+        };
+      default:
+        return {
+          gradient: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 100%)',
+          dot: '#3b82f6',
+        };
+    }
+  }
+
+  // Department
+  if (type === 'department') {
+    if (val.includes('unassigned')) {
+      return {
+        gradient: 'linear-gradient(90deg, #64748b 0%, #475569 100%)',
+        dot: '#64748b',
+        glow: 'rgba(100, 116, 139, 0.25)',
+      };
+    }
+    if (val.includes('it') || val.includes('tech')) {
+      return {
+        gradient: 'linear-gradient(90deg, #2563eb 0%, #3b82f6 100%)',
+        dot: '#2563eb',
+        glow: 'rgba(37, 99, 235, 0.3)',
+      };
+    }
+    if (val.includes('support') || val.includes('help')) {
+      return {
+        gradient: 'linear-gradient(90deg, #06b6d4 0%, #0284c7 100%)',
+        dot: '#06b6d4',
+        glow: 'rgba(6, 182, 212, 0.3)',
+      };
+    }
+    if (val.includes('operation') || val.includes('facility')) {
+      return {
+        gradient: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+        dot: '#10b981',
+        glow: 'rgba(16, 185, 129, 0.3)',
+      };
+    }
+  }
+
+  // Category
+  if (type === 'category') {
+    if (val.includes('software') || val.includes('app')) {
+      return {
+        gradient: 'linear-gradient(90deg, #8b5cf6 0%, #6366f1 100%)',
+        dot: '#8b5cf6',
+        glow: 'rgba(139, 92, 246, 0.3)',
+      };
+    }
+    if (val === 'it' || val.includes('hardware')) {
+      return {
+        gradient: 'linear-gradient(90deg, #0284c7 0%, #06b6d4 100%)',
+        dot: '#0284c7',
+        glow: 'rgba(2, 132, 199, 0.3)',
+      };
+    }
+    if (val.includes('network') || val.includes('wifi') || val.includes('infra')) {
+      return {
+        gradient: 'linear-gradient(90deg, #10b981 0%, #14b8a6 100%)',
+        dot: '#10b981',
+        glow: 'rgba(16, 185, 129, 0.3)',
+      };
+    }
+    if (val.includes('bill') || val.includes('pay') || val.includes('finance')) {
+      return {
+        gradient: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+        dot: '#f59e0b',
+        glow: 'rgba(245, 158, 11, 0.3)',
+      };
+    }
+    if (val.includes('access') || val.includes('security') || val.includes('login')) {
+      return {
+        gradient: 'linear-gradient(90deg, #ec4899 0%, #e11d48 100%)',
+        dot: '#ec4899',
+        glow: 'rgba(236, 72, 153, 0.3)',
+      };
+    }
+  }
+
+  // Fallback palette
+  const PALETTE: DistributionColorStyle[] = [
+    { gradient: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)', dot: '#6366f1', glow: 'rgba(99, 102, 241, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #0284c7 0%, #3b82f6 100%)', dot: '#0284c7', glow: 'rgba(2, 132, 199, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #10b981 0%, #14b8a6 100%)', dot: '#10b981', glow: 'rgba(16, 185, 129, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%)', dot: '#f59e0b', glow: 'rgba(245, 158, 11, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)', dot: '#ec4899', glow: 'rgba(236, 72, 153, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #06b6d4 0%, #0d9488 100%)', dot: '#06b6d4', glow: 'rgba(6, 182, 212, 0.3)' },
+    { gradient: 'linear-gradient(90deg, #a855f7 0%, #7c3aed 100%)', dot: '#a855f7', glow: 'rgba(168, 85, 247, 0.3)' },
+  ];
+  return PALETTE[index % PALETTE.length];
+}
+
 function BarChart({
   title,
   data,
   labelKey,
+  type = 'category',
 }: {
   title: string;
   data: { [k: string]: any }[];
   labelKey: string;
+  type?: 'category' | 'department' | 'priority' | 'status';
 }) {
   const list = data || [];
   const max = Math.max(1, ...list.map((d) => Number(d.count || 0)));
+  const totalCount = list.reduce((sum, d) => sum + Number(d.count || 0), 0);
+
+  // Pick header icon and accent based on chart type
+  let HeaderIcon = TagIcon;
+  let iconColor = '#8b5cf6';
+  let iconBg = 'rgba(139, 92, 246, 0.12)';
+  let itemTypeName = 'Items';
+
+  if (type === 'department') {
+    HeaderIcon = BuildingOffice2Icon;
+    iconColor = '#3b82f6';
+    iconBg = 'rgba(59, 130, 246, 0.12)';
+    itemTypeName = 'Depts';
+  } else if (type === 'priority') {
+    HeaderIcon = ExclamationCircleIcon;
+    iconColor = '#f59e0b';
+    iconBg = 'rgba(245, 158, 11, 0.12)';
+    itemTypeName = 'Levels';
+  } else if (type === 'status') {
+    HeaderIcon = ChartBarIcon;
+    iconColor = '#10b981';
+    iconBg = 'rgba(16, 185, 129, 0.12)';
+    itemTypeName = 'Stages';
+  }
 
   return (
     <div className={styles.chartCard}>
       <div className={styles.chartTitleRow}>
-        <h3 className={styles.chartTitle}>{title}</h3>
-        <span className={styles.sectionCountBadge}>{list.length} Items</span>
+        <div className={styles.chartHeaderLeft}>
+          <div className={styles.chartHeaderIconWrap} style={{ background: iconBg, color: iconColor }}>
+            <HeaderIcon style={{ width: '18px', height: '18px' }} />
+          </div>
+          <h3 className={styles.chartTitle}>{title}</h3>
+        </div>
+        <span className={styles.sectionCountBadge}>
+          {list.length} {list.length === 1 ? itemTypeName.replace(/s$/, '') : itemTypeName}
+        </span>
       </div>
 
       {!list.length ? (
@@ -438,19 +658,36 @@ function BarChart({
             const formattedLabel = rawLabel.replace(/_/g, ' ');
             const count = Number(d.count || 0);
             const percentage = Math.round((count / max) * 100);
+            const sharePercent = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
+            const colorStyle = getDistributionColorStyle(type, rawLabel, i);
 
             return (
               <div key={i} className={styles.chartBarRow}>
-                <span className={styles.chartBarLabel} title={formattedLabel}>
-                  {formattedLabel}
-                </span>
+                <div className={styles.chartBarLabelWrap}>
+                  <span
+                    className={styles.chartBarDot}
+                    style={{ background: colorStyle.dot }}
+                  />
+                  <span className={styles.chartBarLabel} title={formattedLabel}>
+                    {formattedLabel}
+                  </span>
+                </div>
+
                 <div className={styles.chartBarTrack}>
                   <div
                     className={styles.chartBarFill}
-                    style={{ width: `${percentage}%` }}
+                    style={{
+                      width: `${percentage}%`,
+                      background: colorStyle.gradient,
+                      boxShadow: colorStyle.glow ? `0 2px 8px ${colorStyle.glow}` : undefined,
+                    }}
                   />
                 </div>
-                <span className={styles.chartBarCount}>{count}</span>
+
+                <div className={styles.chartBarStats}>
+                  <span className={styles.chartBarPercent}>{sharePercent}%</span>
+                  <span className={styles.chartBarCount}>{count}</span>
+                </div>
               </div>
             );
           })}
@@ -459,3 +696,5 @@ function BarChart({
     </div>
   );
 }
+
+

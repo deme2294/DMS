@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{baseUrl}}/dashboard/admin/analytics?timeframe=6m"
+method: GET
+queryParams:
+  timeframe: 6m
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+order: 1000

@@ -466,10 +466,30 @@
 }
 
 @media (max-width: 440px) {
+  .page {
+    padding: 0;
+    gap: 14px;
+  }
   .summaryGrid {
     grid-template-columns: 1fr;
   }
   .sysGrid {
     grid-template-columns: 1fr;
+  }
+  .panel {
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+  .summaryCard {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .summaryValue {
+    font-size: 1.4rem;
+  }
+  .sectionTitle {
+    font-size: 1rem;
   }
 }

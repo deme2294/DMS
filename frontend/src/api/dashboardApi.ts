@@ -7,12 +7,13 @@ export interface AdminStats {
   activeTenants: number;
   totalTickets: number;
   openTickets: number;
+  inProgressTickets?: number;
+  resolvedTickets?: number;
   totalDepartments: number;
   totalFeedback: number;
   pendingFeedback: number;
-  deactiveUsers:number;
-  deactiveTenants:number;
-
+  deactiveUsers: number;
+  deactiveTenants: number;
 }
 
 export interface ManagerStats {
@@ -47,13 +48,51 @@ export interface StatusBreakdownItem {
 
 export interface RecentTicket {
   id: string;
+  ticketNum?: number | null;
   title: string;
   status: string;
   priority: string;
   createdAt: string;
+  updatedAt?: string;
   referenceNumber?: string;
   tenantName?: string;
   departmentName?: string;
+  assignedToName?: string | null;
+  createdByName?: string | null;
+}
+
+export interface PriorityBreakdownItem {
+  priority: string;
+  count: number;
+}
+
+export interface TopCustomerItem {
+  id: string;
+  name: string;
+  ticketCount: number;
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  notes?: string | null;
+  createdAt: string;
+  ticketId: string;
+  referenceNumber: string;
+  ticketTitle: string;
+  actorName: string;
+}
+
+export interface TodayStats {
+  openTickets: number;
+  openToday: number;
+  inProgressTickets: number;
+  inProgressToday: number;
+  pendingTickets: number;
+  pendingHighPriority: number;
+  resolvedToday: number;
+  resolvedTotal: number;
 }
 
 export interface RecentUser {
@@ -76,6 +115,10 @@ export interface AdminDashboardData {
   recentTickets: RecentTicket[];
   recentUsers: RecentUser[];
   statusBreakdown?: StatusBreakdownItem[];
+  priorityBreakdown?: PriorityBreakdownItem[];
+  topCustomers?: TopCustomerItem[];
+  recentActivity?: ActivityFeedItem[];
+  todayStats?: TodayStats;
 }
 
 export interface ManagerDashboardData {
@@ -130,6 +173,7 @@ export interface StaffSlaStats {
 
 export interface StaffSlaTicketItem {
   id: string;
+  ticketNum?: number | null;
   referenceNumber: string;
   title: string;
   status: string;

@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/timeline"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+order: 6000

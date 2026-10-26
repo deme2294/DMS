@@ -1,0 +1,20 @@
+$kind: http-request
+description: Sends custom email message with HTML/text body to an external email address using SMTP settings.
+url: "{{baseUrl}}/api/send-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "to": "client.security@external.com",
+      "toName": "Security Officer",
+      "subject": "Critical Ticket Notification TICK-20261022-4821",
+      "message": "Our operations team has completed firewall rules updates."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

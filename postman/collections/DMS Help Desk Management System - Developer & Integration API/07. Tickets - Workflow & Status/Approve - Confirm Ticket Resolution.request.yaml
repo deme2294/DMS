@@ -1,0 +1,22 @@
+$kind: http-request
+name: Approve / Confirm Ticket Resolution
+description: Tenant or Manager confirms that the issue has been resolved satisfactorily and optionally submits satisfaction rating and feedback.
+url: "{{baseUrl}}/api/tickets/:id/approve"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "notes": "Verified from customer side. Gateway functioning normally.",
+      "rating": 5,
+      "feedback": "Speedy resolution and great communication."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

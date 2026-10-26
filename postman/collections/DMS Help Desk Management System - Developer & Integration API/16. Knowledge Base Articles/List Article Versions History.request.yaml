@@ -1,0 +1,11 @@
+$kind: http-request
+description: List Article Versions History
+url: "{{baseUrl}}/api/knowledge/:id/versions"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 11000

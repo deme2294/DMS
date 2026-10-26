@@ -8,6 +8,7 @@ import {
   sendTicketStatusEmail,
   sendNoticePublishedEmail,
   sendNoticeExpiryWarningEmail,
+  sendNewTicketAdminAlert,
 } from './emailService.js';
 import { emitToUser, emitToTicket, broadcastTicketEvent } from './socketService.js';
 import * as ticketRepo from '../repository/ticketRepository.js';
@@ -69,9 +70,17 @@ export const notifyTicketCreated = async (ticket, createdByUserId) => {
       'ticket',
       ticket.id
     );
-    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ticket.reference_number} has been submitted.`, type: 'ticket', ticketId: ticket.id });
+    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ticket.reference_number || ticket.referenceNumber} has been submitted.`, type: 'ticket', ticketId: ticket.id });
   }
-  broadcastTicketEvent(ticket.id, 'ticket:created', { ticketId: ticket.id, referenceNumber: ticket.reference_number, title: ticket.title });
+
+  // Ensure external ticket notification reaches the created system email (demshuterefe94@gmail.com)
+  sendNewTicketAdminAlert({
+    ticket,
+    submitterName: 'External Submitter',
+    submitterEmail: '',
+  }).catch(() => {});
+
+  broadcastTicketEvent(ticket.id, 'ticket:created', { ticketId: ticket.id, referenceNumber: ticket.reference_number || ticket.referenceNumber, title: ticket.title });
 };
 
 export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUserId) => {
@@ -143,7 +152,7 @@ export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => 
   }
 };
 
-export const notifyTicketReply = async (ticket, replyUserId, isInternal = false, visibility = 'all') => {
+export const notifyTicketReply = async (ticket, replyUserId, isInternal = false, visibility = 'all', targetUserId = null, replyMessage = '') => {
   const recipients = new Set();
   const [creator] = await pool.query('SELECT id FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
 
@@ -172,6 +181,10 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
   }
   routingType = routingType || 'general';
 
+  if (targetUserId && targetUserId !== replyUserId) {
+    recipients.add(targetUserId);
+  }
+
   if (visibility === 'admin') {
     // Only notify active admins
     const [admins] = await pool.query(
@@ -183,7 +196,8 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
   } else if (isTenantAuthor) {
     // Tenant replies routing:
     if (routingType === 'direct') {
-      // Direct category: routed to the department of the ticket category
+      // Direct category routing: routed to the Department Manager role of that department and Admin.
+      // Staff is NOT notified directly; the manager assigns comments/tasks to staff.
       if (ticketDeptId) {
         const [deptManagers] = await pool.query(
           `SELECT u.id FROM users u
@@ -196,10 +210,6 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
           if (m.id !== replyUserId) recipients.add(m.id);
         });
       }
-      // Notify assigned user (if assigned by admin or manager)
-      if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
-        recipients.add(ticket.assigned_to);
-      }
       // Also notify Admins
       const [admins] = await pool.query(
         `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
@@ -208,30 +218,13 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
         if (a.id !== replyUserId) recipients.add(a.id);
       });
     } else {
-      // General category: routed to Admin, and to assigned user and department manager once assigned
+      // General category routing: strictly routed to Admin
       const [admins] = await pool.query(
         `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
       );
       admins.forEach((a) => {
         if (a.id !== replyUserId) recipients.add(a.id);
       });
-
-      if (ticket.assigned_to && ticket.assigned_to !== replyUserId) {
-        recipients.add(ticket.assigned_to);
-      }
-
-      if (ticket.department_id) {
-        const [deptManagers] = await pool.query(
-          `SELECT u.id FROM users u
-           JOIN user_departments ud ON ud.user_id = u.id
-           JOIN roles r ON r.id = u.role_id
-           WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
-          { deptId: ticket.department_id }
-        );
-        deptManagers.forEach((m) => {
-          if (m.id !== replyUserId) recipients.add(m.id);
-        });
-      }
     }
   } else {
     // Staff / Manager / Admin replies:
@@ -250,16 +243,19 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
   }
 
   for (const userId of recipients) {
-    let title = 'New Reply on Ticket';
-    let message = `A new reply has been added to ticket ${ticket.reference_number}.`;
+    let title = isInternal ? 'New Internal Ticket Note' : 'New Reply on Ticket';
+    let message = `${authorName} replied on ticket ${ticket.reference_number}.`;
 
-    if (visibility === 'admin') {
+    if (userId === targetUserId) {
+      title = 'Comment Assigned by Department Manager';
+      message = `${authorName} assigned a comment/task to you on ticket ${ticket.reference_number}${replyMessage ? `: "${replyMessage.slice(0, 80)}"` : '.'}`;
+    } else if (visibility === 'admin') {
       title = 'New Admin Note on Ticket';
       message = `${authorName} sent a private manager reply to Admin on ticket ${ticket.reference_number}.`;
     } else if (isTenantAuthor) {
       if (routingType === 'direct') {
         title = 'New Tenant Reply (Direct to Department)';
-        message = `${authorName} (Tenant) replied on ticket ${ticket.reference_number} routed directly to your department.`;
+        message = `${authorName} (Tenant) replied on ticket ${ticket.reference_number} routed directly to your department manager.`;
       } else {
         title = 'New Tenant Reply (Routed to Admin)';
         message = `${authorName} (Tenant) replied on ticket ${ticket.reference_number}.`;
@@ -280,6 +276,61 @@ export const notifyTicketReply = async (ticket, replyUserId, isInternal = false,
       ticketId: ticket.id,
       visibility,
     });
+  }
+
+  // Dispatch email notifications to relevant parties
+  for (const userId of recipients) {
+    try {
+      const [uRows] = await pool.query(
+        `SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role_name 
+         FROM users u 
+         LEFT JOIN roles r ON r.id = u.role_id 
+         WHERE u.id = :id AND u.status = "active" LIMIT 1`,
+        { id: userId }
+      );
+      if (uRows.length && uRows[0].email) {
+        const recipientRole = uRows[0].role_name || 'tenant';
+        const isAnnouncement = !isInternal && ['admin', 'manager', 'staff'].includes(authorRole) && (visibility === 'all' || visibility === 'tenant');
+        sendTicketReplyEmail({
+          email: uRows[0].email,
+          firstName: uRows[0].first_name || 'User',
+          recipientRole,
+          ticket: {
+            id: ticket.id,
+            ticket_num: ticket.ticket_num || ticket.ticketNum,
+            reference_number: ticket.reference_number || ticket.referenceNumber,
+            title: ticket.title,
+            status: ticket.status,
+            priority: ticket.priority,
+          },
+          replyPreview: (replyMessage || '').slice(0, 800),
+          isAnnouncement,
+          authorName,
+          authorRole,
+        }).catch(() => {});
+      }
+    } catch {}
+  }
+
+  // If reply was sent by external tenant, ensure HDMS system email (demshuterefe94@gmail.com) receives it
+  if (isTenantAuthor) {
+    const adminEmail = process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
+    sendTicketReplyEmail({
+      email: adminEmail,
+      firstName: 'Admin',
+      recipientRole: 'admin',
+      ticket: {
+        id: ticket.id,
+        ticket_num: ticket.ticket_num || ticket.ticketNum,
+        reference_number: ticket.reference_number || ticket.referenceNumber,
+        title: ticket.title,
+        status: ticket.status,
+        priority: ticket.priority,
+      },
+      replyPreview: `[Tenant Reply from: ${authorName}] ${(replyMessage || '').slice(0, 800)}`,
+      authorName,
+      authorRole,
+    }).catch(() => {});
   }
 
   broadcastTicketEvent(ticket.id, 'ticket:reply', {
@@ -504,10 +555,44 @@ export const notifyTicketRejected = async (ticket, rejectedBy, reason) => {
 };
 
 export const notifyTicketReopened = async (ticket, reopenedBy, notes) => {
-  if (!ticket.created_by) return;
-  await notificationRepo.createNotification(
-    ticket.created_by, 'Ticket Reopened', `Ticket ${ticket.referenceNumber || ticket.reference_number} has been reopened.`, 'reopen', ticket.id
-  );
+  const recipients = new Set();
+  const creatorId = ticket.created_by || ticket.createdBy;
+  const assignedToId = ticket.assigned_to || ticket.assignedTo;
+  const departmentId = ticket.department_id || ticket.departmentId;
+
+  if (creatorId && creatorId !== reopenedBy) {
+    recipients.add(creatorId);
+  }
+
+  if (assignedToId && assignedToId !== reopenedBy) {
+    recipients.add(assignedToId);
+  }
+
+  if (departmentId) {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+      { departmentId }
+    ).catch(() => [[]]);
+    for (const m of (managers || [])) {
+      if (m.id !== reopenedBy) recipients.add(m.id);
+    }
+  }
+
+  const reasonText = notes ? ` Reason: ${notes}` : '';
+  const message = `Ticket ${ticket.referenceNumber || ticket.reference_number} has been reopened.${reasonText}`;
+
+  for (const userId of recipients) {
+    await notificationRepo.createNotification(
+      userId,
+      'Ticket Reopened',
+      message,
+      'reopen',
+      ticket.id
+    ).catch(() => {});
+  }
 };
 
 export const notifyTicketMerged = async (ticket, count, notes) => {

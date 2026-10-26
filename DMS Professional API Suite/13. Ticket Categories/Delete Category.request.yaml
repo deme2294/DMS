@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/ticket-categories/:categoryId"
+method: DELETE
+headers:
+  Accept: application/json
+pathVariables:
+  - key: categoryId
+    value: "{{categoryId}}"
+    description: Path parameter categoryId
+order: 9000

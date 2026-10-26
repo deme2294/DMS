@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/public"
+method: GET
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+order: 1000

@@ -1,0 +1,16 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Guest Wi-Fi Setup Guide",
+      "content": "Instructions for tenants and visitors to authenticate through the portal.",
+      "category": "Connectivity"
+    }
+order: 5000

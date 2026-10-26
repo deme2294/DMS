@@ -1,0 +1,17 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/targeted"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Elevator Inspection Scheduled",
+      "description": "Safety officers will conduct routine tests between 10:00 AM and 11:30 AM.",
+      "priority": "medium",
+      "targetAudience": "all"
+    }
+order: 8000

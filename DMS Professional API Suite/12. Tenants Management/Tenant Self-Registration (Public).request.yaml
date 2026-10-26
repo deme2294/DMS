@@ -1,0 +1,24 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tenants/register"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "organizationName": "Meridian Logistics Ltd",
+      "contactPerson": "David Miller",
+      "email": "david@meridian.com",
+      "username": "meridian_admin",
+      "password": "MeridianPassword123!",
+      "confirmPassword": "MeridianPassword123!",
+      "phone": "+251922334455",
+      "address": "Building B, Suite 501",
+      "registrationNumber": "REG-2024-9102"
+    }
+auth:
+  type: noauth
+order: 1000

@@ -1,0 +1,26 @@
+$kind: http-request
+description: Updates department name, description, head user, status, or member list.
+url: "{{baseUrl}}/api/departments/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: dept-infra-01
+body:
+  type: text
+  content: |-
+    {
+      "name": "Infrastructure & Cloud DevOps",
+      "code": "INFRA",
+      "description": "Expanded scope to cloud native infrastructure",
+      "headUserId": "string",
+      "status": "active",
+      "memberIds": [
+        "string"
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

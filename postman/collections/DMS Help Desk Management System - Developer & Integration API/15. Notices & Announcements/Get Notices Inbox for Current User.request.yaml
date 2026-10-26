@@ -1,0 +1,12 @@
+$kind: http-request
+description: Retrieves notices filtered by caller role, department, and direct assignments.
+url: "{{baseUrl}}/api/notices/my/inbox?page=1&limit=20"
+method: GET
+queryParams:
+  page: "1"
+  limit: "20"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

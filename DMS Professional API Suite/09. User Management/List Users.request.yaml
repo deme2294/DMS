@@ -1,0 +1,12 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/users?page=1&limit=50&role=&status="
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  page: "1"
+  limit: "50"
+  role: ""
+  status: ""
+order: 2000

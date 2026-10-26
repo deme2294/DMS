@@ -1,6 +1,6 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { useEffect, useState, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import Modal from '../../components/Modal/Modal';
 import {
   changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
@@ -45,6 +45,9 @@ import {
   ChevronDownIcon,
   ShieldCheckIcon,
   BoltIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import { formatFileSize, buildAttachmentUrl } from '../../utils/attachmentUtils';
 import { io, Socket } from 'socket.io-client';
@@ -63,21 +66,21 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   admin: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'pending', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
+    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
-    resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
+    resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
     reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     closed: ['reopened'],
     accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
-    approved: ['closed', 'completed', 'reopened'],
+    approved: ['closed', 'reopened'],
     rejected: ['reopened', 'open'],
     cancelled: ['open', 'reopened'],
-    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
+    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
@@ -85,44 +88,44 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   ceo: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'pending', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
+    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
-    resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
+    resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
     reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     closed: ['reopened'],
     accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
-    approved: ['closed', 'completed', 'reopened'],
+    approved: ['closed', 'reopened'],
     rejected: ['reopened', 'open'],
     cancelled: ['open', 'reopened'],
-    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
+    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
   },
   manager: {
     assigned: ['in_progress', 'rejected'],
-    in_progress: ['under_review', 'pending_approval', 'pending', 'waiting_vendor', 'escalated'],
+    in_progress: ['under_review', 'pending_approval', 'pending', 'escalated'],
     pending: ['in_progress', 'escalated'],
     under_review: ['pending_approval', 'in_progress', 'rejected'],
     pending_approval: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed', 'escalated'],
+    waiting_tenant: ['in_progress', 'resolved', 'escalated'],
     waiting_vendor: ['in_progress'],
-    resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress'],
+    resolved: ['waiting_tenant', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
     reopened: ['in_progress', 'escalated'],
     accepted: ['in_progress', 'escalated'],
-    escalated: ['in_progress', 'resolved', 'waiting_tenant', 'completed'],
+    escalated: ['in_progress', 'resolved', 'waiting_tenant'],
     assigned_department: ['assigned_staff'],
     assigned_staff: ['in_progress'],
   },
   staff: {
     assigned: ['in_progress'],
-    in_progress: ['under_review', 'pending', 'waiting_vendor'],
+    in_progress: ['under_review', 'pending'],
     under_review: [],
     pending: ['in_progress'],
     waiting_tenant: [],
@@ -135,12 +138,12 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   },
   tenant: {
     open: ['cancelled'],
-    waiting_tenant: ['completed', 'in_progress', 'closed', 'reopened'],
-    resolved: ['completed', 'in_progress', 'closed', 'reopened'],
+    waiting_tenant: ['closed', 'in_progress', 'reopened'],
+    resolved: ['closed', 'in_progress', 'reopened'],
     completed: ['reopened'],
     reopened: [],
-    escalated: ['completed', 'in_progress', 'reopened'],
-    approved: ['closed', 'completed'],
+    escalated: ['in_progress', 'reopened'],
+    approved: ['closed'],
     submitted: ['cancelled'],
   },
 };
@@ -159,6 +162,7 @@ function formatRemaining(ms?: number | null): string {
 
 export default function CeoTicketDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const base = user ? basePaths[user.role] : '/tenant/tickets';
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -180,6 +184,9 @@ export default function CeoTicketDetail() {
   const [mergeModal, setMergeModal] = useState(false);
   const [noteModal, setNoteModal] = useState(false);
   const [attachModal, setAttachModal] = useState(false);
+  const [reopenModal, setReopenModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopenSubmitting, setReopenSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -205,7 +212,12 @@ export default function CeoTicketDetail() {
     setLoading(true);
     try {
       const res = await fetchTicket(id);
-      setTicket(res.data.data);
+      const ticketData = res.data.data;
+      setTicket(ticketData);
+      const shortId = ticketData?.ticketNum ? String(ticketData.ticketNum) : ticketData?.referenceNumber;
+      if (shortId && id !== shortId && id.length > 20) {
+        navigate(`${base}/${shortId}`, { replace: true });
+      }
     } finally {
       setLoading(false);
     }
@@ -541,6 +553,76 @@ export default function CeoTicketDetail() {
             </div>
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
+                <UserCircleIcon className={styles.detailLabelIcon} />
+                Created By
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.createdByName ? (
+                  <span className={styles.userChip}>
+                    <UserCircleIcon />
+                    {ticket.createdByName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <EnvelopeIcon className={styles.detailLabelIcon} />
+                Tenant Email
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.tenantEmail || ticket.createdByEmail ? (
+                  <a
+                    href={`mailto:${ticket.tenantEmail || ticket.createdByEmail}`}
+                    className={styles.tenantEmailLink}
+                    title={`Send email to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                  >
+                    <EnvelopeIcon className={styles.contactIconSmall} />
+                    <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                  </a>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <PhoneIcon className={styles.detailLabelIcon} />
+                Tenant Contact
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.tenantPhone || ticket.createdByPhone ? (
+                  <a
+                    href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                    className={styles.tenantPhoneLink}
+                    title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                  >
+                    <PhoneIcon className={styles.contactIconSmall} />
+                    <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                  </a>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            {ticket.tenantContactPerson && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>
+                  <UserIcon className={styles.detailLabelIcon} />
+                  Primary Contact
+                </span>
+                <span className={styles.detailValue}>
+                  <span className={styles.userChip}>
+                    <UserIcon />
+                    {ticket.tenantContactPerson}
+                  </span>
+                </span>
+              </div>
+            )}
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
                 <CalendarDaysIcon className={styles.detailLabelIcon} />
                 Created
               </span>
@@ -857,7 +939,7 @@ export default function CeoTicketDetail() {
                       {transitions.includes('reopened') && (
                         <button
                           className={styles.btnAmber}
-                          onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}
+                          onClick={() => { setReopenReason(''); setReopenModal(true); }}
                           title="Reopen ticket"
                         >
                           <ArrowPathIcon className={styles.btnIcon} />
@@ -1048,6 +1130,148 @@ export default function CeoTicketDetail() {
         </div>
       )}
 
+      {/* Reopened Status Card */}
+      {ticket.status === 'reopened' && (
+        <div className={`${styles.card} ${styles.reopenedCard}`}>
+          <div className={styles.reopenedCardHeader}>
+            <h3 className={styles.reopenedCardTitle}>
+              <span>🔄</span> Ticket Reopened
+            </h3>
+            <span className={styles.reopenedBadge}>
+              <span>⚠️</span> Action Required
+            </span>
+          </div>
+          <p className={styles.reopenedDescription}>
+            This ticket has been reopened for additional work because the issue was unresolved, recurred, or the proposed solution was rejected.
+          </p>
+          {ticket.reopenReason && (
+            <div className={styles.reopenedReasonBox}>
+              <span className={styles.reopenedReasonLabel}>Reason for Reopening:</span>
+              <p className={styles.reopenedReasonText}>{ticket.reopenReason}</p>
+            </div>
+          )}
+          <div className={styles.reopenedMetaGrid}>
+            {ticket.reopenedAt && (
+              <div className={styles.reopenedMetaItem}>
+                <span className={styles.reopenedMetaLabel}>Reopened:</span>
+                <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt).toLocaleString()}</span>
+              </div>
+            )}
+            {ticket.reopenedByName && (
+              <div className={styles.reopenedMetaItem}>
+                <span className={styles.reopenedMetaLabel}>Reopened By:</span>
+                <span className={styles.reopenedMetaValue}>{ticket.reopenedByName}</span>
+              </div>
+            )}
+            {ticket.dueDate && (
+              <div className={styles.reopenedMetaItem}>
+                <span className={styles.reopenedMetaLabel}>Resumed SLA Target:</span>
+                <span className={styles.reopenedMetaValue}>{new Date(ticket.dueDate).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tenant Contact Information Table Card */}
+      <div className={styles.card}>
+        <div className={styles.detailsCardHeader}>
+          <div className={styles.detailsHeaderTitle}>
+            <span className={styles.detailsHeaderIconWrapper}>
+              <BuildingOffice2Icon />
+            </span>
+            <h3>Tenant & Requester Contact Information</h3>
+          </div>
+          <span className={styles.detailsHeaderTag}>Auto-Fetched</span>
+        </div>
+        <div className={styles.tenantContactTableWrapper}>
+          <table className={styles.tenantContactTable}>
+            <thead>
+              <tr>
+                <th style={{ width: '25%' }}>Property</th>
+                <th style={{ width: '50%' }}>Contact Information</th>
+                <th style={{ width: '25%' }}>Source / Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Tenant Organization</strong></td>
+                <td>
+                  <span className={styles.tenantChip}>
+                    <BuildingOfficeIcon />
+                    {ticket.tenantName || 'Standard Tenant'}
+                  </span>
+                </td>
+                <td><span className={styles.autoFetchedPill}>✓ Organization Record</span></td>
+              </tr>
+              <tr>
+                <td><strong>Ticket Creator (Requester)</strong></td>
+                <td>
+                  <span className={styles.userChip}>
+                    <UserCircleIcon />
+                    {ticket.createdByName || '—'}
+                  </span>
+                </td>
+                <td><span className={styles.autoFetchedPill}>✓ Ticket Submitter</span></td>
+              </tr>
+              {ticket.tenantContactPerson && (
+                <tr>
+                  <td><strong>Primary Contact Person</strong></td>
+                  <td>
+                    <span>{ticket.tenantContactPerson}</span>
+                  </td>
+                  <td><span className={styles.autoFetchedPill}>✓ Organization Contact</span></td>
+                </tr>
+              )}
+              <tr>
+                <td><strong>Tenant / Creator Email</strong></td>
+                <td>
+                  {(ticket.tenantEmail || ticket.createdByEmail) ? (
+                    <a
+                      href={`mailto:${ticket.tenantEmail || ticket.createdByEmail}`}
+                      className={styles.tenantEmailLink}
+                      title={`Send email to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailTextStrong}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                    </a>
+                  ) : (
+                    <span className={styles.textMuted}>No email on record</span>
+                  )}
+                </td>
+                <td>
+                  {(ticket.tenantEmail || ticket.createdByEmail) && (
+                    <span className={styles.autoFetchedPill}>✓ Direct Email Link</span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Tenant / Creator Phone</strong></td>
+                <td>
+                  {(ticket.tenantPhone || ticket.createdByPhone) ? (
+                    <a
+                      href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                      className={styles.tenantPhoneLink}
+                      title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span className={styles.phoneTextStrong}>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                    </a>
+                  ) : (
+                    <span className={styles.textMuted}>No phone number on record</span>
+                  )}
+                </td>
+                <td>
+                  {(ticket.tenantPhone || ticket.createdByPhone) && (
+                    <span className={styles.autoFetchedPill}>✓ Direct Telephone Link</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className={styles.card}>
         <h3>📝 Description</h3>
         <p className={styles.description}>{ticket.description}</p>
@@ -1219,14 +1443,20 @@ export default function CeoTicketDetail() {
             let label = '📢 Public';
             let badgeClass = styles.badgePublic;
 
-            if (isTenantReply) {
+            if (reply.targetUserId) {
+              label = `🎯 To Staff: ${reply.targetUserName || 'Staff'}`;
+              badgeClass = styles.badgeTargetStaff;
+            } else if (isTenantReply) {
               if (isDirect) {
-                label = '🏢 Direct to Dept';
+                label = '🏢 Direct to Dept Manager';
                 badgeClass = styles.badgeDirectDept;
               } else {
                 label = '🛡️ Routed to Admin';
                 badgeClass = styles.badgeGeneralAdmin;
               }
+            } else if (reply.userRole === 'staff') {
+              label = '👔 Staff to Manager';
+              badgeClass = styles.badgeInternal;
             } else if (v === 'tenant') {
               label = '👤 Tenant Only';
               badgeClass = styles.badgePublic;
@@ -1711,6 +1941,62 @@ export default function CeoTicketDetail() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Reopen Ticket Modal */}
+      <Modal open={reopenModal} title="Reopen Ticket" onClose={() => setReopenModal(false)}>
+        <form
+          className={styles.modalForm}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!reopenReason.trim()) return;
+            setReopenSubmitting(true);
+            try {
+              await call(() => reopenTicket(ticket.id, reopenReason.trim()), 'Ticket Reopened');
+              setReopenModal(false);
+              setReopenReason('');
+            } finally {
+              setReopenSubmitting(false);
+            }
+          }}
+        >
+          <div style={{ padding: '10px 14px', background: '#fef3c7', borderRadius: 8, border: '1px solid #fde68a', marginBottom: 12, fontSize: '0.875rem', color: '#92400e' }}>
+            🔄 <strong>Reopening Ticket:</strong> The ticket will return to active workflow. Its SLA resolution timer will resume based on remaining SLA time.
+          </div>
+          <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+            <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+              Reason for Reopening <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              placeholder="Explain what issue remains unresolved, has recurred, or why the proposed solution was rejected..."
+              required
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.9rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => setReopenModal(false)}
+              disabled={reopenSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.btnAmber}
+              disabled={reopenSubmitting || !reopenReason.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <ArrowPathIcon style={{ width: 18, height: 18 }} />
+              {reopenSubmitting ? 'Reopening…' : 'Confirm & Reopen Ticket'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

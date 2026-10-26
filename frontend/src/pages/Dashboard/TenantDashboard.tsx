@@ -125,7 +125,7 @@ export default function TenantDashboard() {
                         <tr key={t.id} className={styles.ticketRow}>
                           <td className={styles.ticketRef}>{t.referenceNumber ?? '—'}</td>
                           <td>
-                            <Link to={`/tenant/tickets/${t.id}`} className={styles.ticketTitleLink} title={t.title}>
+                            <Link to={`/tenant/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.ticketTitleLink} title={t.title}>
                               {t.title}
                             </Link>
                           </td>
@@ -160,7 +160,7 @@ export default function TenantDashboard() {
                 const priorityKey = `priority_${t.priority}`;
                 const priorityClass = styles[priorityKey] || styles.priority_medium;
                 return (
-                  <Link key={t.id} to={`/tenant/tickets/${t.id}`} className={styles.mobileCard}>
+                  <Link key={t.id} to={`/tenant/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.mobileCard}>
                     <div className={styles.mobileCardHeader}>
                       <span className={styles.ticketRef}>{t.referenceNumber ?? '—'}</span>
                       <span className={`${styles.badge} ${priorityClass}`}>{t.priority}</span>

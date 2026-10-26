@@ -1,0 +1,11 @@
+$kind: http-request
+description: Removes department record if no open tickets depend on it.
+url: "{{baseUrl}}/api/departments/:id"
+method: DELETE
+pathVariables:
+  id: dept-infra-01
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

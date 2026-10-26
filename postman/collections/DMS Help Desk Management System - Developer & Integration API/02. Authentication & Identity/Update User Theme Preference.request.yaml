@@ -1,0 +1,17 @@
+$kind: http-request
+description: Sets system, light, or dark theme preference for the authenticated user.
+url: "{{baseUrl}}/api/auth/me/theme"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "themePreference": "dark"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

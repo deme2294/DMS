@@ -1,0 +1,7 @@
+$kind: http-request
+description: Retrieves current API service name, version, operational status, database connectivity probe, and active Socket.IO client connections.
+url: "{{baseUrl}}/api"
+method: GET
+auth:
+  type: noauth
+order: 1000

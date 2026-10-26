@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/feedback/:feedbackId/replies"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: feedbackId
+    value: "{{feedbackId}}"
+    description: Path parameter feedbackId
+body:
+  type: text
+  content: |-
+    {
+      "message": "Thank you for the notice. Extra bins have been deployed today."
+    }
+order: 6000

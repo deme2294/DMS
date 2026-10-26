@@ -1,0 +1,3 @@
+$kind: collection
+description: Ticket creation, query filtering, single lookups, and audit timelines
+order: 6000

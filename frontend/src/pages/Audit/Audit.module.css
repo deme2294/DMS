@@ -354,31 +354,39 @@
 }
 
 .presetBtn {
-  padding: 6px 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
   border-radius: 9999px;
   border: 1px solid #e2e8f0;
-  background: #f1f5f9;
+  background: #ffffff;
   color: #475569;
-  font-size: 0.81rem;
+  font-size: 0.82rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   user-select: none;
 }
 
 .presetBtn:hover {
-  background: #e2e8f0;
+  background: #f8fafc;
   color: #0f172a;
   border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
 }
 
 .presetBtnActive,
 .presetBtn.presetBtnActive {
-  background: #2563eb !important;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
   color: #ffffff !important;
   border-color: #1d4ed8 !important;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.32);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  transform: none !important;
 }
 
 .filterInputsRow {
@@ -389,40 +397,69 @@
 }
 
 .searchInputWrapper,
-.selectWrapper,
-.dateInputWrapper {
+.selectWrapper {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  height: 42px;
+  padding: 0 14px;
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  transition: all 0.2s ease;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.searchInputWrapper:hover,
+.selectWrapper:hover,
+.dateInputWrapper:hover {
+  border-color: #94a3b8;
 }
 
 .searchInputWrapper:focus-within,
 .selectWrapper:focus-within,
 .dateInputWrapper:focus-within {
   background: #ffffff;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16) !important;
 }
 
 .searchInputWrapper {
-  flex: 1.2;
+  flex: 1.3 1 240px;
   min-width: 220px;
 }
 
 .selectWrapper {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 170px;
 }
 
+.dateRangeGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.dateInputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 150px;
+}
+
 .inputFieldIcon {
-  width: 18px;
-  height: 18px;
-  color: #94a3b8;
+  width: 17px;
+  height: 17px;
+  color: #64748b;
   flex-shrink: 0;
 }
 
@@ -432,20 +469,44 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 500;
   color: #0f172a;
   width: 100%;
+}
+
+.selectInput {
+  cursor: pointer;
+}
+
+.selectInput option {
+  background-color: #ffffff;
+  color: #0f172a;
+  padding: 8px 12px;
 }
 
 .searchInput::placeholder {
   color: #94a3b8;
 }
 
+.dateInput::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+.dateInput::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 .dateDivider {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: #64748b;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 2px;
+  user-select: none;
 }
 
 /* ── Table Card ──────────────────────────────────────────────────────────── */
@@ -1165,6 +1226,10 @@
 
 :global([data-theme="dark"]) .inputFieldIcon {
   color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .dateInput::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) brightness(1.2);
 }
 
 /* Dark Mode Table Card */

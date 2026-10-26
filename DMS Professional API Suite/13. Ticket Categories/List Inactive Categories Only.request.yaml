@@ -1,0 +1,11 @@
+$kind: http-request
+description: Returns only inactivated ticket categories for admin and managers
+url: "{{baseUrl}}/ticket-categories?status=inactive"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  - key: status
+    value: inactive
+    description: Show only inactivated categories
+order: 2000

@@ -269,6 +269,23 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column tickets.reopen_reason');
     }
 
+    if (!(await columnExists('tickets', 'first_response_at'))) {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN first_response_at DATETIME NULL`);
+      console.log('[MIGRATION] Added column tickets.first_response_at');
+      await pool.query(`
+        UPDATE tickets t
+        JOIN (
+          SELECT tr.ticket_id, MIN(tr.created_at) AS first_reply_at
+          FROM ticket_replies tr
+          JOIN tickets tk ON tk.id = tr.ticket_id
+          WHERE tr.is_internal = 0 AND tr.user_id != tk.created_by
+          GROUP BY tr.ticket_id
+        ) tr ON tr.ticket_id = t.id
+        SET t.first_response_at = tr.first_reply_at
+        WHERE t.first_response_at IS NULL
+      `).catch(() => {});
+    }
+
     if (!(await columnExists('ticket_attachments', 'comment'))) {
       await pool.query(`ALTER TABLE ticket_attachments ADD COLUMN comment TEXT NULL AFTER uploaded_by`);
       console.log('[MIGRATION] Added column ticket_attachments.comment');
@@ -490,6 +507,12 @@ export async function runAutoMigrations() {
         `ALTER TABLE ticket_replies MODIFY COLUMN visibility ENUM('all','internal','tenant','department','both','admin') NOT NULL DEFAULT 'all'`
       );
       console.log('[MIGRATION] Extended ticket_replies.visibility ENUM to include admin');
+    }
+
+    // 9c. Table ticket_replies -> target_user_id (for assigning/directing comment to staff)
+    if (!(await columnExists('ticket_replies', 'target_user_id'))) {
+      await pool.query(`ALTER TABLE ticket_replies ADD COLUMN target_user_id CHAR(36) NULL`);
+      console.log('[MIGRATION] Added column ticket_replies.target_user_id');
     }
 
     // 10. Table feedback -> ticket-based feedback fields
@@ -1107,6 +1130,22 @@ export async function createChatTables() {
       )
     `);
     console.log('[MIGRATION] Created/verified user_online_status table');
+
+    // 24. Ensure tickets.reopen permission exists and is granted to authorized roles
+    try {
+      await pool.query(`INSERT IGNORE INTO permissions (id, code, description) VALUES (UUID(), 'tickets.reopen', 'Reopen tickets')`);
+      await pool.query(`
+        INSERT IGNORE INTO role_permissions (role_id, permission_id)
+        SELECT r.id, p.id
+        FROM roles r
+        CROSS JOIN permissions p
+        WHERE p.code = 'tickets.reopen'
+          AND r.name IN ('admin', 'manager', 'tenant', 'ceo')
+      `);
+      console.log('[MIGRATION] Verified tickets.reopen permission for authorized roles');
+    } catch (permErr) {
+      console.warn('[MIGRATION] Note on tickets.reopen permission:', permErr.message);
+    }
 
     console.log('[MIGRATION] ✅ Chat system tables created successfully');
   } catch (err) {

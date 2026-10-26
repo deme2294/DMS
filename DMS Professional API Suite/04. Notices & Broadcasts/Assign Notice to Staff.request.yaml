@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/:noticeId/assign"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: noticeId
+    value: "{{noticeId}}"
+    description: Path parameter noticeId
+body:
+  type: text
+  content: |-
+    {
+      "staffUserId": "{{userId}}"
+    }
+order: 10000

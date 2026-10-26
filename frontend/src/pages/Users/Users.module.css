@@ -1089,8 +1089,58 @@
   .filtersCard {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
   .filterSelect {
     width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 14px 12px 32px;
+  }
+  .summaryGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .modalContent {
+    width: min(92vw, 520px);
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px 24px;
+    gap: 14px;
+  }
+  .summaryGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .filtersCard {
+    padding: 12px 10px;
+  }
+  .modalFooter {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .modalCancelBtn,
+  .modalDeleteConfirmBtn,
+  .modalPrimaryBtn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px 20px;
+  }
+  .filtersCard {
+    padding: 10px 8px;
   }
 }

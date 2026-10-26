@@ -70,7 +70,8 @@ export default function TicketCreate() {
             }
 
             const res = await createTicket(formData);
-            navigate(`/tenant/tickets/${res.data.data.id}`);
+            const shortId = res.data.data.ticketNum ? String(res.data.data.ticketNum) : (res.data.data.referenceNumber || res.data.data.id);
+            navigate(`/tenant/tickets/${shortId}`);
         } finally {
             setLoading(false);
         }

@@ -1,0 +1,27 @@
+$kind: http-request
+description: Tests deadline computation against arbitrary timestamps.
+url: "{{baseUrl}}/api/sla/{{slaPolicyId}}/test-compute"
+method: POST
+headers:
+  Authorization: Bearer {{adminToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "createdAt": "2026-11-01T08:00:00.000Z"
+    }
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (!pm.collectionVariables.get('slaPolicyId') || pm.collectionVariables.get('slaPolicyId') === '{{slaPolicyId}}') {
+          pm.collectionVariables.set('slaPolicyId', 'sla00002-0000-0000-0000-000000000002');
+      }
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+    language: text/javascript
+order: 4000

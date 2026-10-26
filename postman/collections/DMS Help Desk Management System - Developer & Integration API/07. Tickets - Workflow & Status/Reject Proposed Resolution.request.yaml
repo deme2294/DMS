@@ -1,0 +1,20 @@
+$kind: http-request
+description: Rejects resolution and returns ticket to `in_progress` state for further work.
+url: "{{baseUrl}}/api/tickets/:id/reject-completion"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "reason": "Still observing intermittent 502 responses on checkout endpoint.",
+      "notes": "Please recheck load balancer session affinity."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

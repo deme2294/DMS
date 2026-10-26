@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tenants?page=1&limit=50&status="
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  page: "1"
+  limit: "50"
+  status: ""
+order: 4000

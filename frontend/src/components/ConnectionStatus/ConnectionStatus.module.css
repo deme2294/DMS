@@ -155,3 +155,18 @@
   font-weight: 600;
   font-family: monospace;
 }
+
+@media (max-width: 540px) {
+  .text {
+    display: none;
+  }
+
+  .badge {
+    padding: 6px 8px;
+    gap: 0;
+  }
+
+  .tooltip {
+    display: none;
+  }
+}

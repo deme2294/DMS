@@ -1,0 +1,9 @@
+$kind: http-request
+description: Check server status and MySQL connection
+url: "{{baseUrl}}/health"
+method: GET
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+order: 1000

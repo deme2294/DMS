@@ -1,0 +1,11 @@
+$kind: http-request
+description: Contributor submits draft article to the manager review queue.
+url: "{{baseUrl}}/api/knowledge/:id/submit"
+method: POST
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

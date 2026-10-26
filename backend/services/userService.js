@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import * as userRepo from '../repository/userRepository.js';
+import * as tenantRepo from '../repository/tenantRepository.js';
 import { sanitizeUser } from '../models/User.js';
 import * as auditService from './auditService.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from './emailService.js';
@@ -65,6 +66,7 @@ export const createUser = async (payload) => {
     email: payload.email,
     firstName: payload.firstName,
     username: payload.username,
+    tempPassword: payload.password,
   }).catch(() => { });
 
   // Audit log
@@ -180,6 +182,18 @@ export const updateMyProfile = async (userId, payload) => {
     profile_image: payload.profileImage,
     theme_preference: payload.themePreference,
   });
+
+  if (existing.tenant_id) {
+    const contactPerson = [payload.firstName, payload.lastName].filter(Boolean).join(' ').trim() || undefined;
+    const tenantUpdates = {};
+    if (contactPerson) tenantUpdates.contact_person = contactPerson;
+    if (payload.email) tenantUpdates.email = payload.email;
+    if (payload.phone !== undefined) tenantUpdates.phone = payload.phone;
+    if (payload.username) tenantUpdates.username = payload.username;
+    if (Object.keys(tenantUpdates).length > 0) {
+      await tenantRepo.update(existing.tenant_id, tenantUpdates).catch(() => {});
+    }
+  }
 
   return getUser(userId);
 };

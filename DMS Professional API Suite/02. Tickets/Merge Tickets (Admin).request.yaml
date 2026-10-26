@@ -1,0 +1,21 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/merge"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "sourceIds": [
+        "{{ticketId}}"
+      ],
+      "notes": "Duplicate reporting"
+    }
+order: 14000

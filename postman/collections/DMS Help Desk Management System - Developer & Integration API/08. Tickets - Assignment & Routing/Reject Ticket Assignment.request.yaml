@@ -1,0 +1,19 @@
+$kind: http-request
+description: Technician rejects ticket assignment, returning it to the department manager queue.
+url: "{{baseUrl}}/api/tickets/:id/reject"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "reason": "Requires DB cluster specialist"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

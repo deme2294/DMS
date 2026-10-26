@@ -15,6 +15,15 @@ import type { Article, ArticleStats } from '../../types/article';
 import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
 import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
 import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
+import {
+  ArrowsPointingOutIcon,
+  ViewColumnsIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
+  BuildingOffice2Icon,
+} from '@heroicons/react/24/outline';
 import styles from './KnowledgeStatistics.module.css';
 
 export default function KnowledgeStatistics() {
@@ -34,7 +43,17 @@ export default function KnowledgeStatistics() {
   const [actionTargetArticle, setActionTargetArticle] = useState<Article | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+
+  // View Mode: 'full' (Expansive full width by default) or 'split' (side-by-side with departments)
+  const [viewMode, setViewMode] = useState<'full' | 'split'>(() => {
+    const saved = localStorage.getItem('dms_kb_stats_view_mode');
+    return (saved === 'split' || saved === 'full') ? saved : 'full';
+  });
+
+  const handleViewModeChange = (mode: 'full' | 'split') => {
+    setViewMode(mode);
+    localStorage.setItem('dms_kb_stats_view_mode', mode);
+  };
 
   const loadStats = () => {
     setLoading(true);
@@ -567,25 +586,50 @@ export default function KnowledgeStatistics() {
         </div>
       )}
 
-      {/* Dual Split Panels: Reader Sentiment & Department Breakdown */}
-      <div className={`${styles.dualGrid} ${isPanelExpanded ? styles.dualGridExpanded : ''}`}>
+      {/* Reader Sentiment & Department Breakdown (Default Full Width, togglable to Split View) */}
+      <div className={viewMode === 'full' ? styles.fullWidthContainer : styles.splitGridContainer}>
         {/* Panel 1: Reader Sentiment & Feedback */}
-        <div className={`${styles.panelCard} ${isPanelExpanded ? styles.panelCardExpanded : ''}`}>
+        <div className={`${styles.panelCard} ${viewMode === 'full' ? styles.panelCardFullWidth : styles.panelCardSplit}`}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionHeaderTitleGroup}>
-              <h2 className={styles.sectionTitle}>Reader Feedback & Sentiment</h2>
+              <div className={styles.sectionTitleRow}>
+                <h2 className={styles.sectionTitle}>Reader Feedback &amp; Sentiment</h2>
+                <span className={styles.realtimeBadge}>
+                  <span className={styles.pulsingDot} />
+                  Live Feedback
+                </span>
+                <span className={styles.currentModeBadge}>
+                  {viewMode === 'full' ? 'Full Width View' : 'Split View'}
+                </span>
+              </div>
               <p className={styles.sectionSubtitle}>
                 Audience ratings and utility evaluation for published articles
               </p>
             </div>
-            <button
-              type="button"
-              className={styles.expandToggleBtn}
-              onClick={() => setIsPanelExpanded(!isPanelExpanded)}
-              title={isPanelExpanded ? 'Switch to side-by-side view' : 'Expand feedback panel to full width'}
-            >
-              {isPanelExpanded ? '⬌ Split View' : '⛶ Full Width View'}
-            </button>
+            <div className={styles.viewModeSwitcher} role="group" aria-label="Layout View Mode">
+              <button
+                type="button"
+                className={`${styles.viewModeBtn} ${viewMode === 'full' ? styles.viewModeBtnActive : ''}`}
+                onClick={() => handleViewModeChange('full')}
+                title="Full Width View (Default)"
+                aria-pressed={viewMode === 'full'}
+              >
+                <ArrowsPointingOutIcon className={styles.viewModeIcon} />
+                <span>Full Width</span>
+                {viewMode === 'full' && <span className={styles.activeDot} />}
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewModeBtn} ${viewMode === 'split' ? styles.viewModeBtnActive : ''}`}
+                onClick={() => handleViewModeChange('split')}
+                title="Split View (Side-by-side with Departments)"
+                aria-pressed={viewMode === 'split'}
+              >
+                <ViewColumnsIcon className={styles.viewModeIcon} />
+                <span>Split View</span>
+                {viewMode === 'split' && <span className={styles.activeDot} />}
+              </button>
+            </div>
           </div>
 
           <div className={styles.feedbackScoreWidget}>
@@ -646,7 +690,7 @@ export default function KnowledgeStatistics() {
             >
               <div className={styles.feedbackTileHeader}>
                 <span className={styles.feedbackTileTitle}>Helpful Votes</span>
-                <span>👍</span>
+                <HandThumbUpIcon className={styles.feedbackTileIcon} />
               </div>
               <div className={styles.feedbackTileValue}>{helpful}</div>
               <div className={styles.feedbackTileSub}>Direct positive evaluations</div>
@@ -667,7 +711,7 @@ export default function KnowledgeStatistics() {
             >
               <div className={styles.feedbackTileHeader}>
                 <span className={styles.feedbackTileTitle}>Not Helpful Votes</span>
-                <span>👎</span>
+                <HandThumbDownIcon className={styles.feedbackTileIcon} />
               </div>
               <div className={styles.feedbackTileValue}>{notHelpful}</div>
               <div className={styles.feedbackTileSub}>Marked as needing improvement</div>
@@ -727,13 +771,26 @@ export default function KnowledgeStatistics() {
                 </button>
               </div>
 
-              <input
-                type="text"
-                placeholder="Search rated articles..."
-                className={styles.feedbackSearchInput}
-                value={feedbackSearch}
-                onChange={(e) => setFeedbackSearch(e.target.value)}
-              />
+              <div className={styles.searchWrapper}>
+                <MagnifyingGlassIcon className={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder="Search rated articles..."
+                  className={styles.feedbackSearchInput}
+                  value={feedbackSearch}
+                  onChange={(e) => setFeedbackSearch(e.target.value)}
+                />
+                {feedbackSearch && (
+                  <button
+                    type="button"
+                    className={styles.clearSearchBtn}
+                    onClick={() => setFeedbackSearch('')}
+                    title="Clear search"
+                  >
+                    <XMarkIcon style={{ width: 14, height: 14 }} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Articles List */}
@@ -954,10 +1011,14 @@ export default function KnowledgeStatistics() {
         </div>
 
         {/* Panel 2: Departmental Distribution */}
-        <div className={styles.panelCard}>
+        <div className={`${styles.panelCard} ${viewMode === 'full' ? styles.panelCardDepartmentFullWidth : styles.panelCardDepartmentSplit}`}>
           <div className={styles.sectionHeader}>
             <div className={styles.sectionHeaderTitleGroup}>
-              <h2 className={styles.sectionTitle}>Articles by Department</h2>
+              <div className={styles.sectionTitleRow}>
+                <BuildingOffice2Icon className={styles.sectionIcon} />
+                <h2 className={styles.sectionTitle}>Articles by Department</h2>
+                <span className={styles.countPill}>{sortedDepartments.length} Departments</span>
+              </div>
               <p className={styles.sectionSubtitle}>
                 Volume and ownership distribution across organizational departments
               </p>
@@ -965,7 +1026,7 @@ export default function KnowledgeStatistics() {
           </div>
 
           {sortedDepartments.length > 0 ? (
-            <div className={styles.deptList}>
+            <div className={viewMode === 'full' ? styles.deptGridFullWidth : styles.deptListSplit}>
               {sortedDepartments.map((dept, index) => {
                 const deptCount = Number(dept.count) || 0;
                 const pctOfTotal = total > 0 ? Math.round((deptCount / total) * 100) : 0;

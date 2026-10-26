@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge/:articleId"
+method: DELETE
+headers:
+  Accept: application/json
+pathVariables:
+  - key: articleId
+    value: "{{articleId}}"
+    description: Path parameter articleId
+order: 20000

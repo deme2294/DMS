@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge/:articleId/request-revision"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: articleId
+    value: "{{articleId}}"
+    description: Path parameter articleId
+body:
+  type: text
+  content: |-
+    {
+      "reason": "Please add screenshots of the captive portal."
+    }
+order: 8000

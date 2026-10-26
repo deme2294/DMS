@@ -1,0 +1,12 @@
+$kind: http-request
+description: Deletes matrix assignment by pair tuple.
+url: "{{baseUrl}}/api/matrix/pair/:userId/:departmentId"
+method: DELETE
+pathVariables:
+  userId: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+  departmentId: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

@@ -1,0 +1,21 @@
+workspace:
+  id: 7ece005c-6833-497b-a3eb-916b66844003
+
+localResources:
+  collections:
+    - ../Help Desk Management System (HDMS) API Collection
+    - ../DMS Professional API Suite
+    - ../backend/docs/DMS API - Four Core Modules
+  specs:
+    - ../postman/specs/DMS Help Desk Management System - Developer & Integration
+      API/openapi.yaml
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/DMS API - Four Core Modules: 20d77dfb-6077-4353-9944-15ec009ab8d2
+    ../postman/collections/DMS Help Desk Management System - Developer & Integration API: 509ec05d-0cfc-4898-80e0-21995cc3fe00
+resourceNameMappings:
+  specs:
+    - ../postman/specs/DMS Help Desk Management System - Developer & Integration API/openapi.yaml: DMS Help Desk Management System - Developer & Integration API

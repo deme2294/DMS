@@ -1,0 +1,27 @@
+$kind: http-request
+url: "{{baseUrl}}/tickets"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "VPN connection failure on Gateway 2",
+      "description": "Unable to establish secure handshake since morning.",
+      "category": "Network Infrastructure",
+      "priority": "high"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      if (pm.response.code === 201) {
+          var json = pm.response.json();
+          pm.collectionVariables.set('ticketId', json.data.id);
+      }
+    language: text/javascript
+order: 2000

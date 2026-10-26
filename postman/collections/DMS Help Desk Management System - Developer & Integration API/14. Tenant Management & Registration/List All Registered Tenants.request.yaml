@@ -1,0 +1,13 @@
+$kind: http-request
+description: Admin lists all tenant organizations and registration statuses.
+url: "{{baseUrl}}/api/tenants?page=1&limit=20&status=active"
+method: GET
+queryParams:
+  page: "1"
+  limit: "20"
+  status: active
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

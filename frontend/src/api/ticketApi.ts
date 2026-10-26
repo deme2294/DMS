@@ -92,7 +92,8 @@ export const mergeTickets = (id: string, sourceIds: string[], notes?: string) =>
 
 export const closeTicket = (id: string, notes?: string) => api.post(`/tickets/${id}/close`, { notes });
 
-export const reopenTicket = (id: string, notes?: string) => api.post(`/tickets/${id}/reopen`, { notes });
+export const reopenTicket = (id: string, notes?: string, reason?: string) =>
+  api.post(`/tickets/${id}/reopen`, { notes: notes || reason, reason: reason || notes });
 
 export const approveResolution = (id: string, notes?: string, rating?: number, feedback?: string) =>
   api.post(`/tickets/${id}/approve`, { notes, rating, feedback });
@@ -116,7 +117,7 @@ export const uploadTicketAttachments = (id: string, formData: FormData) =>
 export const fetchTicketReplies = (id: string) =>
   api.get<{ success: boolean; data: TicketReply[] }>(`/tickets/${id}/replies`);
 
-export const addTicketReply = (id: string, payload: { message: string; visibility?: string; attachmentId?: string; departmentIds?: string | null }) =>
+export const addTicketReply = (id: string, payload: { message: string; visibility?: string; attachmentId?: string; departmentIds?: string | null; targetUserId?: string | null }) =>
   api.post(`/tickets/${id}/replies`, payload);
 
 export const fetchTicketTimeline = (id: string) =>

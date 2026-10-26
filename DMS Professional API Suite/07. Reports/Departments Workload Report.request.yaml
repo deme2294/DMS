@@ -1,0 +1,10 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/reports/departments?startDate=2026-01-01&endDate=2026-12-31"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  startDate: 2026-01-01
+  endDate: 2026-12-31
+order: 3000

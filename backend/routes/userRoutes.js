@@ -27,6 +27,18 @@ router.get(
   userController.getUsers
 );
 
+router.post(
+  '/send-email',
+  [
+    body('to').isEmail().normalizeEmail().withMessage('Valid recipient email address is required'),
+    body('subject').trim().notEmpty().withMessage('Subject is required'),
+    body('message').trim().notEmpty().withMessage('Message body is required'),
+    body('toName').optional().trim(),
+    validate,
+  ],
+  userController.sendDirectEmail
+);
+
 router.get('/:id', authorize('users.read'), [idParam(), validate], userController.getUserById);
 
 router.post(

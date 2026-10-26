@@ -1,0 +1,10 @@
+$kind: collection
+description: Complete collection for testing all HDMS backend endpoints including Auth, Tickets, Dashboards, Users, Departments, SLA, Matrix, Notices, Knowledge Base, Feedback, Chat, and Analytics.
+variables:
+  baseUrl: http://localhost:5000/api
+  token: ""
+  ticketId: ""
+  departmentId: ""
+  userId: ""
+  tenantId: ""
+  categoryId: ""

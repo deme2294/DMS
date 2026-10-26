@@ -1,0 +1,19 @@
+$kind: http-request
+description: Quick toggle switch for the admin matrix UI.
+url: "{{baseUrl}}/api/matrix/toggle"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "userId": "a9b8c7d6-e5f4-4a3b-2c1d-0e9f8a7b6c5d",
+      "departmentId": "dept-infra-01",
+      "assigned": true
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/sla/:slaPolicyId"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: slaPolicyId
+    value: "{{slaPolicyId}}"
+    description: Path parameter slaPolicyId
+order: 3000

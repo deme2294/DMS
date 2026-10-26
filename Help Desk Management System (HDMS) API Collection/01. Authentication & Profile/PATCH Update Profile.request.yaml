@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/auth/me/profile"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "System",
+      "lastName": "Administrator",
+      "phone": "+1234567890"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+order: 3000

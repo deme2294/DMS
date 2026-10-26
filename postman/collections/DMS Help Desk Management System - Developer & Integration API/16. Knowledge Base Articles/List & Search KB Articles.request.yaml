@@ -1,0 +1,15 @@
+$kind: http-request
+description: Searches articles with pagination, category filter, and role-scoped status visibility.
+url: "{{baseUrl}}/api/knowledge?page=1&limit=20&search=&category=&status=draft"
+method: GET
+queryParams:
+  page: "1"
+  limit: "20"
+  search: ""
+  category: ""
+  status: draft
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

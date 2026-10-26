@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/messages/:messageId"
+method: DELETE
+headers:
+  Accept: application/json
+pathVariables:
+  - key: messageId
+    value: "{{messageId}}"
+    description: Path parameter messageId
+order: 11000

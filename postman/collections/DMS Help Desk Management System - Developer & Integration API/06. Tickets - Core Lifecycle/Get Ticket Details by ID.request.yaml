@@ -1,0 +1,11 @@
+$kind: http-request
+description: Returns full ticket entity, calculated SLA deadlines, status lights, and attached files.
+url: "{{baseUrl}}/api/tickets/:id"
+method: GET
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

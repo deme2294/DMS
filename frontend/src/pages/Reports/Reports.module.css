@@ -1328,8 +1328,21 @@
 }
 
 @media (max-width: 480px) {
+  .page {
+    padding: 10px 6px;
+  }
   .statsGrid {
     grid-template-columns: 1fr;
+  }
+  .sectionCard {
+    padding: 14px 12px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px;
   }
 }
 

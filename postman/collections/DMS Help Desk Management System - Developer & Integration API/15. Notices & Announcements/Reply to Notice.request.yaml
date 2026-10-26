@@ -1,0 +1,20 @@
+$kind: http-request
+description: Reply to Notice
+url: "{{baseUrl}}/api/notices/:id/replies"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "message": "Awaiting network team confirmation.",
+      "visibility": "all"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 11000

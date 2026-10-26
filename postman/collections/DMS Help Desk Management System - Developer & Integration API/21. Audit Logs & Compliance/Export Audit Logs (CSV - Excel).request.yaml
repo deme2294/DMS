@@ -1,0 +1,10 @@
+$kind: http-request
+name: Export Audit Logs (CSV / Excel)
+description: Export Audit Logs (CSV / Excel)
+url: "{{baseUrl}}/api/audit/export"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

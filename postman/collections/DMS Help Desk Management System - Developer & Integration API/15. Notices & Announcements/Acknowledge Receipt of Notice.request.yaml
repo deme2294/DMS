@@ -1,0 +1,11 @@
+$kind: http-request
+description: Records that the caller has read and acknowledged the notice bulletin.
+url: "{{baseUrl}}/api/notices/:id/acknowledge"
+method: POST
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 9000

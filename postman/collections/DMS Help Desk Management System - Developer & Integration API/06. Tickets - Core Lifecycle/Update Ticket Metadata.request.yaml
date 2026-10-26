@@ -1,0 +1,24 @@
+$kind: http-request
+description: Updates title, description, priority, category, or assigned technician.
+url: "{{baseUrl}}/api/tickets/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "title": "Updated: API Gateway 502 Outage",
+      "description": "Updated description with additional log headers.",
+      "category": "Infrastructure",
+      "priority": "low",
+      "departmentId": "dept-infra-01",
+      "assignedTo": "c1f7a840-a108-4e89-9a67-27b233a7e0f2"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

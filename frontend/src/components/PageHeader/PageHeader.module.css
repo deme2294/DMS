@@ -152,6 +152,50 @@
   }
 }
 
+@media (max-width: 480px) {
+  .wrapper {
+    padding: 14px 14px;
+    gap: 12px;
+    border-radius: 12px;
+    border-left-width: 4px;
+    margin-bottom: 18px;
+  }
+
+  .left {
+    gap: 10px;
+    width: 100%;
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .description {
+    font-size: 0.82rem;
+  }
+
+  .backBtn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .actionBtn {
+    min-height: 44px;
+    font-size: 0.88rem;
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .wrapper {
+    padding: 10px 10px;
+  }
+
+  .title {
+    font-size: 1.15rem;
+  }
+}
+
 /* ── Dark Theme Overrides for PageHeader ───────────────────────────────── */
 :global([data-theme="dark"]) .wrapper {
   background: linear-gradient(135deg, #181c24 0%, #1e2330 100%) !important;

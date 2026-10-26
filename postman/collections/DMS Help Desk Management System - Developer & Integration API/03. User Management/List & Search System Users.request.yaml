@@ -1,0 +1,15 @@
+$kind: http-request
+description: Lists users with role filtering, department filtering, and pagination. Requires `users.read` or `matrix.manage`.
+url: "{{baseUrl}}/api/users?page=1&limit=20&role=admin&status=active&departmentId=dept-infra-01"
+method: GET
+queryParams:
+  page: "1"
+  limit: "20"
+  role: admin
+  status: active
+  departmentId: dept-infra-01
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

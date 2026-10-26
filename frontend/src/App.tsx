@@ -1,5 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SocketProvider } from './context/SocketContext';
 import MainLayout from './layouts/MainLayout';
@@ -200,6 +200,7 @@ export default function App() {
         </Route>
 
         <Route element={<MainLayout />}>
+          <Route path="/tickets/:id" element={<TicketRedirect />} />
           <Route path="/track" element={<TrackTicket />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
@@ -209,4 +210,13 @@ export default function App() {
       </ThemeProvider>
     </AuthProvider>
   );
+}
+
+function TicketRedirect() {
+  const { id } = useParams();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const role = user?.role || localStorage.getItem('role') || 'tenant';
+  const prefix = role === 'admin' ? '/admin' : role === 'manager' ? '/manager' : role === 'staff' ? '/staff' : role === 'ceo' ? '/ceo' : '/tenant';
+  return <Navigate to={`${prefix}/tickets/${id}`} replace />;
 }

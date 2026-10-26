@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/process-expirations"
+method: POST
+headers:
+  Accept: application/json
+order: 19000

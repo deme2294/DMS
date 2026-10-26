@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns all system roles and their assigned permission templates.
+url: "{{baseUrl}}/api/users/roles"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

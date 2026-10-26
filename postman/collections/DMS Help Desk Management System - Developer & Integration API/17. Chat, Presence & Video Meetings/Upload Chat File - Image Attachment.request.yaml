@@ -1,0 +1,17 @@
+$kind: http-request
+name: Upload Chat File / Image Attachment
+description: Upload Chat File / Image Attachment
+url: "{{baseUrl}}/api/chat/upload"
+method: POST
+body:
+  type: formdata
+  content:
+    - type: file
+      key: file
+      src:
+        - ""
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 8000

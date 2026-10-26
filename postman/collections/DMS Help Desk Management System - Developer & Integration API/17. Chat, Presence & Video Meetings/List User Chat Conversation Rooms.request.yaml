@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns all ticket discussion rooms, department group rooms, and direct message rooms for current user.
+url: "{{baseUrl}}/api/chat/rooms"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

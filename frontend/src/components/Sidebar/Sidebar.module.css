@@ -489,7 +489,11 @@
     transform: translateX(-100%);
     z-index: 300;
     box-shadow: 8px 0 36px rgba(0, 0, 0, 0.75);
-    width: var(--sidebar-width, 275px) !important;
+    width: min(var(--sidebar-width, 275px), calc(100vw - 48px)) !important;
+  }
+
+  .navItem {
+    min-height: 44px;
   }
 
   .sidebarOpen {
@@ -497,7 +501,7 @@
   }
 
   .sidebarCollapsed {
-    width: var(--sidebar-width, 275px) !important;
+    width: min(var(--sidebar-width, 275px), calc(100vw - 48px)) !important;
   }
 
   .sidebarCollapsed .navLabel,

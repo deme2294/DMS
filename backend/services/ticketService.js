@@ -3,13 +3,14 @@ import * as ticketRepo from '../repository/ticketRepository.js';
 import { sanitizeTicket } from '../models/Ticket.js';
 import { TICKET_STATUS_TRANSITIONS, TICKET_PRIORITIES } from '../config/constants.js';
 import * as auditService from './auditService.js';
-import { sendTicketCreatedEmail, sendTicketStatusEmail, sendTicketAssignedEmail, sendTicketReplyEmail, sendTicketResolvedEmail, sendTicketClosedEmail, sendTicketEscalatedEmail, sendTicketCompletedEmail, sendTicketApprovedEmail, sendTicketReopenedEmail, sendTicketMergedEmail, sendTicketAcceptedEmail, sendTicketRejectedEmail } from './emailService.js';
+import { sendTicketCreatedEmail, sendTicketStatusEmail, sendTicketAssignedEmail, sendTicketReplyEmail, sendTicketResolvedEmail, sendTicketClosedEmail, sendTicketEscalatedEmail, sendTicketCompletedEmail, sendTicketApprovedEmail, sendTicketReopenedEmail, sendTicketMergedEmail, sendTicketAcceptedEmail, sendTicketRejectedEmail, sendNewTicketAdminAlert } from './emailService.js';
 import * as notificationService from './notificationService.js';
 import * as slaService from './slaService.js';
 import * as slaRepo from '../repository/slaRepository.js';
 import * as categoryRepo from '../repository/categoryRepository.js';
 import * as userRepository from '../repository/userRepository.js';
 import * as feedbackRepo from '../repository/feedbackRepository.js';
+import { broadcastTicketEvent } from './socketService.js';
 import pool from '../config/db.js';
 
 const canTransition = (role, fromStatus, toStatus) => {
@@ -127,8 +128,8 @@ export const getTicket = async (user, id) => {
   if (!(await canAccessTicket(user, ticket))) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
   }
-  const history = await ticketRepo.getStatusHistory(id);
-  const assignments = await ticketRepo.getAssignments(id);
+  const history = await ticketRepo.getStatusHistory(ticket.id);
+  const assignments = await ticketRepo.getAssignments(ticket.id);
   return {
     ...sanitizeTicket(ticket),
     statusHistory: history.map((h) => ({
@@ -269,6 +270,13 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
     }).catch(() => {});
   }
 
+  // Ensure external tickets reach the created system email (demshuterefe94@gmail.com)
+  sendNewTicketAdminAlert({
+    ticket: created,
+    submitterName: submitterRows.length ? `${submitterRows[0].first_name || ''} ${submitterRows[0].last_name || ''}`.trim() : (user.username || 'External Submitter'),
+    submitterEmail: submitterRows.length ? submitterRows[0].email : user.email,
+  }).catch(() => {});
+
   auditService.logAction(user.id, 'create', 'ticket', id, meta?.ip, { referenceNumber: created.referenceNumber, routingType }, { role: user.role, browser: meta?.browser }).catch(() => {});
 
   if (routingType === 'direct' && departmentId) {
@@ -355,6 +363,11 @@ export const changeStatus = async (user, id, { status, notes }, meta = {}) => {
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+  }
+
+  // If status is reopened, delegate to dedicated reopenTicket handler
+  if (status === 'reopened') {
+    return reopenTicket(user, id, notes, meta);
   }
 
   // Multi-tier role-aware resolution routing:
@@ -567,6 +580,22 @@ export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
     status: 'accepted',
     acceptedAt: new Date(),
   });
+
+  if (notes && notes.trim()) {
+    const noteReplyId = uuidv4();
+    await ticketRepo.addReply({
+      id: noteReplyId,
+      ticketId: id,
+      userId: user.id,
+      message: `[Assigned to ${staff.first_name || 'Staff'} ${staff.last_name || ''}]: ${notes.trim()}`,
+      visibility: 'department',
+      attachmentId: null,
+      type: 'note',
+      isInternal: 1,
+      departmentIds: ticket.department_id || null,
+      targetUserId: staffId,
+    });
+  }
 
   const updated = await getTicket(user, id);
   await notificationService.notifyTicketAssigned(updated, staffId, user.id);
@@ -813,8 +842,151 @@ export const closeTicket = async (user, id, notes, meta = {}) => {
   return changeStatus(user, id, { status: 'closed', notes }, meta);
 };
 
+export const calculateActiveElapsedMs = (ticket, history = []) => {
+  if (!ticket) return 0;
+  if (!history || history.length === 0) {
+    if (ticket.resolved_at && ticket.created_at) {
+      return Math.max(0, new Date(ticket.resolved_at).getTime() - new Date(ticket.created_at).getTime());
+    }
+    return 0;
+  }
+
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.created_at || a.createdAt).getTime() - new Date(b.created_at || b.createdAt).getTime()
+  );
+
+  let totalActiveMs = 0;
+  let activeStart = new Date(ticket.created_at).getTime();
+  let isCurrentlyActive = true;
+
+  const INACTIVE_STATUSES = ['resolved', 'completed', 'closed', 'waiting_tenant'];
+  const ACTIVE_STATUSES = ['open', 'assigned', 'in_progress', 'pending', 'under_review', 'pending_approval', 'reopened', 'escalated'];
+
+  for (const entry of sorted) {
+    const t = new Date(entry.created_at || entry.createdAt).getTime();
+    const toStatus = entry.to_status || entry.toStatus;
+
+    if (isCurrentlyActive && INACTIVE_STATUSES.includes(toStatus)) {
+      totalActiveMs += Math.max(0, t - activeStart);
+      isCurrentlyActive = false;
+    } else if (!isCurrentlyActive && ACTIVE_STATUSES.includes(toStatus)) {
+      activeStart = t;
+      isCurrentlyActive = true;
+    }
+  }
+
+  return totalActiveMs;
+};
+
 export const reopenTicket = async (user, id, notes, meta = {}) => {
-  return changeStatus(user, id, { status: 'reopened', notes }, meta);
+  const ticket = await ticketRepo.findById(id);
+  if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, ticket))) {
+    throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+  }
+
+  // Role validation: staff cannot reopen tickets
+  if (user.role === 'staff') {
+    throw Object.assign(
+      new Error('Staff cannot reopen tickets. Only Tenants, Department Managers, or Administrators can reopen tickets.'),
+      { statusCode: 403 }
+    );
+  }
+
+  const ALLOWED_REOPEN_ROLES = ['admin', 'manager', 'tenant', 'ceo'];
+  if (!ALLOWED_REOPEN_ROLES.includes(user.role)) {
+    throw Object.assign(
+      new Error(`Role ${user.role} is not permitted to reopen tickets.`),
+      { statusCode: 403 }
+    );
+  }
+
+  // Status validation
+  if (ticket.status === 'reopened') {
+    throw Object.assign(
+      new Error('Ticket is already reopened and in active workflow.'),
+      { statusCode: 400 }
+    );
+  }
+
+  const REOPENABLE_STATUSES = ['resolved', 'closed', 'completed', 'waiting_tenant'];
+  if (!REOPENABLE_STATUSES.includes(ticket.status)) {
+    throw Object.assign(
+      new Error(`Cannot transition from ${ticket.status} to reopened. Only resolved, completed, waiting-for-tenant, or closed tickets can be reopened.`),
+      { statusCode: 400 }
+    );
+  }
+
+  const reason = (typeof notes === 'string' ? notes : (meta?.reason || notes?.reason || notes?.notes || '')).trim();
+  if (!reason) {
+    throw Object.assign(
+      new Error('A reason is required to reopen the ticket.'),
+      { statusCode: 400 }
+    );
+  }
+
+  const now = new Date();
+
+  // Retrieve ticket history to calculate cumulative active elapsed time across repeated resolutions
+  const history = await ticketRepo.getStatusHistory(id);
+  const activeElapsedMs = calculateActiveElapsedMs(ticket, history);
+
+  // SLA Resolution: Apply Option B (Resume Remaining Resolution SLA Time)
+  const categoryRecord = ticket.category ? await categoryRepo.findByName(ticket.category).catch(() => null) : null;
+  const categoryId = categoryRecord?.id || ticket.category_id || null;
+  const policy = await slaService.resolveEffectivePolicy(categoryId, ticket.priority, ticket.sla_policy_id);
+
+  const { resolutionDueDate, escalationDueDate, effectiveRemainingHours, elapsedHours } =
+    slaService.computeReopenDueDates(
+      policy || { priority: ticket.priority },
+      ticket.created_at,
+      ticket.resolved_at,
+      now,
+      activeElapsedMs
+    );
+
+  const updateFields = {
+    status: 'reopened',
+    reopened_at: now,
+    reopened_by: user.id,
+    reopen_reason: reason,
+    due_date: resolutionDueDate,
+    escalation_due_date: escalationDueDate,
+    is_overdue: 0,
+    last_sla_warning_at: null,
+    escalation_sla_breached: 0,
+    tenant_confirmation_status: 'rejected',
+  };
+  // NOTE: ticket.first_response_at and previous resolution timestamps in ticket_status_history are strictly preserved!
+
+  await ticketRepo.update(id, updateFields);
+  await logStatus(id, ticket.status, 'reopened', user, reason, meta);
+
+  const updated = await getTicket(user, id);
+
+  await notificationService.notifyTicketReopened(updated, user.id, reason);
+  sendTicketReopenedEmail(updated).catch(() => {});
+  broadcastTicketEvent(id, 'ticket:updated', { ticketId: id, status: 'reopened' });
+
+  auditService.logAction(
+    user.id,
+    'reopen',
+    'ticket',
+    id,
+    meta?.ip,
+    {
+      from: ticket.status,
+      to: 'reopened',
+      reason,
+      previousDueDate: ticket.due_date,
+      newDueDate: resolutionDueDate,
+      effectiveRemainingHours,
+      elapsedHours,
+    },
+    { role: user.role, browser: meta?.browser }
+  ).catch(() => {});
+
+  return updated;
 };
 
 export const approveResolution = async (user, id, notes, meta = {}, feedbackData = {}) => {
@@ -968,26 +1140,12 @@ export const rejectResolution = async (user, id, notes, meta = {}) => {
     return updated;
   }
 
-  // Tier 4: Tenant rejects resolution (issue NOT solved) (waiting_tenant or resolved -> in_progress)
+  // Tier 4: Tenant rejects resolution (issue NOT solved) -> reopen ticket
   if (!['waiting_tenant', 'resolved', 'pending_approval', 'escalated'].includes(ticket.status)) {
     throw Object.assign(new Error('Only resolved or waiting-for-tenant tickets can be rejected'), { statusCode: 400 });
   }
 
-  const updateFields = {
-    status: 'in_progress',
-    tenant_confirmation_status: 'rejected',
-    reopened_by: user.id,
-    reopened_at: now,
-    reopen_reason: notes || 'Tenant reported issue is not resolved',
-  };
-  await ticketRepo.update(id, updateFields);
-  await logStatus(id, ticket.status, 'in_progress', user, notes || 'Tenant rejected resolution (issue not fixed)', meta);
-
-  const updated = await getTicket(user, id);
-  await notificationService.notifyReworkRequested(updated, user.id, notes || 'Tenant rejected resolution (issue not fixed)', 'all');
-  sendTicketReopenedEmail(updated).catch(() => {});
-  auditService.logAction(user.id, 'tenant_reject_resolution', 'ticket', id, meta?.ip, { notes, newStatus: 'in_progress' }, { role: user.role, browser: meta?.browser }).catch(() => {});
-  return updated;
+  return reopenTicket(user, id, notes || 'Tenant rejected proposed solution (issue not resolved)', meta);
 };
 
 export const markResolved = async (user, id, notes, meta = {}) => {
@@ -1188,6 +1346,7 @@ export const isReplyVisible = (user, reply, userDeptIds = [], ticket = null) => 
   const isInternal = visibility === 'internal' || visibility === 'admin' || reply.isInternal === 1 || reply.isInternal === true;
   const deptIds = splitCsv(reply.departmentIds || reply.department_ids);
   const authorDepts = splitCsv(reply.authorDepartmentIds || reply.author_department_ids);
+  const targetUserId = reply.target_user_id || reply.targetUserId;
 
   // Author of the reply can always see their own reply
   const isAuthor = (reply.userId && reply.userId === user.id) || (reply.user_id && reply.user_id === user.id);
@@ -1195,6 +1354,15 @@ export const isReplyVisible = (user, reply, userDeptIds = [], ticket = null) => 
 
   // Admin and CEO can always see everything
   if (user.role === 'admin' || user.role === 'ceo') return true;
+
+  // If reply was assigned / directed to a specific staff user:
+  if (targetUserId) {
+    if (user.id === targetUserId) return true;
+    const ticketDeptId = ticket?.department_id || ticket?.departmentId || ticket?.auto_department_id;
+    const isInTicketDept = ticketDeptId && userDeptIds.includes(ticketDeptId);
+    if (user.role === 'manager' && (isInTicketDept || authorDepts.some((d) => userDeptIds.includes(d)))) return true;
+    return false;
+  }
 
   // Admin-only replies are strictly between the author and Admins
   if (visibility === 'admin') return false;
@@ -1216,24 +1384,27 @@ export const isReplyVisible = (user, reply, userDeptIds = [], ticket = null) => 
 
   if (isAuthorTenant) {
     if (routingType === 'direct') {
-      // Direct category: routed to the department of the ticket category
-      if (isInTicketDept) return true;
-      if (isAssignedUser) return true;
-      if (isInReplyDepts) return true;
+      // Direct category routing: routed to the Department Manager of that department (and Admin)
+      // Staff should NOT see raw tenant comments directly; the manager assigns comments/tasks to staff.
+      if (user.role === 'manager' && isInTicketDept) return true;
       return false;
     } else {
-      // General category: routed to Admin; visible to assigned user and department manager once assigned
-      if (isAssignedUser) return true;
-      if (isInTicketDept) return true;
-      if (isInReplyDepts) return true;
+      // General category routing: strictly routed to Admin.
+      // Neither staff nor department managers see tenant comments directly.
       return false;
     }
+  }
+
+  // If viewing user is staff: only sees comments assigned directly to them or internal department notes
+  if (user.role === 'staff') {
+    if (visibility === 'department' && (isInTicketDept || isInReplyDepts)) return true;
+    if (visibility === 'all' && (isInTicketDept || isAssignedUser)) return true;
+    return false;
   }
 
   // Staff / Manager / Admin author replies:
   if (visibility === 'all') return true;
   if (visibility === 'tenant') {
-    // If a reply was marked tenant, assigned user and department managers can also view it
     if (isAssignedUser || isInTicketDept) return true;
     return false;
   }
@@ -1251,7 +1422,7 @@ export const isReplyVisible = (user, reply, userDeptIds = [], ticket = null) => 
   return deptIds.some((d) => userDeptIds.includes(d));
 };
 
-export const addReply = async (user, ticketId, message, visibility = 'all', attachmentId = null, meta = {}, departmentIds = null) => {
+export const addReply = async (user, ticketId, message, visibility = 'all', attachmentId = null, meta = {}, departmentIds = null, targetUserId = null) => {
   const ticket = await ticketRepo.findById(ticketId);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
@@ -1260,8 +1431,8 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   let effectiveDeptIds = departmentIds;
 
   // When a comment or reply is created by a tenant:
-  // - Direct ticket categories: routed to the department of the ticket category
-  // - General ticket categories: routed to Admin (and visible to assigned user / manager if assigned)
+  // - Direct ticket categories: routed to the Department Manager of the ticket category's department
+  // - General ticket categories: routed strictly to Admin
   if (user.role === 'tenant') {
     let routingType = ticket.routing_type;
     let targetDeptId = ticket.department_id || ticket.auto_department_id;
@@ -1279,21 +1450,21 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
       effectiveVisibility = 'both';
       effectiveDeptIds = targetDeptId || null;
     } else {
-      if (ticket.department_id) {
-        effectiveVisibility = 'both';
-        effectiveDeptIds = ticket.department_id;
-      } else {
-        effectiveVisibility = 'all';
-        effectiveDeptIds = null;
-      }
+      effectiveVisibility = 'admin';
+      effectiveDeptIds = null;
     }
   }
 
+  if (targetUserId) {
+    effectiveVisibility = 'department';
+  }
+
   const replyId = uuidv4();
-  const isInternal = (effectiveVisibility === 'internal' || effectiveVisibility === 'department' || effectiveVisibility === 'admin') ? 1 : 0;
+  const isInternal = (effectiveVisibility === 'internal' || effectiveVisibility === 'department' || effectiveVisibility === 'admin' || !!targetUserId) ? 1 : 0;
   await ticketRepo.addReply({
     id: replyId, ticketId, userId: user.id, message, visibility: effectiveVisibility, attachmentId,
     type: 'reply', isInternal, departmentIds: effectiveDeptIds || null,
+    targetUserId: targetUserId || null,
   });
 
   // Track response SLA satisfaction when staff/manager/admin responds to user
@@ -1308,7 +1479,7 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
   }
 
   const savedTicket = await ticketRepo.findById(ticketId);
-  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1, effectiveVisibility);
+  await notificationService.notifyTicketReply(savedTicket, user.id, isInternal === 1, effectiveVisibility, targetUserId, message);
 
   const replies = await ticketRepo.getReplies(ticketId);
   return replies.find((r) => r.id === replyId) || { id: replyId };
@@ -1332,6 +1503,7 @@ export const getReplies = async (user, ticketId) => {
   return visible.map((r) => ({
     id: r.id, ticketId: r.ticket_id, userId: r.user_id, userName: r.user_name,
     userRole: r.user_role,
+    targetUserId: r.target_user_id, targetUserName: r.target_user_name, targetUserRole: r.target_user_role,
     message: r.message, visibility: r.visibility, type: r.type, isInternal: !!r.is_internal,
     attachmentId: r.attachment_id, createdAt: r.created_at,
     departmentIds: r.department_ids, authorDepartmentIds: r.author_department_ids,

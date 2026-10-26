@@ -1,0 +1,20 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/users"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "username": "support.tech1",
+      "email": "support.tech1@example.com",
+      "password": "SecurePassword123!",
+      "firstName": "Alex",
+      "lastName": "Rivera",
+      "roleId": 3,
+      "status": "active"
+    }
+order: 4000

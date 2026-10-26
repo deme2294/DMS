@@ -8,6 +8,7 @@ export const sanitizeUser = (row) => {
   if (!row) return null;
   return {
     id: row.id,
+    userNum: row.user_num != null ? row.user_num : (row.userNum != null ? row.userNum : null),
     tenantId: row.tenant_id,
     roleId: row.role_id,
     role: row.role,

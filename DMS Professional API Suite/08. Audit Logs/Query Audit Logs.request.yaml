@@ -1,0 +1,12 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/audit/logs?page=1&limit=50&action=&entityType="
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  page: "1"
+  limit: "50"
+  action: ""
+  entityType: ""
+order: 1000

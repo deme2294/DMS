@@ -1,0 +1,11 @@
+$kind: http-request
+description: Retrieves public and authorized private messages for a ticket thread.
+url: "{{baseUrl}}/api/tickets/:id/replies"
+method: GET
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

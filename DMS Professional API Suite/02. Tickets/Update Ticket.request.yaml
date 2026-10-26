@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "title": "Updated Network connectivity outage",
+      "priority": "urgent"
+    }
+order: 5000

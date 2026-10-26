@@ -1,0 +1,11 @@
+$kind: http-request
+description: Enables department for ticket routing.
+url: "{{baseUrl}}/api/departments/:id/activate"
+method: PATCH
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

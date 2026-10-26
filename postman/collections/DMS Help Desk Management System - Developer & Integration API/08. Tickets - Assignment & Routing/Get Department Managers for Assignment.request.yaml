@@ -1,0 +1,11 @@
+$kind: http-request
+description: Retrieves managers eligible to receive departmental ticket assignments.
+url: "{{baseUrl}}/api/tickets/departments/:departmentId/managers"
+method: GET
+pathVariables:
+  departmentId: dept-infra-01
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

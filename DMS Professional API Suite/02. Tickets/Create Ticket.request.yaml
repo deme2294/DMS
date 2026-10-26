@@ -1,0 +1,26 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Network connectivity outage on Floor 3",
+      "description": "Workstations in marketing department cannot access internal intranet gateway.",
+      "category": "Network",
+      "priority": "high",
+      "departmentId": "{{departmentId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      const res = pm.response.json();
+      if (res.data && res.data.id) {
+          pm.collectionVariables.set('ticketId', res.data.id);
+      }
+    language: text/javascript
+order: 3000

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
+import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
   fetchUsers,
   deleteUser,
@@ -28,6 +29,7 @@ export default function CeoUserList() {
   const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
   const [resetModal, setResetModal] = useState<User | null>(null);
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
 
@@ -130,9 +132,39 @@ export default function CeoUserList() {
             ),
           },
           { key: 'username', label: 'Username' },
-          { key: 'email', label: 'Email' },
-          { key: 'role', label: 'Role' },
-          { key: 'userCode', label: 'User ID' },
+          {
+            key: 'email',
+            label: 'Email',
+            render: (row) => (
+              <button
+                type="button"
+                onClick={() => setContactTarget({
+                  email: row.email,
+                  name: `${row.firstName} ${row.lastName}`.trim() || row.username,
+                  roleOrType: row.role,
+                })}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#2563eb',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  textDecoration: 'underline',
+                  padding: 0,
+                  fontSize: 'inherit',
+                  fontFamily: 'inherit',
+                }}
+                title={`Send email to ${row.email}`}
+              >
+                {row.email}
+              </button>
+            ),
+          },
+          {
+            key: 'userCode',
+            label: 'User ID',
+            render: (row) => <span>#{row.userNum ?? (row.userCode || row.id.slice(0, 7).toUpperCase())}</span>,
+          },
           {
             key: 'status',
             label: 'Status',
@@ -143,9 +175,20 @@ export default function CeoUserList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
+                <button
+                  type="button"
+                  style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+                  onClick={() => setContactTarget({
+                    email: row.email,
+                    name: `${row.firstName} ${row.lastName}`.trim() || row.username,
+                    roleOrType: row.role,
+                  })}
+                >
+                  Contact
+                </button>
                 {can('users.update') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/users/${row.id}/edit`)}>Edit</button>
+                    <button onClick={() => navigate(`/ceo/users/${row.userNum || row.id}/edit`)}>Edit</button>
                     <button
                       disabled={row.id === currentUser?.id}
                       onClick={() => handleToggleStatus(row)}
@@ -191,6 +234,12 @@ export default function CeoUserList() {
         />
         <button onClick={handleResetPassword}>Reset Password</button>
       </Modal>
+
+      <ContactModal
+        open={!!contactTarget}
+        target={contactTarget}
+        onClose={() => setContactTarget(null)}
+      />
     </div>
   );
 }

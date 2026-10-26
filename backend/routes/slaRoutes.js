@@ -65,11 +65,36 @@ router.post(
       .custom((v) => !v || v === 'null' || v === 'undefined' || /^[0-9a-z-]{1,64}$/i.test(v))
       .withMessage('Invalid categoryId'),
     body('responseHours').optional().isInt({ min: 0 }),
-    body('resolutionHours').optional().isInt({ min: 1 }),
+    body('resolutionHours')
+      .optional()
+      .isInt({ min: 1 })
+      .custom((val, { req }) => {
+        const resp = req.body.responseHours !== undefined && req.body.responseHours !== '' ? Number(req.body.responseHours) : 4;
+        if (Number(val) <= resp) {
+          throw new Error(`Resolution Time (${val}h) must be strictly greater than First Response Time (${resp}h)`);
+        }
+        return true;
+      }),
     body('escalationHours')
       .optional({ nullable: true })
-      .custom((v) => v === null || v === '' || v === undefined || (Number.isInteger(Number(v)) && Number(v) >= 0))
-      .withMessage('escalationHours must be an integer >= 0 or empty'),
+      .custom((v, { req }) => {
+        if (v === null || v === '' || v === undefined) return true;
+        const esc = Number(v);
+        if (!Number.isInteger(esc) || esc < 0) {
+          throw new Error('escalationHours must be an integer >= 0 or empty');
+        }
+        if (esc > 0) {
+          const resp = req.body.responseHours !== undefined && req.body.responseHours !== '' ? Number(req.body.responseHours) : 4;
+          const res = req.body.resolutionHours !== undefined && req.body.resolutionHours !== '' ? Number(req.body.resolutionHours) : 24;
+          if (esc <= resp) {
+            throw new Error(`Escalation Time (${esc}h) must be greater than First Response Time (${resp}h)`);
+          }
+          if (esc > res) {
+            throw new Error(`Escalation Time (${esc}h) must be less than or equal to Resolution Time (${res}h)`);
+          }
+        }
+        return true;
+      }),
     body('workingHours').optional({ nullable: true }).isObject(),
     body('description').optional({ nullable: true }).trim(),
     validate,
@@ -90,11 +115,42 @@ router.put(
       .custom((v) => !v || v === 'null' || v === 'undefined' || /^[0-9a-z-]{1,64}$/i.test(v))
       .withMessage('Invalid categoryId'),
     body('responseHours').optional().isInt({ min: 0 }),
-    body('resolutionHours').optional().isInt({ min: 1 }),
+    body('resolutionHours')
+      .optional()
+      .isInt({ min: 1 })
+      .custom((val, { req }) => {
+        if (req.body.responseHours !== undefined && req.body.responseHours !== '') {
+          const resp = Number(req.body.responseHours);
+          if (Number(val) <= resp) {
+            throw new Error(`Resolution Time (${val}h) must be strictly greater than First Response Time (${resp}h)`);
+          }
+        }
+        return true;
+      }),
     body('escalationHours')
       .optional({ nullable: true })
-      .custom((v) => v === null || v === '' || v === undefined || (Number.isInteger(Number(v)) && Number(v) >= 0))
-      .withMessage('escalationHours must be an integer >= 0 or empty'),
+      .custom((v, { req }) => {
+        if (v === null || v === '' || v === undefined) return true;
+        const esc = Number(v);
+        if (!Number.isInteger(esc) || esc < 0) {
+          throw new Error('escalationHours must be an integer >= 0 or empty');
+        }
+        if (esc > 0) {
+          if (req.body.responseHours !== undefined && req.body.responseHours !== '') {
+            const resp = Number(req.body.responseHours);
+            if (esc <= resp) {
+              throw new Error(`Escalation Time (${esc}h) must be greater than First Response Time (${resp}h)`);
+            }
+          }
+          if (req.body.resolutionHours !== undefined && req.body.resolutionHours !== '') {
+            const res = Number(req.body.resolutionHours);
+            if (esc > res) {
+              throw new Error(`Escalation Time (${esc}h) must be less than or equal to Resolution Time (${res}h)`);
+            }
+          }
+        }
+        return true;
+      }),
     body('workingHours').optional({ nullable: true }).isObject(),
     body('description').optional({ nullable: true }).trim(),
     body('isActive').optional().isBoolean(),

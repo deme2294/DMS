@@ -1,0 +1,26 @@
+$kind: http-request
+description: Update SLA Policy
+url: "{{baseUrl}}/api/sla/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "name": "Updated SLA Policy",
+      "priority": "low",
+      "responseHours": 2,
+      "resolutionHours": 8,
+      "escalationHours": 4,
+      "workingHours": "sample",
+      "description": "string",
+      "isActive": true
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

@@ -1,0 +1,18 @@
+$kind: http-request
+description: Creates a routing pairing between a staff member and a department.
+url: "{{baseUrl}}/api/matrix"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "userId": "a9b8c7d6-e5f4-4a3b-2c1d-0e9f8a7b6c5d",
+      "departmentId": "dept-infra-01"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

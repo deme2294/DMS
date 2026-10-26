@@ -1,0 +1,20 @@
+$kind: http-request
+description: Sends an SMTP email message to a specified user or external recipient.
+url: "{{baseUrl}}/api/users/send-email"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "to": "customer@client.com",
+      "toName": "Valued Client",
+      "subject": "Regarding your inquiry TICK-20261022-4821",
+      "message": "We have updated your server configuration and require your verification."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

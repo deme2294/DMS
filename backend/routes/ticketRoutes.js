@@ -189,8 +189,13 @@ router.post(
 );
 router.post(
   '/:id/reopen',
-  authorize('tickets.reopen', 'tickets.assign'),
-  [idParam(), body('notes').optional({ nullable: true }).trim(), validate],
+  authorize('tickets.reopen', 'tickets.assign', 'tickets.create'),
+  [
+    idParam(),
+    body('notes').optional({ nullable: true }).trim(),
+    body('reason').optional({ nullable: true }).trim(),
+    validate,
+  ],
   ticketController.reopenTicket
 );
 
@@ -281,6 +286,7 @@ router.post(
     body('visibility').optional().isIn(['all', 'internal', 'tenant', 'department', 'both', 'admin']),
     body('attachmentId').optional({ nullable: true, checkFalsy: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     body('departmentIds').optional({ nullable: true }),
+    body('targetUserId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
     validate,
   ],
   ticketController.addReply

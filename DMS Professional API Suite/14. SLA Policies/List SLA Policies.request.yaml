@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/sla?categoryId="
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  categoryId: ""
+order: 1000

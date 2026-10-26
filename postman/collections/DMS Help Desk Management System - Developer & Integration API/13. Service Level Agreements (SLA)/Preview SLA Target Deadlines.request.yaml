@@ -1,0 +1,11 @@
+$kind: http-request
+description: Calculates response, resolution, and escalation deadlines based on category, priority, and working calendar.
+url: "{{baseUrl}}/api/sla/preview?priority=high&categoryId=cat-infra-01&createdAt="
+method: GET
+queryParams:
+  priority: high
+  categoryId: cat-infra-01
+  createdAt: ""
+auth:
+  type: noauth
+order: 1000

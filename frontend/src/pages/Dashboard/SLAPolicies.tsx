@@ -140,6 +140,26 @@ export default function SLAPolicies() {
       return;
     }
 
+    const resp = Number(form.responseHours);
+    const res = Number(form.resolutionHours);
+    const esc = form.escalationHours !== '' && form.escalationHours !== null ? Number(form.escalationHours) : null;
+
+    if (res <= resp) {
+      setError(`Resolution Time (${res}h) must be strictly greater than First Response Time (${resp}h).`);
+      return;
+    }
+
+    if (esc !== null && esc > 0) {
+      if (esc <= resp) {
+        setError(`Escalation Time (${esc}h) must be greater than First Response Time (${resp}h).`);
+        return;
+      }
+      if (esc > res) {
+        setError(`Escalation Time (${esc}h) must be less than or equal to Resolution Time (${res}h).`);
+        return;
+      }
+    }
+
     const payload = {
       name: form.name.trim(),
       priority: form.priority,
@@ -437,11 +457,7 @@ export default function SLAPolicies() {
                     <td colSpan={9} className={styles.emptyState}>
                       <div className={styles.emptyIcon}>📋</div>
                       <div className={styles.emptyTitle}>No SLA policies found</div>
-                      <div className={styles.emptySub}>Create a new policy to get started with automated SLA tracking</div>
-                      <button type="button" className={styles.emptyActionBtn} onClick={openCreate}>
-                        <PlusIcon className={styles.btnIcon} />
-                        <span>Create Policy</span>
-                      </button>
+                      <div className={styles.emptySub}>Create a new policy using the button above to get started with automated SLA tracking</div>
                     </td>
                   </tr>
                 )}
@@ -625,11 +641,18 @@ export default function SLAPolicies() {
                 type="number"
                 className={styles.formInput}
                 min="0"
-                placeholder="Optional (e.g. 48)"
+                placeholder="Optional (e.g. 12)"
                 value={form.escalationHours}
                 onChange={(e) => setForm({ ...form, escalationHours: e.target.value === '' ? '' : Number(e.target.value) })}
               />
             </div>
+          </div>
+
+          <div className={styles.slaRuleBanner}>
+            <InformationCircleIcon style={{ width: 18, height: 18, flexShrink: 0 }} />
+            <span>
+              <strong>SLA Constraint Rule:</strong> First Response Time &lt; Escalation Time ≤ Resolution Time
+            </span>
           </div>
 
           <div className={styles.formGroup}>

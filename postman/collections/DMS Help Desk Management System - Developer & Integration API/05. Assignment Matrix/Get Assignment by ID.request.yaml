@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get Assignment by ID
+url: "{{baseUrl}}/api/matrix/:id"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

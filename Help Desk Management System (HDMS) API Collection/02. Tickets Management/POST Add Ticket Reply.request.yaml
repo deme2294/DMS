@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/tickets/{{ticketId}}/replies"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "message": "We have reset the gateway certificate and restarted the service.",
+      "visibility": "all"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+order: 5000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: Returns all technicians and managers mapped to the department.
+url: "{{baseUrl}}/api/departments/:id/members"
+method: GET
+pathVariables:
+  id: dept-infra-01
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 8000

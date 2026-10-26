@@ -1,0 +1,9 @@
+$kind: http-request
+description: High-privilege overview of company performance across all tenant organizations and departments.
+url: "{{baseUrl}}/api/dashboard/ceo"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

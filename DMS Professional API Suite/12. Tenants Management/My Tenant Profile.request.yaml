@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tenants/profile/me"
+method: GET
+headers:
+  Accept: application/json
+order: 2000

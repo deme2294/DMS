@@ -1,0 +1,23 @@
+$kind: http-request
+name: Create Targeted Notice (Admin/Manager)
+description: Creates a notice targeted to a specific audience, department, or user.
+url: "{{baseUrl}}/api/notices/targeted"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Maintenance Window Tonight",
+      "description": "Please ensure all active ticket syncs are paused by 23:00.",
+      "priority": "low",
+      "targetAudience": "all",
+      "departmentId": "dept-infra-01",
+      "assignedTo": "c1f7a840-a108-4e89-9a67-27b233a7e0f2"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

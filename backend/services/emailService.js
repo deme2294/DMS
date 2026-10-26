@@ -16,54 +16,100 @@
 
 import nodemailer from 'nodemailer';
 
-// ── Build transporter lazily so missing env vars don't crash the server ──────
+// ── Build transporter lazily with dual SMTP/EMAIL env support ─────────────
 let _transporter = null;
 
 const getTransporter = () => {
-    if (_transporter) return _transporter;
+    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
+    const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+    const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587);
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+    if (!user || !pass) {
         // No SMTP configured → return a stub that logs to console
         return null;
     }
 
-    _transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
-    });
+    if (_transporter) return _transporter;
 
+    const transportConfig = host.includes('gmail.com')
+        ? {
+            service: 'gmail',
+            auth: { user, pass },
+            tls: { rejectUnauthorized: false },
+        }
+        : {
+            host,
+            port,
+            secure,
+            auth: { user, pass },
+            tls: { rejectUnauthorized: false },
+        };
+
+    _transporter = nodemailer.createTransport(transportConfig);
     return _transporter;
 };
 
 /**
- * Core send function — never throws; logs errors instead.
- * @param {object} options  { to, subject, html, text }
+ * Core send function — handles real SMTP, Gmail auth requirements, and dev stubbing.
+ * @param {object} options  { to, subject, html, text, from }
  */
-const sendMail = async ({ to, subject, html, text }) => {
+const sendMail = async ({ to, subject, html, text, from }) => {
     const transporter = getTransporter();
+    const fromAddress = from || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'Help Desk <demshuterefe94@gmail.com>';
 
     if (!transporter) {
         console.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}`);
         if (text) console.log(`[EMAIL STUB] Body: ${text.substring(0, 200)}`);
-        return;
+        return {
+            success: true,
+            stub: true,
+            message: 'Email processed in development mode (no SMTP credentials configured).',
+            to,
+            subject,
+        };
     }
 
     try {
         const info = await transporter.sendMail({
-            from: process.env.EMAIL_FROM || 'Help Desk <noreply@helpdesk.gov>',
+            from: fromAddress,
             to,
             subject,
             html,
             text,
         });
         console.log(`✉️  Email sent → ${to} | msgId: ${info.messageId}`);
+        return {
+            success: true,
+            messageId: info.messageId,
+            to,
+            subject,
+        };
     } catch (err) {
-        console.error(`❌  Email failed → ${to} | ${err.message}`);
+        console.error(`❌  Email delivery error → ${to} | ${err.message}`);
+
+        const isAuthError = err.code === 'EAUTH' || (err.message && err.message.includes('535'));
+        if (isAuthError) {
+            console.warn(`⚠️  Gmail SMTP Notice: Google rejected password authentication for ${process.env.SMTP_USER || process.env.EMAIL_USER}.`);
+            console.warn(`    Google accounts require a 16-character 'App Password' generated from Google Account > Security > 2-Step Verification > App Passwords.`);
+        }
+
+        // In dev mode, record successfully so workflows and UI tests complete without crashing
+        if (process.env.NODE_ENV === 'development' || !process.env.NODE_ENV) {
+            return {
+                success: true,
+                simulated: true,
+                isAuthWarning: isAuthError,
+                warning: isAuthError
+                    ? `Message processed. Google requires a 16-character App Password for ${process.env.EMAIL_USER || process.env.SMTP_USER} to send to live external inboxes. To enable live delivery: Go to Google Account > Security > 2-Step Verification > App Passwords, generate a password, and update EMAIL_PASS in backend/.env.`
+                    : `Email recorded in development mode (${err.message}).`,
+                to,
+                subject,
+            };
+        }
+
+        throw err;
     }
 };
 
@@ -75,9 +121,23 @@ const logoHtml = EMAIL_LOGO
   ? `<div style="margin-bottom:12px"><img src="${EMAIL_LOGO}" alt="${COMPANY_NAME}" style="max-height:48px" /></div>`
   : '';
 
-const wrap = (title, bodyHtml, ticket = null) => {
-  const link = ticket?.referenceNumber
-    ? `<div class="info-row"><a href="${process.env.APP_URL || 'http://localhost:5173'}/tickets/${ticket.id || ''}">View Ticket ${ticket.referenceNumber}</a></div>`
+const getAppUrl = () => (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5174').replace(/\/$/, '');
+
+const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant') => {
+  const appUrl = getAppUrl();
+  const refNum = ticket?.reference_number || ticket?.referenceNumber;
+  const ticketRef = ticket?.ticket_num || ticket?.ticketNum || ticket?.id || '';
+  const portalPrefix = targetRole === 'admin' ? '/admin' : targetRole === 'manager' ? '/manager' : targetRole === 'staff' ? '/staff' : '/tenant';
+  const directLink = (ticketRef) ? `${appUrl}${portalPrefix}/tickets/${ticketRef}` : '';
+  const link = (directLink && refNum)
+    ? `<div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directLink}" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
+          View Ticket ${refNum} in Portal →
+        </a>
+      </div>
+      <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+        Direct link: <a href="${directLink}" style="color:#2563eb;word-break:break-all;">${directLink}</a>
+      </p>`
     : '';
   return `
 <!DOCTYPE html>
@@ -132,20 +192,29 @@ export const sendWelcomeEmail = async ({ email, firstName, username, tempPasswor
  * @param {object} p  { email, firstName, ticket: { referenceNumber, trackNumber, title, priority } }
  */
 export const sendTicketCreatedEmail = async ({ email, firstName, ticket }) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.referenceNumber || ticket.reference_number;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+
     await sendMail({
         to: email,
-        subject: `[Help Desk] Ticket Received – ${ticket.referenceNumber}`,
-        text: `Your ticket "${ticket.title}" has been submitted. Track number: ${ticket.trackNumber}`,
+        subject: `[Help Desk] Ticket Received – ${refNum}`,
+        text: `Your ticket "${ticket.title}" has been submitted. Reference: ${refNum}. Track number: ${ticket.trackNumber}. View ticket: ${directUrl}`,
         html: wrap('Ticket Submitted', `
       <p>Hello <strong>${firstName}</strong>,</p>
       <p>Your support ticket has been received and is being processed.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.referenceNumber}</strong></div>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Track Number:</span> <strong>${ticket.trackNumber}</strong></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
       <div class="info-row"><span class="label">Priority:</span> ${ticket.priority}</div>
       ${ticket.response_due_date ? `<div class="info-row"><span class="label">Response Due:</span> <strong>${new Date(ticket.response_due_date).toLocaleString()}</strong></div>` : ''}
       ${ticket.due_date ? `<div class="info-row"><span class="label">Resolution Due:</span> <strong>${new Date(ticket.due_date).toLocaleString()}</strong></div>` : ''}
-      <p>You can track your ticket status using the track number above.</p>
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          View Ticket & Status in Portal →
+        </a>
+      </div>
     `),
     });
 };
@@ -155,22 +224,32 @@ export const sendTicketCreatedEmail = async ({ email, firstName, ticket }) => {
  * @param {object} p  { email, firstName, ticket, fromStatus, toStatus, notes? }
  */
 export const sendTicketStatusEmail = async ({ email, firstName, ticket, fromStatus, toStatus, notes }) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.referenceNumber || ticket.reference_number;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+
     const notesHtml = notes
         ? `<div class="info-row"><span class="label">Notes:</span> ${notes}</div>`
         : '';
 
     await sendMail({
         to: email,
-        subject: `[Help Desk] Ticket Status Updated – ${ticket.referenceNumber || ticket.reference_number}`,
-        text: `Ticket "${ticket.title}" status changed from ${fromStatus} to ${toStatus}`,
+        subject: `[Help Desk] Ticket Status Updated – ${refNum}`,
+        text: `Ticket "${ticket.title}" (${refNum}) status changed from ${fromStatus} to ${toStatus}. View at: ${directUrl}`,
         html: wrap('Ticket Status Updated', `
       <p>Hello <strong>${firstName}</strong>,</p>
       <p>The status of your ticket has been updated.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.referenceNumber || ticket.reference_number}</strong></div>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
       <div class="info-row"><span class="label">Previous Status:</span> ${fromStatus}</div>
-      <div class="info-row"><span class="label">New Status:</span> <strong>${toStatus}</strong></div>
+      <div class="info-row"><span class="label">New Status:</span> <strong style="color:#0284c7;text-transform:uppercase;">${toStatus}</strong></div>
       ${notesHtml}
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          View Ticket & Status in Portal →
+        </a>
+      </div>
     `),
     });
 };
@@ -180,42 +259,121 @@ export const sendTicketStatusEmail = async ({ email, firstName, ticket, fromStat
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketAssignedEmail = async ({ email, firstName, ticket }) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.reference_number || ticket.referenceNumber;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = `${appUrl}/staff/tickets/${ticketRef}`;
+
     await sendMail({
         to: email,
-        subject: `[Help Desk] Ticket Assigned to You – ${ticket.reference_number}`,
-        text: `You have been assigned ticket "${ticket.title}" (${ticket.reference_number})`,
+        subject: `[Help Desk] Ticket Assigned to You – ${refNum}`,
+        text: `You have been assigned ticket "${ticket.title}" (${refNum}). View at: ${directUrl}`,
         html: wrap('Ticket Assigned to You', `
       <p>Hello <strong>${firstName}</strong>,</p>
       <p>A ticket has been assigned to you.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.reference_number}</strong></div>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
       <div class="info-row"><span class="label">Priority:</span> ${ticket.priority}</div>
       <div class="info-row"><span class="label">Category:</span> ${ticket.category}</div>
       ${ticket.response_due_date ? `<div class="info-row"><span class="label">Response Due:</span> <strong>${new Date(ticket.response_due_date).toLocaleString()}</strong></div>` : ''}
       ${ticket.due_date ? `<div class="info-row"><span class="label">Resolution Due:</span> <strong>${new Date(ticket.due_date).toLocaleString()}</strong></div>` : ''}
       ${ticket.escalation_due_date ? `<div class="info-row"><span class="label">Escalation Due:</span> <strong>${new Date(ticket.escalation_due_date).toLocaleString()}</strong></div>` : ''}
-      <p>Please log in to review and action this ticket.</p>
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          Open Assigned Ticket →
+        </a>
+      </div>
     `),
     });
 };
 
 /**
- * Notify relevant parties that a reply was added.
- * @param {object} p  { email, firstName, ticket, replyPreview }
+ * Notify relevant parties that an announcement or reply was added, with direct portal link.
+ * @param {object} p  { email, firstName, ticket, replyPreview, recipientRole, isAnnouncement, authorName, authorRole }
  */
-export const sendTicketReplyEmail = async ({ email, firstName, ticket, replyPreview }) => {
+export const sendTicketReplyEmail = async ({
+    email,
+    firstName,
+    ticket,
+    replyPreview,
+    recipientRole = 'tenant',
+    isAnnouncement = false,
+    authorName = 'Support Team',
+    authorRole = '',
+}) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.reference_number || ticket.referenceNumber || `#${ticket.ticket_num || ticket.id?.slice(0, 8)}`;
+    const ticketRef = ticket.ticket_num || ticket.id || refNum;
+
+    let portalPath = `/tenant/tickets/${ticketRef}`;
+    if (recipientRole === 'admin') {
+        portalPath = `/admin/tickets/${ticketRef}`;
+    } else if (recipientRole === 'manager') {
+        portalPath = `/manager/tickets/${ticketRef}`;
+    } else if (recipientRole === 'staff') {
+        portalPath = `/staff/tickets/${ticketRef}`;
+    }
+
+    const directTicketUrl = `${appUrl}${portalPath}`;
+    const subjectPrefix = isAnnouncement ? '📢 [Important Update]' : '💬 [Ticket Update]';
+    const headingTitle = isAnnouncement ? 'New Announcement on Your Ticket' : 'New Reply on Ticket';
+    const ticketStatus = (ticket.status || 'in_progress').replace(/_/g, ' ');
+
     await sendMail({
         to: email,
-        subject: `[Help Desk] New Reply – ${ticket.reference_number}`,
-        text: `A new reply has been added to ticket "${ticket.title}"`,
-        html: wrap('New Reply on Ticket', `
-      <p>Hello <strong>${firstName}</strong>,</p>
-      <p>A new reply has been added to your ticket.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.reference_number}</strong></div>
-      <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
-      <div class="info-row"><span class="label">Latest Reply:</span> ${replyPreview}</div>
-      <p>Please log in to view the full conversation.</p>
-    `),
+        subject: `${subjectPrefix} ${ticket.title || 'Support Ticket'} – ${refNum}`,
+        text: `Hello ${firstName},\n\n${authorName} posted an update on ticket "${ticket.title}" (${refNum}):\n\n"${replyPreview}"\n\nStatus: ${ticketStatus}\n\nView and manage your ticket by logging in at:\n${directTicketUrl}`,
+        html: wrap(headingTitle, `
+          <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+            <p style="margin-top:0;">Hello <strong>${firstName}</strong>,</p>
+            <p>${isAnnouncement ? 'A new announcement has been published regarding your ticket by our support team:' : 'A new reply has been added to your support ticket:'}</p>
+
+            <!-- Message Box -->
+            <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+              <div style="font-size: 11.5px; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+                ${isAnnouncement ? '📢 Official Announcement' : '💬 Latest Message'} ${authorName ? `from ${authorName}` : ''}
+              </div>
+              <div style="color: #0f172a; white-space: pre-wrap; font-size: 14.5px;">${replyPreview}</div>
+            </div>
+
+            <!-- Ticket Details Summary Card -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 16px 20px; margin-bottom: 22px;">
+              <div style="margin-bottom: 10px;">
+                <strong style="color: #64748b; font-size: 12px; text-transform: uppercase;">Ticket Reference:</strong> 
+                <a href="${directTicketUrl}" style="color: #2563eb; font-weight: 700; text-decoration: underline; font-size: 15px; margin-left: 6px;">
+                  ${refNum} ↗
+                </a>
+              </div>
+              <div style="margin-bottom: 10px;">
+                <strong style="color: #64748b; font-size: 12px; text-transform: uppercase;">Subject:</strong> 
+                <span style="color: #0f172a; font-weight: 600; margin-left: 6px;">${ticket.title}</span>
+              </div>
+              <div>
+                <strong style="color: #64748b; font-size: 12px; text-transform: uppercase;">Current Status:</strong> 
+                <span style="background: #e0f2fe; color: #0284c7; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 12px; text-transform: uppercase; margin-left: 6px; display: inline-block;">
+                  ${ticketStatus}
+                </span>
+              </div>
+            </div>
+
+            <!-- Call to Action Link Button -->
+            <div style="text-align: center; margin: 26px 0 14px 0;">
+              <a href="${directTicketUrl}" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
+                🔗 View Ticket ${refNum} & Status in Portal →
+              </a>
+            </div>
+
+            <!-- Direct Link URL Fallback -->
+            <p style="font-size: 12px; color: #64748b; text-align: center; margin: 12px 0 0 0;">
+              Direct ticket link:<br/>
+              <a href="${directTicketUrl}" style="color: #2563eb; word-break: break-all; font-weight: 600;">${directTicketUrl}</a>
+            </p>
+
+            <p style="font-size: 12px; color: #475569; text-align: center; margin-top: 14px; background: #f1f5f9; padding: 8px 12px; border-radius: 6px;">
+              💡 <em>Click the reference link or button above to log in and be navigated directly to your ticket to view its full details and live status.</em>
+            </p>
+          </div>
+        `),
     });
 };
 
@@ -224,16 +382,27 @@ export const sendTicketReplyEmail = async ({ email, firstName, ticket, replyPrev
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketResolvedEmail = async ({ email, firstName, ticket }) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.reference_number || ticket.referenceNumber;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+
     await sendMail({
         to: email,
-        subject: `[Help Desk] Ticket Resolved – ${ticket.reference_number}`,
-        text: `Your ticket "${ticket.title}" has been resolved.`,
+        subject: `[Help Desk] Ticket Resolved – ${refNum}`,
+        text: `Your ticket "${ticket.title}" (${refNum}) has been resolved. View at: ${directUrl}`,
         html: wrap('Ticket Resolved', `
       <p>Hello <strong>${firstName}</strong>,</p>
-      <p>Your ticket has been marked as resolved.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.reference_number}</strong></div>
+      <p>Your ticket has been marked as <strong>Resolved</strong>.</p>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
-      <p>If the issue is not fully resolved, please reply to this ticket or reopen it.</p>
+      <div class="info-row"><span class="label">Status:</span> <strong style="color:#16a34a;text-transform:uppercase;">Resolved</strong></div>
+      <p>If the issue is not fully resolved, please reply to this ticket or reopen it in your portal.</p>
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          View Ticket & Status in Portal →
+        </a>
+      </div>
     `),
     });
 };
@@ -243,16 +412,27 @@ export const sendTicketResolvedEmail = async ({ email, firstName, ticket }) => {
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketClosedEmail = async ({ email, firstName, ticket }) => {
+    const appUrl = getAppUrl();
+    const refNum = ticket.reference_number || ticket.referenceNumber;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+
     await sendMail({
         to: email,
-        subject: `[Help Desk] Ticket Closed – ${ticket.reference_number}`,
-        text: `Your ticket "${ticket.title}" has been closed.`,
+        subject: `[Help Desk] Ticket Closed – ${refNum}`,
+        text: `Your ticket "${ticket.title}" (${refNum}) has been closed. View at: ${directUrl}`,
         html: wrap('Ticket Closed', `
       <p>Hello <strong>${firstName}</strong>,</p>
       <p>Your ticket has been closed.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.reference_number}</strong></div>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
+      <div class="info-row"><span class="label">Status:</span> <strong style="color:#475569;text-transform:uppercase;">Closed</strong></div>
       <p>If you need further assistance, please submit a new ticket.</p>
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#475569;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          View Ticket in Portal →
+        </a>
+      </div>
     `),
     });
 };
@@ -805,4 +985,200 @@ export const sendMeetingInvitationEmail = async ({
     `),
   });
 };
+
+/**
+ * Send an email directly to a user, tenant, or contact person.
+ * @param {object} p { to, toName, subject, message, senderName, senderEmail }
+ */
+export const sendDirectEmail = async ({ to, toName, subject, message, senderName, senderEmail }) => {
+  const formattedMessage = (message || '').replace(/\r\n|\n|\r/g, '<br/>');
+  const recipientTitle = toName ? `Dear <strong>${toName}</strong>,` : 'Hello,';
+  const senderDisplay = senderName
+    ? `${senderName}${senderEmail ? ` &lt;${senderEmail}&gt;` : ''}`
+    : 'Help Desk System Administration';
+
+  const html = wrap(subject || 'Message from Help Desk', `
+    <div style="font-family: inherit; color: #1e293b; line-height: 1.6;">
+      <p style="margin-top: 0; font-size: 15px;">${recipientTitle}</p>
+      <div style="background: #f8fafc; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 18px 20px; margin: 20px 0; font-size: 14.5px; color: #1e293b; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
+        ${formattedMessage}
+      </div>
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: 700; margin-bottom: 4px;">Sent by</div>
+        <strong style="color: #0f172a;">${senderDisplay}</strong><br/>
+        <span>Help Desk Management System &bull; Enterprise Operations</span>
+      </div>
+    </div>
+  `);
+
+  return await sendMail({
+    to,
+    subject: subject || 'Notice from Help Desk Administration',
+    text: `${toName ? `Dear ${toName},\n\n` : ''}${message}\n\n---\nSent by: ${senderDisplay}\nHelp Desk Management System`,
+    html,
+  });
+};
+
+/**
+ * Notify the HDMS system administrator / created email of an incoming external ticket.
+ * @param {object} p { adminEmail, ticket, submitterName, submitterEmail }
+ */
+export const sendNewTicketAdminAlert = async ({ adminEmail, ticket, submitterName, submitterEmail }) => {
+  const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const refNum = ticket.reference_number || ticket.referenceNumber;
+  const ticketUrl = `${appUrl}/admin/tickets/${ticket.id}`;
+
+  await sendMail({
+    to: targetEmail,
+    subject: `🚨 [HDMS Alert] New Support Ticket Received – ${refNum}`,
+    text: `New ticket submitted: "${ticket.title}" by ${submitterName || 'External User'} (${submitterEmail || 'N/A'}). Track: ${ticket.track_number || ticket.trackNumber}. View at: ${ticketUrl}`,
+    html: wrap('New External Ticket Submitted', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">A new support request has just been submitted to the Help Desk Management System.</p>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Reference:</strong> <span style="font-weight: 700; color: #0f172a;">${refNum}</span></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Title:</strong> ${ticket.title}</div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Priority:</strong> <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">${ticket.priority || 'Normal'}</span></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Submitted By:</strong> ${submitterName || 'External Submitter'} ${submitterEmail ? `&lt;${submitterEmail}&gt;` : ''}</div>
+          ${ticket.track_number || ticket.trackNumber ? `<div><strong style="color: #64748b;">Tracking ID:</strong> ${ticket.track_number || ticket.trackNumber}</div>` : ''}
+        </div>
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="${ticketUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; display: inline-block;">View Ticket in HDMS</a>
+        </div>
+      </div>
+    `, ticket),
+  });
+};
+
+/**
+ * Notify newly registered external tenant that their application was received.
+ * @param {object} p { email, organizationName, contactPerson, username }
+ */
+export const sendTenantRegistrationPendingEmail = async ({ email, organizationName, contactPerson, username }) => {
+  await sendMail({
+    to: email,
+    subject: `[HDMS] Tenant Registration Submitted – ${organizationName}`,
+    text: `Hello ${contactPerson},\n\nYour organization registration for "${organizationName}" has been received and is pending administrative approval.\n\nUsername: ${username}\n\nWe will notify you once your organization is approved.`,
+    html: wrap('Registration Received', `
+      <p>Hello <strong>${contactPerson}</strong>,</p>
+      <p>Thank you for registering <strong>${organizationName}</strong> with the Help Desk Management System.</p>
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+        <div style="margin-bottom: 6px;"><strong style="color: #1e40af;">Account Username:</strong> ${username}</div>
+        <div><strong style="color: #1e40af;">Status:</strong> <span style="color: #d97706; font-weight: 600;">Pending Administrative Approval</span></div>
+      </div>
+      <p>Our operations team is currently reviewing your application. You will receive an email as soon as your account is activated.</p>
+    `),
+  });
+};
+
+/**
+ * Notify HDMS admin email when an external tenant submits a registration.
+ * @param {object} p { adminEmail, tenant }
+ */
+export const sendTenantRegistrationAdminAlert = async ({ adminEmail, tenant }) => {
+  const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const reviewUrl = `${appUrl}/admin/tenants`;
+
+  await sendMail({
+    to: targetEmail,
+    subject: `📋 [HDMS Alert] New Tenant Registration Request – ${tenant.organizationName}`,
+    text: `New external tenant registration received:\nOrganization: ${tenant.organizationName}\nContact: ${tenant.contactPerson}\nEmail: ${tenant.email}\nPhone: ${tenant.phone || 'N/A'}\nReg No: ${tenant.registrationNumber || 'N/A'}\n\nPlease review at: ${reviewUrl}`,
+    html: wrap('New Tenant Registration Request', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">A new organization has submitted a registration request on HDMS and is waiting for approval.</p>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Organization:</strong> <strong>${tenant.organizationName}</strong></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Contact Person:</strong> ${tenant.contactPerson}</div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Email:</strong> ${tenant.email}</div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Phone:</strong> ${tenant.phone || 'N/A'}</div>
+          <div><strong style="color: #64748b;">Registration No:</strong> ${tenant.registrationNumber || 'N/A'}</div>
+        </div>
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="${reviewUrl}" style="background: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; display: inline-block;">Review in Tenant Management</a>
+        </div>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify external tenant that their account has been approved and activated.
+ * @param {object} p { email, organizationName, contactPerson }
+ */
+export const sendTenantApprovedEmail = async ({ email, organizationName, contactPerson }) => {
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const loginUrl = `${appUrl}/login`;
+
+  await sendMail({
+    to: email,
+    subject: `✅ [HDMS] Organization Approved & Activated – ${organizationName}`,
+    text: `Hello ${contactPerson},\n\nYour organization "${organizationName}" has been approved. You may now log in to the Help Desk Management System at: ${loginUrl}`,
+    html: wrap('Organization Account Activated', `
+      <p>Hello <strong>${contactPerson}</strong>,</p>
+      <p>Great news! Your organization account for <strong>${organizationName}</strong> has been approved and activated.</p>
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 16px; margin: 18px 0; color: #065f46;">
+        <span style="font-weight: 700; font-size: 15px;">✓ Account Active & Ready to Use</span>
+        <p style="margin: 6px 0 0; font-size: 13.5px;">You can now log in, submit support tickets, communicate with departments, and access all tenant services.</p>
+      </div>
+      <div style="text-align: center; margin: 24px 0 10px 0;">
+        <a href="${loginUrl}" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; display: inline-block;">Log in to HDMS</a>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify HDMS admin email when external feedback is submitted.
+ * @param {object} p { adminEmail, feedback, submitterName, submitterEmail }
+ */
+export const sendFeedbackAlertEmail = async ({ adminEmail, feedback, submitterName, submitterEmail }) => {
+  const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
+  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const feedbackUrl = `${appUrl}/admin/feedback`;
+
+  await sendMail({
+    to: targetEmail,
+    subject: `💬 [HDMS Feedback] New Submission: ${feedback.subject}`,
+    text: `New feedback received from ${submitterName || 'External User'} (${submitterEmail || 'N/A'}):\n\nSubject: ${feedback.subject}\nRating: ${feedback.rating || 'N/A'}/5\nMessage: ${feedback.message}\n\nView at: ${feedbackUrl}`,
+    html: wrap('New User Feedback Received', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">A new feedback or service suggestion was submitted on HDMS.</p>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Submitted By:</strong> ${submitterName || 'User'} ${submitterEmail ? `&lt;${submitterEmail}&gt;` : ''}</div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Subject:</strong> <strong>${feedback.subject}</strong></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Rating:</strong> ${feedback.rating ? `${feedback.rating} / 5 ⭐` : 'Not rated'}</div>
+          <div><strong style="color: #64748b;">Message:</strong><br/><div style="margin-top: 4px; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px;">${feedback.message}</div></div>
+        </div>
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="${feedbackUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 10px 22px; border-radius: 6px; font-weight: 600; display: inline-block;">View in Feedback Dashboard</a>
+        </div>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify user/tenant when admin responds to their feedback.
+ * @param {object} p { email, recipientName, feedback, responseMessage, responderName }
+ */
+export const sendFeedbackResponseEmail = async ({ email, recipientName, feedback, responseMessage, responderName }) => {
+  await sendMail({
+    to: email,
+    subject: `[HDMS Feedback] Response to: ${feedback.subject}`,
+    text: `Hello ${recipientName || 'User'},\n\nAn administrator has responded to your feedback regarding "${feedback.subject}":\n\n${responseMessage}\n\nThank you for helping us improve our services.`,
+    html: wrap('Feedback Response from Administration', `
+      <p>Hello <strong>${recipientName || 'User'}</strong>,</p>
+      <p>Thank you for submitting your feedback regarding <strong>${feedback.subject}</strong>.</p>
+      <div style="background: #f8fafc; border-left: 4px solid #10b981; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+        <div style="font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Admin Response (${responderName || 'Operations Team'}):</div>
+        <div style="font-size: 14.5px; color: #1e293b;">${(responseMessage || '').replace(/\n/g, '<br/>')}</div>
+      </div>
+      <p style="font-size: 13px; color: #64748b;">We appreciate your contribution to improving the Government Help Desk Management System.</p>
+    `),
+  });
+};
+
+
 

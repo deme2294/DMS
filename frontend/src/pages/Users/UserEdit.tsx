@@ -24,9 +24,13 @@ export default function UserEdit() {
       fetchRoles(),
       fetchActiveDepartments(),
     ]).then(([userRes, rolesRes, deptsRes]) => {
-      setUser(userRes.data.data);
+      const userData = userRes.data.data;
+      setUser(userData);
+      if (userData?.userNum && id !== String(userData.userNum) && id.length > 20) {
+        navigate(`/admin/users/${userData.userNum}/edit`, { replace: true });
+      }
       const allRoles = rolesRes.data.data;
-      if (userRes.data.data.role === 'tenant') {
+      if (userData.role === 'tenant') {
         setRoles(allRoles);
       } else {
         setRoles(allRoles.filter((role) => ['admin', 'manager', 'staff'].includes(role.name)));

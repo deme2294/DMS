@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/search?q=server"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  q: server
+order: 14000

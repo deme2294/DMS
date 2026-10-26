@@ -1,0 +1,24 @@
+$kind: http-request
+description: Verifies that short title (< 3 chars) and missing description trigger HTTP 400.
+url: "{{baseUrl}}/api/tickets"
+method: POST
+headers:
+  Authorization: Bearer {{tenantToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: title
+      value: ab
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 400', function () {
+          pm.response.to.have.status(400);
+      });
+      var jsonData = pm.response.json();
+      pm.test('Validation error returned', function () {
+          pm.expect(jsonData.success).to.be.false;
+      });
+    language: text/javascript
+order: 2000

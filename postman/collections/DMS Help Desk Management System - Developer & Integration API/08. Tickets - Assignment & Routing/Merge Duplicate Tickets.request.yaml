@@ -1,0 +1,22 @@
+$kind: http-request
+description: Merges secondary duplicate tickets into this primary ticket and closes source tickets with merge reference. Admin or CEO only.
+url: "{{baseUrl}}/api/tickets/:id/merge"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "sourceIds": [
+        "d2e3f4a5-b6c7-8d9e-0f1a-2b3c4d5e6f7a"
+      ],
+      "notes": "Merging duplicate customer reports of the same gateway issue."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

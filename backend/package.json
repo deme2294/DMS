@@ -12,7 +12,8 @@
     "start:docker": "node start.cjs --target=docker",
     "dev:docker": "node --watch start.cjs --target=docker",
     "use:xampp": "node -e \"const fs=require('fs'); let c=fs.readFileSync('.env','utf8').replace(/^DB_TARGET=\\w+/m, 'DB_TARGET=xampp'); fs.writeFileSync('.env', c); console.log('✅ Switched DB_TARGET=xampp in .env');\"",
-    "use:docker": "node -e \"const fs=require('fs'); let c=fs.readFileSync('.env','utf8').replace(/^DB_TARGET=\\w+/m, 'DB_TARGET=docker'); fs.writeFileSync('.env', c); console.log('✅ Switched DB_TARGET=docker in .env');\""
+    "use:docker": "node -e \"const fs=require('fs'); let c=fs.readFileSync('.env','utf8').replace(/^DB_TARGET=\\w+/m, 'DB_TARGET=docker'); fs.writeFileSync('.env', c); console.log('✅ Switched DB_TARGET=docker in .env');\"",
+    "docs:generate": "node scripts/build_openapi.js && node scripts/generate_postman_collection.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -34,5 +35,8 @@
   },
   "allowScripts": {
     "bcrypt@5.1.1": true
+  },
+  "devDependencies": {
+    "yaml": "^2.9.1"
   }
 }

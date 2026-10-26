@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/ticket-categories?status=active"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  - key: status
+    value: active
+    description: "Filter: active, inactive, or all"
+order: 1000

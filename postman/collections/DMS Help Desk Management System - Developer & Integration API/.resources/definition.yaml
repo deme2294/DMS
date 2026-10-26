@@ -1,0 +1,84 @@
+$kind: collection
+description: |
+  # DMS Help Desk Management System - Comprehensive API Specification
+
+  Welcome to the official OpenAPI 3.0.3 specification for the **DMS (Help Desk Management System)** backend. This document provides complete coverage of all REST endpoints, request payloads, response envelopes, role permissions, and WebSocket integration details.
+
+  ---
+
+  ### 🚀 Postman Quick-Start Guide
+
+  1. **Importing into Postman:**
+     - In Postman, click **Import** (top left).
+     - Select or drag-and-drop this `openapi.yaml` file.
+     - Postman will automatically create a new Collection titled **"DMS Help Desk Management System - Developer & Integration API"** containing all endpoints organized by domain folders.
+
+  2. **Server & Variables Setup:**
+     - The default base URL is configured to `http://localhost:5005` (or your staging/production URL).
+     - In Postman Collection Variables, ensure `baseUrl` is set to `http://localhost:5005`.
+
+  3. **Automatic Bearer Token Capture:**
+     - Open the request: **02. Authentication & Identity -> Authenticate User Credentials (POST /api/auth/login)**.
+     - Go to the **Scripts / Tests** tab and paste the following snippet:
+       ```javascript
+       const response = pm.response.json();
+       if (response.success && response.token) {
+           pm.collectionVariables.set("bearerToken", response.token);
+           console.log("✅ DMS JWT Bearer Token captured:", response.token.substring(0, 16) + "...");
+       }
+       ```
+     - Set the collection **Authorization** type to **Bearer Token** with Token: `{{bearerToken}}`.
+     - Now, all authenticated requests in the collection automatically inherit and use your JWT!
+
+  4. **Default Developer Test Accounts (Seed/Standard):**
+     - **System Admin:** `admin` (or `admin@demo.gov`) / `password` (Full access across all modules)
+     - **CEO Executive:** `ceo` (or `ceo@demo.gov`) / `password` (Executive dashboards, analytics, ticket merge)
+     - **Department Manager:** `manager` (or `manager@demo.gov`) / `password` (Department queue, staff assignment, approval)
+     - **Technical Staff:** `staff` (or `staff@demo.gov`) / `password` (Ticket execution, internal notes, resolution)
+     - **Tenant / Customer:** `tenant` (or `misgenaht@gmail.com`) / `password` (Ticket submission, public KB, resolution sign-off)
+
+  ---
+
+  ### 🛡️ Authentication & Authorization Model
+  - **Mechanism:** JWT Bearer token passed in the `Authorization` header:
+    ```http
+    Authorization: Bearer <jwt_access_token>
+    ```
+  - **Refresh Token:** Supported via HTTP-only `refreshToken` cookie via `POST /api/auth/refresh`.
+  - **Role Hierarchy:** `admin` > `ceo` > `manager` > `staff` > `tenant`.
+  - **Tenant Isolation:** For `tenant` users, queries are strictly scoped to the tenant's organization id extracted from the signed JWT.
+
+  ---
+
+  ### ⚡ Real-Time Socket.IO Events Reference
+  The backend exposes a Socket.IO server at `ws://localhost:5005` (path: `/socket.io`).
+  - **Authentication:** Pass `auth: { token: "<jwt_access_token>" }` or query param `token` during handshake.
+  - **Client to Server Events:**
+    - `join-room`: `{ roomId }` (Join chat conversation room)
+    - `leave-room`: `{ roomId }` (Leave chat conversation room)
+    - `send-message`: `{ roomId, message, messageType, attachmentId }`
+    - `typing`: `{ roomId, isTyping: true/false }`
+    - `mark-read`: `{ roomId, messageIds: [...] }`
+  - **Server to Client Broadcasts:**
+    - `new-message`: Full message object broadcasted to room participants.
+    - `user-typing`: `{ userId, username, isTyping, roomId }`
+    - `message-read`: `{ roomId, userId, messageIds }`
+    - `user-status-changed`: `{ userId, status: "online" | "offline" }`
+    - `ticket-updated`: Real-time notification when status, assignment, or priority changes.
+    - `new-notice`: Broadcast when new targeted or public notice is published.
+
+  ---
+
+  ### 📁 File Uploads & Limits
+  - **Max File Size:** 10MB per file.
+  - **Allowed Formats:** JPG, JPEG, PNG, PDF, DOC, DOCX, XLS, XLSX, ZIP, TXT, LOG.
+  - **Static Retrieval URL:** `GET {baseUrl}/uploads/{subfolder}/{filename}` with `Cross-Origin-Resource-Policy: cross-origin`.
+variables:
+  baseUrl: http://localhost:5000
+  bearerToken: ""
+auth:
+  - id: 7b606123-bdd1-40ce-a073-21c0ccd1165c
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearerToken}}"

@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/reports/staff/export"
+method: GET
+headers:
+  Accept: application/json
+order: 8000

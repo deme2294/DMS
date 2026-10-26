@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns total count of unread notifications for badge polling.
+url: "{{baseUrl}}/api/tickets/notifications/unread-count"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

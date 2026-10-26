@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/feedback/:feedbackId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: feedbackId
+    value: "{{feedbackId}}"
+    description: Path parameter feedbackId
+body:
+  type: text
+  content: |-
+    {
+      "status": "reviewed"
+    }
+order: 4000

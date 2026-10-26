@@ -2,6 +2,7 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import Modal from '../../components/Modal/Modal';
+import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
    changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
    assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
@@ -50,6 +51,11 @@ import {
   ChevronDownIcon,
   ShieldCheckIcon,
   BoltIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserIcon,
+  InformationCircleIcon,
+  PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 import { formatFileSize, buildAttachmentUrl } from '../../utils/attachmentUtils';
 import { io, Socket } from 'socket.io-client';
@@ -67,44 +73,44 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   admin: {
     open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
     assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'completed', 'pending', 'waiting_vendor', 'escalated', 'rejected', 'cancelled'],
+    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'pending', 'escalated', 'rejected', 'cancelled'],
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed', 'closed', 'escalated'],
+    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
     waiting_vendor: ['in_progress', 'escalated'],
-    resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
+    resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
     reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
     closed: ['reopened'],
     accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
-    approved: ['closed', 'completed', 'reopened'],
+    approved: ['closed', 'reopened'],
     rejected: ['reopened', 'open'],
     cancelled: ['open', 'reopened'],
-    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'completed', 'open'],
+    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'open'],
     submitted: ['under_review', 'assigned', 'rejected'],
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
   },
   manager: {
     assigned: ['in_progress', 'rejected'],
-    in_progress: ['under_review', 'pending_approval', 'pending', 'waiting_vendor', 'escalated'],
+    in_progress: ['under_review', 'pending_approval', 'pending', 'escalated'],
     pending: ['in_progress', 'escalated'],
     under_review: ['pending_approval', 'in_progress', 'rejected'],
     pending_approval: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'completed', 'escalated'],
+    waiting_tenant: ['in_progress', 'resolved', 'escalated'],
     waiting_vendor: ['in_progress'],
-    resolved: ['waiting_tenant', 'completed', 'closed', 'in_progress'],
+    resolved: ['waiting_tenant', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
     reopened: ['in_progress', 'escalated'],
     accepted: ['in_progress', 'escalated'],
-    escalated: ['in_progress', 'resolved', 'waiting_tenant', 'completed'],
+    escalated: ['in_progress', 'resolved', 'waiting_tenant'],
     assigned_department: ['assigned_staff'],
     assigned_staff: ['in_progress'],
   },
   staff: {
     assigned: ['in_progress'],
-    in_progress: ['under_review', 'pending', 'waiting_vendor'],
+    in_progress: ['under_review', 'pending'],
     under_review: [],
     pending: ['in_progress'],
     waiting_tenant: [],
@@ -117,12 +123,12 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   },
   tenant: {
     open: ['cancelled'],
-    waiting_tenant: ['completed', 'in_progress', 'closed', 'reopened'],
-    resolved: ['completed', 'in_progress', 'closed', 'reopened'],
+    waiting_tenant: ['closed', 'in_progress', 'reopened'],
+    resolved: ['closed', 'in_progress', 'reopened'],
     completed: ['reopened'],
     reopened: [],
-    escalated: ['completed', 'in_progress', 'reopened'],
-    approved: ['closed', 'completed'],
+    escalated: ['in_progress', 'reopened'],
+    approved: ['closed'],
     submitted: ['cancelled'],
   },
 };
@@ -164,6 +170,8 @@ export default function TicketDetail() {
   const [attributionModal, setAttributionModal] = useState(false);
   const [attributionUsers, setAttributionUsers] = useState<User[]>([]);
   const [overrideAssignTo, setOverrideAssignTo] = useState('');
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
+  const [contactSubject, setContactSubject] = useState('');
   const [overrideAssignedBy, setOverrideAssignedBy] = useState('');
   const [priorityModal, setPriorityModal] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
@@ -171,8 +179,14 @@ export default function TicketDetail() {
   const [noteModal, setNoteModal] = useState(false);
   const [attachModal, setAttachModal] = useState(false);
   const [announceModal, setAnnounceModal] = useState(false);
+  const [announceMessage, setAnnounceMessage] = useState('');
+  const [announceSubmitting, setAnnounceSubmitting] = useState(false);
+  const [reopenModal, setReopenModal] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopenSubmitting, setReopenSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [assignPrefill, setAssignPrefill] = useState<{ text: string } | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
@@ -205,7 +219,12 @@ export default function TicketDetail() {
     setLoading(true);
     try {
       const res = await fetchTicket(id);
-      setTicket(res.data.data);
+      const ticketData = res.data.data;
+      setTicket(ticketData);
+      const shortId = ticketData?.ticketNum ? String(ticketData.ticketNum) : ticketData?.referenceNumber;
+      if (shortId && id !== shortId && id.length > 20) {
+        navigate(`${base}/${shortId}`, { replace: true });
+      }
     } catch (e: any) {
       if (e?.response?.status === 403) {
         setAccessDenied(true);
@@ -604,6 +623,84 @@ export default function TicketDetail() {
             </div>
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
+                <UserCircleIcon className={styles.detailLabelIcon} />
+                Created By
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.createdByName ? (
+                  <span className={styles.userChip}>
+                    <UserCircleIcon />
+                    {ticket.createdByName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <EnvelopeIcon className={styles.detailLabelIcon} />
+                Tenant Email
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.tenantEmail || ticket.createdByEmail ? (
+                  <button
+                    type="button"
+                    className={styles.tenantEmailLink}
+                    title={`Send direct email to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                    onClick={() => {
+                      setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
+                      setContactTarget({
+                        email: (ticket.tenantEmail || ticket.createdByEmail)!,
+                        name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
+                        roleOrType: 'Ticket Submitter',
+                      });
+                    }}
+                  >
+                    <EnvelopeIcon className={styles.contactIconSmall} />
+                    <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                  </button>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <PhoneIcon className={styles.detailLabelIcon} />
+                Tenant Contact
+              </span>
+              <span className={styles.detailValue}>
+                {ticket.tenantPhone || ticket.createdByPhone ? (
+                  <a
+                    href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                    className={styles.tenantPhoneLink}
+                    title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                  >
+                    <PhoneIcon className={styles.contactIconSmall} />
+                    <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                  </a>
+                ) : (
+                  <span className={styles.unassignedChip}>—</span>
+                )}
+              </span>
+            </div>
+            {ticket.tenantContactPerson && (
+              <div className={styles.detailItem}>
+                <span className={styles.detailLabel}>
+                  <UserIcon className={styles.detailLabelIcon} />
+                  Primary Contact
+                </span>
+                <span className={styles.detailValue}>
+                  <span className={styles.userChip}>
+                    <UserIcon />
+                    {ticket.tenantContactPerson}
+                  </span>
+                </span>
+              </div>
+            )}
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
                 <CalendarDaysIcon className={styles.detailLabelIcon} />
                 Created
               </span>
@@ -730,6 +827,10 @@ export default function TicketDetail() {
         </div>
 
         {(role === 'admin' || role === 'manager' || role === 'staff') && (() => {
+          const canReopen =
+            (role === 'admin' || role === 'manager') &&
+            ['resolved', 'closed', 'completed', 'waiting_tenant'].includes(ticket.status);
+
           const hasWorkflowActions =
             transitions.length > 0 ||
             (role === 'admin' && (ticket.routingType ?? 'general') !== 'direct') ||
@@ -739,7 +840,7 @@ export default function TicketDetail() {
             (role === 'manager' && (ticket.status === 'under_review' || ticket.status === 'in_progress')) ||
             (role === 'admin' && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
             transitions.includes('closed') ||
-            transitions.includes('reopened');
+            (transitions.includes('reopened') && canReopen);
 
           const hasManagementActions = role === 'admin' || role === 'manager';
 
@@ -914,10 +1015,10 @@ export default function TicketDetail() {
                             Close
                           </button>
                         )}
-                        {transitions.includes('reopened') && (
+                        {transitions.includes('reopened') && canReopen && (
                           <button
                             className={styles.btnAmber}
-                            onClick={() => call(() => reopenTicket(ticket.id, notes || undefined), 'Reopened')}
+                            onClick={() => { setReopenReason(''); setReopenModal(true); }}
                             title="Reopen ticket"
                           >
                             <ArrowPathIcon className={styles.btnIcon} />
@@ -1251,6 +1352,62 @@ export default function TicketDetail() {
             <p>
               The tenant has verified and confirmed this ticket is solved. The request is officially completed.
             </p>
+            {role === 'tenant' && (
+              <div style={{ marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  className={styles.btnAmber}
+                  onClick={() => { setReopenReason(''); setReopenModal(true); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem' }}
+                >
+                  <ArrowPathIcon style={{ width: 16, height: 16 }} />
+                  Reopen Ticket (Issue Recurred)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reopened Status Card */}
+        {ticket.status === 'reopened' && (
+          <div className={`${styles.card} ${styles.reopenedCard}`}>
+            <div className={styles.reopenedCardHeader}>
+              <h3 className={styles.reopenedCardTitle}>
+                <span>🔄</span> Ticket Reopened
+              </h3>
+              <span className={styles.reopenedBadge}>
+                <span>⚠️</span> Action Required
+              </span>
+            </div>
+            <p className={styles.reopenedDescription}>
+              This ticket has been reopened for additional work because the issue was unresolved, recurred, or the proposed solution was rejected.
+            </p>
+            {ticket.reopenReason && (
+              <div className={styles.reopenedReasonBox}>
+                <span className={styles.reopenedReasonLabel}>Reason for Reopening:</span>
+                <p className={styles.reopenedReasonText}>{ticket.reopenReason}</p>
+              </div>
+            )}
+            <div className={styles.reopenedMetaGrid}>
+              {ticket.reopenedAt && (
+                <div className={styles.reopenedMetaItem}>
+                  <span className={styles.reopenedMetaLabel}>Reopened:</span>
+                  <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {ticket.reopenedByName && (
+                <div className={styles.reopenedMetaItem}>
+                  <span className={styles.reopenedMetaLabel}>Reopened By:</span>
+                  <span className={styles.reopenedMetaValue}>{ticket.reopenedByName}</span>
+                </div>
+              )}
+              {ticket.dueDate && (
+                <div className={styles.reopenedMetaItem}>
+                  <span className={styles.reopenedMetaLabel}>Resumed SLA Target:</span>
+                  <span className={styles.reopenedMetaValue}>{new Date(ticket.dueDate).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1270,6 +1427,113 @@ export default function TicketDetail() {
             </ul>
           </div>
         )}
+      </div>
+
+      {/* Tenant Contact Information Table Card */}
+      <div className={styles.card}>
+        <div className={styles.detailsCardHeader}>
+          <div className={styles.detailsHeaderTitle}>
+            <span className={styles.detailsHeaderIconWrapper}>
+              <BuildingOffice2Icon />
+            </span>
+            <h3>Tenant & Requester Contact Information</h3>
+          </div>
+          <span className={styles.detailsHeaderTag}>Auto-Fetched</span>
+        </div>
+        <div className={styles.tenantContactTableWrapper}>
+          <table className={styles.tenantContactTable}>
+            <thead>
+              <tr>
+                <th style={{ width: '25%' }}>Property</th>
+                <th style={{ width: '50%' }}>Contact Information</th>
+                <th style={{ width: '25%' }}>Source / Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Tenant Organization</strong></td>
+                <td>
+                  <span className={styles.tenantChip}>
+                    <BuildingOfficeIcon />
+                    {ticket.tenantName || 'Standard Tenant'}
+                  </span>
+                </td>
+                <td><span className={styles.autoFetchedPill}>✓ Organization Record</span></td>
+              </tr>
+              <tr>
+                <td><strong>Ticket Creator (Requester)</strong></td>
+                <td>
+                  <span className={styles.userChip}>
+                    <UserCircleIcon />
+                    {ticket.createdByName || '—'}
+                  </span>
+                </td>
+                <td><span className={styles.autoFetchedPill}>✓ Ticket Submitter</span></td>
+              </tr>
+              {ticket.tenantContactPerson && (
+                <tr>
+                  <td><strong>Primary Contact Person</strong></td>
+                  <td>
+                    <span>{ticket.tenantContactPerson}</span>
+                  </td>
+                  <td><span className={styles.autoFetchedPill}>✓ Organization Contact</span></td>
+                </tr>
+              )}
+              <tr>
+                <td><strong>Tenant / Creator Email</strong></td>
+                <td>
+                  {(ticket.tenantEmail || ticket.createdByEmail) ? (
+                    <button
+                      type="button"
+                      className={styles.tenantEmailLink}
+                      title={`Send direct email to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                      onClick={() => {
+                        setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
+                        setContactTarget({
+                          email: (ticket.tenantEmail || ticket.createdByEmail)!,
+                          name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
+                          roleOrType: 'Ticket Submitter',
+                        });
+                      }}
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailTextStrong}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                    </button>
+                  ) : (
+                    <span className={styles.textMuted}>No email on record</span>
+                  )}
+                </td>
+                <td>
+                  {(ticket.tenantEmail || ticket.createdByEmail) && (
+                    <span className={styles.autoFetchedPill}>✓ Direct Email Link</span>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Tenant / Creator Phone</strong></td>
+                <td>
+                  {(ticket.tenantPhone || ticket.createdByPhone) ? (
+                    <a
+                      href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                      className={styles.tenantPhoneLink}
+                      title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span className={styles.phoneTextStrong}>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                    </a>
+                  ) : (
+                    <span className={styles.textMuted}>No phone number on record</span>
+                  )}
+                </td>
+                <td>
+                  {(ticket.tenantPhone || ticket.createdByPhone) && (
+                    <span className={styles.autoFetchedPill}>✓ Direct Telephone Link</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className={styles.card}>
@@ -1437,24 +1701,30 @@ export default function TicketDetail() {
           {replies.map((reply) => {
             const v = reply.visibility;
             const isAdmin = v === 'admin';
-            const isPrivate = v === 'internal' || v === 'department' || !!reply.isInternal;
+            const isPrivate = v === 'internal' || v === 'department' || !!reply.isInternal || !!reply.targetUserId;
             const isTenantReply = reply.userRole === 'tenant';
             const isDirect = ticket?.routingType === 'direct';
 
             let label = '📢 Public';
             let badgeClass = styles.badgePublic;
 
-            if (isAdmin) {
+            if (reply.targetUserId) {
+              label = `🎯 To Staff: ${reply.targetUserName || 'Staff'}`;
+              badgeClass = styles.badgeTargetStaff;
+            } else if (isAdmin) {
               label = '🛡️ Admin Only';
               badgeClass = styles.badgeAdmin;
             } else if (isTenantReply) {
               if (isDirect) {
-                label = '🏢 Direct to Dept';
+                label = '🏢 Direct to Dept Manager';
                 badgeClass = styles.badgeDirectDept;
               } else {
                 label = '🛡️ Routed to Admin';
                 badgeClass = styles.badgeGeneralAdmin;
               }
+            } else if (reply.userRole === 'staff') {
+              label = '👔 Staff to Manager';
+              badgeClass = styles.badgeInternal;
             } else if (v === 'tenant') {
               label = '👤 Tenant Only';
               badgeClass = styles.badgePublic;
@@ -1469,19 +1739,43 @@ export default function TicketDetail() {
               badgeClass = styles.badgeInternal;
             }
 
+            const canManagerAssign = (role === 'manager' || role === 'admin') && isTenantReply;
+
             return (
               <li key={reply.id} className={isAdmin || isPrivate ? styles.internal : styles.replyItem}>
                 <div className={styles.replyHeader}>
                   <strong className={styles.replyAuthor}>{reply.userName || 'System'}</strong>
                   <span className={badgeClass}>{label}</span>
                   <span className={styles.time}>{reply.createdAt ? new Date(reply.createdAt).toLocaleString() : ''}</span>
+                  {canManagerAssign && (
+                    <button
+                      type="button"
+                      className={styles.assignCommentBtn}
+                      onClick={() => {
+                        setAssignPrefill({
+                          text: `[Re: Tenant comment from ${reply.userName || 'Tenant'}]: "${reply.message}"\n\nStaff Instructions: `,
+                        });
+                        const el = document.getElementById('ticket-reply-form');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      title="Assign this tenant comment to a staff member in your department"
+                    >
+                      ↪ Assign to Staff
+                    </button>
+                  )}
                 </div>
                 <p className={styles.replyMessage}>{reply.message}</p>
               </li>
             );
           })}
         </ul>
-        <ReplyForm ticketId={ticket.id} ticket={ticket} />
+        <ReplyForm
+          ticketId={ticket.id}
+          ticket={ticket}
+          onReplyAdded={loadReplies}
+          assignPrefill={assignPrefill}
+          onClearPrefill={() => setAssignPrefill(null)}
+        />
       </div>
 
       <div className={styles.card}>
@@ -1546,7 +1840,15 @@ export default function TicketDetail() {
                         </div>
                         {ev.kind === 'status' && (
                           <div className={styles.timelineMessage}>
-                            {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                            {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} →{' '}
+                            <span style={{ color: ev.toStatus === 'reopened' ? '#d97706' : 'inherit', fontWeight: ev.toStatus === 'reopened' ? 700 : 'inherit' }}>
+                              {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                            </span>
+                            {ev.toStatus === 'reopened' && (
+                              <span style={{ marginLeft: '0.5rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: '#fef3c7', color: '#92400e', fontSize: '0.75rem', fontWeight: 700, border: '1px solid #fde68a' }}>
+                                REOPENED
+                              </span>
+                            )}
                           </div>
                         )}
                         {ev.kind === 'comment' && (
@@ -2025,53 +2327,255 @@ export default function TicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={announceModal} title="📢 Announce Update to Tenant" onClose={() => setAnnounceModal(false)}>
-        <div className={styles.modalForm}>
-          <div style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: 8, border: '1px solid #bfdbfe', marginBottom: 12, fontSize: '0.85rem', color: '#1e40af' }}>
-            ℹ️ This message will be <strong>visible to the tenant</strong> and will trigger a notification to them.
+      {/* Announce Update to Tenant Modal */}
+      <Modal
+        open={announceModal}
+        title="📢 Announce Update to Tenant"
+        onClose={() => {
+          if (!announceSubmitting) {
+            setAnnounceModal(false);
+            setAnnounceMessage('');
+          }
+        }}
+        maxWidth="580px"
+      >
+        <div className={styles.announceModalForm}>
+          {/* Recipient Context Bar */}
+          <div className={styles.announceContextCard}>
+            <div className={styles.announceContextItem}>
+              <span>👤 Recipient:</span>
+              <span className={styles.announceContextBadge}>
+                {ticket.tenantName || 'Assigned Tenant'}
+              </span>
+              {ticket.tenantEmail && (
+                <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>({ticket.tenantEmail})</span>
+              )}
+            </div>
+            <div className={styles.announceTargetPill}>
+              <span>🔔 Direct Notification</span>
+            </div>
           </div>
-          <label>Announcement Message</label>
-          <textarea
-            rows={4}
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="e.g. We have received your request and it is currently being reviewed by our team. Expected resolution by tomorrow."
-          />
-          <button
-            disabled={!noteText.trim()}
-            onClick={() => call(
-              () => addTicketReply(ticket.id, { message: noteText, visibility: 'all' }),
-              '✅ Announcement sent to tenant'
-            ).then(() => { setNoteText(''); setAnnounceModal(false); })}
-            style={{ background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
-          >
-            📢 Send Announcement
-          </button>
+
+          {/* Accessible Notice Banner with explicit contrast for both themes */}
+          <div className={styles.announceNoticeBox}>
+            <InformationCircleIcon className={styles.announceNoticeIcon} />
+            <div className={styles.announceNoticeContent}>
+              <div>
+                This message will be <strong>visible to the tenant</strong> and will trigger an immediate push notification and timeline update.
+              </div>
+              <span className={styles.announceNoticeSub}>
+                Use announcements for status reports, scheduling visits, or requesting tenant verification.
+              </span>
+            </div>
+          </div>
+
+          {/* Fast Announcement Presets */}
+          <div className={styles.announceTemplateBar}>
+            <div className={styles.announceTemplateHeader}>
+              <span className={styles.announceTemplateTitle}>Quick Presets</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--tk-text-muted)' }}>Click to prefill message</span>
+            </div>
+            <div className={styles.announceTemplatePills}>
+              {[
+                { label: '🚀 Under Review', text: 'We have received your request and our team is actively investigating the issue. Expected update shortly.' },
+                { label: '⏳ In Progress', text: 'Technicians are currently working on your ticket. We will keep you updated as progress is made.' },
+                { label: '🛠️ Scheduled Visit', text: 'A specialized technician has been scheduled to inspect and resolve this matter on-site.' },
+                { label: '✅ Resolution Ready', text: 'The requested fix has been implemented. Please test and confirm if everything is working normally.' },
+              ].map((tpl) => (
+                <button
+                  key={tpl.label}
+                  type="button"
+                  className={styles.announceTemplatePill}
+                  onClick={() => setAnnounceMessage(tpl.text)}
+                  title={`Insert: "${tpl.text}"`}
+                >
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Message Input Area */}
+          <div className={styles.announceField}>
+            <div className={styles.announceLabelRow}>
+              <label className={styles.announceLabel} htmlFor="announce-message-textarea">
+                Announcement Message
+              </label>
+              <span className={styles.announceCharCount}>
+                {announceMessage.length} characters
+              </span>
+            </div>
+            <textarea
+              id="announce-message-textarea"
+              className={styles.announceTextarea}
+              rows={4}
+              value={announceMessage}
+              onChange={(e) => setAnnounceMessage(e.target.value)}
+              placeholder="e.g. We have received your request and it is currently being reviewed by our team. Expected resolution by tomorrow."
+            />
+          </div>
+
+          {/* Actions Footer */}
+          <div className={styles.announceFooterActions}>
+            <button
+              type="button"
+              className={styles.announceCancelBtn}
+              onClick={() => {
+                setAnnounceModal(false);
+                setAnnounceMessage('');
+              }}
+              disabled={announceSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.announceSubmitBtn}
+              disabled={!announceMessage.trim() || announceSubmitting}
+              onClick={async () => {
+                if (!announceMessage.trim() || announceSubmitting) return;
+                setAnnounceSubmitting(true);
+                try {
+                  await call(
+                    () => addTicketReply(ticket.id, { message: announceMessage.trim(), visibility: 'all' }),
+                    '✅ Announcement sent to tenant'
+                  );
+                  setAnnounceMessage('');
+                  setAnnounceModal(false);
+                } finally {
+                  setAnnounceSubmitting(false);
+                }
+              }}
+            >
+              <PaperAirplaneIcon style={{ width: 16, height: 16 }} />
+              <span>{announceSubmitting ? 'Sending...' : 'Send Announcement'}</span>
+            </button>
+          </div>
         </div>
       </Modal>
+
+      {/* Reopen Ticket Modal */}
+      <Modal open={reopenModal} title="Reopen Ticket" onClose={() => setReopenModal(false)}>
+        <form
+          className={styles.modalForm}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!reopenReason.trim()) return;
+            setReopenSubmitting(true);
+            try {
+              await call(() => reopenTicket(ticket.id, reopenReason.trim()), 'Ticket Reopened');
+              setReopenModal(false);
+              setReopenReason('');
+            } finally {
+              setReopenSubmitting(false);
+            }
+          }}
+        >
+          <div style={{ padding: '10px 14px', background: '#fef3c7', borderRadius: 8, border: '1px solid #fde68a', marginBottom: 12, fontSize: '0.875rem', color: '#92400e' }}>
+            🔄 <strong>Reopening Ticket:</strong> The ticket will return to active workflow. Its SLA resolution timer will resume with remaining time, and assigned staff and managers will be alerted.
+          </div>
+          <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+            <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+              Reason for Reopening <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              placeholder="Explain what issue remains unresolved, has recurred, or why the proposed solution was rejected..."
+              required
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.9rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => setReopenModal(false)}
+              disabled={reopenSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.btnAmber}
+              disabled={reopenSubmitting || !reopenReason.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <ArrowPathIcon style={{ width: 18, height: 18 }} />
+              {reopenSubmitting ? 'Reopening…' : 'Confirm & Reopen Ticket'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <ContactModal
+        open={!!contactTarget}
+        target={contactTarget}
+        defaultSubject={contactSubject}
+        onClose={() => setContactTarget(null)}
+      />
     </div>
   );
 }
 
-function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) {
+function ReplyForm({
+  ticketId,
+  ticket,
+  onReplyAdded,
+  assignPrefill,
+  onClearPrefill,
+}: {
+  ticketId: string;
+  ticket?: Ticket;
+  onReplyAdded?: () => void;
+  assignPrefill?: { text: string } | null;
+  onClearPrefill?: () => void;
+}) {
   const { user } = useAuth();
   const isStaff = user?.role === 'staff';
   const isManager = user?.role === 'manager';
+  const isAdmin = user?.role === 'admin' || user?.role === 'ceo';
   const isTenant = user?.role === 'tenant';
   const canTarget = user?.role !== 'tenant';
 
   const isDirect = ticket?.routingType === 'direct';
   const deptName = ticket?.departmentName || 'department';
-  const assignedName = ticket?.assignedToName;
 
-  // Staff: always department-only. Tenants: both. Others: default to both.
+  // Staff: always department-only. Tenants: both for direct, admin for general.
   const [text, setText] = useState('');
-  const [visibility, setVisibility] = useState<'tenant' | 'department' | 'both' | 'admin'>(
-    isStaff ? 'department' : isTenant ? (isDirect ? 'both' : (ticket?.departmentId ? 'both' : 'tenant')) : 'both'
+  const [visibility, setVisibility] = useState<'tenant' | 'department' | 'both' | 'admin' | 'staff'>(
+    isStaff ? 'department' : isTenant ? (isDirect ? 'both' : 'admin') : 'both'
   );
+  const [targetStaffId, setTargetStaffId] = useState<string>('');
+  const [deptStaffUsers, setDeptStaffUsers] = useState<StaffUser[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [departmentId, setDepartmentId] = useState<string>('');
   const [msg, setMsg] = useState('');
+
+  // Handle assign comment pre-fill from a tenant reply
+  useEffect(() => {
+    if (assignPrefill) {
+      setVisibility('staff');
+      setText(assignPrefill.text);
+      onClearPrefill?.();
+    }
+  }, [assignPrefill, onClearPrefill]);
+
+  // Load department staff for managers and admins to assign comments to staff
+  useEffect(() => {
+    if ((isManager || isAdmin) && ticket?.departmentId) {
+      fetchUsers({ role: 'staff', limit: 200, departmentId: ticket.departmentId })
+        .then((r) => {
+          const list = (r.data.data || []).filter(
+            (u: any) => !ticket.departmentId || u.departments?.some((d: any) => d.id === ticket.departmentId)
+          );
+          setDeptStaffUsers(list.map((u: any) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName })));
+        })
+        .catch(() => setDeptStaffUsers([]));
+    }
+  }, [isManager, isAdmin, ticket?.departmentId]);
 
   useEffect(() => {
     if (canTarget && !isStaff) {
@@ -2093,6 +2597,7 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
 
   const needsDept = visibility === 'department' || visibility === 'both';
   const isAdminOnly = visibility === 'admin';
+  const isTargetStaff = visibility === 'staff';
 
   const submit = async () => {
     if (!text.trim()) return;
@@ -2101,14 +2606,20 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
       try {
         await addTicketReply(ticketId, {
           message: text,
-          visibility: isDirect ? 'both' : (ticket?.departmentId ? 'both' : 'all'),
-          departmentIds: ticket?.departmentId || null,
+          visibility: isDirect ? 'both' : 'admin',
+          departmentIds: isDirect ? (ticket?.departmentId || null) : null,
         });
         setText('');
         setMsg('Reply sent');
+        onReplyAdded?.();
       } catch (e: any) {
         setMsg(e?.response?.data?.message || 'Failed');
       }
+      return;
+    }
+
+    if (isTargetStaff && !targetStaffId) {
+      setMsg('Please select a staff member to assign the comment to');
       return;
     }
 
@@ -2125,10 +2636,14 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
     try {
       await addTicketReply(ticketId, {
         message: text,
-        visibility: isStaff ? 'department' : visibility,
-        departmentIds: isStaff ? effectiveDeptId : (needsDept ? departmentId : null),
+        visibility: isStaff ? 'department' : (isTargetStaff ? 'department' : visibility),
+        departmentIds: isStaff ? effectiveDeptId : (needsDept ? departmentId : (ticket?.departmentId || null)),
+        targetUserId: isTargetStaff ? targetStaffId : null,
       });
-      setText(''); setMsg('Reply sent');
+      setText('');
+      setTargetStaffId('');
+      setMsg('Reply sent');
+      onReplyAdded?.();
     } catch (e: any) {
       setMsg(e?.response?.data?.message || 'Failed');
     }
@@ -2137,13 +2652,12 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
   const getPlaceholder = () => {
     if (isStaff) return 'Write a message to your Department Manager…';
     if (isAdminOnly) return 'Write a private note to Admin — only admins can see this…';
+    if (isTargetStaff) return 'Write an instruction or assign task to the selected staff member…';
     if (isTenant) {
       if (isDirect) {
-        return `Write a reply to the ${deptName} team…`;
+        return `Write a reply to the ${deptName} Department Manager…`;
       }
-      return assignedName
-        ? `Write a reply to Admin and assigned specialist (${assignedName})…`
-        : 'Write a reply to Admin and support team…';
+      return 'Write a reply to Admin…';
     }
     if (needsDept && !departmentId) return 'Select a department to continue…';
     if (visibility === 'department') return 'Reply visible only to the selected department…';
@@ -2152,7 +2666,7 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
   };
 
   return (
-    <div className={styles.replyForm}>
+    <div className={styles.replyForm} id="ticket-reply-form">
       {/* Tenant: Clear category routing notice */}
       {isTenant && (
         <div
@@ -2165,19 +2679,12 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
             {isDirect ? (
               <>
                 <strong>Direct Category Routing:</strong> Your reply will be routed directly to the{' '}
-                <strong>{deptName}</strong> team and manager, with visibility to the department and Admin.
+                <strong>{deptName} Department Manager</strong>.
               </>
             ) : (
               <>
                 <strong>General Category Routing:</strong> Your reply will be routed to the{' '}
-                <strong>Admin</strong>
-                {assignedName ? (
-                  <> and assigned specialist (<strong>{assignedName}</strong>)</>
-                ) : ticket?.departmentName ? (
-                  <> and the <strong>{ticket.departmentName}</strong> department manager</>
-                ) : (
-                  <> for review and assignment</>
-                )}.
+                <strong>Admin</strong>.
               </>
             )}
           </span>
@@ -2200,17 +2707,39 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
             Visibility:
             <select
               value={visibility}
-              onChange={(e) => setVisibility(e.target.value as 'tenant' | 'department' | 'both' | 'admin')}
+              onChange={(e) => setVisibility(e.target.value as 'tenant' | 'department' | 'both' | 'admin' | 'staff')}
               className={styles.replyFormSelect}
             >
               <option value="both">👤🏢 Tenant & Department — both can see</option>
               <option value="tenant">👤 Tenant Only — visible to the tenant</option>
-              <option value="department">🏢 Department Only — hidden from tenant</option>
+              <option value="department">🏢 Department Only — internal note to all dept staff</option>
+              {(isManager || isAdmin) && (
+                <option value="staff">🎯 Assign to Staff User — direct comment/task to staff</option>
+              )}
               {isManager && (
                 <option value="admin">🛡️ Admin Only — private escalation note to Admin</option>
               )}
             </select>
           </label>
+
+          {/* Manager / Admin assigning to a specific staff user */}
+          {isTargetStaff && (
+            <label className={styles.replyFormLabel}>
+              Assign to Staff:
+              <select
+                value={targetStaffId}
+                onChange={(e) => setTargetStaffId(e.target.value)}
+                className={styles.replyFormSelect}
+              >
+                <option value="">Select staff user…</option>
+                {deptStaffUsers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           {/* Admin-only private notice shown to manager */}
           {isAdminOnly && isManager && (
@@ -2248,9 +2777,13 @@ function ReplyForm({ ticketId, ticket }: { ticketId: string; ticket?: Ticket }) 
       />
       <button
         onClick={submit}
-        disabled={!text.trim() || (!isStaff && !isTenant && needsDept && !departmentId)}
+        disabled={
+          !text.trim() ||
+          (!isStaff && !isTenant && needsDept && !departmentId) ||
+          (isTargetStaff && !targetStaffId)
+        }
       >
-        Submit Reply
+        {isTargetStaff ? 'Assign Comment to Staff' : 'Submit Reply'}
       </button>
       {msg && <span className={styles.replySuccessMsg}>{msg}</span>}
     </div>

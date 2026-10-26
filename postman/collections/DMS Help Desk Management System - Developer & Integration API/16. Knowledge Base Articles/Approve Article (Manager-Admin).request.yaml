@@ -1,0 +1,12 @@
+$kind: http-request
+name: Approve Article (Manager/Admin)
+description: Approve Article (Manager/Admin)
+url: "{{baseUrl}}/api/knowledge/:id/approve"
+method: POST
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 8000

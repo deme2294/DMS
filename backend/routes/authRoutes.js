@@ -10,7 +10,17 @@ const router = Router();
 
 router.post(
   '/login',
-  [body('identifier').trim().notEmpty(), body('password').notEmpty(), validate],
+  [
+    body('identifier').custom((value, { req }) => {
+      const id = value || req.body?.username || req.body?.email;
+      if (!id || typeof id !== 'string' || !id.trim()) {
+        throw new Error('Identifier, username, or email is required');
+      }
+      return true;
+    }),
+    body('password').notEmpty().withMessage('Password is required'),
+    validate,
+  ],
   authController.login
 );
 

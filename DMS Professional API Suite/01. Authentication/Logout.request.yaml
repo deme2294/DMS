@@ -1,0 +1,7 @@
+$kind: http-request
+description: Revoke session and clear cookies
+url: "{{baseUrl}}/auth/logout"
+method: POST
+headers:
+  Accept: application/json
+order: 6000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/users/:userId/deactivate"
+method: PATCH
+headers:
+  Accept: application/json
+pathVariables:
+  - key: userId
+    value: "{{userId}}"
+    description: Path parameter userId
+order: 7000

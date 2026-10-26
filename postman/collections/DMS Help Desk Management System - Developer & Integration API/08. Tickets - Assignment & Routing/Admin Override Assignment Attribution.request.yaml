@@ -1,0 +1,21 @@
+$kind: http-request
+description: Administrative override allowing admins to manually correct assignedTo and assignedBy references.
+url: "{{baseUrl}}/api/tickets/:id/assignment"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "assignedTo": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "assignedBy": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "notes": "Corrected assignment audit tracking"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

@@ -1,0 +1,7 @@
+$kind: http-request
+description: Issues a fresh access token using the HTTP-only `refreshToken` cookie.
+url: "{{baseUrl}}/api/auth/refresh"
+method: POST
+auth:
+  type: noauth
+order: 2000

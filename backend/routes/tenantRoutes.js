@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
 import * as tenantController from '../controllers/tenantController.js';
+import { sendDirectEmail } from '../controllers/userController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize, requireRole } from '../middleware/roleMiddleware.js';
 import { validate, idParam } from '../middleware/validationMiddleware.js';
@@ -52,6 +53,18 @@ router.get(
     validate,
   ],
   tenantController.getTenants
+);
+
+router.post(
+  '/send-email',
+  [
+    body('to').isEmail().normalizeEmail().withMessage('Valid recipient email address is required'),
+    body('subject').trim().notEmpty().withMessage('Subject is required'),
+    body('message').trim().notEmpty().withMessage('Message body is required'),
+    body('toName').optional().trim(),
+    validate,
+  ],
+  sendDirectEmail
 );
 
 router.get('/:id', authorize('tenants.manage'), [idParam(), validate], tenantController.getTenantById);

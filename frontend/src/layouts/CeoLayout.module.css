@@ -220,15 +220,24 @@
 }
 
 @media (max-width: 768px) {
+  .layout,
   .main,
   .mainCollapsed {
     margin-left: 0;
     width: 100%;
     max-width: 100%;
+    overflow-x: hidden;
   }
 
   .hamburgerBtn {
     display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .backBtn {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .topBar {
@@ -239,11 +248,57 @@
 
   .content {
     padding: 16px 12px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
 
 @media (max-width: 600px) {
   .topBarCenter {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .topBar {
+    padding: 6px 8px;
+    gap: 6px;
+    min-height: 52px;
+  }
+
+  .topBarLeft {
+    gap: 4px;
+  }
+
+  .topBarRight {
+    gap: 6px;
+  }
+
+  .hamburgerBtn,
+  .backBtn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+
+  .content {
+    padding: 12px 8px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 360px) {
+  .topBar {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .topBarRight {
+    gap: 4px;
+  }
+
+  .content {
+    padding: 10px 6px;
   }
 }

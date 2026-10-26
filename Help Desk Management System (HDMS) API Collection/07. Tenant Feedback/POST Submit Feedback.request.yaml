@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/feedback"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "subject": "Prompt Resolution",
+      "message": "Issue was resolved in under 20 minutes.",
+      "rating": 5
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"
+order: 1000

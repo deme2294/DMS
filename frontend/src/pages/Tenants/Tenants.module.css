@@ -865,46 +865,303 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 
-.userList li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
+.usersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.userCard {
   background: var(--bg-surface, #f8fafc);
   border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 10px;
-  font-size: 0.88rem;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.userCard:hover {
+  transform: translateY(-2px);
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.12);
+}
+
+.userCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.userProfileAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.userProfileAvatar:hover {
+  transform: scale(1.05);
+}
+
+.userProfileAvatarFallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.5px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.userCardTitleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.userCardNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .userName {
-  font-weight: 600;
-  color: var(--text-main, #0f172a);
-}
-
-.userMeta {
-  color: var(--text-muted, #64748b);
-  font-size: 0.82rem;
-}
-
-.userStatus {
-  font-size: 0.75rem;
+  font-size: 1.02rem;
   font-weight: 700;
-  text-transform: capitalize;
-  padding: 2px 8px;
+  color: var(--text-main, #0f172a);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userHandle {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
+.userCodeBadge {
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 2px 7px;
   border-radius: 6px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-weight: 700;
+  border: 1px solid rgba(37, 99, 235, 0.2);
 }
 
-.userStatus.active {
-  background: rgba(16, 185, 129, 0.1);
-  color: #059669;
+.userCardMetaList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
 }
 
-.userStatus.inactive {
-  background: rgba(100, 116, 139, 0.1);
-  color: #64748b;
+.userMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+
+.userMetaItem svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.userMetaItem span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Clickable Email Button on Profile */
+.userEmailBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background: rgba(37, 99, 235, 0.06);
+  color: #2563eb;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 100%;
+}
+
+.userEmailBtn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.userEmailBtn:hover svg {
+  color: #ffffff !important;
+}
+
+.userActionSmallIcon {
+  width: 14px;
+  height: 14px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* Card Actions Bottom Row */
+.userCardActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color, #e2e8f0);
+  margin-top: auto;
+}
+
+.userCardActionEmail {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid #3b82f6;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+.userCardActionEmail:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.userCardActionVisit {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #0f172a);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.userCardActionVisit:hover {
+  background: var(--bg-surface, #f1f5f9);
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.userActionIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Clickable Organization Email Button */
+.emailActionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.emailActionButton:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.emailActionButton:hover .emailActionIcon,
+.emailActionButton:hover .emailActionHint {
+  color: #ffffff !important;
+}
+
+.emailActionIcon {
+  width: 15px;
+  height: 15px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.emailActionHint {
+  font-size: 0.74rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.emailActionButton:hover .emailActionHint {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.roleBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(147, 51, 234, 0.08);
+  color: #9333ea;
+  border: 1px solid rgba(147, 51, 234, 0.2);
 }
 
 .emptyState {
@@ -1103,6 +1360,54 @@
   border-bottom-color: #1e293b;
 }
 
+[data-theme='dark'] .userCard {
+  background: #101623;
+  border-color: #243049;
+}
+
+[data-theme='dark'] .userCard:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='dark'] .userCardMetaList,
+[data-theme='dark'] .userCardActionsRow {
+  border-color: #1e293b;
+}
+
+[data-theme='dark'] .userCardActionVisit {
+  background: #151b28;
+  border-color: #243049;
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .userCardActionVisit:hover {
+  background: #1e293b;
+  border-color: #3b82f6;
+}
+
+[data-theme='dark'] .emailActionButton {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .emailActionButton:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .userEmailBtn {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .userEmailBtn:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
 /* --------------------------------------------------------------------------
    Responsive Breakpoints
    -------------------------------------------------------------------------- */
@@ -1134,5 +1439,41 @@
   .filterChipsRow {
     overflow-x: auto;
     padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px 28px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .userCardsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .card,
+  .detailCard,
+  .formCard {
+    padding: 14px 12px;
+  }
+
+  .modalContent {
+    width: min(92vw, 500px);
+    padding: 16px 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px 20px;
+  }
+
+  .headerTitle {
+    font-size: 1.25rem;
   }
 }

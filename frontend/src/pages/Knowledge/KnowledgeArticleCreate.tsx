@@ -10,6 +10,11 @@ import {
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
+import {
+  DocumentPlusIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
 import styles from './KnowledgeArticleCreate.module.css';
 
 interface DeptOption {
@@ -159,10 +164,21 @@ export default function KnowledgeArticleCreate() {
 
         <div className={styles.formActions}>
           <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Create Article'}
+            {isSubmitting ? (
+              <>
+                <ArrowPathIcon className={styles.spinnerIcon} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <DocumentPlusIcon className={styles.btnIcon} />
+                <span>Create Article</span>
+              </>
+            )}
           </button>
           <button type="button" className={styles.cancelBtn} onClick={() => navigate('/admin/knowledge')}>
-            Cancel
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
           </button>
         </div>
       </form>

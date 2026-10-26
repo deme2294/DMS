@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/assignment"
+method: PATCH
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "assignedTo": "{{userId}}",
+      "notes": "Admin managerial reassignment"
+    }
+order: 10000

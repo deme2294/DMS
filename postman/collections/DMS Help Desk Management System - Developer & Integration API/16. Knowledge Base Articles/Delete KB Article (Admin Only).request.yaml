@@ -1,0 +1,11 @@
+$kind: http-request
+description: Delete KB Article (Admin Only)
+url: "{{baseUrl}}/api/knowledge/:id"
+method: DELETE
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

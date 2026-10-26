@@ -1,0 +1,7 @@
+$kind: http-request
+description: Returns published self-help articles for public visitors and customer portal search.
+url: "{{baseUrl}}/api/knowledge/public"
+method: GET
+auth:
+  type: noauth
+order: 1000

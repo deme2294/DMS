@@ -1,0 +1,14 @@
+$kind: http-request
+description: Paged message history with attachment links.
+url: "{{baseUrl}}/api/chat/rooms/:roomId/messages?limit=50&offset="
+method: GET
+queryParams:
+  limit: "50"
+  offset: ""
+pathVariables:
+  roomId: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

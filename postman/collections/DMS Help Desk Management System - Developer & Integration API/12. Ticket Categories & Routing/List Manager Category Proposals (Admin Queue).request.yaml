@@ -1,0 +1,11 @@
+$kind: http-request
+description: Approval queue where admins review category requests proposed by department managers.
+url: "{{baseUrl}}/api/ticket-categories/requests?status=pending"
+method: GET
+queryParams:
+  status: pending
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

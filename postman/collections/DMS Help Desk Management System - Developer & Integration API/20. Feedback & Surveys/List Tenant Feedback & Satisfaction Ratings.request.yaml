@@ -1,0 +1,9 @@
+$kind: http-request
+description: List Tenant Feedback & Satisfaction Ratings
+url: "{{baseUrl}}/api/feedback"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

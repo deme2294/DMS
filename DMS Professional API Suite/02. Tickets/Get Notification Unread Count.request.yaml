@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tickets/notifications/unread-count"
+method: GET
+headers:
+  Accept: application/json
+order: 28000

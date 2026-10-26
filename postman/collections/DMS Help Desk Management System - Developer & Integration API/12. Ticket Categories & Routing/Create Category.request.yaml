@@ -1,0 +1,21 @@
+$kind: http-request
+description: Admin or Manager creates a category. Direct routing requires a departmentId.
+url: "{{baseUrl}}/api/ticket-categories"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Cloud Infrastructure",
+      "description": "Kubernetes, container registry, and load balancers",
+      "departmentId": "dept-infra-01",
+      "slaPolicyId": "sla-urgent-01",
+      "routingType": "general"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

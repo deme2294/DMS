@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/sla"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Critical HVAC SLA",
+      "priority": "urgent",
+      "responseHours": 1,
+      "resolutionHours": 4,
+      "escalationHours": 2,
+      "description": "Urgent turnaround for climate failure"
+    }
+order: 5000

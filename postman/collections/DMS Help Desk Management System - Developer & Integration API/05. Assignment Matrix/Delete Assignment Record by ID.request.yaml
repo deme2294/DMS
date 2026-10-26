@@ -1,0 +1,11 @@
+$kind: http-request
+description: Delete Assignment Record by ID
+url: "{{baseUrl}}/api/matrix/:id"
+method: DELETE
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

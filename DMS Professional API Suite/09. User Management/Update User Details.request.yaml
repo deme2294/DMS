@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/users/:userId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: userId
+    value: "{{userId}}"
+    description: Path parameter userId
+body:
+  type: text
+  content: |-
+    {
+      "firstName": "Alexander",
+      "status": "active"
+    }
+order: 5000

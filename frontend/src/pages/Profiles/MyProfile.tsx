@@ -20,10 +20,17 @@ import {
   BuildingOffice2Icon,
   InformationCircleIcon,
   UserIcon,
+  ExclamationTriangleIcon,
+  PhotoIcon,
+  ArrowUpTrayIcon,
+  ArrowsPointingOutIcon,
+  ArrowDownTrayIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, ThemePreference } from '../../context/ThemeContext';
 import { updateMyProfile, getMe } from '../../api/authApi';
+import CameraCaptureModal from '../../components/CameraCaptureModal/CameraCaptureModal';
 import styles from './Profile.module.css';
 
 type ProfileForm = {
@@ -48,7 +55,52 @@ export default function MyProfile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isPhotoMenuOpen, setIsPhotoMenuOpen] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close avatar photo menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (photoMenuRef.current && !photoMenuRef.current.contains(e.target as Node)) {
+        setIsPhotoMenuOpen(false);
+      }
+    };
+    if (isPhotoMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPhotoMenuOpen]);
+
+  // Close fullscreen image viewer on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsImageViewerOpen(false);
+      }
+    };
+    if (isImageViewerOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isImageViewerOpen]);
+
+  // Auto-dismiss alert feedback after short duration to avoid lingering on screen
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(''), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 5500);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const { register, handleSubmit, reset, watch } = useForm<ProfileForm>({
     defaultValues: {
@@ -95,6 +147,13 @@ export default function MyProfile() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleCameraCapture = (file: File) => {
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setError('');
+    setMessage('Photo captured from camera successfully! Click "Save Profile Changes" to apply.');
+  };
+
   const onSubmit = async (values: ProfileForm) => {
     setMessage('');
     setError('');
@@ -125,13 +184,17 @@ export default function MyProfile() {
       const res = await updateMyProfile(formData);
       updateUser(res.data.data);
       setMessage('Your profile and account settings have been saved successfully.');
+      setError('');
       setPhotoFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       const meRes = await getMe();
       updateUser(meRes.data.data);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to update profile.');
+      setMessage('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
     }
@@ -199,10 +262,32 @@ export default function MyProfile() {
         </div>
 
         <div className={styles.heroProfileRow}>
-          <div className={styles.avatarWrapper}>
-            <div className={styles.avatarCircle}>
+          <div className={styles.avatarWrapper} ref={photoMenuRef}>
+            <div
+              className={`${styles.avatarCircle} ${photoPreview ? styles.avatarCircleClickable : ''}`}
+              onClick={() => {
+                if (photoPreview) {
+                  setIsImageViewerOpen(true);
+                } else {
+                  setIsPhotoMenuOpen(true);
+                }
+              }}
+              title={photoPreview ? 'Click to view full photo' : 'Change profile photo'}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  if (photoPreview) setIsImageViewerOpen(true);
+                }
+              }}
+            >
               {photoPreview ? (
-                <img src={photoPreview} alt="User Avatar" className={styles.avatarImg} />
+                <>
+                  <img src={photoPreview} alt="User Avatar" className={styles.avatarImg} />
+                  <div className={styles.avatarZoomOverlay}>
+                    <ArrowsPointingOutIcon className={styles.avatarZoomIcon} />
+                  </div>
+                </>
               ) : (
                 <div className={styles.avatarFallback}>
                   {(user.firstName?.[0] || user.username?.[0] || 'U').toUpperCase()}
@@ -211,16 +296,66 @@ export default function MyProfile() {
               )}
             </div>
 
-            <label className={styles.avatarUploadBtn} title="Upload new photo">
+            <button
+              type="button"
+              className={styles.avatarUploadBtn}
+              onClick={() => setIsPhotoMenuOpen((prev) => !prev)}
+              title="Change profile photo (Camera or Upload)"
+              aria-label="Change profile photo"
+            >
               <CameraIcon className={styles.avatarUploadIcon} />
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={handlePhotoChange}
-                className={styles.hiddenFileInput}
-              />
-            </label>
+            </button>
+
+            {/* Contextual Action Menu on Avatar Badge */}
+            {isPhotoMenuOpen && (
+              <div className={styles.photoMenuDropdown}>
+                <button
+                  type="button"
+                  className={styles.photoMenuItem}
+                  onClick={() => {
+                    setIsPhotoMenuOpen(false);
+                    setIsCameraOpen(true);
+                  }}
+                >
+                  <CameraIcon className={styles.menuItemIcon} />
+                  <span>Take Live Photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.photoMenuItem}
+                  onClick={() => {
+                    setIsPhotoMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <ArrowUpTrayIcon className={styles.menuItemIcon} />
+                  <span>Upload Image File</span>
+                </button>
+
+                {photoPreview && (
+                  <button
+                    type="button"
+                    className={`${styles.photoMenuItem} ${styles.photoMenuItemDanger}`}
+                    onClick={() => {
+                      setIsPhotoMenuOpen(false);
+                      handleRemovePhoto();
+                    }}
+                  >
+                    <TrashIcon className={styles.menuItemIcon} />
+                    <span>Remove Photo</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handlePhotoChange}
+              className={styles.hiddenFileInput}
+            />
           </div>
 
           <div className={styles.heroInfo}>
@@ -254,8 +389,28 @@ export default function MyProfile() {
             </div>
           </div>
 
-          {photoPreview && (
-            <div className={styles.photoControlGroup}>
+          <div className={styles.photoControlGroup}>
+            <button
+              type="button"
+              className={styles.cameraActionBtn}
+              onClick={() => setIsCameraOpen(true)}
+              title="Take photo directly with camera"
+            >
+              <CameraIcon className={styles.btnMiniIcon} />
+              <span>Take Photo</span>
+            </button>
+
+            <button
+              type="button"
+              className={styles.uploadActionBtn}
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload photo from computer"
+            >
+              <ArrowUpTrayIcon className={styles.btnMiniIcon} />
+              <span>Upload Image</span>
+            </button>
+
+            {photoPreview && (
               <button
                 type="button"
                 className={styles.removePhotoBtn}
@@ -263,24 +418,47 @@ export default function MyProfile() {
                 title="Remove photo preview"
               >
                 <TrashIcon className={styles.btnMiniIcon} />
-                <span>Remove Photo</span>
+                <span>Remove</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Feedback Messages */}
-      {message && (
-        <div className={styles.toastSuccess}>
-          <CheckCircleIcon className={styles.toastIcon} />
-          <span>{message}</span>
-        </div>
-      )}
+      {/* Feedback Messages — Centered in Main Page, Zero Overlap */}
+      {(message || error) && (
+        <div className={styles.toastCenterWrapper}>
+          {message && (
+            <div className={styles.toastSuccess} role="status" aria-live="polite">
+              <CheckCircleIcon className={styles.toastIcon} />
+              <span className={styles.toastMessage}>{message}</span>
+              <button
+                type="button"
+                className={styles.toastDismissBtn}
+                onClick={() => setMessage('')}
+                aria-label="Dismiss message"
+                title="Dismiss message"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
-      {error && (
-        <div className={styles.toastError}>
-          <span>{error}</span>
+          {error && (
+            <div className={styles.toastError} role="alert" aria-live="assertive">
+              <ExclamationTriangleIcon className={styles.toastIcon} />
+              <span className={styles.toastMessage}>{error}</span>
+              <button
+                type="button"
+                className={styles.toastDismissBtn}
+                onClick={() => setError('')}
+                aria-label="Dismiss error"
+                title="Dismiss error"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -609,6 +787,30 @@ export default function MyProfile() {
         {/* Submit Actions Bar */}
         <div className={styles.submitBar}>
           <button
+            type="button"
+            className={styles.resetBtn}
+            onClick={() => {
+              reset({
+                username: user?.username || '',
+                email: user?.email || '',
+                firstName: user?.firstName || '',
+                lastName: user?.lastName || '',
+                phone: user?.phone || '',
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+              });
+              setPhotoPreview(user?.profileImage || null);
+              setPhotoFile(null);
+              if (fileInputRef.current) fileInputRef.current.value = '';
+              setMessage('');
+              setError('');
+            }}
+            disabled={isSubmitting}
+          >
+            Discard Changes
+          </button>
+          <button
             type="submit"
             className={styles.saveProfileBtn}
             disabled={isSubmitting}
@@ -624,6 +826,74 @@ export default function MyProfile() {
           </button>
         </div>
       </form>
+
+      {/* Live Webcam / Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+      />
+
+      {/* Fullscreen Image Lightbox Modal */}
+      {isImageViewerOpen && photoPreview && (
+        <div
+          className={styles.imageViewerOverlay}
+          onClick={() => setIsImageViewerOpen(false)}
+        >
+          <div
+            className={styles.imageViewerCard}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.imageViewerHeader}>
+              <div className={styles.imageViewerTitleGroup}>
+                <h3 className={styles.imageViewerTitle}>
+                  {user.firstName ? `${user.firstName} ${user.lastName}` : user.username}
+                </h3>
+                <span className={styles.imageViewerSub}>Profile Photo Preview</span>
+              </div>
+              <div className={styles.imageViewerActions}>
+                <a
+                  href={photoPreview}
+                  download={`${user.username || 'user'}-profile-photo.jpg`}
+                  className={styles.viewerActionBtn}
+                  title="Download photo"
+                >
+                  <ArrowDownTrayIcon style={{ width: 15, height: 15 }} />
+                  <span>Download</span>
+                </a>
+                <button
+                  type="button"
+                  className={styles.viewerActionBtn}
+                  onClick={() => {
+                    setIsImageViewerOpen(false);
+                    setIsCameraOpen(true);
+                  }}
+                  title="Take new camera photo"
+                >
+                  <CameraIcon style={{ width: 15, height: 15 }} />
+                  <span>Retake</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.viewerCloseBtn}
+                  onClick={() => setIsImageViewerOpen(false)}
+                  title="Close preview (Esc)"
+                  aria-label="Close preview"
+                >
+                  <XMarkIcon style={{ width: 20, height: 20 }} />
+                </button>
+              </div>
+            </div>
+            <div className={styles.imageViewerBody}>
+              <img
+                src={photoPreview}
+                alt="Profile photo full view"
+                className={styles.imageViewerFullImg}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

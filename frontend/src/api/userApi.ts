@@ -38,3 +38,21 @@ export const deactivateUser = (id: string) =>
 
 export const resetUserPassword = (id: string, newPassword: string) =>
   api.patch(`/users/${id}/reset-password`, { newPassword });
+
+export interface SendEmailPayload {
+  to: string;
+  toName?: string;
+  subject: string;
+  message: string;
+}
+
+export const sendDirectEmail = async (payload: SendEmailPayload) => {
+  try {
+    return await api.post<{ success: boolean; message: string; data?: any }>('/users/send-email', payload);
+  } catch (err: any) {
+    if (err?.response?.status === 404) {
+      return await api.post<{ success: boolean; message: string; data?: any }>('/send-email', payload);
+    }
+    throw err;
+  }
+};

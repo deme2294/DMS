@@ -1,0 +1,22 @@
+$kind: http-request
+description: Validates status transitions against the role workflow matrix.
+url: "{{baseUrl}}/api/tickets/:id/status"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "status": "in_progress",
+      "notes": "Investigation initiated on database cluster node #2.",
+      "departmentId": "string",
+      "assignedTo": "c1f7a840-a108-4e89-9a67-27b233a7e0f2"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

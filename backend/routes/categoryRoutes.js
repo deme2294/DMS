@@ -9,18 +9,20 @@ const router = Router();
 
 // Read active categories for ticket forms and public views
 router.get('/', optionalAuthenticate, categoryController.getCategories);
-router.get('/:id', optionalAuthenticate, [param('id').trim().notEmpty().isLength({ min: 1, max: 64 }), validate], categoryController.getCategoryById);
 
-// Authentication required for administrative category operations
-router.use(authenticate);
-
-// Pending category requests (admin review queue)
+// Pending category requests (admin review queue) — declared before '/:id' to avoid shadowing by category id
 router.get(
     '/requests',
+    authenticate,
     requireRole('admin', 'ceo'),
     [query('status').optional(), validate],
     categoryController.listRequests
 );
+
+router.get('/:id', optionalAuthenticate, [param('id').trim().notEmpty().isLength({ min: 1, max: 64 }), validate], categoryController.getCategoryById);
+
+// Authentication required for administrative category operations
+router.use(authenticate);
 
 // Admin and manager can create / update categories
 router.post(

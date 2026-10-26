@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/online-status/:userId"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: userId
+    value: "{{userId}}"
+    description: Path parameter userId
+order: 15000

@@ -1,0 +1,18 @@
+$kind: http-request
+description: Auto-creates chat room binding the ticket creator tenant and assigned technicians.
+url: "{{baseUrl}}/api/chat/rooms/ticket"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "ticketId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "name": "Discussion: TICK-20261022-4821"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

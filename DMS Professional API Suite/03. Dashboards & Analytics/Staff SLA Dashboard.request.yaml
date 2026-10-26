@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/dashboard/staff/sla"
+method: GET
+headers:
+  Accept: application/json
+order: 7000

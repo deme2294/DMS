@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/feedback/:feedbackId"
+method: DELETE
+headers:
+  Accept: application/json
+pathVariables:
+  - key: feedbackId
+    value: "{{feedbackId}}"
+    description: Path parameter feedbackId
+order: 8000

@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get Notice by ID
+url: "{{baseUrl}}/api/notices/:id"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

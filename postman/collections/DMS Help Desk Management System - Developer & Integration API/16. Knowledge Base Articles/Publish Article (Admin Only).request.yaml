@@ -1,0 +1,11 @@
+$kind: http-request
+description: Promotes approved article to published status for tenant and public access.
+url: "{{baseUrl}}/api/knowledge/:id/publish"
+method: POST
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 9000

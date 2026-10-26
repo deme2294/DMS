@@ -1,0 +1,18 @@
+$kind: http-request
+name: Create Category (Admin/Manager)
+description: ""
+url: "{{baseUrl}}/ticket-categories"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Air Conditioning & HVAC",
+      "description": "Cooling, heating, ventilation, and thermostat issues",
+      "routingType": "direct",
+      "departmentId": "{{departmentId}}"
+    }
+order: 5000

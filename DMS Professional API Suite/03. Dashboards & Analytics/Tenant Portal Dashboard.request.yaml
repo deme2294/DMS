@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/dashboard/tenant"
+method: GET
+headers:
+  Accept: application/json
+order: 8000

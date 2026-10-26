@@ -1,0 +1,24 @@
+$kind: http-request
+description: Update Category
+url: "{{baseUrl}}/api/ticket-categories/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: cat-infra-01
+body:
+  type: text
+  content: |-
+    {
+      "name": "Infrastructure & Cloud",
+      "description": "Expanded scope",
+      "departmentId": "string",
+      "slaPolicyId": "string",
+      "routingType": "general",
+      "isActive": true
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

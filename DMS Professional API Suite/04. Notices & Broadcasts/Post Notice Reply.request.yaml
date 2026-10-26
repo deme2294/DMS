@@ -1,0 +1,19 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/:noticeId/replies"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: noticeId
+    value: "{{noticeId}}"
+    description: Path parameter noticeId
+body:
+  type: text
+  content: |-
+    {
+      "message": "Acknowledged by facility team.",
+      "visibility": "all"
+    }
+order: 13000

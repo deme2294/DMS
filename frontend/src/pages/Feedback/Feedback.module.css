@@ -574,10 +574,27 @@
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .page {
-    padding: 16px;
+    padding: 14px 12px;
   }
   .filters {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .actions {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px;
   }
 }
 

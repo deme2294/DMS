@@ -1,0 +1,9 @@
+$kind: http-request
+description: Refresh token exchange via HTTP-only cookie
+url: "{{baseUrl}}/auth/refresh"
+method: POST
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+order: 2000

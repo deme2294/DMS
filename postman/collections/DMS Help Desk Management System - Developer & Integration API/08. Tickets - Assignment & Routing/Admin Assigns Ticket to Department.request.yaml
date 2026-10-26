@@ -1,0 +1,22 @@
+$kind: http-request
+description: Directs ticket to a specific department queue and optionally selects department manager.
+url: "{{baseUrl}}/api/tickets/:id/assign-department"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "departmentId": "dept-infra-01",
+      "managerId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "assignedTo": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "notes": "Routing to Infrastructure team for gateway triage."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

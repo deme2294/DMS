@@ -2,8 +2,37 @@ import { v4 as uuidv4 } from 'uuid';
 import pool from '../config/db.js';
 import { sanitizeFeedback } from '../models/Feedback.js';
 
+export const resolveFeedbackId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const isNumeric = /^\d+$/.test(str);
+  const [rows] = await pool.query(
+    `SELECT id FROM feedback
+     WHERE id = ?
+        OR id LIKE CONCAT(?, '%')
+        ${isNumeric ? 'OR feedback_num = ?' : ''}
+     ORDER BY CASE
+       WHEN id = ? THEN 1
+       WHEN ${isNumeric ? 'feedback_num = ?' : '0'} THEN 2
+       ELSE 3
+     END
+     LIMIT 1`,
+    isNumeric ? [str, str, Number(str), str, Number(str)] : [str, str, str]
+  );
+  return rows[0]?.id || idOrShort;
+};
+
 export const findById = async (id) => {
-  const [rows] = await pool.query('SELECT * FROM feedback WHERE id = ? LIMIT 1', [id]);
+  const actualId = await resolveFeedbackId(id);
+  const [rows] = await pool.query(
+    `SELECT f.*, t.organization_name AS tenant_name, t.contact_person AS contact_person,
+            tk.reference_number AS ticket_reference, tk.title AS ticket_title
+     FROM feedback f
+     LEFT JOIN tenants t ON t.id = f.tenant_id
+     LEFT JOIN tickets tk ON tk.id = f.ticket_id
+     WHERE f.id = ? LIMIT 1`,
+    [actualId]
+  );
   return sanitizeFeedback(rows[0] || null);
 };
 
@@ -72,6 +101,7 @@ export const create = async (feedback) => {
 };
 
 export const update = async (id, fields) => {
+  const actualId = await resolveFeedbackId(id);
   const sets = [];
   const params = [];
   Object.entries(fields).forEach(([key, value]) => {
@@ -79,26 +109,29 @@ export const update = async (id, fields) => {
     params.push(value);
   });
   sets.push('updated_at = NOW()');
-  params.push(id);
+  params.push(actualId);
   await pool.query(`UPDATE feedback SET ${sets.join(', ')} WHERE id = ?`, params);
 };
 
 export const remove = async (id) => {
-  await pool.query('DELETE FROM feedback WHERE id = ?', [id]);
+  const actualId = await resolveFeedbackId(id);
+  await pool.query('DELETE FROM feedback WHERE id = ?', [actualId]);
 };
 
 export const addReply = async (id, replyBy, replyMessage) => {
+  const actualId = await resolveFeedbackId(id);
   const [result] = await pool.query(
     'INSERT INTO feedback_replies (id, feedback_id, replied_by, message, created_at) VALUES (UUID(), ?, ?, ?, NOW())',
-    [id, replyBy, replyMessage]
+    [actualId, replyBy, replyMessage]
   );
   return result.insertId;
 };
 
 export const getReplies = async (feedbackId) => {
+  const actualId = await resolveFeedbackId(feedbackId);
   const [rows] = await pool.query(
     'SELECT r.*, u.first_name, u.last_name, u.username FROM feedback_replies r JOIN users u ON u.id = r.replied_by WHERE r.feedback_id = ? ORDER BY r.created_at ASC',
-    [feedbackId]
+    [actualId]
   );
   return rows;
 };

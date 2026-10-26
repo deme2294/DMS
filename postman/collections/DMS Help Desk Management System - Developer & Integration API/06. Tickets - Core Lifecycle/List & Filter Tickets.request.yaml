@@ -1,0 +1,20 @@
+$kind: http-request
+description: |-
+  Queries tickets with pagination and filtering.
+  - **Tenant:** Automatically scoped to caller's tenant organization.
+  - **Staff / Manager:** Scoped to departmental assignments.
+  - **Admin / CEO:** Global visibility.
+url: "{{baseUrl}}/api/tickets?page=1&limit=10&status=open&priority=low&sortBy=created_at&sortOrder=DESC"
+method: GET
+queryParams:
+  page: "1"
+  limit: "10"
+  status: open
+  priority: low
+  sortBy: created_at
+  sortOrder: DESC
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

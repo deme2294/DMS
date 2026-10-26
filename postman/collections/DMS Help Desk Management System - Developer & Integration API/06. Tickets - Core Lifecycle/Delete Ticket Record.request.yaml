@@ -1,0 +1,11 @@
+$kind: http-request
+description: Permanently deletes ticket and associated timeline/notes. Admin role required.
+url: "{{baseUrl}}/api/tickets/:id"
+method: DELETE
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

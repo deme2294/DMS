@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge/categories"
+method: GET
+headers:
+  Accept: application/json
+order: 17000

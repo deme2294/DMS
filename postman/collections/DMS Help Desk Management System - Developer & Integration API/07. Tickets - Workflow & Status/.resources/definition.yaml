@@ -1,0 +1,3 @@
+$kind: collection
+description: State machine transitions, completion verification, approvals, and reopenings
+order: 7000

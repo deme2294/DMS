@@ -201,10 +201,19 @@ const buildWhere = ({
   return { where, params };
 };
 
+export const resolveArticleId = async (idOrRef) => {
+  if (!idOrRef) return null;
+  const [rows] = await pool.query(
+    'SELECT id FROM knowledge_base WHERE id = ? OR article_reference = ? OR id LIKE CONCAT(?, "%") LIMIT 1',
+    [idOrRef, idOrRef, idOrRef]
+  );
+  return rows[0]?.id || idOrRef;
+};
+
 export const findById = async (id) => {
   const [rows] = await pool.query(
-    `SELECT ${SELECT_FIELDS} ${FROM} WHERE kb.id = ? LIMIT 1`,
-    [id]
+    `SELECT ${SELECT_FIELDS} ${FROM} WHERE kb.id = ? OR kb.article_reference = ? OR kb.id LIKE CONCAT(?, '%') LIMIT 1`,
+    [id, id, id]
   );
   return rows[0] || null;
 };

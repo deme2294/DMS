@@ -74,6 +74,9 @@ export interface TicketReply {
   isInternal?: boolean;
   attachmentId?: string | null;
   departmentIds?: string | null;
+  targetUserId?: string | null;
+  targetUserName?: string | null;
+  targetUserRole?: string | null;
   createdAt?: string;
 }
 
@@ -110,12 +113,18 @@ export interface NotificationItem {
 
 export interface Ticket {
   id: string;
+  ticketNum?: number | null;
   referenceNumber: string;
   trackNumber: string;
   tenantId: string;
   tenantName?: string | null;
+  tenantEmail?: string | null;
+  tenantPhone?: string | null;
+  tenantContactPerson?: string | null;
   createdBy: string;
   createdByName?: string | null;
+  createdByEmail?: string | null;
+  createdByPhone?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;
   assignedTo?: string | null;
@@ -146,6 +155,10 @@ export interface Ticket {
   approvedAt?: string | null;
   escalatedAt?: string | null;
   reopenedAt?: string | null;
+  reopenedBy?: string | null;
+  reopenedByName?: string | null;
+  reopenReason?: string | null;
+  firstResponseAt?: string | null;
   cancelledAt?: string | null;
    mergedInto?: string | null;
    routingType?: 'general' | 'direct';
@@ -184,9 +197,15 @@ export interface PaginationMeta {
 }
 
 export const TICKET_STATUSES: TicketStatus[] = [
-  'open', 'assigned', 'in_progress', 'pending',
-  'waiting_tenant', 'waiting_vendor', 'resolved', 'completed',
-  'reopened', 'closed', 'escalated',
+  'open',
+  'assigned',
+  'in_progress',
+  'pending',
+  'waiting_tenant',
+  'resolved',
+  'reopened',
+  'closed',
+  'escalated',
 ];
 
 export const TICKET_PRIORITIES: TicketPriority[] = ['low', 'medium', 'high', 'urgent'];
@@ -222,8 +241,13 @@ export const TENANT_CONFIRMATION_LABELS: Record<TenantConfirmationStatus, string
 };
 
 export const ACTIVE_STATUSES: TicketStatus[] = [
-  'open', 'assigned', 'in_progress', 'pending',
-  'waiting_tenant', 'waiting_vendor', 'escalated', 'reopened',
+  'open',
+  'assigned',
+  'in_progress',
+  'pending',
+  'waiting_tenant',
+  'escalated',
+  'reopened',
 ];
 
 export const DEFAULT_CATEGORIES = [

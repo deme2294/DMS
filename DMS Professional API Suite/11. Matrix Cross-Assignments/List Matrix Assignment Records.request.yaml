@@ -1,0 +1,10 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/matrix?page=1&limit=50"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  page: "1"
+  limit: "50"
+order: 2000

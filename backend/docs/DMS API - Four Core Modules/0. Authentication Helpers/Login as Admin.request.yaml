@@ -1,0 +1,26 @@
+$kind: http-request
+description: Authenticates as system admin and automatically stores adminToken.
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "identifier": "admin@demo.gov",
+      "password": "password"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+      var jsonData = pm.response.json();
+      if (jsonData.success && jsonData.data && jsonData.data.accessToken) {
+          pm.collectionVariables.set('adminToken', jsonData.data.accessToken);
+          console.log('adminToken stored');
+      }
+    language: text/javascript
+order: 2000

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ShieldCheckIcon,
@@ -103,6 +103,7 @@ const FEATURES = [
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -124,7 +125,21 @@ export default function Login() {
     try {
       await login(identifier.trim(), password, rememberMe);
       const role = localStorage.getItem('role') || 'tenant';
-      navigate(ROLE_DASHBOARD[role] ?? '/login', { replace: true });
+      const searchParams = new URLSearchParams(location.search);
+      let redirectUrl = searchParams.get('redirect') || (location.state as { from?: { pathname?: string; search?: string } })?.from?.pathname;
+
+      if (redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('//')) {
+        // If the redirect is to a ticket, ensure role prefix aligns with logged in user's role
+        const ticketMatch = redirectUrl.match(/^\/(?:tenant|admin|manager|staff|ceo|tickets)\/tickets\/(.+)$/);
+        if (ticketMatch) {
+          const ticketParam = ticketMatch[1];
+          const rolePrefix = role === 'admin' ? '/admin' : role === 'manager' ? '/manager' : role === 'staff' ? '/staff' : role === 'ceo' ? '/ceo' : '/tenant';
+          redirectUrl = `${rolePrefix}/tickets/${ticketParam}`;
+        }
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate(ROLE_DASHBOARD[role] ?? '/login', { replace: true });
+      }
     } catch (err: unknown) {
       const e = err as LoginApiError;
       const msg = e?.response?.data?.message ?? e?.message ?? 'Login failed. Please try again.';

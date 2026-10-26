@@ -1,0 +1,17 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/audit/log"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "action": "MANUAL_TEST_VERIFICATION",
+      "details": {
+        "client": "Postman API Suite"
+      }
+    }
+order: 4000

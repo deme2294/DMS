@@ -119,100 +119,108 @@
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .datePill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.8rem;
+  gap: 6px;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--dash-text-secondary);
   background: var(--dash-card-bg);
   border: 1px solid var(--dash-card-border);
   border-radius: 999px;
-  padding: 7px 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 4.5px 11px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .datePillIcon {
-  width: 15px;
-  height: 15px;
+  width: 13px;
+  height: 13px;
   color: #3b82f6;
 }
 
 .headerActionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 0.84rem;
-  font-weight: 700;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .headerActionPrimary {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25);
 }
 
 .headerActionPrimary:hover {
   background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
   color: #ffffff;
 }
 
 .headerActionSecondary {
   background: var(--dash-card-bg);
   border: 1px solid var(--dash-card-border);
-  color: var(--dash-text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  color: var(--dash-text-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .headerActionSecondary:hover {
   background: var(--dash-subtle-bg);
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #cbd5e1;
+  color: var(--dash-text-primary);
   transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+:global([data-theme="dark"]) .headerActionSecondary:hover {
+  border-color: #475569;
 }
 
 .headerActionIcon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 /* ── KPI Stats Overview Grid ── */
+/* ── KPI Stats Overview Grid ── */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
 }
 
 .statCard {
   background: var(--dash-card-bg);
   border: 1px solid var(--dash-card-border);
-  border-radius: 16px;
-  padding: 18px 20px;
-  box-shadow: var(--dash-card-shadow);
+  border-radius: 12px;
+  padding: 13px 15px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   text-decoration: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   position: relative;
   overflow: hidden;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s ease;
+              border-color 0.15s ease;
 }
 
 .statCard::before {
@@ -221,105 +229,255 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  height: 2.5px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
+  opacity: 0.95;
+  transition: opacity 0.2s ease, height 0.15s ease;
 }
 
 .statCard:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--dash-card-hover-shadow);
-  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.09);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+:global([data-theme="dark"]) .statCard:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-color: rgba(59, 130, 246, 0.45);
 }
 
 .statCard:hover::before {
-  opacity: 1;
+  height: 3px;
 }
 
 .statCardTop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .statIconBox {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.2s ease;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .statCard:hover .statIconBox {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
 .statIconBoxSvg {
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 17px;
+}
+
+.statArrowBtn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+:global([data-theme="dark"]) .statArrowBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.statCard:hover .statArrowBtn {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.3);
 }
 
 .statCardArrow {
-  width: 16px;
-  height: 16px;
+  width: 9px;
+  height: 9px;
   color: var(--dash-text-muted);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .statCard:hover .statCardArrow {
-  opacity: 1;
-  transform: translateX(0);
-  color: #3b82f6;
+  transform: translateX(1.5px);
+  color: #2563eb;
+}
+
+:global([data-theme="dark"]) .statCard:hover .statCardArrow {
+  color: #93c5fd;
+}
+
+.statCardBottom {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .statValue {
-  font-size: 2rem;
+  font-size: 1.55rem;
   font-weight: 800;
   color: var(--dash-text-primary);
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+}
+
+.statLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .statLabel {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: var(--dash-text-muted);
+  color: var(--dash-text-secondary);
 }
 
-/* Stat Card Colors */
-.statBlue .statIconBox { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
-.statBlue::before { background: #2563eb; }
-:global([data-theme="dark"]) .statBlue .statIconBox { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.statPillBadge {
+  font-size: 0.67rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
 
-.statGreen .statIconBox { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-.statGreen::before { background: #10b981; }
-:global([data-theme="dark"]) .statGreen .statIconBox { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+:global([data-theme="dark"]) .statPillBadge {
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
+  border-color: rgba(37, 99, 235, 0.3);
+}
 
-.statPurple .statIconBox { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
-.statPurple::before { background: #8b5cf6; }
-:global([data-theme="dark"]) .statPurple .statIconBox { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+/* ── Distinct 9 Professional Brand Color Themes ── */
+.statBlue,
+.statGreen,
+.statPurple,
+.statTeal,
+.statIndigo,
+.statAmber,
+.statCyan,
+.statRose,
+.statSlate {
+  background: var(--dash-card-bg);
+  border-color: var(--dash-card-border);
+}
 
-.statAmber .statIconBox { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-.statAmber::before { background: #f59e0b; }
-:global([data-theme="dark"]) .statAmber .statIconBox { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+/* 1. Total Users (Enterprise Blue) */
+.statBlue::before { background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 100%); }
+.statBlue .statIconBox { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25); }
+.statBlue .statPillBadge { background: rgba(37, 99, 235, 0.08); color: #2563eb; border-color: rgba(37, 99, 235, 0.18); }
+.statBlue:hover { border-color: rgba(37, 99, 235, 0.35); box-shadow: 0 6px 18px rgba(37, 99, 235, 0.1); }
+.statBlue:hover .statArrowBtn { background: rgba(37, 99, 235, 0.1); border-color: rgba(37, 99, 235, 0.28); }
+.statBlue:hover .statCardArrow { color: #2563eb; }
+:global([data-theme="dark"]) .statBlue .statPillBadge { background: rgba(37, 99, 235, 0.18); color: #93c5fd; border-color: rgba(37, 99, 235, 0.3); }
+:global([data-theme="dark"]) .statBlue:hover { border-color: rgba(59, 130, 246, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statBlue:hover .statCardArrow { color: #93c5fd; }
 
-.statCyan .statIconBox { background: rgba(6, 182, 212, 0.12); color: #06b6d4; }
-.statCyan::before { background: #06b6d4; }
-:global([data-theme="dark"]) .statCyan .statIconBox { background: rgba(34, 211, 238, 0.2); color: #22d3ee; }
+/* 2. Active Users (Emerald Green) */
+.statGreen::before { background: linear-gradient(90deg, #059669 0%, #34d399 100%); }
+.statGreen .statIconBox { background: linear-gradient(135deg, #10b981 0%, #047857 100%); box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25); }
+.statGreen .statPillBadge { background: rgba(16, 185, 129, 0.08); color: #059669; border-color: rgba(16, 185, 129, 0.18); }
+.statGreen:hover { border-color: rgba(16, 185, 129, 0.35); box-shadow: 0 6px 18px rgba(16, 185, 129, 0.1); }
+.statGreen:hover .statArrowBtn { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.28); }
+.statGreen:hover .statCardArrow { color: #059669; }
+:global([data-theme="dark"]) .statGreen .statPillBadge { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3); }
+:global([data-theme="dark"]) .statGreen:hover { border-color: rgba(16, 185, 129, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statGreen:hover .statCardArrow { color: #6ee7b7; }
 
-.statRose .statIconBox { background: rgba(244, 63, 94, 0.12); color: #f43f5e; }
-.statRose::before { background: #f43f5e; }
-:global([data-theme="dark"]) .statRose .statIconBox { background: rgba(251, 113, 133, 0.2); color: #fb7185; }
+/* 3. Total Tenants (Royal Purple) */
+.statPurple::before { background: linear-gradient(90deg, #6d28d9 0%, #a78bfa 100%); }
+.statPurple .statIconBox { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25); }
+.statPurple .statPillBadge { background: rgba(124, 58, 237, 0.08); color: #7c3aed; border-color: rgba(124, 58, 237, 0.18); }
+.statPurple:hover { border-color: rgba(124, 58, 237, 0.35); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.1); }
+.statPurple:hover .statArrowBtn { background: rgba(124, 58, 237, 0.1); border-color: rgba(124, 58, 237, 0.28); }
+.statPurple:hover .statCardArrow { color: #7c3aed; }
+:global([data-theme="dark"]) .statPurple .statPillBadge { background: rgba(124, 58, 237, 0.18); color: #c4b5fd; border-color: rgba(124, 58, 237, 0.3); }
+:global([data-theme="dark"]) .statPurple:hover { border-color: rgba(139, 92, 246, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statPurple:hover .statCardArrow { color: #c4b5fd; }
 
-.statSlate .statIconBox { background: rgba(100, 116, 139, 0.12); color: #64748b; }
-.statSlate::before { background: #64748b; }
-:global([data-theme="dark"]) .statSlate .statIconBox { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+/* 4. Active Tenants (Deep Teal) */
+.statTeal::before { background: linear-gradient(90deg, #0f766e 0%, #2dd4bf 100%); }
+.statTeal .statIconBox { background: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%); box-shadow: 0 2px 6px rgba(20, 184, 166, 0.25); }
+.statTeal .statPillBadge { background: rgba(20, 184, 166, 0.08); color: #0d9488; border-color: rgba(20, 184, 166, 0.18); }
+.statTeal:hover { border-color: rgba(20, 184, 166, 0.35); box-shadow: 0 6px 18px rgba(20, 184, 166, 0.1); }
+.statTeal:hover .statArrowBtn { background: rgba(20, 184, 166, 0.1); border-color: rgba(20, 184, 166, 0.28); }
+.statTeal:hover .statCardArrow { color: #0d9488; }
+:global([data-theme="dark"]) .statTeal .statPillBadge { background: rgba(20, 184, 166, 0.18); color: #5eead4; border-color: rgba(20, 184, 166, 0.3); }
+:global([data-theme="dark"]) .statTeal:hover { border-color: rgba(20, 184, 166, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statTeal:hover .statCardArrow { color: #5eead4; }
+
+/* 5. Total Tickets (Electric Indigo) */
+.statIndigo::before { background: linear-gradient(90deg, #4338ca 0%, #818cf8 100%); }
+.statIndigo .statIconBox { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25); }
+.statIndigo .statPillBadge { background: rgba(99, 102, 241, 0.08); color: #4f46e5; border-color: rgba(99, 102, 241, 0.18); }
+.statIndigo:hover { border-color: rgba(99, 102, 241, 0.35); box-shadow: 0 6px 18px rgba(99, 102, 241, 0.1); }
+.statIndigo:hover .statArrowBtn { background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.28); }
+.statIndigo:hover .statCardArrow { color: #4f46e5; }
+:global([data-theme="dark"]) .statIndigo .statPillBadge { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.3); }
+:global([data-theme="dark"]) .statIndigo:hover { border-color: rgba(99, 102, 241, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statIndigo:hover .statCardArrow { color: #a5b4fc; }
+
+/* 6. Open Tickets (Warm Amber) */
+.statAmber::before { background: linear-gradient(90deg, #d97706 0%, #fbbf24 100%); }
+.statAmber .statIconBox { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 2px 6px rgba(245, 158, 11, 0.25); }
+.statAmber .statPillBadge { background: rgba(245, 158, 11, 0.08); color: #d97706; border-color: rgba(245, 158, 11, 0.18); }
+.statAmber:hover { border-color: rgba(245, 158, 11, 0.35); box-shadow: 0 6px 18px rgba(245, 158, 11, 0.1); }
+.statAmber:hover .statArrowBtn { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.28); }
+.statAmber:hover .statCardArrow { color: #d97706; }
+:global([data-theme="dark"]) .statAmber .statPillBadge { background: rgba(245, 158, 11, 0.18); color: #fde68a; border-color: rgba(245, 158, 11, 0.3); }
+:global([data-theme="dark"]) .statAmber:hover { border-color: rgba(245, 158, 11, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statAmber:hover .statCardArrow { color: #fde68a; }
+
+/* 7. Departments (Azure Cyan) */
+.statCyan::before { background: linear-gradient(90deg, #0891b2 0%, #38bdf8 100%); }
+.statCyan .statIconBox { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); box-shadow: 0 2px 6px rgba(6, 182, 212, 0.25); }
+.statCyan .statPillBadge { background: rgba(6, 182, 212, 0.08); color: #0891b2; border-color: rgba(6, 182, 212, 0.18); }
+.statCyan:hover { border-color: rgba(6, 182, 212, 0.35); box-shadow: 0 6px 18px rgba(6, 182, 212, 0.1); }
+.statCyan:hover .statArrowBtn { background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.28); }
+.statCyan:hover .statCardArrow { color: #0891b2; }
+:global([data-theme="dark"]) .statCyan .statPillBadge { background: rgba(6, 182, 212, 0.18); color: #67e8f9; border-color: rgba(6, 182, 212, 0.3); }
+:global([data-theme="dark"]) .statCyan:hover { border-color: rgba(6, 182, 212, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statCyan:hover .statCardArrow { color: #67e8f9; }
+
+/* 8. Pending Feedback (Ruby Rose) */
+.statRose::before { background: linear-gradient(90deg, #be123c 0%, #fb7185 100%); }
+.statRose .statIconBox { background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%); box-shadow: 0 2px 6px rgba(244, 63, 94, 0.25); }
+.statRose .statPillBadge { background: rgba(244, 63, 94, 0.08); color: #e11d48; border-color: rgba(244, 63, 94, 0.18); }
+.statRose:hover { border-color: rgba(244, 63, 94, 0.35); box-shadow: 0 6px 18px rgba(244, 63, 94, 0.1); }
+.statRose:hover .statArrowBtn { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.28); }
+.statRose:hover .statCardArrow { color: #e11d48; }
+:global([data-theme="dark"]) .statRose .statPillBadge { background: rgba(244, 63, 94, 0.18); color: #fecdd3; border-color: rgba(244, 63, 94, 0.3); }
+:global([data-theme="dark"]) .statRose:hover { border-color: rgba(244, 63, 94, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statRose:hover .statCardArrow { color: #fecdd3; }
+
+/* 9. Inactive Users (Executive Slate) */
+.statSlate::before { background: linear-gradient(90deg, #334155 0%, #94a3b8 100%); }
+.statSlate .statIconBox { background: linear-gradient(135deg, #64748b 0%, #334155 100%); box-shadow: 0 2px 6px rgba(100, 116, 139, 0.25); }
+.statSlate .statPillBadge { background: rgba(100, 116, 139, 0.08); color: #475569; border-color: rgba(100, 116, 139, 0.18); }
+.statSlate:hover { border-color: rgba(100, 116, 139, 0.35); box-shadow: 0 6px 18px rgba(100, 116, 139, 0.1); }
+.statSlate:hover .statArrowBtn { background: rgba(100, 116, 139, 0.1); border-color: rgba(100, 116, 139, 0.28); }
+.statSlate:hover .statCardArrow { color: #475569; }
+:global([data-theme="dark"]) .statSlate .statPillBadge { background: rgba(100, 116, 139, 0.18); color: #cbd5e1; border-color: rgba(100, 116, 139, 0.3); }
+:global([data-theme="dark"]) .statSlate:hover { border-color: rgba(100, 116, 139, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+:global([data-theme="dark"]) .statSlate:hover .statCardArrow { color: #cbd5e1; }
 
 /* ── Section Cards ── */
 .sectionCard {
@@ -547,11 +705,17 @@
 .chartCard {
   background: var(--dash-card-bg);
   border: 1px solid var(--dash-card-border);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 22px 24px;
   box-shadow: var(--dash-card-shadow);
   display: flex;
   flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.chartCard:hover {
+  box-shadow: var(--dash-card-hover-shadow);
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
 .chartTitleRow {
@@ -559,21 +723,38 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--dash-table-border);
 }
 
+.chartHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chartHeaderIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .chartTitle {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--dash-text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .chartBarsList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .chartBarRow {
@@ -581,41 +762,87 @@
   align-items: center;
   gap: 12px;
   font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.chartBarRow:hover {
+  background: rgba(15, 23, 42, 0.035);
+}
+
+:global([data-theme="dark"]) .chartBarRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chartBarLabelWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 145px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.chartBarDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.chartBarRow:hover .chartBarDot {
+  transform: scale(1.3);
 }
 
 .chartBarLabel {
-  width: 140px;
   color: var(--dash-text-secondary);
   font-weight: 600;
   text-transform: capitalize;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .chartBarTrack {
   flex: 1;
-  height: 10px;
+  height: 11px;
   background: var(--dash-track-bg);
   border: 1px solid var(--dash-track-border);
   border-radius: 999px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
 }
 
 .chartBarFill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chartBarStats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 70px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.chartBarPercent {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--dash-text-muted);
 }
 
 .chartBarCount {
-  width: 44px;
+  min-width: 28px;
   text-align: right;
   font-weight: 700;
+  font-size: 0.88rem;
   color: var(--dash-text-primary);
-  flex-shrink: 0;
 }
 
 .emptyDataNotice {
@@ -930,15 +1157,43 @@
 }
 
 @media (max-width: 480px) {
-  .statsGrid {
-    grid-template-columns: 1fr;
+  .dashboard {
+    padding: 0;
+    gap: 14px;
+  }
+  .heading {
+    font-size: 1.45rem;
   }
   .headerRight {
     flex-direction: column;
+    gap: 8px;
   }
   .headerActionBtn,
   .headerActionSecondary {
     width: 100%;
+    min-height: 44px;
+  }
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .statCard {
+    padding: 14px 14px;
+  }
+  .tableCard,
+  .chartCard,
+  .slaOverviewCard {
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .heading {
+    font-size: 1.25rem;
+  }
+  .statValue {
+    font-size: 1.45rem;
   }
 }
 

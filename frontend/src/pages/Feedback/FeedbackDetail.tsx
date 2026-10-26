@@ -34,9 +34,14 @@ export default function FeedbackDetail() {
         fetchFeedbackItem(id),
         fetchReplies(id),
       ]);
-      setFeedback(fbRes.data.data);
+      const fbData = fbRes.data.data;
+      setFeedback(fbData);
       setReplies(repliesRes.data.data);
-      setNewStatus(fbRes.data.data.status);
+      setNewStatus(fbData.status);
+      const base = user?.role === 'tenant' ? '/tenant/feedback' : '/admin/feedback';
+      if (fbData?.feedbackNum && id !== String(fbData.feedbackNum) && id.length > 20) {
+        navigate(`${base}/${fbData.feedbackNum}`, { replace: true });
+      }
     } finally {
       setLoading(false);
     }

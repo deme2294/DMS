@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/ticket-categories/:categoryId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: categoryId
+    value: "{{categoryId}}"
+    description: Path parameter categoryId
+body:
+  type: text
+  content: |-
+    {
+      "description": "Updated HVAC and environmental issues"
+    }
+order: 6000

@@ -21,6 +21,29 @@ export default function AdminLayout() {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
+  // Lock body scrolling when mobile drawer is open
+  useEffect(() => {
+    if (mobileSidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileSidebarOpen]);
+
+  // Handle Escape key to close mobile drawer
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileSidebarOpen) {
+        setMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileSidebarOpen]);
+
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -51,7 +74,8 @@ export default function AdminLayout() {
                 }
               }}
               className={styles.hamburgerBtn}
-              aria-label="Toggle navigation drawer"
+              aria-label={mobileSidebarOpen ? "Close navigation drawer" : "Toggle navigation drawer"}
+              aria-expanded={mobileSidebarOpen}
               title={isCollapsed ? 'Expand navigation' : 'Toggle navigation'}
             >
               <Bars3Icon className={styles.hamburgerIcon} />

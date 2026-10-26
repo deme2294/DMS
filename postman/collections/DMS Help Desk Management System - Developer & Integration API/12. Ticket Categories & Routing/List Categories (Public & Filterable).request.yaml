@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns active categories for ticket forms.
+url: "{{baseUrl}}/api/ticket-categories?departmentId="
+method: GET
+queryParams:
+  departmentId: ""
+auth:
+  type: noauth
+order: 1000

@@ -744,5 +744,36 @@
   .submitBtn,
   .cancelBtn {
     width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .form {
+    padding: 14px 12px;
+    border-radius: 12px;
+    gap: 16px;
+  }
+
+  .sectionTitle {
+    font-size: 1rem;
+  }
+
+  .dropZone {
+    padding: 16px 10px;
+  }
+
+  .input,
+  .textarea,
+  .select {
+    min-height: 44px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .form {
+    padding: 10px 8px;
+    gap: 14px;
   }
 }

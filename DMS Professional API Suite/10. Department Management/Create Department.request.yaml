@@ -1,0 +1,17 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/departments"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Facility Operations",
+      "code": "FAC-OPS",
+      "description": "Building management, utilities, and sanitation",
+      "status": "active"
+    }
+order: 5000

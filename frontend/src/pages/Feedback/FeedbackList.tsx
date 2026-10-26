@@ -135,7 +135,7 @@ export default function FeedbackList() {
             key: 'subject',
             label: 'Subject',
             render: (row) => (
-              <Link to={`${base}/${row.id}`} className={styles.link}>
+              <Link to={`${base}/${row.feedbackNum ? String(row.feedbackNum) : row.id}`} className={styles.link}>
                 {row.subject}
               </Link>
             ),

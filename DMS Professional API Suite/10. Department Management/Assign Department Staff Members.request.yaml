@@ -1,0 +1,20 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/departments/:departmentId/members"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: departmentId
+    value: "{{departmentId}}"
+    description: Path parameter departmentId
+body:
+  type: text
+  content: |-
+    {
+      "userIds": [
+        "{{userId}}"
+      ]
+    }
+order: 8000

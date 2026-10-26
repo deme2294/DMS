@@ -1,0 +1,9 @@
+$kind: http-request
+description: Admin Operational Dashboard Metrics
+url: "{{baseUrl}}/api/dashboard/admin"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

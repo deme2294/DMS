@@ -1,0 +1,27 @@
+$kind: http-request
+description: Login with username or email. Rate limited to 20 requests per 15 minutes.
+url: "{{baseUrl}}/auth/login"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "identifier": "admin",
+      "password": "AdminPassword123!"
+    }
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    code: |-
+      const json = pm.response.json();
+      if (json.data && json.data.accessToken) {
+          pm.collectionVariables.set('token', json.data.accessToken);
+          pm.environment.set('token', json.data.accessToken);
+          console.log('✅ Bearer token updated successfully');
+      }
+    language: text/javascript
+order: 1000

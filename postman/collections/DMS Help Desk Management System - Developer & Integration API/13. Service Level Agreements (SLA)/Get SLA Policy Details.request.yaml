@@ -1,0 +1,11 @@
+$kind: http-request
+description: Get SLA Policy Details
+url: "{{baseUrl}}/api/sla/:id"
+method: GET
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

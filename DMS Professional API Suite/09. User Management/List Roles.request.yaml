@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/users/roles"
+method: GET
+headers:
+  Accept: application/json
+order: 1000

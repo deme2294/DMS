@@ -129,10 +129,10 @@ export default function CeoTenantList() {
             label: 'Actions',
             render: (row: Tenant) => (
               <div className={styles.actions}>
-                <button onClick={() => navigate(`/ceo/tenants/${row.id}`)}>View</button>
+                <button onClick={() => navigate(`/ceo/tenants/${row.tenantId || (row as any).tenant_id || row.id}`)}>View</button>
                 {can('tenants.manage') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/tenants/${row.id}/edit`)}>Edit</button>
+                    <button onClick={() => navigate(`/ceo/tenants/${row.tenantId || (row as any).tenant_id || row.id}/edit`)}>Edit</button>
                     {row.status === 'pending' && (
                       <button onClick={() => handleApprove(row)}>Approve</button>
                     )}

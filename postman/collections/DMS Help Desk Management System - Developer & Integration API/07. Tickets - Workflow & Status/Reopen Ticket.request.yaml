@@ -1,0 +1,20 @@
+$kind: http-request
+description: Reopens a closed or resolved ticket within the permissible reopening window.
+url: "{{baseUrl}}/api/tickets/:id/reopen"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "reason": "Issue reoccurred after 24 hours.",
+      "notes": "Need investigation into cron job trigger."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 6000

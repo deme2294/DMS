@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/reports/my-departments"
+method: GET
+headers:
+  Accept: application/json
+order: 1000

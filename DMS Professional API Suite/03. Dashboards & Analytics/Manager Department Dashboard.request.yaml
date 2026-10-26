@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/dashboard/manager"
+method: GET
+headers:
+  Accept: application/json
+order: 4000

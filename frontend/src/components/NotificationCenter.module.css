@@ -248,3 +248,16 @@
 :global([data-theme='dark']) .viewAll:hover {
   background: rgba(37, 99, 235, 0.15);
 }
+
+@media (max-width: 480px) {
+  .bell {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dropdown {
+    width: min(320px, calc(100vw - 16px));
+    right: -42px;
+    max-height: 400px;
+  }
+}

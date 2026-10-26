@@ -1,0 +1,12 @@
+$kind: http-request
+name: Export Report as Excel / CSV File
+description: Downloads an Excel (.xlsx) file containing operational records.
+url: "{{baseUrl}}/api/reports/:type/export"
+method: GET
+pathVariables:
+  type: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

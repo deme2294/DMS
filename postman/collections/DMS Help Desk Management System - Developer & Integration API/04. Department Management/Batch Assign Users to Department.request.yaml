@@ -1,0 +1,22 @@
+$kind: http-request
+description: Updates the list of user IDs affiliated with this department.
+url: "{{baseUrl}}/api/departments/:id/members"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: dept-infra-01
+body:
+  type: text
+  content: |-
+    {
+      "userIds": [
+        "a9b8c7d6-e5f4-4a3b-2c1d-0e9f8a7b6c5d",
+        "b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+      ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 9000

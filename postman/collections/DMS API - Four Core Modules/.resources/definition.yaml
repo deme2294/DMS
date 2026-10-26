@@ -1,0 +1,10 @@
+$kind: collection
+description: Production test collection covering Ticket Creation (POST only), Ticket Categories, Ticket SLA, and Chat (REST). Base URL configured to http://localhost:5000.
+variables:
+  baseUrl: http://localhost:5000
+  tenantToken: ""
+  adminToken: ""
+  ticketId: b8db4630-f448-47e5-a040-270651bf553b
+  roomId: 97f4799c-c701-4bc4-954e-f58fd2fc5af4
+  categoryId: cat00004-0000-0000-0000-000000000004
+  slaPolicyId: sla00002-0000-0000-0000-000000000002

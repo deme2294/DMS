@@ -1,0 +1,22 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tenants"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "organizationName": "Apex Financial Consultants",
+      "registrationNumber": "REG-2024-1002",
+      "contactPerson": "Sarah Connor",
+      "email": "sarah@apexfin.com",
+      "phone": "+251911445566",
+      "username": "apex_admin",
+      "password": "ApexPassword123!",
+      "confirmPassword": "ApexPassword123!",
+      "status": "active"
+    }
+order: 6000

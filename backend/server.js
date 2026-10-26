@@ -76,6 +76,8 @@ import tenantRoutes from './routes/tenantRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import slaRoutes from './routes/slaRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import { authenticate } from './middleware/authMiddleware.js';
+import { sendDirectEmail as sendDirectEmailHandler } from './controllers/userController.js';
 
 // ── Error-handling middleware ────────────────────────────────────────────────
 import { notFound, errorHandler } from './middleware/errorMiddleware.js';
@@ -319,6 +321,7 @@ const apiRootInfo = async (_req, res) => {
             matrix: '/api/matrix',
             categories: '/api/ticket-categories',
             sla: '/api/sla',
+            docs: '/api/docs',
             health: '/api/health',
         },
         timestamp: new Date().toISOString(),
@@ -371,6 +374,64 @@ app.use('/api/tenants', tenantRoutes);
 app.use('/api/ticket-categories', categoryRoutes);
 app.use('/api/sla', slaRoutes);
 app.use('/api/chat', chatRoutes);
+app.post('/api/send-email', authenticate, sendDirectEmailHandler);
+
+// ── Interactive API Documentation & OpenAPI Specification ───────────────────
+// Accessible at http://localhost:5000/api/docs (or 5005) and /api/docs/openapi.yaml
+app.get(['/docs', '/docs/'], (_req, res) => {
+    res.redirect('/api/docs');
+});
+
+// Trigger automatic browser file download for openapi.yaml
+app.get(['/api/docs/download', '/api/docs/download/openapi.yaml'], (_req, res) => {
+    const yamlPath = path.join(__dirname, 'docs', 'openapi.yaml');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.download(yamlPath, 'openapi.yaml');
+});
+
+// Trigger download of native Postman Collection JSON
+app.get(['/api/docs/postman', '/api/docs/download/postman', '/api/docs/DMS_Postman_Collection.json'], (_req, res) => {
+    const postmanPath = path.join(__dirname, 'docs', 'DMS_Postman_Collection.json');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.download(postmanPath, 'DMS_Postman_Collection.json');
+});
+
+// Serve Swagger UI HTML
+app.get(['/api/docs', '/api/docs/'], (_req, res) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.join(__dirname, 'docs', 'index.html'));
+});
+
+// Serve raw openapi.yaml specification
+app.get(['/api/docs/openapi.yaml', '/api/openapi.yaml', '/openapi.yaml'], (_req, res) => {
+    const yamlPath = path.join(__dirname, 'docs', 'openapi.yaml');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+    res.sendFile(yamlPath);
+});
+
+// Serve markdown endpoints guide
+app.get(['/api/docs/API_ENDPOINTS_GUIDE.md', '/api/API_ENDPOINTS_GUIDE.md'], (_req, res) => {
+    const mdPath = path.join(__dirname, 'docs', 'API_ENDPOINTS_GUIDE.md');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.sendFile(mdPath);
+});
+
+app.use(
+    '/api/docs',
+    (req, res, next) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        next();
+    },
+    express.static(path.join(__dirname, 'docs'))
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. Serve uploaded files as static assets

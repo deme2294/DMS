@@ -682,10 +682,27 @@
 }
 
 @media (max-width: 420px) {
+  .dashboard {
+    padding: 0;
+    gap: 14px;
+  }
   .statsGrid {
     grid-template-columns: 1fr;
   }
   .slaGrid {
     grid-template-columns: 1fr;
+  }
+  .tableCard, .slaSection {
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .heading {
+    font-size: 1.25rem;
+  }
+  .statValue {
+    font-size: 1.45rem;
   }
 }

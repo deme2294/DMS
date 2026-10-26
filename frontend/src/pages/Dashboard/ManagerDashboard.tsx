@@ -294,7 +294,7 @@ export default function ManagerDashboard() {
                       return (
                         <tr key={t.id} className={styles.tr}>
                           <td className={styles.td}>
-                            <Link to={`/manager/tickets/${t.id}`} className={styles.ticketTitleLink}>
+                            <Link to={`/manager/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.ticketTitleLink}>
                               {t.title}
                             </Link>
                             {t.referenceNumber && (
@@ -335,7 +335,7 @@ export default function ManagerDashboard() {
                           </td>
                           <td className={styles.td} style={{ textAlign: 'right' }}>
                             <Link
-                              to={`/manager/tickets/${t.id}`}
+                              to={`/manager/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`}
                               style={{
                                 fontSize: '0.8rem',
                                 fontWeight: 700,
@@ -369,7 +369,7 @@ export default function ManagerDashboard() {
                 };
 
                 return (
-                  <Link key={t.id} to={`/manager/tickets/${t.id}`} className={styles.mobileCard}>
+                  <Link key={t.id} to={`/manager/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.mobileCard}>
                     <div className={styles.mobileCardHeader}>
                       <span className={styles.refText}>{t.referenceNumber ?? '—'}</span>
                       <span

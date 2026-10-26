@@ -1,0 +1,19 @@
+$kind: http-request
+name: Approve Completion (Admin/Tenant)
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/approve"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+body:
+  type: text
+  content: |-
+    {
+      "notes": "Verified resolved by tenant."
+    }
+order: 20000

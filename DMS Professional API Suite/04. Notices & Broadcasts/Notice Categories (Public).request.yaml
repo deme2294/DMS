@@ -1,0 +1,9 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/notices/categories"
+method: GET
+headers:
+  Accept: application/json
+auth:
+  type: noauth
+order: 2000

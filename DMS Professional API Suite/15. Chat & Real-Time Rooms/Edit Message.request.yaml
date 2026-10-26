@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/messages/:messageId"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: messageId
+    value: "{{messageId}}"
+    description: Path parameter messageId
+body:
+  type: text
+  content: |-
+    {
+      "message": "Updated: Issue has been resolved."
+    }
+order: 10000

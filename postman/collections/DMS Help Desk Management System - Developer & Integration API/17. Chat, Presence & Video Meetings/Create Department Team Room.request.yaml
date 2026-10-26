@@ -1,0 +1,18 @@
+$kind: http-request
+description: Create Department Team Room
+url: "{{baseUrl}}/api/chat/rooms/department"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "departmentId": "dept-infra-01",
+      "name": "Infrastructure Tech Sync"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as feedbackRepo from '../repository/feedbackRepository.js';
+import pool from '../config/db.js';
+import { sendFeedbackAlertEmail, sendFeedbackResponseEmail } from './emailService.js';
 
 export const listFeedback = async (filters, user) => {
   return feedbackRepo.findAll(filters, user);
@@ -31,7 +33,17 @@ export const createFeedback = async (data, user) => {
     status: 'pending',
   };
   await feedbackRepo.create(feedback);
-  return feedbackRepo.findById(feedback.id);
+  const savedFeedback = await feedbackRepo.findById(feedback.id);
+
+  // Notify created system email (demshuterefe94@gmail.com) of incoming feedback
+  const submitterName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user?.username || 'Tenant User');
+  sendFeedbackAlertEmail({
+    feedback: savedFeedback || feedback,
+    submitterName,
+    submitterEmail: user?.email,
+  }).catch(() => {});
+
+  return savedFeedback;
 };
 
 export const updateFeedback = async (id, data) => {
@@ -50,7 +62,29 @@ export const updateFeedback = async (id, data) => {
   if (Object.keys(updateData).length) {
     await feedbackRepo.update(id, updateData);
   }
-  return feedbackRepo.findById(id);
+
+  const updated = await feedbackRepo.findById(id);
+
+  // Send response notification back to tenant contact email
+  if (updateData.admin_response && updated?.tenant_id) {
+    try {
+      const [tenantRows] = await pool.query(
+        'SELECT email, contact_person FROM tenants WHERE id = :tenantId LIMIT 1',
+        { tenantId: updated.tenant_id }
+      );
+      if (tenantRows.length && tenantRows[0].email) {
+        sendFeedbackResponseEmail({
+          email: tenantRows[0].email,
+          recipientName: tenantRows[0].contact_person || 'Tenant Contact',
+          feedback: updated,
+          responseMessage: updateData.admin_response,
+          responderName: 'HDMS Administration',
+        }).catch(() => {});
+      }
+    } catch {}
+  }
+
+  return updated;
 };
 
 export const deleteFeedback = async (id) => {

@@ -10,6 +10,24 @@ input[type="radio"] {
   cursor: pointer;
 }
 
+/* ── Native Select Option Contrast Fix (Eliminates OS dark popup in light mode) ── */
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+  padding: 8px 12px;
+}
+
+/* ── Date Picker Indicator Styling ── */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 :root {
   --sidebar-width: 275px;
   --sidebar-collapsed-width: 76px;
@@ -250,19 +268,199 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   color: #ffffff !important;
 }
 
-/* ── Filters bar ────────────────────────────────────────────────────────── */
-[data-theme="dark"] [class*="filters"],
-[data-theme="dark"] [class*="filter"],
-[data-theme="dark"] [class*="search"] {
-  background-color: transparent !important;
+/* ── Global Enterprise Buttons & Action Controls ────────────────────────── */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.45) !important;
 }
 
-[data-theme="dark"] [class*="filters"] input,
-[data-theme="dark"] [class*="filters"] select {
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* Base button icon standardization */
+[class*="btnIcon"],
+.btn-icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  stroke-width: 2.2;
+}
+
+/* Standard button micro-elevations across all forms */
+[class*="submitBtn"],
+[class*="publishBtn"],
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+[class*="submitBtn"]:hover:not(:disabled),
+[class*="publishBtn"]:hover:not(:disabled),
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+}
+
+/* Dark theme button elevations for all related pages */
+[data-theme="dark"] [class*="submitBtn"]:not(:disabled),
+[data-theme="dark"] [class*="publishBtn"]:not(:disabled) {
+  border: 1px solid rgba(147, 197, 253, 0.32) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 4px 18px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+[data-theme="dark"] [class*="submitBtn"]:not(:disabled):hover,
+[data-theme="dark"] [class*="publishBtn"]:not(:disabled):hover {
+  border-color: rgba(191, 219, 254, 0.55) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(37, 99, 235, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+[data-theme="dark"] [class*="draftBtn"]:not(:disabled) {
+  background: linear-gradient(180deg, #1e293b 0%, #151d2c 100%) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] [class*="draftBtn"]:not(:disabled):hover {
+  background: linear-gradient(180deg, #28354c 0%, #1e293b 100%) !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+  transform: translateY(-1.5px);
+}
+
+[data-theme="dark"] [class*="cancelBtn"]:not([class*="delete"]):not(:disabled) {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] [class*="cancelBtn"]:not([class*="delete"]):not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  transform: translateY(-1.5px);
+}
+
+/* ── Enterprise Filters & Toolbar System ─────────────────────────────────── */
+[class*="dateRangeGroup"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+  flex-wrap: nowrap !important;
+}
+
+[class*="presetBtn"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  user-select: none;
+}
+
+[class*="presetBtn"]:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+}
+
+[class*="presetBtnActive"],
+[class*="presetBtn"][class*="Active"] {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  transform: none !important;
+}
+
+/* Dark Theme Filter Adjustments */
+[data-theme="dark"] [class*="presetBtn"] {
+  background: #151d2f !important;
+  border-color: #27344b !important;
+  color: #94a3b8 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] [class*="presetBtn"]:hover {
+  background: #1e2a42 !important;
+  border-color: #3b4d6e !important;
+  color: #f8fafc !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45) !important;
+}
+
+[data-theme="dark"] [class*="presetBtnActive"],
+[data-theme="dark"] [class*="presetBtn"][class*="Active"] {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme="dark"] [class*="filtersCard"],
+[data-theme="dark"] [class*="filterCard"] {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] [class*="filters"] input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] [class*="filters"] select,
+[data-theme="dark"] [class*="filterInputs"] input,
+[data-theme="dark"] [class*="filterInputs"] select,
+[data-theme="dark"] [class*="searchInputWrapper"],
+[data-theme="dark"] [class*="selectWrapper"],
+[data-theme="dark"] [class*="dateInputWrapper"] {
   background-color: var(--input-bg) !important;
   border-color: var(--input-border) !important;
   color: #f8fafc !important;
 }
+
+[data-theme="dark"] [class*="searchInputWrapper"]:focus-within,
+[data-theme="dark"] [class*="selectWrapper"]:focus-within,
+[data-theme="dark"] [class*="dateInputWrapper"]:focus-within,
+[data-theme="dark"] [class*="filters"] input:focus,
+[data-theme="dark"] [class*="filters"] select:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22) !important;
+}
+
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) brightness(1.2) !important;
+}
+
 
 /* ── Tables ─────────────────────────────────────────────────────────────── */
 [data-theme="dark"] table {
@@ -1451,28 +1649,31 @@ code {
 
 /* ==========================================================================
    ENTERPRISE CENTERED ACTION ALERTS & TOAST NOTIFICATIONS
-   Displays all action feedbacks (creating, updating, deleting, approving, etc.)
-   prominently centered on the page in a sleek, floating alert pill.
+   Displays action feedbacks (creating, updating, deleting, saving, etc.)
+   prominently centered in the main page with zero overlap and zero redundancy.
    ========================================================================== */
 
-[class*="toast"],
-[class*="Toast"],
-.toast,
-.toastSuccess,
-.toastError {
-  position: fixed !important;
-  top: 28px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 999999 !important;
-  width: auto !important;
-  min-width: 300px !important;
-  max-width: min(680px, 92vw) !important;
-  display: inline-flex !important;
+/* Target only top-level alert/toast containers, never inner icons, spans, or svgs */
+div.toast,
+div[class*="toastSuccess"],
+div[class*="toastError"],
+div[class*="ToastSuccess"],
+div[class*="ToastError"],
+div[class*="toast"]:not([class*="toastIcon"]):not([class*="toastContainer"]):not([class*="toastCenterWrapper"]):not([class*="toastWrap"]):not([class*="toastClose"]):not([class*="toastBody"]):not([class*="filter"]) {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  margin: 16px auto 24px auto !important;
+  z-index: 45 !important;
+  width: fit-content !important;
+  min-width: 280px !important;
+  max-width: min(720px, 92%) !important;
+  display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 12px !important;
-  padding: 13px 28px !important;
+  padding: 12px 28px !important;
   border-radius: 999px !important;
   font-size: 0.94rem !important;
   font-weight: 700 !important;
@@ -1483,46 +1684,80 @@ code {
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   box-shadow: 
-    0 20px 48px -10px rgba(0, 0, 0, 0.28),
-    0 8px 24px -6px rgba(0, 0, 0, 0.16),
+    0 12px 32px -8px rgba(0, 0, 0, 0.16),
+    0 4px 12px -3px rgba(0, 0, 0, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.4) inset !important;
-  animation: slideToastCentered 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  animation: slideToastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
   transition: all 0.25s ease !important;
-  margin: 0 !important;
+  box-sizing: border-box !important;
 }
 
-/* Success Action Alerts (Creating, Updating, Deleting, Approving, Publishing) */
-[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]),
-[class*="toastSuccess"],
-[class*="ToastSuccess"] {
+/* Success Action Alerts */
+div[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]):not([class*="filter"]),
+div[class*="toastSuccess"],
+div[class*="ToastSuccess"] {
   background: linear-gradient(135deg, rgba(240, 253, 244, 0.98) 0%, rgba(220, 252, 231, 0.96) 100%) !important;
   color: #065f46 !important;
   border: 1.5px solid #10b981 !important;
   box-shadow: 
-    0 20px 48px -10px rgba(16, 185, 129, 0.35),
-    0 8px 20px -6px rgba(16, 185, 129, 0.2),
+    0 14px 36px -10px rgba(16, 185, 129, 0.3),
+    0 4px 14px -4px rgba(16, 185, 129, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
 }
 
 /* Error / Rejection / Failure Action Alerts */
-[class*="toast"][class*="error"],
-[class*="toast"][class*="Error"],
-[class*="toastError"],
-[class*="ToastError"],
-[class*="toast"][class*="danger"] {
+div[class*="toast"][class*="error"],
+div[class*="toast"][class*="Error"],
+div[class*="toastError"],
+div[class*="ToastError"],
+div[class*="toast"][class*="danger"] {
   background: linear-gradient(135deg, rgba(254, 242, 242, 0.98) 0%, rgba(254, 226, 226, 0.96) 100%) !important;
   color: #991b1b !important;
   border: 1.5px solid #ef4444 !important;
   box-shadow: 
-    0 20px 48px -10px rgba(239, 68, 68, 0.35),
-    0 8px 20px -6px rgba(239, 68, 68, 0.2),
+    0 14px 36px -10px rgba(239, 68, 68, 0.3),
+    0 4px 14px -4px rgba(239, 68, 68, 0.18),
     0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
 }
 
-/* Success Icon Badge */
-[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"])::before,
-[class*="toastSuccess"]::before,
-[class*="ToastSuccess"]::before {
+/* Prevent inner icons, buttons, spans, or SVGs from inheriting toast pill styles or becoming redundant duplicate capsules */
+[class*="toastIcon"],
+.toastIcon,
+svg[class*="toast"],
+[class*="toast"] svg,
+[class*="Toast"] svg {
+  position: static !important;
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+}
+
+[class*="toastIcon"]::before,
+[class*="toast"] svg::before,
+[class*="Toast"] svg::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* Success Icon Badge — Only inject if the container does NOT already contain an internal SVG / icon */
+div[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]):not([class*="filter"]):not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="toastSuccess"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="ToastSuccess"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before {
   content: '✓' !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -1538,12 +1773,12 @@ code {
   box-shadow: 0 2px 6px rgba(16, 185, 129, 0.45) !important;
 }
 
-/* Error Icon Badge */
-[class*="toast"][class*="error"]::before,
-[class*="toast"][class*="Error"]::before,
-[class*="toastError"]::before,
-[class*="ToastError"]::before,
-[class*="toast"][class*="danger"]::before {
+/* Error Icon Badge — Only inject if the container does NOT already contain an internal SVG / icon */
+div[class*="toast"][class*="error"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="toast"][class*="Error"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="toastError"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="ToastError"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before,
+div[class*="toast"][class*="danger"]:not(:has(svg)):not(:has([class*="toastIcon"]))::before {
   content: '✕' !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -1560,40 +1795,40 @@ code {
 }
 
 /* Dark Theme Overrides for Centered Action Alerts */
-[data-theme="dark"] [class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]),
-[data-theme="dark"] [class*="toastSuccess"],
-[data-theme="dark"] [class*="ToastSuccess"] {
+[data-theme="dark"] div[class*="toast"]:not([class*="error"]):not([class*="Error"]):not([class*="danger"]):not([class*="warn"]):not([class*="filter"]),
+[data-theme="dark"] div[class*="toastSuccess"],
+[data-theme="dark"] div[class*="ToastSuccess"] {
   background: linear-gradient(135deg, rgba(6, 78, 59, 0.96) 0%, rgba(4, 47, 46, 0.98) 100%) !important;
   color: #a7f3d0 !important;
   border: 1.5px solid #059669 !important;
   box-shadow: 
-    0 24px 50px -10px rgba(0, 0, 0, 0.75),
-    0 0 24px rgba(16, 185, 129, 0.35),
+    0 16px 40px -10px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(16, 185, 129, 0.3),
     0 0 0 1px rgba(52, 211, 153, 0.25) inset !important;
 }
 
-[data-theme="dark"] [class*="toast"][class*="error"],
-[data-theme="dark"] [class*="toast"][class*="Error"],
-[data-theme="dark"] [class*="toastError"],
-[data-theme="dark"] [class*="ToastError"],
-[data-theme="dark"] [class*="toast"][class*="danger"] {
+[data-theme="dark"] div[class*="toast"][class*="error"],
+[data-theme="dark"] div[class*="toast"][class*="Error"],
+[data-theme="dark"] div[class*="toastError"],
+[data-theme="dark"] div[class*="ToastError"],
+[data-theme="dark"] div[class*="toast"][class*="danger"] {
   background: linear-gradient(135deg, rgba(127, 29, 29, 0.96) 0%, rgba(69, 10, 10, 0.98) 100%) !important;
   color: #fecaca !important;
   border: 1.5px solid #dc2626 !important;
   box-shadow: 
-    0 24px 50px -10px rgba(0, 0, 0, 0.75),
-    0 0 24px rgba(239, 68, 68, 0.35),
+    0 16px 40px -10px rgba(0, 0, 0, 0.75),
+    0 0 20px rgba(239, 68, 68, 0.3),
     0 0 0 1px rgba(248, 113, 113, 0.25) inset !important;
 }
 
-@keyframes slideToastCentered {
+@keyframes slideToastIn {
   0% {
     opacity: 0;
-    transform: translate(-50%, -36px) scale(0.92);
+    transform: translateY(-12px) scale(0.96);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -1838,4 +2073,291 @@ body:has(.login-root) #root {
   a[href]::after {
     content: "" !important;
   }
-}
+}
+
+/* ==========================================================================
+   Professional Interactive 3D Movable Parallax Physics System
+   ========================================================================== */
+.movable-interactive {
+  will-change: transform, box-shadow;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.3s ease;
+  position: relative;
+}
+
+.movable-interactive:hover {
+  transition: transform 0.08s ease-out, box-shadow 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.12), 0 4px 14px -2px rgba(15, 23, 42, 0.08);
+  z-index: 2;
+}
+
+:global([data-theme="dark"]) .movable-interactive:hover,
+[data-theme="dark"] .movable-interactive:hover {
+  box-shadow: 0 18px 40px -6px rgba(0, 0, 0, 0.7), 0 0 24px -2px rgba(14, 165, 233, 0.16);
+  border-color: rgba(56, 189, 248, 0.45) !important;
+}
+
+/* Specular Light Reflection Overlay */
+.movable-interactive::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 260px at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.25),
+    transparent 75%
+  );
+  opacity: var(--glare-opacity, 0);
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+:global([data-theme="dark"]) .movable-interactive::after,
+[data-theme="dark"] .movable-interactive::after {
+  background: radial-gradient(
+    circle 260px at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(56, 189, 248, 0.12),
+    rgba(255, 255, 255, 0.04) 40%,
+    transparent 80%
+  );
+}
+
+/* Enable hardware-accelerated rendering on all card surfaces */
+.card,
+[class*="viewCard"],
+[class*="categoryHero"],
+[class*="viewSlaHighlight"],
+[class*="viewSlaCard"],
+[class*="statCard"],
+[class*="statBox"],
+[class*="metricCard"] {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL HIGH-CONTRAST ACTION BUTTONS (LIGHT & DARK THEMES)
+   Guarantees all action buttons across all views/tables are crystal clear
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[class*="actionBtnView"],
+[class*="actionBtnDept"],
+[class*="actionBtnStaff"],
+[class*="actionBtnDelete"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+}
+
+[class*="actionBtnView"] span,
+[class*="actionBtnDept"] span,
+[class*="actionBtnStaff"] span,
+[class*="actionBtnDelete"] span {
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+[class*="actionBtnView"] svg,
+[class*="actionBtnDept"] svg,
+[class*="actionBtnStaff"] svg,
+[class*="actionBtnDelete"] svg,
+[class*="actionIcon"] {
+  color: inherit !important;
+  stroke: currentColor !important;
+  width: 14.5px !important;
+  height: 14.5px !important;
+  flex-shrink: 0 !important;
+  stroke-width: 2.2 !important;
+  transition: transform 0.18s ease !important;
+}
+
+[class*="actionBtnView"]:active,
+[class*="actionBtnDept"]:active,
+[class*="actionBtnStaff"]:active,
+[class*="actionBtnDelete"]:active {
+  transform: scale(0.95) !important;
+}
+
+[class*="actionBtnView"]:hover svg,
+[class*="actionBtnDept"]:hover svg,
+[class*="actionBtnStaff"]:hover svg,
+[class*="actionBtnDelete"]:hover svg,
+[class*="actionIcon"]:hover {
+  transform: scale(1.15) !important;
+}
+
+/* ── Light Theme Defaults ── */
+[class*="actionBtnView"] {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1.5px solid #93c5fd !important;
+  box-shadow: 0 1px 3px rgba(29, 78, 216, 0.12) !important;
+}
+[class*="actionBtnView"]:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+}
+
+[class*="actionBtnDept"] {
+  background: #f0fdf4 !important;
+  color: #047857 !important;
+  border: 1.5px solid #6ee7b7 !important;
+  box-shadow: 0 1px 3px rgba(4, 120, 87, 0.12) !important;
+}
+[class*="actionBtnDept"]:hover {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35) !important;
+}
+
+[class*="actionBtnStaff"] {
+  background: #faf5ff !important;
+  color: #7e22ce !important;
+  border: 1.5px solid #d8b4fe !important;
+  box-shadow: 0 1px 3px rgba(126, 34, 206, 0.12) !important;
+}
+[class*="actionBtnStaff"]:hover {
+  background: linear-gradient(135deg, #9333ea, #7e22ce) !important;
+  color: #ffffff !important;
+  border-color: #7e22ce !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.35) !important;
+}
+
+[class*="actionBtnDelete"] {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+  border: 1.5px solid #fca5a5 !important;
+  box-shadow: 0 1px 3px rgba(190, 18, 60, 0.12) !important;
+}
+[class*="actionBtnDelete"]:hover {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  color: #ffffff !important;
+  border-color: #be123c !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35) !important;
+}
+
+/* ── Dark Theme Overrides (High-Visibility & Radiant Contrast) ── */
+[data-theme="dark"] [class*="actionBtnView"] {
+  background: rgba(30, 64, 175, 0.45) !important;
+  color: #bfdbfe !important;
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
+}
+[data-theme="dark"] [class*="actionBtnView"]:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  border-color: #93c5fd !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.65) !important;
+}
+
+[data-theme="dark"] [class*="actionBtnDept"] {
+  background: rgba(4, 120, 87, 0.45) !important;
+  color: #a7f3d0 !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
+}
+[data-theme="dark"] [class*="actionBtnDept"]:hover {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  color: #ffffff !important;
+  border-color: #6ee7b7 !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.65) !important;
+}
+
+[data-theme="dark"] [class*="actionBtnStaff"] {
+  background: rgba(109, 40, 217, 0.45) !important;
+  color: #e9d5ff !important;
+  border: 1.5px solid #8b5cf6 !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.3) !important;
+}
+[data-theme="dark"] [class*="actionBtnStaff"]:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  color: #ffffff !important;
+  border-color: #d8b4fe !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.65) !important;
+}
+
+[data-theme="dark"] [class*="actionBtnDelete"] {
+  background: rgba(190, 18, 60, 0.45) !important;
+  color: #fecdd3 !important;
+  border: 1.5px solid #f43f5e !important;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.3) !important;
+}
+[data-theme="dark"] [class*="actionBtnDelete"]:hover {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  color: #ffffff !important;
+  border-color: #fda4af !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.65) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GLOBAL RESPONSIVE ACCESSIBILITY & SAFE AREA SYSTEM
+   ══════════════════════════════════════════════════════════════════════════ */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  overflow-x: hidden;
+  max-width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Accessible touch targets on coarse-pointer / mobile devices */
+@media (pointer: coarse) {
+  button:not([class*="optionBtn"]):not([class*="close"]):not([class*="chevron"]):not([class*="statArrow"]):not([class*="clear"]):not([class*="tag"]):not([class*="badge"]),
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 42px;
+  }
+}
+
+/* Prevent image and media overflow on small devices */
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Prevent long unbroken text/emails from pushing layout width */
+p,
+span,
+h1,
+h2,
+h3,
+h4,
+td,
+th {
+  overflow-wrap: break-word;
+}

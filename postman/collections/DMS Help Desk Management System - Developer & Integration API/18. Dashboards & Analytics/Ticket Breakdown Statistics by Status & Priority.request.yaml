@@ -1,0 +1,9 @@
+$kind: http-request
+description: Ticket Breakdown Statistics by Status & Priority
+url: "{{baseUrl}}/api/dashboard/tickets/stats"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

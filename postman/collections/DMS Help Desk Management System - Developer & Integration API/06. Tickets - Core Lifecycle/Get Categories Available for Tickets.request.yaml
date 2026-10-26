@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns categories that callers can select when creating tickets.
+url: "{{baseUrl}}/api/tickets/categories"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

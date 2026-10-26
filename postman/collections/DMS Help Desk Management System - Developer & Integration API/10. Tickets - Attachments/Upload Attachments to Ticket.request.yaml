@@ -1,0 +1,17 @@
+$kind: http-request
+description: Uploads up to 5 files to an existing ticket. Max 10MB per file.
+url: "{{baseUrl}}/api/tickets/:id/attachments"
+method: POST
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: formdata
+  content:
+    - type: text
+      key: attachments
+      value: sample
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

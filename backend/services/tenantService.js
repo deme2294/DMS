@@ -4,6 +4,11 @@ import * as tenantRepo from '../repository/tenantRepository.js';
 import pool from '../config/db.js';
 import { sanitizeTenant } from '../models/Tenant.js';
 import { generateUserCode } from './userService.js';
+import {
+  sendTenantRegistrationPendingEmail,
+  sendTenantRegistrationAdminAlert,
+  sendTenantApprovedEmail,
+} from './emailService.js';
 
 const SALT_ROUNDS = 10;
 
@@ -47,6 +52,34 @@ export const getTenant = async (id) => {
 export const getTenantWithUsers = async (id) => {
   const tenant = await getTenant(id);
   const users = await tenantRepo.findUsersByTenantId(id);
+
+  // Automatically reflect and synchronize user profile changes (name, email, phone) to tenant organization
+  const primaryUser = users[0];
+  if (primaryUser) {
+    const fullName = [primaryUser.first_name, primaryUser.last_name].filter(Boolean).join(' ').trim();
+    let needsDbSync = false;
+    const syncFields = {};
+
+    if (primaryUser.email && tenant.email !== primaryUser.email) {
+      tenant.email = primaryUser.email;
+      syncFields.email = primaryUser.email;
+      needsDbSync = true;
+    }
+    if (primaryUser.phone && tenant.phone !== primaryUser.phone) {
+      tenant.phone = primaryUser.phone;
+      syncFields.phone = primaryUser.phone;
+      needsDbSync = true;
+    }
+    if (fullName && tenant.contactPerson !== fullName) {
+      tenant.contactPerson = fullName;
+      syncFields.contact_person = fullName;
+      needsDbSync = true;
+    }
+    if (needsDbSync) {
+      await tenantRepo.update(id, syncFields).catch(() => {});
+    }
+  }
+
   return {
     ...tenant,
     users: users.map((u) => ({
@@ -58,6 +91,10 @@ export const getTenantWithUsers = async (id) => {
       phone: u.phone,
       status: u.status,
       lastLoginAt: u.last_login_at,
+      profileImage: u.profile_image || null,
+      role: u.role || 'tenant',
+      userCode: u.user_code || null,
+      createdAt: u.created_at || null,
     })),
   };
 };
@@ -225,6 +262,25 @@ export const registerTenant = async (payload) => {
     throw Object.assign(new Error('Failed to retrieve registered tenant'), { statusCode: 500 });
   }
 
+  // 1. Send confirmation to tenant's created email
+  sendTenantRegistrationPendingEmail({
+    email: trimmed.email,
+    organizationName: trimmed.organizationName,
+    contactPerson: trimmed.contactPerson,
+    username: trimmed.username,
+  }).catch(() => {});
+
+  // 2. Alert HDMS system email (demshuterefe94@gmail.com) of the new external registration
+  sendTenantRegistrationAdminAlert({
+    tenant: {
+      organizationName: trimmed.organizationName,
+      contactPerson: trimmed.contactPerson,
+      email: trimmed.email,
+      phone: trimmed.phone,
+      registrationNumber: trimmed.registrationNumber || `REG-${tenantId.slice(0, 8).toUpperCase()}`,
+    },
+  }).catch(() => {});
+
   return {
     success: true,
     message: 'Registration submitted. Awaiting admin approval.',
@@ -256,6 +312,7 @@ export const updateTenant = async (id, payload, restrictFields = false) => {
   const updatePayload = restrictFields
     ? {
         contact_person: trimmed.contactPerson,
+        email: trimmed.email,
         phone: trimmed.phone,
         address: trimmed.address,
         notes: trimmed.notes,
@@ -274,6 +331,24 @@ export const updateTenant = async (id, payload, restrictFields = false) => {
       };
 
   await tenantRepo.update(id, updatePayload);
+
+  // Synchronize changes to linked user accounts for this tenant
+  const userSync = {};
+  if (trimmed.email) userSync.email = trimmed.email;
+  if (trimmed.phone !== undefined) userSync.phone = trimmed.phone;
+  if (trimmed.contactPerson) {
+    const parts = trimmed.contactPerson.trim().split(' ');
+    userSync.first_name = parts[0] || trimmed.contactPerson;
+    userSync.last_name = parts.slice(1).join(' ') || '';
+  }
+  if (Object.keys(userSync).length > 0) {
+    const setClause = Object.keys(userSync).map((k) => `${k} = :${k}`).join(', ');
+    await pool.query(
+      `UPDATE users SET ${setClause} WHERE tenant_id = :tenantId`,
+      { ...userSync, tenantId: id }
+    ).catch(() => {});
+  }
+
   return getTenant(id);
 };
 
@@ -302,7 +377,18 @@ export const activateTenant = async (id) => {
     { tenantId: id }
   );
 
-  return getTenant(id);
+  const updatedTenant = await getTenant(id);
+
+  // Send activation notice to tenant's email address
+  if (updatedTenant && updatedTenant.email) {
+    sendTenantApprovedEmail({
+      email: updatedTenant.email,
+      organizationName: updatedTenant.organization_name || updatedTenant.organizationName,
+      contactPerson: updatedTenant.contact_person || updatedTenant.contactPerson,
+    }).catch(() => {});
+  }
+
+  return updatedTenant;
 };
 
 export const deactivateTenant = async (id) => {

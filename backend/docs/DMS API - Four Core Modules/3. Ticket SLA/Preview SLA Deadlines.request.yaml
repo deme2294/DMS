@@ -1,0 +1,21 @@
+$kind: http-request
+description: Forecasts target SLA deadlines prior to ticket creation.
+url: "{{baseUrl}}/api/sla/preview?priority=high&categoryId={{categoryId}}"
+method: GET
+queryParams:
+  priority: high
+  categoryId: "{{categoryId}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+      var jsonData = pm.response.json();
+      pm.test('Due dates calculated', function () {
+          pm.expect(jsonData.success).to.be.true;
+          pm.expect(jsonData.data).to.have.property('responseDueDate');
+          pm.expect(jsonData.data).to.have.property('resolutionDueDate');
+      });
+    language: text/javascript
+order: 1000

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
+import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
   fetchTenants,
   deleteTenant,
@@ -52,6 +53,7 @@ export default function TenantList() {
 
   // In-app delete confirmation modal
   const [deleteModal, setDeleteModal] = useState<Tenant | null>(null);
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
 
   // Overall stats state
   const [allTenants, setAllTenants] = useState<Tenant[]>([]);
@@ -397,14 +399,19 @@ export default function TenantList() {
             key: 'email',
             label: 'Email',
             render: (row) => (
-              <a
-                href={`mailto:${row.email}`}
+              <button
+                type="button"
+                onClick={() => setContactTarget({
+                  email: row.email,
+                  name: row.organizationName || row.contactPerson,
+                  roleOrType: 'Tenant Organization',
+                })}
                 className={styles.emailLink}
                 title={`Send email to ${row.email}`}
               >
                 <EnvelopeIcon />
                 <span>{row.email}</span>
-              </a>
+              </button>
             ),
           },
           {
@@ -462,8 +469,23 @@ export default function TenantList() {
               <div className={styles.actionGroup}>
                 <button
                   type="button"
+                  className={styles.actionBtn}
+                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                  onClick={() => setContactTarget({
+                    email: row.email,
+                    name: row.organizationName || row.contactPerson,
+                    roleOrType: 'Tenant Organization',
+                  })}
+                  title={`Send email to ${row.email}`}
+                >
+                  <EnvelopeIcon className={styles.actionIcon} />
+                  <span>Contact</span>
+                </button>
+
+                <button
+                  type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnView}`}
-                  onClick={() => navigate(`/admin/tenants/${row.id}`)}
+                  onClick={() => navigate(`/admin/tenants/${row.tenantId || (row as any).tenant_id || row.id}`)}
                   title="View details"
                 >
                   <EyeIcon className={styles.actionIcon} />
@@ -473,7 +495,7 @@ export default function TenantList() {
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
-                  onClick={() => navigate(`/admin/tenants/${row.id}/edit`)}
+                  onClick={() => navigate(`/admin/tenants/${row.tenantId || (row as any).tenant_id || row.id}/edit`)}
                   title="Edit tenant"
                 >
                   <PencilSquareIcon className={styles.actionIcon} />
@@ -608,6 +630,12 @@ export default function TenantList() {
           </div>
         )}
       </Modal>
+
+      <ContactModal
+        open={!!contactTarget}
+        target={contactTarget}
+        onClose={() => setContactTarget(null)}
+      />
     </div>
   );
 }

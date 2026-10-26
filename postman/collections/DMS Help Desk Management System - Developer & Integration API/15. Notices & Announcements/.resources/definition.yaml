@@ -1,0 +1,3 @@
+$kind: collection
+description: Broadcast notices, targeted departmental bulletins, expiry scheduling, and acknowledgements
+order: 15000

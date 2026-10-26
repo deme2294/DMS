@@ -1,0 +1,9 @@
+$kind: http-request
+description: Retrieves chronological list of ticket and workflow notifications.
+url: "{{baseUrl}}/api/tickets/notifications"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

@@ -2,6 +2,7 @@ import { validationResult, param, body } from 'express-validator';
 import { HTTP } from '../config/constants.js';
 
 const UUID_REGEX = /^[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$/i;
+const ID_PARAM_REGEX = /^[0-9a-zA-Z_-]{1,36}$/;
 
 export const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -19,16 +20,13 @@ export const validate = (req, res, next) => {
 
 /**
  * idParam(name?)
- * Validates a route param is a non-empty string that looks like a UUID
- * (standard OR seed-data repeated-char format like dddddddd-dddd-dddd-dddd-dddddddddddd).
- *
- * Uses a regex instead of isUUID() so seed/test IDs are accepted.
+ * Validates a route param is a valid ID (numeric, short ID, or UUID).
  */
 export const idParam = (name = 'id') =>
   param(name)
     .trim()
-    .matches(UUID_REGEX)
-    .withMessage(`${name} must be a valid UUID`);
+    .matches(ID_PARAM_REGEX)
+    .withMessage(`${name} must be a valid identifier`);
 
 /**
  * uuidBody(name)

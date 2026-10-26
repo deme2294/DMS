@@ -1,0 +1,19 @@
+$kind: http-request
+description: Re-categorizes ticket and updates routing type.
+url: "{{baseUrl}}/api/tickets/:id/category"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "category": "Security & Access"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 12000

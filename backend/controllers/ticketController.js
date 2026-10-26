@@ -174,8 +174,9 @@ export const closeTicket = async (req, res, next) => {
 
 export const reopenTicket = async (req, res, next) => {
   try {
-    const data = await ticketService.reopenTicket(req.user, req.params.id, req.body.notes, clientMeta(req));
-    res.status(HTTP.OK).json({ success: true, message: 'Ticket reopened', data });
+    const reason = req.body.reason || req.body.notes;
+    const data = await ticketService.reopenTicket(req.user, req.params.id, reason, clientMeta(req));
+    res.status(HTTP.OK).json({ success: true, message: 'Ticket reopened successfully', data });
   } catch (err) {
     next(err);
   }
@@ -263,7 +264,8 @@ export const addReply = async (req, res, next) => {
       req.body.visibility || 'all',
       req.body.attachmentId || null,
       clientMeta(req),
-      req.body.departmentIds || null
+      req.body.departmentIds || null,
+      req.body.targetUserId || null
     );
     res.status(HTTP.CREATED).json({ success: true, message: 'Reply added', data });
   } catch (err) {

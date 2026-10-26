@@ -1,0 +1,20 @@
+$kind: http-request
+description: Transfers ticket assignment from current technician to a new technician.
+url: "{{baseUrl}}/api/tickets/:id/reassign"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "staffId": "b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "notes": "Original technician called out; reassigning to Sarah."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

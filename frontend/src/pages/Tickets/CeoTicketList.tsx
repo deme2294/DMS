@@ -22,6 +22,9 @@ import {
   TrashIcon,
   XMarkIcon,
   DocumentTextIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline';
 import styles from './CeoTickets.module.css';
 
@@ -210,11 +213,66 @@ export default function CeoTicketList() {
           {
             key: 'reference',
             label: 'Reference',
-            render: (row) => (
-              <Link to={`${base}/${row.id}`} className={styles.link}>{row.referenceNumber}</Link>
-            ),
+            render: (row) => {
+              const shortId = row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id);
+              return (
+                <Link to={`${base}/${shortId}`} className={styles.link}>
+                  #{row.ticketNum ?? row.referenceNumber}
+                </Link>
+              );
+            },
           },
           { key: 'title', label: 'Title' },
+          {
+            key: 'tenant',
+            label: 'Tenant Name',
+            render: (row: Ticket) => (
+              <div className={styles.tenantCell}>
+                <span className={styles.tenantOrg}>{row.tenantName || row.createdByName || '—'}</span>
+                {row.tenantContactPerson && (
+                  <span className={styles.tenantSubContact} title="Contact Person">
+                    <UserIcon className={styles.contactIconSmall} />
+                    <span>{row.tenantContactPerson}</span>
+                  </span>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'tenantContact',
+            label: 'Tenant Contact',
+            render: (row: Ticket) => {
+              const email = row.tenantEmail || row.createdByEmail;
+              const phone = row.tenantPhone || row.createdByPhone;
+              if (!email && !phone) return <span className={styles.textMuted}>—</span>;
+              return (
+                <div className={styles.tenantContactCell}>
+                  {email && (
+                    <a
+                      href={`mailto:${email}`}
+                      className={styles.tenantEmailLink}
+                      title={`Send email to ${email}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailText}>{email}</span>
+                    </a>
+                  )}
+                  {phone && (
+                    <a
+                      href={`tel:${phone}`}
+                      className={styles.tenantPhoneLink}
+                      title={`Call ${phone}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span>{phone}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            },
+          },
           { key: 'category', label: 'Category' },
           {
             key: 'priority',
@@ -251,7 +309,7 @@ export default function CeoTicketList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
-                <Link to={`${base}/${row.id}`} className={styles.actionBtnView} title="View Details">
+                <Link to={`${base}/${row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id)}`} className={styles.actionBtnView} title="View Details">
                   <EyeIcon className={styles.actionIcon} />
                   <span>View</span>
                 </Link>

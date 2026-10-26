@@ -1,0 +1,433 @@
+$kind: collection
+description: |
+  # DMS (Document / Help Desk Management System) - API Endpoint Documentation
+
+  > **Base URL:** `http://localhost:5000/api`  
+  > **Server Engine:** Express.js + MySQL  
+  > **Authentication:** Bearer JWT in `Authorization: Bearer <access_token>` or HTTP-only Refresh Cookie  
+  > **Postman Ready Files:**  
+  > - 📦 **OpenAPI 3.0.3 Spec:** [`openapi.json`](file:///c:/Users/hp/Desktop/DMS/openapi.json) (Direct Postman Import / Swagger UI)  
+  > - 🚀 **Postman Collection v2.1.0:** [`dms_postman_collection.json`](file:///c:/Users/hp/Desktop/DMS/dms_postman_collection.json) (Pre-configured 115 requests with token handling)  
+  > - 🌐 **Postman Environment:** [`dms_postman_environment.json`](file:///c:/Users/hp/Desktop/DMS/dms_postman_environment.json) (Local environment variables)  
+
+  ---
+
+  ## 📑 Table of Contents
+
+  1. [Authentication & Profile (`/api/auth`)](#1-authentication--profile-apiauth)
+  2. [Tickets Management (`/api/tickets`)](#2-tickets-management-apitickets)
+  3. [Dashboard & Analytics (`/api/dashboard`)](#3-dashboard--analytics-apidashboard)
+  4. [Notices & Announcements (`/api/notices`)](#4-notices--announcements-apinotices)
+  5. [Tenant Feedback (`/api/feedback`)](#5-tenant-feedback-apifeedback)
+  6. [Knowledge Base (`/api/knowledge`)](#6-knowledge-base-apiknowledge)
+  7. [Reports & Exports (`/api/reports`)](#7-reports--exports-apireports)
+  8. [Audit Logs (`/api/audit`)](#8-audit-logs-apiaudit)
+  9. [User Management (`/api/users`)](#9-user-management-apiusers)
+  10. [Department Management (`/api/departments`)](#10-department-management-apidepartments)
+  11. [Matrix / Staff Assignments (`/api/matrix`)](#11-matrix--staff-assignments-apimatrix)
+  12. [Tenants Management (`/api/tenants`)](#12-tenants-management-apitenants)
+  13. [Ticket Categories (`/api/ticket-categories`)](#13-ticket-categories-apiticket-categories)
+  14. [SLA Policies (`/api/sla`)](#14-sla-policies-apisla)
+  15. [Chat & Messaging (`/api/chat`)](#15-chat--messaging-apichat)
+  16. [System & Health (`/api/health`)](#16-system--health)
+  17. [Testing Setup & Authentication Workflow](#17-testing-setup--authentication-workflow)
+
+  ---
+
+  ## 1. Authentication & Profile (`/api/auth`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `POST` | `/api/auth/login` | **Public** (Rate limited: 20 req / 15 min) | Authenticate user and obtain access token | **JSON Body:**<br>• `identifier` (string, username or email)<br>• `password` (string) |
+  | `POST` | `/api/auth/refresh` | **Public / Cookie** | Refresh expired access token | **Cookie:** `refreshToken`<br>*(or body `refreshToken`)* |
+  | `GET` | `/api/auth/me` | Authenticated | Get current authenticated user details and permissions | **Header:** `Authorization: Bearer <token>` |
+  | `POST` | `/api/auth/logout` | Authenticated | Invalidate refresh session and clear cookie | **Header:** `Authorization: Bearer <token>` |
+  | `PATCH` | `/api/auth/me/profile` | Authenticated | Update current user's profile | **Multipart / JSON:**<br>• `username?`<br>• `email?`<br>• `firstName?`<br>• `lastName?`<br>• `phone?`<br>• `currentPassword?`<br>• `newPassword?`<br>• `confirmPassword?`<br>• `profileImage?` (file) |
+  | `PATCH` | `/api/auth/me/theme` | Authenticated | Save UI theme preference | **JSON Body:**<br>• `themePreference`: `'system'` \| `'light'` \| `'dark'` |
+
+  ---
+
+  ## 2. Tickets Management (`/api/tickets`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/tickets/track/:trackNumber` | **Public** | Public tracking of ticket status | **Path:** `trackNumber` (string) |
+  | `GET` | `/api/tickets/categories` | `tickets.read` \| `tickets.create` | Get active ticket categories | None |
+  | `GET` | `/api/tickets` | `tickets.read` \| `tickets.create` | List tickets with pagination & filters | **Query:**<br>• `page?` (int)<br>• `limit?` (int)<br>• `status?` (`open`, `pending`, `in_progress`, `resolved`, `closed`, `cancelled`)<br>• `priority?` (`low`, `medium`, `high`, `urgent`)<br>• `sortBy?`<br>• `sortOrder?` (`ASC` \| `DESC`) |
+  | `GET` | `/api/tickets/notifications` | `tickets.read` \| `tickets.create` | Get user ticket notifications | None |
+  | `GET` | `/api/tickets/notifications/unread-count` | `tickets.read` \| `tickets.create` | Get unread count of notifications | None |
+  | `PATCH` | `/api/tickets/notifications/:id/read` | `tickets.read` \| `tickets.create` | Mark single notification as read | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/tickets/notifications/read-all` | `tickets.read` \| `tickets.create` | Mark all notifications as read | None |
+  | `DELETE` | `/api/tickets/notifications/:id` | `tickets.read` \| `tickets.create` | Delete notification | **Path:** `id` (UUID) |
+  | `GET` | `/api/tickets/:id` | `tickets.read` \| `tickets.create` | Get ticket details by ID | **Path:** `id` (UUID) |
+  | `GET` | `/api/tickets/:id/timeline` | `tickets.read` \| `tickets.create` | View ticket activity timeline | **Path:** `id` (UUID) |
+  | `POST` | `/api/tickets` | `tickets.create` | Create a new support ticket | **Multipart / Form:**<br>• `title` (string, 3-200 chars)<br>• `description` (string)<br>• `category` (string)<br>• `priority?` (`low`, `medium`, `high`, `urgent`)<br>• `departmentId?` (UUID)<br>• `attachments?` (files, max 5) |
+  | `PUT` | `/api/tickets/:id` | `tickets.read` \| `tickets.assign` \| `tickets.create` | Update ticket metadata | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `title?`, `description?`, `category?`, `priority?`, `departmentId?`, `assignedTo?` |
+  | `POST` | `/api/tickets/:id/assign-department` | Role: `admin` | Assign ticket to a department | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `departmentId` (UUID)<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/assign-staff` | `tickets.assign` | Assign ticket to a staff member | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `staffId` (UUID)<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/reassign` | `tickets.reassign` | Reassign ticket to another staff | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `staffId` (UUID)<br>• `notes?` (string) |
+  | `PATCH` | `/api/tickets/:id/assignment` | Role: `admin` | Admin override of assignment | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `assignedTo?` (UUID)<br>• `assignedBy?` (UUID)<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/accept` | `tickets.assign` \| `tickets.read` | Staff / Manager accepts assigned ticket | **Path:** `id` (UUID) |
+  | `POST` | `/api/tickets/:id/reject` | `tickets.assign` \| `tickets.read` | Staff / Manager rejects assignment | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `reason?` (string) |
+  | `POST` | `/api/tickets/:id/escalate` | `tickets.escalate` \| `tickets.assign` | Escalate ticket to higher authority | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/merge` | Role: `admin` | Merge duplicate tickets into this one | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `sourceIds` (UUID[])<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/close` | `tickets.close` \| `tickets.assign` | Close ticket | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/reopen` | `tickets.reopen` \| `tickets.assign` | Reopen ticket | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/complete` | `tickets.complete` | Manager marks ticket work completed | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/approve` | `tickets.approve` \| `tickets.create` | Approve resolution (Admin or Tenant) | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `POST` | `/api/tickets/:id/reject-completion` | `tickets.approve` \| `tickets.create` | Reject completion/resolution | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `notes?` (string) |
+  | `PATCH` | `/api/tickets/:id/priority` | `tickets.change_priority` \| `tickets.assign` | Change ticket priority | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `priority`: `low` \| `medium` \| `high` \| `urgent` |
+  | `PATCH` | `/api/tickets/:id/category` | `tickets.change_category` \| `tickets.assign` | Change ticket category | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `category`: string |
+  | `POST` | `/api/tickets/:id/internal-note` | `tickets.internal_note` | Add private note (staff/admin/manager) | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `message` (string)<br>• `departmentId?` (UUID) |
+  | `PATCH` | `/api/tickets/:id/status` | Authorized roles | Change status directly | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `status` (string)<br>• `notes?`<br>• `departmentId?`<br>• `assignedTo?` |
+  | `POST` | `/api/tickets/:id/attachments` | `tickets.read` \| `tickets.create` | Upload ticket attachments | **Path:** `id` (UUID)<br>**Multipart Form:** `attachments` (max 5) |
+  | `POST` | `/api/tickets/:id/replies` | `tickets.read` \| `tickets.create` | Add public or internal reply | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `message` (string)<br>• `visibility?` (`all` \| `internal`)<br>• `attachmentId?` (UUID) |
+  | `GET` | `/api/tickets/:id/replies` | `tickets.read` \| `tickets.create` | List replies for a ticket | **Path:** `id` (UUID) |
+  | `DELETE` | `/api/tickets/:id` | Role: `admin` | Permanently delete ticket | **Path:** `id` (UUID) |
+
+  ---
+
+  ## 3. Dashboard & Analytics (`/api/dashboard`)
+
+  | Method | Endpoint | Auth / Role | Description |
+  |---|---|---|---|
+  | `GET` | `/api/dashboard/admin` | `dashboard.read` | Admin operational overview & KPI metrics |
+  | `GET` | `/api/dashboard/admin/analytics` | `dashboard.read` \| `executive.analytics` | Admin resolution and volume analytics |
+  | `GET` | `/api/dashboard/admin/sla` | `dashboard.read` | Admin SLA compliance stats |
+  | `GET` | `/api/dashboard/manager` | Role: `manager` | Department manager dashboard metrics |
+  | `GET` | `/api/dashboard/manager/sla` | Role: `manager` | Manager department SLA metrics |
+  | `GET` | `/api/dashboard/staff` | Role: `staff` | Staff member ticket assigned workload |
+  | `GET` | `/api/dashboard/staff/sla` | Role: `staff` | Staff SLA deadlines and metrics |
+  | `GET` | `/api/dashboard/tenant` | Role: `tenant` | Tenant active tickets and status count |
+  | `GET` | `/api/dashboard/ceo` | Role: `ceo`, `ceo.dashboard` | CEO executive strategic overview |
+  | `GET` | `/api/dashboard/ceo/analytics` | `ceo` \| `admin`, `executive.analytics` | High-level organizational trend analytics |
+  | `GET` | `/api/dashboard/ceo/departments` | `ceo`, `executive.analytics` | Department-level KPI comparisons |
+  | `GET` | `/api/dashboard/ceo/staff` | `ceo`, `executive.analytics` | Organization staff productivity metrics |
+  | `GET` | `/api/dashboard/ceo/tenants` | `ceo`, `executive.analytics` | Tenant utilization and engagement stats |
+  | `GET` | `/api/dashboard/ceo/system` | `ceo`, `executive.analytics` | System health, storage, and throughput stats |
+  | `GET` | `/api/dashboard/tickets/stats` | `dashboard.read` \| `tickets.read` | Summary numbers by status and priority |
+  | `GET` | `/api/dashboard/tickets/charts` | `dashboard.read` \| `tickets.read` | Time-series charting dataset |
+  | `GET` | `/api/dashboard/tickets/overdue` | `dashboard.read` \| `tickets.read` | Tickets breaching or near SLA breach |
+
+  ---
+
+  ## 4. Notices & Announcements (`/api/notices`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/notices/public` | **Public** | Public broadcast announcements | None |
+  | `GET` | `/api/notices/categories` | **Public** | Notice categories | None |
+  | `GET` | `/api/notices/my/inbox` | `notices.read` | Notices targeted to current user | **Query:** `page?`, `limit?` |
+  | `GET` | `/api/notices/my/created` | `notices.create` | Notices authored by current user | **Query:** `page?`, `limit?` |
+  | `GET` | `/api/notices/department/staff` | `notices.read` | Staff in manager's department | None |
+  | `GET` | `/api/notices/my/departments` | `notices.read` | Departments managed by current user | None |
+  | `GET` | `/api/notices/department/:departmentId/staff` | `notices.create` | Staff in specified department | **Path:** `departmentId` (UUID) |
+  | `GET` | `/api/notices/assignable` | `notices.read` | Admin notices manager can forward to staff | **Query:** `page?`, `limit?` |
+  | `POST` | `/api/notices/targeted` | `notices.create` | Create targeted audience notice | **JSON Body:**<br>• `title` (string)<br>• `description?` (string)<br>• `priority?` (`low`, `medium`, `high`)<br>• `targetAudience?` (`all`, `admin`, `manager`, `staff`, `tenant`, `department`)<br>• `departmentId?` (UUID)<br>• `assignedTo?` (UUID) |
+  | `PUT` | `/api/notices/targeted/:id` | `notices.update` | Update targeted notice | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `title?`, `priority?`, `status?` (`draft`, `published`, `archived`) |
+  | `POST` | `/api/notices/:id/assign` | `notices.create` | Manager assigns notice to staff | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `staffUserId` (UUID) |
+  | `GET` | `/api/notices/:id/details` | `notices.read` | Get notice with full creator/assignment info | **Path:** `id` (UUID) |
+  | `GET` | `/api/notices/:id/replies` | `notices.read` | Get discussions/replies on notice | **Path:** `id` (UUID) |
+  | `POST` | `/api/notices/:id/replies` | `notices.read` | Reply to notice | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `message` (string)<br>• `visibility?` (`all` \| `internal`) |
+  | `PUT` | `/api/notices/replies/:id` | `notices.read` | Update notice reply | **Path:** `id` (UUID)<br>**JSON Body:** `message?`, `visibility?` |
+  | `DELETE` | `/api/notices/replies/:id` | `notices.read` | Delete notice reply | **Path:** `id` (UUID) |
+  | `GET` | `/api/notices` | `notices.read` | List all system notices (admin) | **Query:** `page?`, `limit?` |
+  | `GET` | `/api/notices/me/acknowledgements` | `notices.read` | Notices current user has acknowledged | None |
+  | `GET` | `/api/notices/:id` | `notices.read` | Get single notice by ID | **Path:** `id` (UUID) |
+  | `POST` | `/api/notices` | `notices.create` | Create global notice | **JSON Body:**<br>• `title`, `description`, `priority?`, `expiresAt?`, etc. |
+  | `PUT` | `/api/notices/:id` | `notices.update` | Update notice | **Path:** `id` (UUID) |
+  | `DELETE` | `/api/notices/:id` | `notices.delete` | Delete notice | **Path:** `id` (UUID) |
+  | `POST` | `/api/notices/:id/acknowledge` | `notices.read` | Mark notice as read/acknowledged | **Path:** `id` (UUID) |
+  | `GET` | `/api/notices/:id/recipients` | `notices.read` | View recipients and acknowledge status | **Path:** `id` (UUID) |
+  | `GET` | `/api/notices/:id/recipients/counts` | `notices.read` | Aggregated count of read vs unread | **Path:** `id` (UUID) |
+  | `POST` | `/api/notices/process-expirations` | `notices.manage` | Trigger cron expiry job manually | None |
+
+  ---
+
+  ## 5. Tenant Feedback (`/api/feedback`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/feedback` | Tenants (own) or `feedback.read` | List feedback submissions | **Query:** `page?`, `limit?`, `status?` |
+  | `POST` | `/api/feedback` | Authenticated (Tenant) | Submit feedback / inquiry | **JSON Body:**<br>• `subject` (string, 3-200 chars)<br>• `message` (string)<br>• `rating?` (int 1-5) |
+  | `GET` | `/api/feedback/:id` | Authenticated | View feedback details | **Path:** `id` (UUID) |
+  | `PUT` | `/api/feedback/:id` | `feedback.update` | Update feedback item | **Path:** `id` (UUID) |
+  | `DELETE` | `/api/feedback/:id` | `feedback.delete` | Delete feedback | **Path:** `id` (UUID) |
+  | `GET` | `/api/feedback/:id/replies` | Authenticated | View feedback replies | **Path:** `id` (UUID) |
+  | `POST` | `/api/feedback/:id/replies` | `feedback.update` | Add response reply to feedback | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `message` (string) |
+  | `PATCH` | `/api/feedback/:id/respond` | `feedback.update` | Formally mark responded | **Path:** `id` (UUID) |
+
+  ---
+
+  ## 6. Knowledge Base (`/api/knowledge`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/knowledge/public` | **Public** | Publicly accessible KB articles | None |
+  | `GET` | `/api/knowledge/my-drafts` | `knowledge.create` | Current author's draft articles | None |
+  | `GET` | `/api/knowledge/pending` | `knowledge.approve` | Articles awaiting manager review | None |
+  | `GET` | `/api/knowledge/needs-revision` | `knowledge.create` | Drafts sent back for revisions | None |
+  | `GET` | `/api/knowledge/stats` | `knowledge.view_statistics` | Knowledge base metrics | None |
+  | `GET` | `/api/knowledge/categories` | `knowledge.read` | View knowledge categories | None |
+  | `GET` | `/api/knowledge/categories/all` | `knowledge.read` \| `knowledge.manage_categories` | List all categories with metadata | None |
+  | `POST` | `/api/knowledge/categories` | `knowledge.manage_categories` | Create category | **JSON Body:** `{ name: string }` |
+  | `PUT` | `/api/knowledge/categories/:id` | `knowledge.manage_categories` | Update category | **Path:** `id`<br>**JSON Body:** `{ name?: string }` |
+  | `DELETE` | `/api/knowledge/categories/:id` | `knowledge.manage_categories` | Delete category | **Path:** `id` |
+  | `GET` | `/api/knowledge/popular` | `knowledge.read` | Most viewed / rated articles | None |
+  | `GET` | `/api/knowledge/recent` | `knowledge.read` | Recently published articles | None |
+  | `GET` | `/api/knowledge` | `knowledge.read` | Search / filter KB articles | **Query:** `page?`, `limit?`, `category?`, `status?`, `search?` |
+  | `GET` | `/api/knowledge/search` | `knowledge.read` | Full-text search endpoint | **Query:** `q?`, `limit?` |
+  | `GET` | `/api/knowledge/:id` | `knowledge.read` | View article by ID | **Path:** `id` (string / UUID) |
+  | `GET` | `/api/knowledge/reference/:reference` | `knowledge.read` | View article by slug/reference code | **Path:** `reference` |
+  | `POST` | `/api/knowledge` | `knowledge.create` | Create new article draft | **JSON Body:**<br>• `title` (string)<br>• `content` (string)<br>• `category?` (string) |
+  | `PUT` | `/api/knowledge/:id` | `knowledge.update` | Update article | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/submit` | `knowledge.submit` | Submit draft for manager approval | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/request-revision` | `knowledge.request_revision` | Manager requests revisions | **Path:** `id`<br>**JSON Body:** `{ reason?: string }` |
+  | `POST` | `/api/knowledge/:id/approve` | `knowledge.approve` | Manager approves article | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/reject` | `knowledge.reject` | Manager rejects article | **Path:** `id`<br>**JSON Body:** `{ reason: string }` |
+  | `POST` | `/api/knowledge/:id/publish` | `knowledge.publish` | Admin publishes article to public/staff | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/unpublish` | `knowledge.unpublish` | Unpublish article | **Path:** `id`<br>**JSON Body:** `{ reason?: string }` |
+  | `POST` | `/api/knowledge/:id/archive` | `knowledge.archive` | Archive article | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/restore` | `knowledge.restore` | Restore archived article | **Path:** `id` |
+  | `DELETE` | `/api/knowledge/:id` | `knowledge.delete` | Permanently delete article | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/feedback` | `knowledge.rate` | Rate article helpfulness | **Path:** `id`<br>**JSON Body:** `{ helpful: boolean }` |
+  | `GET` | `/api/knowledge/:id/versions` | `knowledge.view_versions` | List revision history | **Path:** `id` |
+  | `POST` | `/api/knowledge/:id/versions` | `knowledge.manage_versions` | Save new version | **Path:** `id`<br>**JSON Body:** `versionNumber?`, `title?`, `content?` |
+  | `POST` | `/api/knowledge/:id/attachments` | `knowledge.create` | Upload attachment | **Multipart Form:** `file` |
+  | `GET` | `/api/knowledge/:id/attachments` | `knowledge.read` | List attachments | **Path:** `id` |
+  | `DELETE` | `/api/knowledge/attachments/:attachmentId` | `knowledge.create` | Delete attachment | **Path:** `attachmentId` |
+
+  ---
+
+  ## 7. Reports & Exports (`/api/reports`)
+
+  All endpoints require `reports.read`.
+
+  | Method | Endpoint | Description | Query Parameters |
+  |---|---|---|---|
+  | `GET` | `/api/reports/my-departments` | Departments available for report generation | None |
+  | `GET` | `/api/reports/tickets` | Ticket metrics, volumes, and resolution times | `startDate?`, `endDate?`, `departmentId?`, `status?` |
+  | `GET` | `/api/reports/departments` | Department aggregate workload and efficiency | `startDate?`, `endDate?` |
+  | `GET` | `/api/reports/staff` | Staff ticket resolution speed and counts | `startDate?`, `endDate?`, `departmentId?` |
+  | `GET` | `/api/reports/tenants` | Tenant incident frequency & resolution rates | `startDate?`, `endDate?` |
+  | `GET` | `/api/reports/:type/export` | Download CSV/Excel export | **Path:** `type` (`tickets`, `departments`, `staff`, `tenants`)<br>**Query:** filters matching report query |
+
+  ---
+
+  ## 8. Audit Logs (`/api/audit`)
+
+  All endpoints require `audit.read`.
+
+  | Method | Endpoint | Description | Query / Payload |
+  |---|---|---|---|
+  | `GET` | `/api/audit` | Query audit trail records | **Query:** `page?`, `limit?` (max 200), `userId?`, `action?`, `entityType?`, `startDate?`, `endDate?` |
+  | `GET` | `/api/audit/logs` | Alias for `/api/audit` (used by frontend) | Same as above |
+  | `GET` | `/api/audit/actions` | List all unique recorded audit actions | None |
+  | `GET` | `/api/audit/export` | Export audit trail to CSV | Same query filters as `/api/audit` |
+  | `POST` | `/api/audit/log` | Record a custom client or system action | **JSON Body:** `{ action: string, details?: any }` |
+
+  ---
+
+  ## 9. User Management (`/api/users`)
+
+  All endpoints require `authenticate`.
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/users/roles` | `users.read` \| `users.create` \| `users.update` | Get all system user roles | None |
+  | `GET` | `/api/users` | `users.read` \| `matrix.manage` | List users with pagination and filtering | **Query:**<br>• `page?`<br>• `limit?` (max 1000)<br>• `role?` (`admin`, `manager`, `staff`, `tenant`)<br>• `status?` (`active`, `inactive`, `locked`)<br>• `departmentId?` (UUID) |
+  | `GET` | `/api/users/:id` | `users.read` | Get user details | **Path:** `id` (UUID) |
+  | `POST` | `/api/users` | `users.create` | Create new user | **Multipart / JSON:**<br>• `username` (string, 3-80 chars)<br>• `email` (valid email)<br>• `password` (min 8 chars)<br>• `firstName` (string)<br>• `lastName` (string)<br>• `roleId` (integer)<br>• `status?` (`active` \| `inactive`)<br>• `profileImage?` (file) |
+  | `PUT` | `/api/users/:id` | `users.update` | Update user details | **Path:** `id` (UUID)<br>**Multipart / JSON:**<br>• `username?`, `email?`, `firstName?`, `lastName?`, `roleId?`, `status?`, `profileImage?` |
+  | `DELETE` | `/api/users/:id` | `users.delete` | Soft delete / remove user | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/users/:id/activate` | `users.update` | Activate user account | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/users/:id/deactivate` | `users.update` | Deactivate user account | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/users/:id/reset-password` | `users.update` | Admin reset of user password | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `newPassword` (string, min 8 chars) |
+
+  ---
+
+  ## 10. Department Management (`/api/departments`)
+
+  All endpoints require `authenticate`.
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/departments/active` | `departments.manage` \| `users.read` \| etc. | Quick list of active departments | None |
+  | `GET` | `/api/departments/heads` | `departments.manage` | List users eligible to head a department | None |
+  | `GET` | `/api/departments` | `departments.manage` | List all departments | **Query:** `page?`, `limit?`, `status?` (`active` \| `inactive`) |
+  | `GET` | `/api/departments/:id/members` | `departments.manage` | Get staff members belonging to department | **Path:** `id` (UUID) |
+  | `POST` | `/api/departments/:id/members` | `departments.manage` | Set members of department | **Path:** `id` (UUID)<br>**JSON Body:** `{ userIds: string[] }` |
+  | `GET` | `/api/departments/:id` | `departments.manage` | Get department details | **Path:** `id` (UUID) |
+  | `DELETE` | `/api/departments/:id` | `departments.manage` | Delete department | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/departments/:id/activate` | `departments.manage` | Activate department | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/departments/:id/deactivate` | `departments.manage` | Deactivate department | **Path:** `id` (UUID) |
+  | `POST` | `/api/departments` | `departments.manage` | Create department | **JSON Body:**<br>• `name` (string, 2-150 chars)<br>• `code` (string, 2-50 alphanumeric/dash)<br>• `description?` (string)<br>• `headUserId?` (UUID)<br>• `status?` (`active` \| `inactive`)<br>• `memberIds?` (string[]) |
+  | `PUT` | `/api/departments/:id` | `departments.manage` | Update department | **Path:** `id` (UUID)<br>**JSON Body:** same fields as create |
+
+  ---
+
+  ## 11. Matrix / Staff Assignments (`/api/matrix`)
+
+  All endpoints require `matrix.manage`.
+
+  | Method | Endpoint | Description | Parameters / Payload |
+  |---|---|---|---|
+  | `GET` | `/api/matrix/grid` | Full cross-tabulation matrix grid of users and departments | None |
+  | `GET` | `/api/matrix` | List specific matrix assignments | **Query:** `page?`, `limit?`, `userId?` (UUID), `departmentId?` (UUID) |
+  | `POST` | `/api/matrix/user-departments` | Assign a user to department | **JSON Body:** `{ userId: UUID, departmentId: UUID }` |
+  | `POST` | `/api/matrix/department-users` | Assign department to a user | **JSON Body:** `{ departmentId: UUID, userId: UUID }` |
+  | `PATCH` | `/api/matrix/toggle` | Toggle individual user-department assignment checkbox | **JSON Body:**<br>• `userId` (UUID)<br>• `departmentId` (UUID)<br>• `assigned` (boolean) |
+  | `DELETE` | `/api/matrix/pair/:userId/:departmentId` | Remove specific user-department assignment | **Path:** `userId` (UUID), `departmentId` (UUID) |
+  | `POST` | `/api/matrix` | Create assignment | **JSON Body:** `{ userId: UUID, departmentId: UUID }` |
+  | `GET` | `/api/matrix/:id` | Get assignment by ID | **Path:** `id` (UUID) |
+  | `PUT` | `/api/matrix/:id` | Update assignment | **Path:** `id` (UUID)<br>**JSON Body:** `{ userId?: UUID, departmentId?: UUID }` |
+  | `DELETE` | `/api/matrix/:id` | Delete assignment by ID | **Path:** `id` (UUID) |
+
+  ---
+
+  ## 12. Tenants Management (`/api/tenants`)
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `POST` | `/api/tenants/register` | **Public** | Public tenant self-registration | **JSON Body:**<br>• `organizationName` (string)<br>• `contactPerson` (string)<br>• `email` (valid email)<br>• `username` (string)<br>• `password` (min 8 chars)<br>• `confirmPassword` (min 8 chars)<br>• `phone?`, `address?`, `registrationNumber?` |
+  | `GET` | `/api/tenants/profile/me` | Role: `tenant` | Tenant views their own profile | None |
+  | `PUT` | `/api/tenants/profile/me` | Role: `tenant` | Tenant updates their own profile | **JSON Body:**<br>• `contactPerson?`, `phone?`, `address?`, `notes?` |
+  | `GET` | `/api/tenants` | `tenants.manage` | List all tenant organizations | **Query:** `page?`, `limit?`, `status?` (`active`, `inactive`, `pending`) |
+  | `GET` | `/api/tenants/:id` | `tenants.manage` | Get tenant details | **Path:** `id` (UUID) |
+  | `DELETE` | `/api/tenants/:id` | `tenants.manage` | Delete tenant | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/tenants/:id/activate` | `tenants.manage` | Activate tenant | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/tenants/:id/deactivate` | `tenants.manage` | Deactivate tenant | **Path:** `id` (UUID) |
+  | `PATCH` | `/api/tenants/:id/approve` | `tenants.manage` | Approve pending tenant registration | **Path:** `id` (UUID) |
+  | `POST` | `/api/tenants` | `tenants.manage` | Admin creates tenant | **JSON Body:**<br>• `organizationName`, `registrationNumber`, `contactPerson`, `email`, `phone`, `username`, `password`, `confirmPassword`, `address?`, `notes?`, `status?` |
+  | `PUT` | `/api/tenants/:id` | `tenants.manage` | Admin updates tenant | **Path:** `id` (UUID)<br>**JSON Body:** same fields as create |
+
+  ---
+
+  ## 13. Ticket Categories (`/api/ticket-categories`)
+
+  All endpoints require `authenticate`.
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/ticket-categories/requests` | Role: `admin` | Admin queue for pending category requests | **Query:** `status?` |
+  | `GET` | `/api/ticket-categories` | Authenticated | List all active ticket categories | None |
+  | `GET` | `/api/ticket-categories/:id` | Authenticated | Get category by ID | **Path:** `id` (UUID) |
+  | `POST` | `/api/ticket-categories` | `admin` \| `manager` | Create category (manager creation is pending approval) | **JSON Body:**<br>• `name` (string, 2-100 chars)<br>• `description?` (string)<br>• `routingType?` (`general` \| `direct`)<br>• `departmentId?` (UUID, required if routingType is `direct`)<br>• `slaPolicyId?` (UUID) |
+  | `PUT` | `/api/ticket-categories/:id` | `admin` \| `manager` | Update category details | **Path:** `id` (UUID)<br>**JSON Body:**<br>• `name?`, `description?`, `routingType?`, `departmentId?`, `slaPolicyId?`, `isActive?` |
+  | `POST` | `/api/ticket-categories/:id/approve` | Role: `admin` | Approve manager's category request | **Path:** `id` (UUID)<br>**JSON Body:** `{ reviewNotes?: string }` |
+  | `POST` | `/api/ticket-categories/:id/reject` | Role: `admin` | Reject manager's category request | **Path:** `id` (UUID)<br>**JSON Body:** `{ reviewNotes?: string }` |
+  | `DELETE` | `/api/ticket-categories/:id` | Role: `admin` | Delete category | **Path:** `id` (UUID) |
+
+  ---
+
+  ## 14. SLA Policies (`/api/sla`)
+
+  All endpoints require `authenticate`.
+
+  | Method | Endpoint | Auth / Role | Description | Parameters / Payload |
+  |---|---|---|---|---|
+  | `GET` | `/api/sla` | Authenticated | List SLA policies | **Query:** `categoryId?` (UUID) |
+  | `GET` | `/api/sla/preview` | Authenticated | Calculate expected SLA deadline | **Query:**<br>• `priority`: `low` \| `medium` \| `high` \| `urgent`<br>• `categoryId?` (UUID)<br>• `createdAt?` (ISO timestamp) |
+  | `POST` | `/api/sla/:id/test-compute` | Authenticated | Test SLA computation with policy ID | **Path:** `id` (UUID)<br>**JSON Body:** `{ createdAt?: string }` |
+  | `GET` | `/api/sla/:id` | Authenticated | Get SLA policy details | **Path:** `id` (UUID) |
+  | `POST` | `/api/sla` | Role: `admin` | Create SLA policy | **JSON Body:**<br>• `name` (string, 2-100 chars)<br>• `priority` (`low`, `medium`, `high`, `urgent`)<br>• `categoryId?` (UUID)<br>• `responseHours?` (int)<br>• `resolutionHours?` (int)<br>• `escalationHours?` (int)<br>• `workingHours?` (object)<br>• `description?` (string) |
+  | `PUT` | `/api/sla/:id` | Role: `admin` | Update SLA policy | **Path:** `id` (UUID)<br>**JSON Body:** same fields as create + `isActive?` |
+  | `DELETE` | `/api/sla/:id` | Role: `admin` | Delete SLA policy | **Path:** `id` (UUID) |
+
+  ---
+
+  ## 15. Chat & Messaging (`/api/chat`)
+
+  All endpoints require `authenticate`.
+
+  | Method | Endpoint | Description | Parameters / Payload |
+  |---|---|---|---|
+  | `GET` | `/api/chat/rooms` | List all conversation rooms for current user | None |
+  | `GET` | `/api/chat/rooms/:roomId` | Get details of a single chat room | **Path:** `roomId` (UUID) |
+  | `POST` | `/api/chat/rooms/ticket` | Create/open a room linked to a ticket | **JSON Body:** `{ ticketId: UUID, name?: string }` |
+  | `POST` | `/api/chat/rooms/department` | Create/open a room linked to a department | **JSON Body:** `{ departmentId: UUID, name?: string }` |
+  | `POST` | `/api/chat/rooms/direct` | Create/open direct message room with user | **JSON Body:** `{ userId: UUID, name?: string }` |
+  | `GET` | `/api/chat/rooms/:roomId/participants` | Get all participants in a room | **Path:** `roomId` (UUID) |
+  | `POST` | `/api/chat/rooms/:roomId/participants` | Add a participant to room | **Path:** `roomId` (UUID)<br>**JSON Body:** `{ userId: UUID }` |
+  | `GET` | `/api/chat/rooms/:roomId/messages` | Load message history | **Path:** `roomId` (UUID)<br>**Query:** `limit?` (max 100), `offset?` |
+  | `POST` | `/api/chat/messages` | Send message in a room | **JSON Body:**<br>• `roomId` (UUID)<br>• `message` (string)<br>• `messageType?` (`text`, `image`, `file`) |
+  | `PUT` | `/api/chat/messages/:messageId` | Edit an existing message | **Path:** `messageId` (UUID)<br>**JSON Body:** `{ message: string }` |
+  | `DELETE` | `/api/chat/messages/:messageId` | Delete message | **Path:** `messageId` (UUID) |
+  | `POST` | `/api/chat/rooms/:roomId/read` | Mark messages in room as read | **Path:** `roomId` (UUID)<br>**JSON Body:** `{ messageIds?: UUID[] }` |
+  | `GET` | `/api/chat/unread` | Get unread message count | None |
+  | `GET` | `/api/chat/search` | Search message text | **Query:** `q` (string) |
+  | `POST` | `/api/chat/upload` | Upload media / document for chat | **Multipart Form:** `file` |
+  | `GET` | `/api/chat/online-status/:userId` | Check online status for a specific user | **Path:** `userId` (UUID) |
+  | `GET` | `/api/chat/online-users` | List all currently connected users | None |
+  | `GET` | `/api/chat/users` | List users current user is permitted to chat with | None |
+  | `GET` | `/api/chat/departments` | List departments available for chat | None |
+  | `GET` | `/api/chat/departments/:departmentId/members` | Get department chat members with online status | **Path:** `departmentId` (UUID) |
+  | `GET` | `/api/chat/tickets/:ticketId/members` | Get ticket chat members with online status | **Path:** `ticketId` (UUID) |
+
+  ---
+
+  ## 16. System & Health
+
+  | Method | Endpoint | Auth | Description | Response Example |
+  |---|---|---|---|---|
+  | `GET` | `/api/health` | **Public** | Service liveness probe | `{"success": true, "message": "API is running", "env": "development"}` |
+  | `GET` | `/uploads/:folder/:file` | **Public** | Access uploaded assets (e.g. `tickets`, `users`) | Binary stream |
+
+  ---
+
+  ## 17. Testing Setup & Authentication Workflow
+
+  ### Step 1: Login to obtain Token
+  Send a `POST` request to `http://localhost:5000/api/auth/login`:
+  ```json
+  {
+    "identifier": "admin",
+    "password": "yourPasswordHere"
+  }
+  ```
+  **Response:**
+  ```json
+  {
+    "success": true,
+    "message": "Login successful",
+    "data": {
+      "accessToken": "eyJhbGciOi...",
+      "user": {
+        "id": "e67b2d58-947b-...",
+        "username": "admin",
+        "role": "admin"
+      }
+    }
+  }
+  ```
+
+  ### Step 2: Use Token in Subsequent Requests
+  Set HTTP Header on every call:
+  ```http
+  Authorization: Bearer eyJhbGciOi...
+  Content-Type: application/json
+  ```
+
+  ---
+
+  *Generated for DMS API Testing and Verification.*
+variables:
+  baseUrl: http://localhost:5000/api
+  token: ""
+  ticketId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  trackNumber: TIC-2024-001
+  userId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  departmentId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  noticeId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  feedbackId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  articleId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  categoryId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  slaPolicyId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  roomId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+  messageId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+auth:
+  - id: 9ed9fe65-180b-4cc6-8246-fea92944fc93
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{token}}"

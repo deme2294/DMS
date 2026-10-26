@@ -1,0 +1,28 @@
+$kind: http-request
+description: Sends a message into the room via REST fallback.
+url: "{{baseUrl}}/api/chat/messages"
+method: POST
+headers:
+  Authorization: Bearer {{tenantToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "roomId": "{{roomId}}",
+      "message": "Hello, this is a test message from Postman verification.",
+      "messageType": "text"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 201', function () {
+          pm.response.to.have.status(201);
+      });
+      var jsonData = pm.response.json();
+      pm.test('Message stored in DB', function () {
+          pm.expect(jsonData.success).to.be.true;
+          pm.expect(jsonData.data).to.have.property('id');
+      });
+    language: text/javascript
+order: 2000

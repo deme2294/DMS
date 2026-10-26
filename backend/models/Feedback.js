@@ -2,6 +2,7 @@ export const sanitizeFeedback = (row) => {
   if (!row) return null;
   return {
     id: row.id,
+    feedbackNum: row.feedback_num != null ? row.feedback_num : null,
     tenantId: row.tenant_id,
     ticketId: row.ticket_id,
     subject: row.subject,

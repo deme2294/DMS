@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
+import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
   fetchUsers,
   deleteUser,
@@ -54,6 +55,7 @@ export default function UserList() {
 
   // Modals state
   const [resetModal, setResetModal] = useState<User | null>(null);
+  const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [deleteModal, setDeleteModal] = useState<User | null>(null);
@@ -292,7 +294,7 @@ export default function UserList() {
         onAction={can('users.create') ? () => navigate('/admin/users/create') : undefined}
       />
 
-      {message && <div className={styles.toast}>✓ {message}</div>}
+      {message && <div className={styles.toast}>{message}</div>}
 
       {/* ── Live Metric Overview Cards ── */}
       <div className={styles.statsGrid}>
@@ -473,10 +475,19 @@ export default function UserList() {
             key: 'email',
             label: 'Email',
             render: (row) => (
-              <a href={`mailto:${row.email}`} className={styles.emailLink} title={`Email ${row.email}`}>
+              <button
+                type="button"
+                onClick={() => setContactTarget({
+                  email: row.email,
+                  name: `${row.firstName} ${row.lastName}`.trim() || row.username,
+                  roleOrType: row.role,
+                })}
+                className={styles.emailLink}
+                title={`Send email to ${row.email}`}
+              >
                 <EnvelopeIcon className={styles.emailIcon} />
                 <span>{row.email}</span>
-              </a>
+              </button>
             ),
           },
           {
@@ -512,7 +523,7 @@ export default function UserList() {
             label: 'User ID',
             render: (row) => (
               <span className={styles.userCodeChip}>
-                #{row.userCode || row.id.slice(0, 7).toUpperCase()}
+                #{row.userNum ?? (row.userCode || row.id.slice(0, 7).toUpperCase())}
               </span>
             ),
           },
@@ -526,12 +537,27 @@ export default function UserList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actionGroup}>
+                <button
+                  type="button"
+                  className={styles.actionBtnEdit}
+                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                  onClick={() => setContactTarget({
+                    email: row.email,
+                    name: `${row.firstName} ${row.lastName}`.trim() || row.username,
+                    roleOrType: row.role,
+                  })}
+                  title={`Send email to ${row.email}`}
+                >
+                  <EnvelopeIcon className={styles.actionIcon} />
+                  <span>Contact</span>
+                </button>
+
                 {can('users.update') && (
                   <>
                     <button
                       type="button"
                       className={styles.actionBtnEdit}
-                      onClick={() => navigate(`/admin/users/${row.id}/edit`)}
+                      onClick={() => navigate(`/admin/users/${row.userNum || row.id}/edit`)}
                       title="Edit user profile and permissions"
                     >
                       <PencilSquareIcon className={styles.actionIcon} />
@@ -754,6 +780,12 @@ export default function UserList() {
           </div>
         )}
       </Modal>
+
+      <ContactModal
+        open={!!contactTarget}
+        target={contactTarget}
+        onClose={() => setContactTarget(null)}
+      />
     </div>
   );
 }

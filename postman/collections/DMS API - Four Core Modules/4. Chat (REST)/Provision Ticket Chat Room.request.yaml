@@ -1,0 +1,25 @@
+$kind: http-request
+description: Finds or provisions conversation room for the ticket.
+url: "{{baseUrl}}/api/chat/rooms/ticket"
+method: POST
+headers:
+  Authorization: Bearer {{tenantToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "ticketId": "{{ticketId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200 or 201', function () {
+          pm.expect([200, 201]).to.include(pm.response.code);
+      });
+      var jsonData = pm.response.json();
+      if (jsonData.data && jsonData.data.id) {
+          pm.collectionVariables.set('roomId', jsonData.data.id);
+      }
+    language: text/javascript
+order: 1000

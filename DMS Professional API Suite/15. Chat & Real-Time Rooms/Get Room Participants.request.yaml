@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/chat/rooms/:roomId/participants"
+method: GET
+headers:
+  Accept: application/json
+pathVariables:
+  - key: roomId
+    value: "{{roomId}}"
+    description: Path parameter roomId
+order: 6000

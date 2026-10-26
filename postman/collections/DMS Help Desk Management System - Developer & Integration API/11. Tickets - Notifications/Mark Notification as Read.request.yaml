@@ -1,0 +1,11 @@
+$kind: http-request
+description: Mark Notification as Read
+url: "{{baseUrl}}/api/tickets/notifications/:id/read"
+method: PATCH
+pathVariables:
+  id: "1"
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 3000

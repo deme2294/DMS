@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/tenants/:id"
+method: PUT
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: id
+    value: "{{id}}"
+    description: Path parameter id
+body:
+  type: text
+  content: |-
+    {
+      "contactPerson": "Sarah J. Connor"
+    }
+order: 7000

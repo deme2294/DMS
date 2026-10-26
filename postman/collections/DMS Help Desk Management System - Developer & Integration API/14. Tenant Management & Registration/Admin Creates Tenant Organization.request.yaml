@@ -1,0 +1,26 @@
+$kind: http-request
+description: Admin Creates Tenant Organization
+url: "{{baseUrl}}/api/tenants"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "organizationName": "Globex Corp",
+      "registrationNumber": "REG-55214",
+      "contactPerson": "Hank Scorpio",
+      "email": "hank@globex.com",
+      "phone": "+1-555-0177",
+      "address": "string",
+      "username": "globex_admin",
+      "password": "GlobexPass@123",
+      "confirmPassword": "GlobexPass@123",
+      "status": "active"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 5000

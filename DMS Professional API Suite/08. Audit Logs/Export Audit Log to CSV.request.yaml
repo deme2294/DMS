@@ -1,0 +1,7 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/audit/export"
+method: GET
+headers:
+  Accept: application/json
+order: 3000

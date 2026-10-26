@@ -1,0 +1,12 @@
+$kind: http-request
+name: Accept Assignment (Staff/Manager)
+description: ""
+url: "{{baseUrl}}/tickets/:ticketId/accept"
+method: POST
+headers:
+  Accept: application/json
+pathVariables:
+  - key: ticketId
+    value: "{{ticketId}}"
+    description: Path parameter ticketId
+order: 11000

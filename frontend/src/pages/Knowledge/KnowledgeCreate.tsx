@@ -11,6 +11,13 @@ import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchMyDepartments } from '../../api/reportApi';
 import type { KnowledgeCategory } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
+import {
+  GlobeAltIcon,
+  PaperAirplaneIcon,
+  BookmarkSquareIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import styles from './KnowledgeCreate.module.css';
 
@@ -331,11 +338,22 @@ export default function KnowledgeCreate() {
               disabled={isSubmitting}
               onClick={() => setSubmitForApproval(true)}
             >
-              {isSubmitting && submitForApproval
-                ? 'Submitting...'
-                : role === 'manager'
-                ? 'Submit to Admin for Approval'
-                : 'Publish to Tenants'}
+              {isSubmitting && submitForApproval ? (
+                <>
+                  <ArrowPathIcon className={styles.spinnerIcon} />
+                  <span>Submitting...</span>
+                </>
+              ) : role === 'manager' ? (
+                <>
+                  <PaperAirplaneIcon className={styles.btnIcon} />
+                  <span>Submit to Admin for Approval</span>
+                </>
+              ) : (
+                <>
+                  <GlobeAltIcon className={styles.btnIcon} />
+                  <span>Publish to Tenants</span>
+                </>
+              )}
             </button>
           )}
           <button
@@ -344,10 +362,21 @@ export default function KnowledgeCreate() {
             disabled={isSubmitting}
             onClick={() => setSubmitForApproval(false)}
           >
-            {isSubmitting && !submitForApproval ? 'Saving...' : 'Save as Draft'}
+            {isSubmitting && !submitForApproval ? (
+              <>
+                <ArrowPathIcon className={styles.spinnerIcon} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <BookmarkSquareIcon className={styles.btnIcon} />
+                <span>Save as Draft</span>
+              </>
+            )}
           </button>
           <button type="button" className={styles.cancelBtn} onClick={() => navigate(basePath)}>
-            Cancel
+            <XMarkIcon className={styles.btnIcon} />
+            <span>Cancel</span>
           </button>
         </div>
       </form>

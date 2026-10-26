@@ -1,0 +1,22 @@
+$kind: http-request
+description: Update Notice
+url: "{{baseUrl}}/api/notices/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "title": "string",
+      "description": "string",
+      "priority": "low",
+      "status": "draft"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

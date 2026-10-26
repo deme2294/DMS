@@ -974,3 +974,22 @@
     font-size: 0.58rem;
   }
 }
+
+@media (max-width: 360px) {
+  .login-card {
+    padding: 1.15rem 0.75rem;
+  }
+
+  .login-heading {
+    font-size: 1.65rem;
+  }
+
+  .login-demo-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .login-footer-pill {
+    padding: 5px 10px;
+  }
+}

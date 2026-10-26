@@ -1,0 +1,27 @@
+$kind: http-request
+name: Send Video / Google Meet Call Invitation
+description: Dispatches video meeting invitation with Google Meet / Zoom link, optional passcode, chat notification, and calendar email dispatch.
+url: "{{baseUrl}}/api/chat/meeting-invite"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "meetingUrl": "https://meet.google.com/abc-defg-hij",
+      "recipientEmail": "client@example.com",
+      "recipientEmails": [
+        "string"
+      ],
+      "roomId": "c1f7a840-a108-4e89-9a67-27b233a7e0f2",
+      "title": "Technical Screen Share on Incident 4821",
+      "notes": "Reviewing gateway logs and load balancer traces together.",
+      "scheduledTime": "2026-10-23T12:26:24.491Z",
+      "durationMinutes": 30
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

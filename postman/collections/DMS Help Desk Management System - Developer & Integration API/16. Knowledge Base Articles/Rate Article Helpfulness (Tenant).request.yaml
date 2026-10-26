@@ -1,0 +1,20 @@
+$kind: http-request
+description: Rate Article Helpfulness (Tenant)
+url: "{{baseUrl}}/api/knowledge/:id/feedback"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: "1"
+body:
+  type: text
+  content: |-
+    {
+      "helpful": true,
+      "reason": "Steps worked accurately."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 10000

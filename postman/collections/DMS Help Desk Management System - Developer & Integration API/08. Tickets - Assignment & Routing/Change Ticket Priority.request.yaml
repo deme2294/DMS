@@ -1,0 +1,19 @@
+$kind: http-request
+description: Updates priority (low, medium, high, urgent). Recalculates SLA targets.
+url: "{{baseUrl}}/api/tickets/:id/priority"
+method: PATCH
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "priority": "urgent"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 11000

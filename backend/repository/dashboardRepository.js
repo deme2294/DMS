@@ -34,9 +34,14 @@ export const getAdminDashboard = async () => {
   `);
   const [recent] = await pool.query(`
     SELECT t.id, t.reference_number, t.title, t.priority, t.status,
-           t.created_at, tn.organization_name AS tenant_name
+           t.created_at, t.updated_at,
+           tn.organization_name AS tenant_name,
+           CONCAT(u.first_name, ' ', u.last_name) AS assigned_to_name,
+           CONCAT(c.first_name, ' ', c.last_name) AS created_by_name
     FROM tickets t
     JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN users u ON u.id = t.assigned_to
+    LEFT JOIN users c ON c.id = t.created_by
     ORDER BY t.created_at DESC
     LIMIT 10
   `);
@@ -52,6 +57,41 @@ export const getAdminDashboard = async () => {
     FROM tickets
     GROUP BY status
   `);
+  const [priorityBreakdown] = await pool.query(`
+    SELECT priority, COUNT(*) AS count
+    FROM tickets
+    GROUP BY priority
+  `);
+  const [topCustomers] = await pool.query(`
+    SELECT tn.id, tn.organization_name AS name, COUNT(t.id) AS ticket_count
+    FROM tenants tn
+    JOIN tickets t ON t.tenant_id = tn.id
+    GROUP BY tn.id, tn.organization_name
+    ORDER BY ticket_count DESC
+    LIMIT 5
+  `);
+  const [recentActivity] = await pool.query(`
+    SELECT tsh.id, tsh.from_status, tsh.to_status, tsh.notes, tsh.created_at,
+           t.id AS ticket_id, t.reference_number, t.title AS ticket_title,
+           CONCAT(u.first_name, ' ', u.last_name) AS actor_name
+    FROM ticket_status_history tsh
+    JOIN tickets t ON t.id = tsh.ticket_id
+    LEFT JOIN users u ON u.id = tsh.changed_by
+    ORDER BY tsh.created_at DESC
+    LIMIT 8
+  `);
+  const [todayRows] = await pool.query(`
+    SELECT 
+      SUM(CASE WHEN status IN ('open', 'assigned') THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN DATE(created_at) = CURDATE() AND status IN ('open', 'assigned') THEN 1 ELSE 0 END) AS open_today,
+      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN DATE(updated_at) = CURDATE() AND status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_today,
+      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_tickets,
+      SUM(CASE WHEN status = 'pending' AND priority = 'high' THEN 1 ELSE 0 END) AS pending_high_priority,
+      SUM(CASE WHEN status IN ('resolved', 'closed') AND (DATE(resolved_at) = CURDATE() OR DATE(updated_at) = CURDATE()) THEN 1 ELSE 0 END) AS resolved_today,
+      SUM(CASE WHEN status IN ('resolved', 'closed') THEN 1 ELSE 0 END) AS resolved_total
+    FROM tickets
+  `);
 
   return {
     users: users[0],
@@ -62,6 +102,10 @@ export const getAdminDashboard = async () => {
     recentTickets: recent,
     monthlyTickets,
     statusBreakdown,
+    priorityBreakdown,
+    topCustomers,
+    recentActivity,
+    todayStats: todayRows[0] || {},
   };
 };
 

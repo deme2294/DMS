@@ -1,5 +1,6 @@
 import * as userService from '../services/userService.js';
 import * as departmentService from '../services/departmentService.js';
+import { sendDirectEmail as sendDirectEmailService } from '../services/emailService.js';
 import { HTTP } from '../config/constants.js';
 
 export const getUsers = async (req, res, next) => {
@@ -127,3 +128,30 @@ export const getRoles = async (req, res, next) => {
     next(err);
   }
 };
+
+export const sendDirectEmail = async (req, res, next) => {
+  try {
+    const { to, toName, subject, message } = req.body;
+    const senderName = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.username : 'Help Desk Admin';
+    const senderEmail = req.user?.email || process.env.EMAIL_USER;
+
+    const result = await sendDirectEmailService({
+      to,
+      toName,
+      subject,
+      message,
+      senderName,
+      senderEmail,
+    });
+
+    res.status(HTTP.OK).json({
+      success: true,
+      message: result?.simulated
+        ? (result.warning || 'Email recorded successfully in development environment.')
+        : 'Email sent successfully.',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

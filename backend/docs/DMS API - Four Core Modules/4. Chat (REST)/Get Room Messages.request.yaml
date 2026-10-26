@@ -1,0 +1,21 @@
+$kind: http-request
+description: Retrieves paginated room message history.
+url: "{{baseUrl}}/api/chat/rooms/{{roomId}}/messages?limit=50&offset=0"
+method: GET
+headers:
+  Authorization: Bearer {{tenantToken}}
+queryParams:
+  limit: "50"
+  offset: "0"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+      var jsonData = pm.response.json();
+      pm.test('Messages array returned', function () {
+          pm.expect(jsonData.data).to.be.an('array');
+      });
+    language: text/javascript
+order: 3000

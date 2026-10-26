@@ -1,0 +1,3 @@
+$kind: collection
+description: Public static retrieval for ticket, user profile, chat, and knowledge files
+order: 23000

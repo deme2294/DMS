@@ -1,0 +1,25 @@
+$kind: http-request
+description: Update Tenant by ID
+url: "{{baseUrl}}/api/tenants/:id"
+method: PUT
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "organizationName": "string",
+      "contactPerson": "string",
+      "email": "user@example.com",
+      "phone": "string",
+      "address": "string",
+      "registrationNumber": "string",
+      "status": "active"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 7000

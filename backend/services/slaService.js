@@ -41,6 +41,29 @@ export const createPolicy = async (user, payload) => {
   const escalationHours = payload.escalationHours !== undefined && payload.escalationHours !== null && payload.escalationHours !== ''
     ? Number(payload.escalationHours)
     : null;
+
+  if (resolutionHours <= responseHours) {
+    throw Object.assign(
+      new Error(`Resolution time (${resolutionHours}h) must be strictly greater than first response time (${responseHours}h)`),
+      { statusCode: 400 }
+    );
+  }
+
+  if (escalationHours !== null && escalationHours !== undefined && escalationHours > 0) {
+    if (escalationHours <= responseHours) {
+      throw Object.assign(
+        new Error(`Escalation time (${escalationHours}h) must be greater than first response time (${responseHours}h)`),
+        { statusCode: 400 }
+      );
+    }
+    if (escalationHours > resolutionHours) {
+      throw Object.assign(
+        new Error(`Escalation time (${escalationHours}h) must be less than or equal to resolution time (${resolutionHours}h)`),
+        { statusCode: 400 }
+      );
+    }
+  }
+
   const description = payload.description ? String(payload.description).trim() : null;
 
   const policy = await slaRepo.create({
@@ -79,6 +102,34 @@ export const updatePolicy = async (user, id, payload) => {
       throw Object.assign(
         new Error(`An SLA policy named '${payload.name.trim()}' (${scope}) already exists`),
         { statusCode: 409 }
+      );
+    }
+  }
+
+  const effectiveResponse = payload.responseHours !== undefined && payload.responseHours !== '' ? Number(payload.responseHours) : Number(policy.response_hours ?? 4);
+  const effectiveResolution = payload.resolutionHours !== undefined && payload.resolutionHours !== '' ? Number(payload.resolutionHours) : Number(policy.resolution_hours ?? 24);
+  const effectiveEscalation = payload.escalationHours !== undefined
+    ? (payload.escalationHours === null || payload.escalationHours === '' ? null : Number(payload.escalationHours))
+    : (policy.escalation_hours !== null && policy.escalation_hours !== undefined ? Number(policy.escalation_hours) : null);
+
+  if (effectiveResolution <= effectiveResponse) {
+    throw Object.assign(
+      new Error(`Resolution time (${effectiveResolution}h) must be strictly greater than first response time (${effectiveResponse}h)`),
+      { statusCode: 400 }
+    );
+  }
+
+  if (effectiveEscalation !== null && effectiveEscalation !== undefined && effectiveEscalation > 0) {
+    if (effectiveEscalation <= effectiveResponse) {
+      throw Object.assign(
+        new Error(`Escalation time (${effectiveEscalation}h) must be greater than first response time (${effectiveResponse}h)`),
+        { statusCode: 400 }
+      );
+    }
+    if (effectiveEscalation > effectiveResolution) {
+      throw Object.assign(
+        new Error(`Escalation time (${effectiveEscalation}h) must be less than or equal to resolution time (${effectiveResolution}h)`),
+        { statusCode: 400 }
       );
     }
   }
@@ -224,4 +275,56 @@ export const computeDueDate = async (priority, createdAt = new Date(), categoryI
     working_hours: null,
   };
   return computeAllDueDates(effective, createdAt);
+};
+
+// Compute resumed due dates for a reopened ticket (Option B):
+// Subtracts elapsed active time prior to resolution from the policy SLA resolution hours,
+// and sets due_date = reopenedAt + effectiveRemainingHours (with a minimum safety buffer if expired).
+export const computeReopenDueDates = (
+  policy,
+  createdAt,
+  resolvedAt,
+  reopenedAt = new Date(),
+  previousActiveMs = null
+) => {
+  const baseReopened = reopenedAt instanceof Date ? reopenedAt : new Date(reopenedAt);
+  const priority = policy?.priority || 'medium';
+  const resolutionHours = Number(policy?.resolution_hours ?? SLA_RESOLUTION_HOURS[priority] ?? 24);
+  const escalationHours = Number(policy?.escalation_hours ?? 0);
+  const workingHours = policy?.working_hours || null;
+
+  let elapsedMs = 0;
+  if (previousActiveMs !== null && previousActiveMs !== undefined) {
+    elapsedMs = Math.max(0, Number(previousActiveMs));
+  } else {
+    const tStart = createdAt ? new Date(createdAt).getTime() : baseReopened.getTime();
+    const tResolved = resolvedAt ? new Date(resolvedAt).getTime() : baseReopened.getTime();
+    elapsedMs = Math.max(0, tResolved - tStart);
+  }
+
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+  const remainingHours = resolutionHours - elapsedHours;
+
+  // Minimum safety buffer (e.g. 25% of policy or at least 2 hours, capped at 4 hours)
+  const minBufferHours = Math.max(2, Math.min(4, Number((resolutionHours * 0.25).toFixed(1))));
+  const effectiveRemainingHours = remainingHours > 0 ? Number(remainingHours.toFixed(2)) : minBufferHours;
+
+  const resolutionDueDate = addBusinessHours(baseReopened, effectiveRemainingHours, workingHours);
+
+  let escalationDueDate = null;
+  if (escalationHours > 0) {
+    const escRemaining = escalationHours - elapsedHours;
+    if (escRemaining > 0 && escRemaining < effectiveRemainingHours) {
+      escalationDueDate = addBusinessHours(baseReopened, Number(escRemaining.toFixed(2)), workingHours);
+    } else if (effectiveRemainingHours > 2) {
+      escalationDueDate = addBusinessHours(baseReopened, Number((effectiveRemainingHours * 0.75).toFixed(2)), workingHours);
+    }
+  }
+
+  return {
+    resolutionDueDate,
+    escalationDueDate,
+    effectiveRemainingHours,
+    elapsedHours: Number(elapsedHours.toFixed(2)),
+  };
 };

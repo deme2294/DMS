@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns the complete grid representation of technicians, departments, and active assignment checkboxes.
+url: "{{baseUrl}}/api/matrix/grid"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 1000

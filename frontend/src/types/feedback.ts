@@ -3,6 +3,7 @@ export type FeedbackStatus = 'pending' | 'read' | 'resolved' | 'in_progress';
 
 export interface Feedback {
   id: string;
+  feedbackNum?: number | null;
   tenantId: string;
   ticketId?: string | null;
   subject: string;

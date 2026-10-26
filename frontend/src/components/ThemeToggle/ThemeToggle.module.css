@@ -137,4 +137,18 @@
   }
 }
 
+@media (max-width: 480px) {
+  .container {
+    padding: 2px;
+    gap: 2px;
+  }
+  .optionBtn {
+    padding: 5px 6px;
+  }
+  .icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 

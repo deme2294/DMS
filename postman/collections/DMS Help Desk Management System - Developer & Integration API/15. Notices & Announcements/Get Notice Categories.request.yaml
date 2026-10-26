@@ -1,0 +1,7 @@
+$kind: http-request
+description: Get Notice Categories
+url: "{{baseUrl}}/api/notices/categories"
+method: GET
+auth:
+  type: noauth
+order: 2000

@@ -1,0 +1,9 @@
+$kind: http-request
+description: Returns managers and senior staff eligible to be assigned as department heads.
+url: "{{baseUrl}}/api/departments/heads"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000

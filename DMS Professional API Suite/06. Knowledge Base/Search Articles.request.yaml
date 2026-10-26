@@ -1,0 +1,10 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/knowledge/search?q=wifi&limit=10"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  q: wifi
+  limit: "10"
+order: 3000

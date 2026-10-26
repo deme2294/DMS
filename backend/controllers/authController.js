@@ -5,7 +5,9 @@ import { sanitizeUser } from '../models/User.js';
 
 export const login = async (req, res, next) => {
   try {
-    const { identifier, password, rememberMe } = req.body;
+    const rawIdentifier = req.body.identifier ?? req.body.username ?? req.body.email ?? '';
+    const identifier = typeof rawIdentifier === 'string' ? rawIdentifier.trim() : '';
+    const { password, rememberMe } = req.body;
     const result = await authService.login({
       identifier,
       password,
@@ -31,6 +33,7 @@ export const login = async (req, res, next) => {
     res.status(HTTP.OK).json({
       success: true,
       message: 'Login successful',
+      token: result.accessToken,
       data: { user: result.user, accessToken: result.accessToken, refreshToken: result.refreshToken },
     });
   } catch (err) {

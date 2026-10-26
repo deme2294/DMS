@@ -1,0 +1,30 @@
+$kind: http-request
+description: Submits a new ticket. Supports up to 5 attachments (max 10MB each) via multipart form-data.
+url: "{{baseUrl}}/api/tickets"
+method: POST
+body:
+  type: formdata
+  content:
+    - type: text
+      key: title
+      value: API Gateway 502 Outage in Production
+    - type: text
+      key: description
+      value: Payment service gateway returns 502 bad gateway intermittently for European users.
+    - type: text
+      key: category
+      value: Infrastructure
+    - type: text
+      key: priority
+      value: low
+    - type: text
+      key: departmentId
+      value: dept-infra-01
+    - type: text
+      key: attachments
+      value: sample
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 4000

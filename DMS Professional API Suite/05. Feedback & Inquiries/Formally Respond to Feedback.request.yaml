@@ -1,0 +1,11 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/feedback/:feedbackId/respond"
+method: PATCH
+headers:
+  Accept: application/json
+pathVariables:
+  - key: feedbackId
+    value: "{{feedbackId}}"
+    description: Path parameter feedbackId
+order: 7000

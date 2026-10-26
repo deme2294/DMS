@@ -1,0 +1,20 @@
+$kind: http-request
+name: Escalate Ticket Priority / SLA
+description: Flags ticket as escalated, notifies managers and department head.
+url: "{{baseUrl}}/api/tickets/:id/escalate"
+method: POST
+headers:
+  Content-Type: application/json
+pathVariables:
+  id: c1f7a840-a108-4e89-9a67-27b233a7e0f2
+body:
+  type: text
+  content: |-
+    {
+      "notes": "Customer production is blocked; SLA escalation required."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 8000

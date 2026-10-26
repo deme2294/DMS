@@ -1,0 +1,18 @@
+$kind: http-request
+description: ""
+url: "{{baseUrl}}/ticket-categories/:categoryId/approve"
+method: POST
+headers:
+  Accept: application/json
+  Content-Type: application/json
+pathVariables:
+  - key: categoryId
+    value: "{{categoryId}}"
+    description: Path parameter categoryId
+body:
+  type: text
+  content: |-
+    {
+      "reviewNotes": "Approved for production routing"
+    }
+order: 7000

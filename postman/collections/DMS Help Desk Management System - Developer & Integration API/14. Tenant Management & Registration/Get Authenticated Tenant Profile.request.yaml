@@ -1,0 +1,9 @@
+$kind: http-request
+description: Get Authenticated Tenant Profile
+url: "{{baseUrl}}/api/tenants/profile/me"
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: "{{bearerToken}}"
+order: 2000
