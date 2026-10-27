@@ -108,7 +108,7 @@ async function connectDB() {
         try {
             const connection = await pool.getConnection();
             const activePort = connection.config.port || process.env.DB_PORT || 3306;
-            const targetLabel = process.env.DB_TARGET 
+            const targetLabel = process.env.DB_TARGET
                 ? (process.env.DB_TARGET.toLowerCase() === 'docker' ? 'Docker' : 'XAMPP')
                 : (Number(activePort) === 3307 ? 'Docker' : 'MySQL');
             console.log(`  ${c.green}●${c.reset} ${c.bold}[DATABASE]${c.reset}   MySQL connected successfully [${targetLabel}] ${c.dim}(${connection.config.database}@${connection.config.host}:${activePort})${c.reset}`);
@@ -196,7 +196,7 @@ app.use((req, res, next) => {
 // ── CORS ─────────────────────────────────────────────────────────────────────
 const configuredOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
     .split(',')
-    .map((value) => value.trim())
+    .map((value) => value.trim().replace(/\/+$/, ''))
     .filter(Boolean);
 
 const allowedOrigins = new Set([
@@ -207,27 +207,49 @@ const allowedOrigins = new Set([
     ...configuredOrigins,
 ]);
 
-const isAllowedOrigin = (origin) => {
+const isAllowedOrigin = (origin, req) => {
     if (!origin) return true;
 
-    if (allowedOrigins.has(origin)) return true;
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    if (allowedOrigins.has(normalizedOrigin)) return true;
 
-    return /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin);
+    // Check if origin matches Host or X-Forwarded-Host header (Nginx reverse proxy same-origin)
+    if (req) {
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        if (host) {
+            const originHost = normalizedOrigin.replace(/^https?:\/\//, '');
+            if (originHost === host) return true;
+            const hostWithoutPort = host.split(':')[0];
+            const originHostWithoutPort = originHost.split(':')[0];
+            if (hostWithoutPort === originHostWithoutPort) return true;
+        }
+    }
+
+    // Check configured origins ignoring port if host matches
+    for (const conf of allowedOrigins) {
+        const confHost = conf.replace(/^https?:\/\//, '').split(':')[0];
+        const originHost = normalizedOrigin.replace(/^https?:\/\//, '').split(':')[0];
+        if (confHost && confHost === originHost) return true;
+    }
+
+    return /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(normalizedOrigin);
 };
 
 app.use(
-    cors({
-        origin: (origin, callback) => {
-            if (isAllowedOrigin(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error('Not allowed by CORS'));
-            }
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        exposedHeaders: ['Set-Cookie', 'Content-Disposition'],
+    cors((req, callback) => {
+        const origin = req.header('Origin');
+        if (isAllowedOrigin(origin, req)) {
+            callback(null, {
+                origin: true,
+                credentials: true,
+                methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+                allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+                exposedHeaders: ['Set-Cookie', 'Content-Disposition'],
+            });
+        } else {
+            console.warn(`[CORS] Blocked origin: ${origin} (Host: ${req.headers.host}, FRONTEND_URL: ${process.env.FRONTEND_URL})`);
+            callback(new Error('Not allowed by CORS'));
+        }
     })
 );
 
@@ -257,12 +279,12 @@ app.use((req, res, next) => {
         const status = res.statusCode;
         const statusLight = status >= 500 ? `${c.red}●${c.reset}`
             : status >= 400 ? `${c.yellow}●${c.reset}`
-            : `${c.green}●${c.reset}`;
-        
+                : `${c.green}●${c.reset}`;
+
         const methodColor = req.method === 'GET' ? c.cyan
             : req.method === 'POST' ? c.green
-            : req.method === 'DELETE' ? c.red
-            : c.yellow;
+                : req.method === 'DELETE' ? c.red
+                    : c.yellow;
 
         const ts = new Date().toLocaleTimeString();
         console.log(`  ${statusLight} ${methodColor}${req.method.padEnd(6)}${c.reset} ${req.originalUrl.padEnd(38)} ${c.dim}${status} (${duration}ms)${c.reset} ${c.gray}${ts}${c.reset}`);
@@ -497,7 +519,7 @@ const killProcessOnPort = async (port) => {
         const { stdout } = await execPromise(`netstat -ano | findstr :${port} | findstr LISTENING`);
         const lines = stdout.trim().split('\n');
         const pids = new Set();
-        
+
         for (const line of lines) {
             const parts = line.trim().split(/\s+/);
             const pid = parts[parts.length - 1];
@@ -588,15 +610,15 @@ function setupSocket(httpServer) {
         activeConnectionsCount++;
         const ts = new Date().toLocaleTimeString();
         console.log(`  ${c.green}●${c.reset} ${c.bold}[SOCKET]${c.reset}   ${c.green}Connected${c.reset}    ${c.bold}${user.username}${c.reset} ${c.dim}(${user.role})${c.reset} ${c.gray}• Active: ${activeConnectionsCount} • ${ts}${c.reset}`);
-        
+
         // Join user's personal room
         socket.join(`user:${user.id}`);
-        
+
         // Set user online status
         try {
             const chatService = await import('./services/chatService.js');
             await chatService.setOnlineStatus(user.id, true, socket.id);
-            
+
             // Broadcast online status
             io.emit('user-online', { userId: user.id, username: user.username });
         } catch (err) {
@@ -628,7 +650,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 const message = await chatService.sendMessage(data, user.id);
-                
+
                 // Broadcast to all participants in the room
                 io.to(`room:${data.roomId}`).emit('new-message', message);
             } catch (err) {
@@ -640,7 +662,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 const message = await chatService.editMessage(data.messageId, data.message, user.id);
-                
+
                 // Broadcast to all participants
                 const chatRepo = await import('./repository/chatRepository.js');
                 const originalMessage = await chatRepo.findMessageById(data.messageId);
@@ -666,7 +688,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 await chatService.setTyping(roomId, user.id, true);
-                
+
                 // Broadcast to others in room (not sender)
                 socket.to(`room:${roomId}`).emit('user-typing', {
                     roomId,
@@ -684,7 +706,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 await chatService.setTyping(roomId, user.id, false);
-                
+
                 socket.to(`room:${roomId}`).emit('user-stopped-typing', {
                     roomId,
                     userId: user.id,
@@ -699,7 +721,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 await chatService.markMessagesAsRead(data.roomId, user.id, data.messageIds || []);
-                
+
                 // Broadcast read status
                 io.to(`room:${data.roomId}`).emit('messages-read', {
                     roomId: data.roomId,
@@ -768,7 +790,7 @@ function setupSocket(httpServer) {
             activeConnectionsCount = Math.max(0, activeConnectionsCount - 1);
             const ts = new Date().toLocaleTimeString();
             console.log(`  ${c.gray}○${c.reset} ${c.dim}[SOCKET]   Disconnected${c.reset} ${user.username} ${c.gray}• Active: ${activeConnectionsCount} • ${ts}${c.reset}`);
-            
+
             // Broadcast video-user-left to any active video rooms
             io.emit('video-user-left', { socketId: socket.id, userId: user.id });
 
@@ -776,7 +798,7 @@ function setupSocket(httpServer) {
             try {
                 const chatService = await import('./services/chatService.js');
                 await chatService.setOnlineStatus(user.id, false, null);
-                
+
                 // Broadcast offline status
                 io.emit('user-offline', { userId: user.id, username: user.username });
             } catch (err) {

@@ -209,6 +209,15 @@ export const toggleAssignment = async ({ userId, departmentId, assigned }, manag
     if (existing) {
       return getAssignment(existing.id);
     }
+
+    // If user is already assigned to another department, seamlessly reassign them
+    const existingAssignment = await matrixRepo.findAssignmentByUser(userId);
+    if (existingAssignment && existingAssignment.department_id !== departmentId) {
+      await matrixRepo.replaceUserDepartment(userId, departmentId);
+      const updated = await matrixRepo.findAssignmentByPair(userId, departmentId);
+      return updated ? getAssignment(updated.id) : { userId, departmentId, assigned: true };
+    }
+
     return createAssignment({ userId, departmentId }, managerDepartmentIds);
   }
 

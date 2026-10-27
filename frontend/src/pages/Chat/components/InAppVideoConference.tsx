@@ -197,6 +197,10 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       } catch (err: any) {
         console.warn('[InAppVideo] getUserMedia failed, attempting HD audio-only:', err);
         try {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+            throw new Error(isHttp ? 'Webcam and mic require an HTTPS connection or localhost.' : 'Webcam and mic devices are not available.');
+          }
           stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS });
           if (!isCancelled) {
             setLocalStream(stream);
@@ -211,7 +215,11 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           }
         } catch (err2: any) {
           console.error('[InAppVideo] No camera or mic available:', err2);
-          setMediaError('Could not acquire local camera or microphone permissions.');
+          const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+          const msg = isHttp
+            ? 'Camera and microphone require a secure HTTPS connection. Please access via HTTPS or enable secure origin in browser flags.'
+            : (err2?.message || 'Could not acquire local camera or microphone permissions.');
+          setMediaError(msg);
           setIsCameraOff(true);
           setIsMicMuted(true);
           if (socket?.connected) {
