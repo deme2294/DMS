@@ -100,12 +100,54 @@ const c = {
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Verify MySQL connection & run auto migrations before binding to the port
 // ─────────────────────────────────────────────────────────────────────────────
+function checkTcpPort(host, port, timeoutMs = 800) {
+    return new Promise((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(timeoutMs);
+        socket.once('connect', () => {
+            socket.destroy();
+            resolve(true);
+        });
+        socket.once('timeout', () => {
+            socket.destroy();
+            resolve(false);
+        });
+        socket.once('error', () => {
+            socket.destroy();
+            resolve(false);
+        });
+        socket.connect(port, host);
+    });
+}
+
 async function connectDB() {
     const MAX_RETRIES = 10;
     const RETRY_DELAY_MS = 2000;
+    let autoSwitched = false;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
+            if (attempt === 1 && pool.switchTarget && !autoSwitched) {
+                const curCfg = pool.getActiveDbConfig ? pool.getActiveDbConfig() : null;
+                const curTarget = (curCfg?.target || process.env.DB_TARGET || 'xampp').toLowerCase();
+                const curPort = curCfg?.port || (curTarget === 'docker' ? 3307 : 3306);
+                const curHost = curCfg?.host || '127.0.0.1';
+
+                const isCurOpen = await checkTcpPort(curHost, curPort);
+                if (!isCurOpen) {
+                    const altTarget = curTarget === 'docker' ? 'xampp' : 'docker';
+                    const altCfg = pool.resolveDbConfig(altTarget);
+                    const isAltOpen = await checkTcpPort(altCfg.host, altCfg.port);
+
+                    if (isAltOpen) {
+                        console.log(`\n  🔄 ${c.cyan}[AUTO-DETECT]${c.reset} ${curTarget.toUpperCase()} on ${curHost}:${curPort} is offline, but ${c.green}${altTarget.toUpperCase()} on ${altCfg.host}:${altCfg.port}${c.reset} is ONLINE!`);
+                        console.log(`     Automatically switching connection target to ${c.bold}${altTarget.toUpperCase()}${c.reset}...\n`);
+                        pool.switchTarget(altTarget);
+                        autoSwitched = true;
+                    }
+                }
+            }
+
             const connection = await pool.getConnection();
             const activePort = connection.config.port || process.env.DB_PORT || 3306;
             const targetLabel = process.env.DB_TARGET
@@ -132,6 +174,31 @@ async function connectDB() {
             await runAutoMigrations();
             return; // Successful connection
         } catch (err) {
+            if (err.code === 'ER_BAD_DB_ERROR') {
+                try {
+                    const cfg = pool.getActiveDbConfig ? pool.getActiveDbConfig() : {
+                        host: process.env.DB_HOST || '127.0.0.1',
+                        port: Number(process.env.DB_PORT || 3306),
+                        user: process.env.DB_USER || 'root',
+                        password: process.env.DB_PASSWORD || '',
+                        database: process.env.DB_NAME || 'helpdesk_db'
+                    };
+                    const mysqlModule = await import('mysql2/promise');
+                    const adminConn = await mysqlModule.default.createConnection({
+                        host: cfg.host,
+                        port: cfg.port,
+                        user: cfg.user,
+                        password: cfg.password,
+                    });
+                    await adminConn.query(`CREATE DATABASE IF NOT EXISTS \`${cfg.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+                    await adminConn.end();
+                    console.log(`  ${c.green}●${c.reset} ${c.bold}[DATABASE]${c.reset} Database '${cfg.database}' created automatically. Retrying connection...`);
+                    continue;
+                } catch (createErr) {
+                    console.warn('⚠️  Could not auto-create database:', createErr.message);
+                }
+            }
+
             if (attempt === 1 && err.message && err.message.includes('ECONNREFUSED')) {
                 const isDockerTarget = (process.env.DB_TARGET || '').toLowerCase() === 'docker' || Number(process.env.DB_PORT) === 3307;
                 if (isDockerTarget) {
@@ -140,7 +207,8 @@ async function connectDB() {
                     console.log(`     • Or switch to XAMPP:     ${c.green}npm run dev:xampp${c.reset} (or: node server.js --target=xampp)\n`);
                 } else {
                     console.log(`\n  💡 ${c.cyan}[HINT] XAMPP MySQL is not responding on 127.0.0.1:3306.${c.reset}`);
-                    console.log(`     • Start MySQL in XAMPP Control Panel`);
+                    console.log(`     • Start MySQL in XAMPP Control Panel (click [Start] beside MySQL)`);
+                    console.log(`     • Or run batch script:    ${c.green}C:\\xampp\\mysql_start.bat${c.reset}`);
                     console.log(`     • Or switch to Docker:    ${c.green}npm run dev:docker${c.reset} (or: node server.js --target=docker)\n`);
                 }
             }
@@ -149,7 +217,7 @@ async function connectDB() {
                 await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
             } else {
                 console.error(`❌  MySQL connection failed after ${MAX_RETRIES} attempts:`, err.message);
-                process.exit(1); // Fatal – database unreachable after all retries
+                process.exit(1);
             }
         }
     }
@@ -201,9 +269,19 @@ const configuredOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
 
 const allowedOrigins = new Set([
     'http://localhost:5173',
-    'http://127.0.0.1:5173',
+    'https://localhost:5173',
     'http://localhost:5174',
+    'https://localhost:5174',
+    'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
+    'https://helpdesk.ethiopianitpark.com',
+    'http://helpdesk.ethiopianitpark.com',
+    'https://www.helpdesk.ethiopianitpark.com',
+    'http://www.helpdesk.ethiopianitpark.com',
+    'https://helpdesk.ethiopianitpark.et',
+    'http://helpdesk.ethiopianitpark.et',
+    'https://www.helpdesk.ethiopianitpark.et',
+    'http://www.helpdesk.ethiopianitpark.et',
     ...configuredOrigins,
 ]);
 
@@ -212,6 +290,11 @@ const isAllowedOrigin = (origin, req) => {
 
     const normalizedOrigin = origin.replace(/\/+$/, '');
     if (allowedOrigins.has(normalizedOrigin)) return true;
+
+    // Support any ethiopianitpark domain (with or without subdomains, http/https, any port)
+    if (/^https?:\/\/([a-zA-Z0-9-]+\.)*ethiopianitpark\.(com|et)(:\d+)?$/i.test(normalizedOrigin)) {
+        return true;
+    }
 
     // Check if origin matches Host or X-Forwarded-Host header (Nginx reverse proxy same-origin)
     if (req) {

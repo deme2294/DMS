@@ -892,6 +892,31 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column users.user_code');
     }
 
+    // 15b. Add user_num column to users table for sequential numeric ID
+    if (!(await columnExists('users', 'user_num'))) {
+      try {
+        await pool.query('ALTER TABLE users ADD COLUMN user_num INT AUTO_INCREMENT UNIQUE KEY');
+        console.log('[MIGRATION] Added column users.user_num (auto-increment)');
+      } catch (err) {
+        try {
+          await pool.query('ALTER TABLE users ADD COLUMN user_num INT NULL UNIQUE');
+          console.log('[MIGRATION] Added column users.user_num (unique)');
+          await pool.query(`
+            UPDATE users u
+            JOIN (
+              SELECT id, (@row_number := @row_number + 1) AS new_num
+              FROM users, (SELECT @row_number := 0) t
+              ORDER BY created_at ASC
+            ) r ON r.id = u.id
+            SET u.user_num = r.new_num
+            WHERE u.user_num IS NULL
+          `);
+        } catch (innerErr) {
+          console.warn('[MIGRATION] Note on users.user_num column:', innerErr.message);
+        }
+      }
+    }
+
     // 16. Assign 4-to-6 digit numeric user codes to existing users
     const [unassignedUsers] = await pool.query(
       `SELECT u.id, u.created_at

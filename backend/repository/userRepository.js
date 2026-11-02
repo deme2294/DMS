@@ -1,6 +1,26 @@
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../config/db.js';
 
+let hasUserNumColumn = null;
+
+export const checkUserNumColumn = async () => {
+  if (hasUserNumColumn !== null) return hasUserNumColumn;
+  try {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS 
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'user_num'`
+    );
+    hasUserNumColumn = rows[0]?.cnt > 0;
+  } catch {
+    hasUserNumColumn = false;
+  }
+  return hasUserNumColumn;
+};
+
+export const resetUserNumColumnCache = () => {
+  hasUserNumColumn = null;
+};
+
 export const findAll = async ({ search, role, status, departmentId, managerDepartmentIds, page = 1, limit = 10, sortBy = 'created_at', sortOrder = 'DESC' }) => {
   const offset = (page - 1) * limit;
   const allowedSort = ['created_at', 'username', 'email', 'first_name', 'last_name', 'status'];
@@ -52,8 +72,9 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
     params
   );
 
+  const hasNumCol = await checkUserNumColumn();
   const [rows] = await pool.query(
-    `SELECT u.id, u.user_num, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
+    `SELECT u.id, ${hasNumCol ? 'u.user_num' : 'NULL AS user_num'}, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
             u.first_name, u.last_name, u.phone, u.profile_image, u.status, u.theme_preference,
             u.user_code, u.last_login_at, u.created_at, u.updated_at
       FROM users u
@@ -101,15 +122,16 @@ export const resolveUserId = async (idOrShort) => {
   if (!idOrShort) return null;
   const str = String(idOrShort).trim();
   const isNumeric = /^\d+$/.test(str);
+  const hasNumCol = await checkUserNumColumn();
   const [rows] = await pool.query(
     `SELECT id FROM users
      WHERE id = :str
         OR id LIKE CONCAT(:str, '%')
         OR user_code = :str
-        ${isNumeric ? 'OR user_num = :num' : ''}
+        ${isNumeric && hasNumCol ? 'OR user_num = :num' : ''}
      ORDER BY CASE
        WHEN id = :str THEN 1
-       WHEN ${isNumeric ? 'user_num = :num' : '0'} THEN 2
+       WHEN ${isNumeric && hasNumCol ? 'user_num = :num' : '0'} THEN 2
        WHEN user_code = :str THEN 3
        ELSE 4
      END
@@ -122,8 +144,9 @@ export const resolveUserId = async (idOrShort) => {
 export const findById = async (id) => {
   const str = String(id).trim();
   const isNumeric = /^\d+$/.test(str);
+  const hasNumCol = await checkUserNumColumn();
   const [rows] = await pool.query(
-    `SELECT u.id, u.user_num, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
+    `SELECT u.id, ${hasNumCol ? 'u.user_num' : 'NULL AS user_num'}, u.tenant_id, u.role_id, r.name AS role, u.username, u.email,
             u.first_name, u.last_name, u.phone, u.profile_image, u.status, u.theme_preference,
             u.user_code, u.last_login_at, u.created_at, u.updated_at,
             t.organization_name AS tenant_name
@@ -133,10 +156,10 @@ export const findById = async (id) => {
       WHERE u.id = :str
          OR u.id LIKE CONCAT(:str, '%')
          OR u.user_code = :str
-         ${isNumeric ? 'OR u.user_num = :num' : ''}
+         ${isNumeric && hasNumCol ? 'OR u.user_num = :num' : ''}
       ORDER BY CASE
         WHEN u.id = :str THEN 1
-        WHEN ${isNumeric ? 'u.user_num = :num' : '0'} THEN 2
+        WHEN ${isNumeric && hasNumCol ? 'u.user_num = :num' : '0'} THEN 2
         WHEN u.user_code = :str THEN 3
         ELSE 4
       END

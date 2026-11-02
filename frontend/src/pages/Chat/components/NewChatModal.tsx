@@ -69,7 +69,7 @@ export interface NewChatModalProps {
   onSelectDepartmentId: (id: string) => void;
   onSelectTicketId: (id: string) => void;
   onSetNewChatName: (name: string) => void;
-  onCreateRoom: (e: React.FormEvent) => void;
+  onCreateRoom: (e: React.FormEvent, initialMode?: 'chat' | 'video') => void;
   onStartDirectChat?: (userId: string, initialMode: 'chat' | 'video') => void;
 }
 
@@ -1441,68 +1441,113 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
               <XMarkIcon className={styles.btnIconSvg} />
               <span>Cancel</span>
             </button>
-            <button
-              type="submit"
-              className={styles.modalSubmitBtn}
-              style={
-                chatType === 'video_conference'
-                  ? {
-                      background: 'linear-gradient(135deg, #db2777 0%, #7c3aed 100%)',
-                      borderColor: '#db2777',
-                    }
-                  : {}
-              }
-              disabled={
-                creatingRoom ||
-                (chatType === 'direct' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
-                (chatType === 'department' && !selectedDepartmentId) ||
-                (chatType === 'ticket' && !selectedTicketId) ||
-                (chatType === 'video_conference' &&
-                  ((videoConferenceTarget === 'user' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
-                    (videoConferenceTarget === 'department' && !selectedDepartmentId) ||
-                    (videoConferenceTarget === 'ticket' && !selectedTicketId)))
-              }
-            >
-              {creatingRoom ? (
-                <>
-                  <div className={styles.btnSpinner} />
-                  <span>Connecting...</span>
-                </>
-              ) : chatType === 'video_conference' ? (
-                <>
-                  <VideoCameraIcon className={styles.btnIconSvg} />
-                  <span>
-                    {conferenceScheduleMode === 'now'
-                      ? videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
-                        ? `🚀 Start Video Conference (${effectiveSelectedUserIds.length} Participants)`
-                        : '🚀 Start Video Conference (Today)'
-                      : videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
-                        ? `🗓️ Schedule Video Conference (${effectiveSelectedUserIds.length} Participants)`
-                        : '🗓️ Schedule Video Conference'}
-                  </span>
-                </>
-              ) : chatType === 'ticket' ? (
-                <>
-                  <TicketIcon className={styles.btnIconSvg} />
-                  <span>Route & Start Ticket Chat Now</span>
-                </>
-              ) : chatType === 'department' ? (
-                <>
-                  <BuildingOffice2Icon className={styles.btnIconSvg} />
-                  <span>Open Department Channel</span>
-                </>
-              ) : chatType === 'direct' ? (
-                <>
-                  <ChatBubbleLeftRightIcon className={styles.btnIconSvg} />
-                  <span>Start Direct Chat</span>
-                </>
-              ) : (
-                <>
-                  <PlusIcon className={styles.btnIconSvg} />
-                  <span>Create Conversation</span>
-                </>
-              )}
-            </button>
+            {chatType === 'video_conference' ? (
+              <button
+                type="submit"
+                className={styles.modalSubmitBtn}
+                style={{
+                  background: 'linear-gradient(135deg, #db2777 0%, #7c3aed 100%)',
+                  borderColor: '#db2777',
+                }}
+                disabled={
+                  creatingRoom ||
+                  (videoConferenceTarget === 'user' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
+                  (videoConferenceTarget === 'department' && !selectedDepartmentId) ||
+                  (videoConferenceTarget === 'ticket' && !selectedTicketId)
+                }
+              >
+                {creatingRoom ? (
+                  <>
+                    <div className={styles.btnSpinner} />
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <VideoCameraIcon className={styles.btnIconSvg} />
+                    <span>
+                      {conferenceScheduleMode === 'now'
+                        ? videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
+                          ? `🚀 Start Video Conference (${effectiveSelectedUserIds.length} Participants)`
+                          : '🚀 Start Video Conference (Today)'
+                        : videoConferenceTarget === 'user' && effectiveSelectedUserIds.length > 1
+                          ? `🗓️ Schedule Video Conference (${effectiveSelectedUserIds.length} Participants)`
+                          : '🗓️ Schedule Video Conference'}
+                    </span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={styles.modalSubmitBtn}
+                  disabled={
+                    creatingRoom ||
+                    (chatType === 'direct' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
+                    (chatType === 'department' && !selectedDepartmentId) ||
+                    (chatType === 'ticket' && !selectedTicketId)
+                  }
+                  onClick={(e) => onCreateRoom(e, 'chat')}
+                >
+                  {creatingRoom ? (
+                    <>
+                      <div className={styles.btnSpinner} />
+                      <span>Connecting...</span>
+                    </>
+                  ) : chatType === 'ticket' ? (
+                    <>
+                      <TicketIcon className={styles.btnIconSvg} />
+                      <span>Route & Start Ticket Chat</span>
+                    </>
+                  ) : chatType === 'department' ? (
+                    <>
+                      <BuildingOffice2Icon className={styles.btnIconSvg} />
+                      <span>Open Department Chat</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChatBubbleLeftRightIcon className={styles.btnIconSvg} />
+                      <span>Start Direct Text Chat</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.modalSubmitBtn}
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                    borderColor: '#7c3aed',
+                    color: '#ffffff',
+                  }}
+                  disabled={
+                    creatingRoom ||
+                    (chatType === 'direct' && !selectedUserId && effectiveSelectedUserIds.length === 0) ||
+                    (chatType === 'department' && !selectedDepartmentId) ||
+                    (chatType === 'ticket' && !selectedTicketId)
+                  }
+                  onClick={(e) => onCreateRoom(e, 'video')}
+                >
+                  {creatingRoom ? (
+                    <>
+                      <div className={styles.btnSpinner} />
+                      <span>Starting Video...</span>
+                    </>
+                  ) : (
+                    <>
+                      <VideoCameraIcon className={styles.btnIconSvg} />
+                      <span>
+                        {chatType === 'department'
+                          ? 'Start Dept Video Call'
+                          : chatType === 'ticket'
+                          ? 'Start Ticket Video Call'
+                          : 'Start Direct Video Call'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

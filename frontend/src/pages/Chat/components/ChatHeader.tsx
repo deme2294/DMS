@@ -33,6 +33,8 @@ interface ChatHeaderProps {
   onToggleMobileSidebar: () => void;
   onToggleWholePageMode?: () => void;
   onToggleSidebarCollapse?: () => void;
+  onDirectStartVideo?: (room: ChatRoom) => void;
+  onDirectStartChat?: (room: ChatRoom) => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -53,6 +55,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onToggleMobileSidebar,
   onToggleWholePageMode,
   onToggleSidebarCollapse,
+  onDirectStartVideo,
+  onDirectStartChat,
 }) => {
   const isDirect = selectedRoom.room_type === 'direct';
   const partnerName = directPartner
@@ -144,7 +148,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             className={`${styles.modeSwitchBtn} ${
               activeViewMode === 'chat' ? styles.modeSwitchBtnChatActive : ''
             }`}
-            onClick={() => onSetViewMode('chat')}
+            onClick={() => {
+              if (onDirectStartChat) {
+                onDirectStartChat(selectedRoom);
+              } else {
+                onSetViewMode('chat');
+              }
+            }}
             title="Switch to pure Text Chat mode"
           >
             <ChatBubbleLeftRightIcon className={styles.modeHeaderIcon} />
@@ -156,8 +166,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             className={`${styles.modeSwitchBtn} ${
               activeViewMode === 'video' ? styles.modeSwitchBtnVideoActive : ''
             }`}
-            onClick={() => onSetViewMode('video')}
-            title="Switch to 100% In-App Video Conference"
+            onClick={() => {
+              if (onDirectStartVideo) {
+                onDirectStartVideo(selectedRoom);
+              } else {
+                onSetViewMode('video');
+              }
+            }}
+            title="Directly start or switch to 100% In-App Video Conference"
           >
             <VideoCameraIcon className={styles.modeHeaderIcon} />
             <span className={styles.modeText}>Video Call</span>
@@ -182,7 +198,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <button
             type="button"
             className={styles.headerQuickCallBtn}
-            onClick={() => onSetViewMode('video')}
+            onClick={() => {
+              if (onDirectStartVideo) {
+                onDirectStartVideo(selectedRoom);
+              } else {
+                onSetViewMode('video');
+              }
+            }}
             title={`Start instant video conference today in ${isDirect ? partnerName : selectedRoom.name}`}
           >
             <VideoCameraIcon style={{ width: '15px', height: '15px' }} />

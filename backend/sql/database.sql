@@ -107,6 +107,7 @@ CREATE TABLE departments (
 
 CREATE TABLE users (
    id CHAR(36) PRIMARY KEY,
+   user_num INT AUTO_INCREMENT UNIQUE,
    tenant_id CHAR(36) NULL,
    role_id INT NOT NULL,
    username VARCHAR(80) NOT NULL UNIQUE,

@@ -38,11 +38,23 @@ export const revokeRefreshToken = async (tokenHash) => {
 };
 
 export const logLoginAttempt = async (payload) => {
-  await pool.query(
-    `INSERT INTO login_history (id, user_id, username, ip_address, user_agent, success, message)
-     VALUES (:id, :userId, :username, :ip, :userAgent, :success, :message)`,
-    payload
-  );
+  try {
+    await pool.query(
+      `INSERT INTO login_history (id, user_id, username, ip_address, user_agent, success, message)
+       VALUES (:id, :userId, :username, :ip, :userAgent, :success, :message)`,
+      {
+        id: payload.id,
+        userId: payload.userId ?? null,
+        username: payload.username ?? null,
+        ip: payload.ip ?? null,
+        userAgent: payload.userAgent ?? null,
+        success: payload.success ? 1 : 0,
+        message: payload.message ?? null,
+      }
+    );
+  } catch (err) {
+    console.warn('⚠️  Could not log login attempt:', err.message);
+  }
 };
 
 export const updateLoginState = async ({ userId, failedAttempts, lockedUntil, lastLoginAt }) => {
@@ -52,6 +64,12 @@ export const updateLoginState = async ({ userId, failedAttempts, lockedUntil, la
          locked_until = :lockedUntil,
          last_login_at = :lastLoginAt
      WHERE id = :userId`,
-    { userId, failedAttempts, lockedUntil, lastLoginAt }
+    {
+      userId,
+      failedAttempts: failedAttempts ?? 0,
+      lockedUntil: lockedUntil ?? null,
+      lastLoginAt: lastLoginAt ?? null,
+    }
   );
 };
+

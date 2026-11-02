@@ -3,6 +3,7 @@ import {
   VideoCameraIcon,
   ChatBubbleLeftRightIcon,
   PlusIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/solid';
 import type { ChatRoom } from '../../../api/chatApi';
 import { getAvatarGradient, formatTimeOnly } from '../types';
@@ -18,6 +19,8 @@ interface ChatSidebarProps {
   unreadCount: number;
   mobileSidebarOpen: boolean;
   isSidebarCollapsed?: boolean;
+  activeViewMode?: 'chat' | 'video' | 'split';
+  isVideoActive?: boolean;
   roomTypeCounts: {
     all: number;
     direct: number;
@@ -31,6 +34,8 @@ interface ChatSidebarProps {
   onStartNewChat: () => void;
   onStartVideoConference: () => void;
   onCloseMobileSidebar: () => void;
+  onDirectStartVideo?: (room: ChatRoom) => void;
+  onDirectStartChat?: (room: ChatRoom) => void;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -43,6 +48,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   unreadCount,
   mobileSidebarOpen,
   isSidebarCollapsed,
+  activeViewMode = 'chat',
+  isVideoActive = false,
   roomTypeCounts,
   onSelectRoom,
   onSearchChange,
@@ -50,12 +57,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onStartNewChat,
   onStartVideoConference,
   onCloseMobileSidebar,
+  onDirectStartVideo,
+  onDirectStartChat,
 }) => {
   return (
     <div
-      className={`${styles.chatSidebar} ${
-        mobileSidebarOpen ? styles.sidebarOpenMobile : ''
-      } ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
+      className={`${styles.chatSidebar} ${mobileSidebarOpen ? styles.sidebarOpenMobile : ''
+        } ${isSidebarCollapsed ? styles.sidebarCollapsed : ''}`}
     >
       <div className={styles.sidebarHeader}>
         <div className={styles.sidebarTitleRow}>
@@ -71,12 +79,28 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <button
             type="button"
             className={styles.newConferenceBtn}
-            onClick={onStartVideoConference}
-            title="Start or schedule Video Conference (Today or custom date)"
+            onClick={() => {
+              if (selectedRoom && onDirectStartVideo) {
+                onDirectStartVideo(selectedRoom);
+              } else {
+                onStartVideoConference();
+              }
+            }}
+            title={selectedRoom ? `Directly start Video Conference in ${selectedRoom.name}` : 'Start or schedule Video Conference'}
           >
             <VideoCameraIcon className={styles.btnSvgIcon} />
             <span className={styles.newChatBtnText}>Video Call</span>
           </button>
+          {selectedRoom && (
+            <button
+              type="button"
+              className={styles.newConferenceScheduleBtn}
+              onClick={onStartVideoConference}
+              title="Schedule custom video conference or invite other members"
+            >
+              <CalendarDaysIcon className={styles.btnSvgIconSmall} />
+            </button>
+          )}
           <button
             type="button"
             className={styles.newChatBtn}
@@ -120,9 +144,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         <div className={styles.filterPills}>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillAll} ${
-              activeFilter === 'all' ? styles.filterActiveAll : ''
-            }`}
+            className={`${styles.filterPill} ${styles.filterPillAll} ${activeFilter === 'all' ? styles.filterActiveAll : ''
+              }`}
             onClick={() => onFilterChange('all')}
           >
             <span>💬 All</span>
@@ -130,9 +153,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillVideo} ${
-              activeFilter === 'video' ? styles.filterActiveVideo : ''
-            }`}
+            className={`${styles.filterPill} ${styles.filterPillVideo} ${activeFilter === 'video' ? styles.filterActiveVideo : ''
+              }`}
             onClick={() => onFilterChange('video')}
             title="Video conferences & active call channels"
           >
@@ -141,9 +163,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillDirect} ${
-              activeFilter === 'direct' ? styles.filterActiveDirect : ''
-            }`}
+            className={`${styles.filterPill} ${styles.filterPillDirect} ${activeFilter === 'direct' ? styles.filterActiveDirect : ''
+              }`}
             onClick={() => onFilterChange('direct')}
           >
             <span>👤 Direct</span>
@@ -151,9 +172,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillDept} ${
-              activeFilter === 'department' ? styles.filterActiveDept : ''
-            }`}
+            className={`${styles.filterPill} ${styles.filterPillDept} ${activeFilter === 'department' ? styles.filterActiveDept : ''
+              }`}
             onClick={() => onFilterChange('department')}
           >
             <span>🏢 Dept</span>
@@ -161,9 +181,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillTicket} ${
-              activeFilter === 'ticket' ? styles.filterActiveTicket : ''
-            }`}
+            className={`${styles.filterPill} ${styles.filterPillTicket} ${activeFilter === 'ticket' ? styles.filterActiveTicket : ''
+              }`}
             onClick={() => onFilterChange('ticket')}
           >
             <span>🎫 Tickets</span>
@@ -195,14 +214,20 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {searchTerm
                 ? 'No chats match your search query.'
                 : activeFilter === 'video'
-                ? 'Launch or schedule an in-app video conference.'
-                : 'Start a direct chat, department channel, or ticket discussion.'}
+                  ? 'Launch or schedule an in-app video conference.'
+                  : 'Start a direct chat, department channel, or ticket discussion.'}
             </p>
             <div className={styles.sidebarEmptyActions}>
               <button
                 type="button"
                 className={styles.sidebarEmptyVideoBtn}
-                onClick={onStartVideoConference}
+                onClick={() => {
+                  if (selectedRoom && onDirectStartVideo) {
+                    onDirectStartVideo(selectedRoom);
+                  } else {
+                    onStartVideoConference();
+                  }
+                }}
               >
                 <VideoCameraIcon className={styles.btnSmallIcon} />
                 <span>Video Conference</span>
@@ -245,14 +270,13 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     {isDirect
                       ? room.name?.[0] || 'U'
                       : room.room_type === 'ticket'
-                      ? '🎫'
-                      : '🏢'}
+                        ? '🎫'
+                        : '🏢'}
                   </div>
                   {isDirect ? (
                     <span
-                      className={`${styles.onlineIndicator} ${
-                        isDirectOnline ? styles.online : styles.offline
-                      }`}
+                      className={`${styles.onlineIndicator} ${isDirectOnline ? styles.online : styles.offline
+                        }`}
                       title={isDirectOnline ? 'Active now on Chat Page' : 'Offline'}
                     />
                   ) : (
@@ -270,13 +294,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <div className={styles.roomNameWrapper}>
                       <span className={styles.roomName}>{room.name}</span>
                       <span
-                        className={`${styles.roomTypeBadge} ${
-                          room.room_type === 'direct'
+                        className={`${styles.roomTypeBadge} ${room.room_type === 'direct'
                             ? styles.badgeDirect
                             : room.room_type === 'department'
-                            ? styles.badgeDepartment
-                            : styles.badgeTicket
-                        }`}
+                              ? styles.badgeDepartment
+                              : styles.badgeTicket
+                          }`}
                       >
                         {room.room_type}
                       </span>
@@ -300,8 +323,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         ? room.last_message.startsWith('🎥 [VIDEO_CONFERENCE]')
                           ? '📹 Video Conference Invitation'
                           : room.last_message.startsWith('🎥 [GOOGLE_MEET_CALL]')
-                          ? '🎥 Video Meeting Invitation'
-                          : room.last_message
+                            ? '🎥 Video Meeting Invitation'
+                            : room.last_message
                         : 'No messages yet'}
                     </p>
                     {Boolean(room.unread_count && room.unread_count > 0) && (
@@ -309,6 +332,50 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         {(room.unread_count ?? 0) > 99 ? '99+' : room.unread_count}
                       </span>
                     )}
+                  </div>
+
+                  {/* 1-Click Direct Launch Actions: Start Video Conference or Text Chat */}
+                  <div
+                    className={`${styles.roomDirectActions} ${isSelected ? styles.roomDirectActionsSelected : ''}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className={`${styles.roomDirectBtn} ${styles.roomDirectBtnChat} ${isSelected && activeViewMode === 'chat' && !isVideoActive ? styles.roomDirectBtnActiveChat : ''
+                        }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onDirectStartChat) {
+                          onDirectStartChat(room);
+                        } else {
+                          onSelectRoom(room);
+                        }
+                        onCloseMobileSidebar();
+                      }}
+                      title={`Directly open text chat in ${room.name}`}
+                    >
+                      <ChatBubbleLeftRightIcon className={styles.roomDirectIcon} />
+                      <span>Text Chat</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`${styles.roomDirectBtn} ${styles.roomDirectBtnVideo} ${isSelected && (activeViewMode === 'video' || isVideoActive) ? styles.roomDirectBtnActiveVideo : ''
+                        }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onDirectStartVideo) {
+                          onDirectStartVideo(room);
+                        } else {
+                          onSelectRoom(room);
+                        }
+                        onCloseMobileSidebar();
+                      }}
+                      title={`Directly start video conference in ${room.name}`}
+                    >
+                      <VideoCameraIcon className={styles.roomDirectIcon} />
+                      <span>Video Call</span>
+                    </button>
                   </div>
                 </div>
               </div>

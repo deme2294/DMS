@@ -185,7 +185,13 @@ export default function ChatPage() {
       const fetchedRooms = await loadRooms();
       if (isCancelled) return;
 
-      const targetRoomId = (location.state as any)?.selectedRoomId;
+      const searchParams = new URLSearchParams(location.search);
+      const queryRoomId = searchParams.get('roomId') || searchParams.get('room');
+      const queryAutoVideo = searchParams.get('video') === 'true' || searchParams.get('mode') === 'video';
+
+      const targetRoomId = (location.state as any)?.selectedRoomId || queryRoomId;
+      const shouldAutoVideo = (location.state as any)?.autoJoinVideo || queryAutoVideo;
+
       if (targetRoomId && handledLocationTargetRef.current !== targetRoomId) {
         handledLocationTargetRef.current = targetRoomId;
         const found = fetchedRooms.find((r) => r.id === targetRoomId);
@@ -203,7 +209,7 @@ export default function ChatPage() {
             console.error('Failed to load room by target ID:', err);
           }
         }
-        if ((location.state as any)?.autoJoinVideo) {
+        if (shouldAutoVideo) {
           setIsVideoActive(true);
           setActiveViewMode('video');
         }
@@ -217,7 +223,7 @@ export default function ChatPage() {
     return () => {
       isCancelled = true;
     };
-  }, [loadRooms, location.state]);
+  }, [loadRooms, location.state, location.search]);
 
   // 2. Load Messages and Participants when Selected Room Changes
   useEffect(() => {
@@ -966,14 +972,16 @@ export default function ChatPage() {
     }
   };
 
-  const handleCreateRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateRoom = async (e: React.FormEvent, initialMode: 'chat' | 'video' = 'chat') => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     setCreatingRoom(true);
 
     try {
       let createdRoom: ChatRoom | null = null;
       if (chatType === 'direct') {
-        const payload: { userId?: string; targetRole?: string; initialMode?: 'chat' | 'video' } = { initialMode: 'chat' };
+        const payload: { userId?: string; targetRole?: string; initialMode?: 'chat' | 'video' } = { initialMode };
         if (selectedUserId === 'admin') {
           payload.targetRole = 'admin';
         } else {
@@ -1000,7 +1008,12 @@ export default function ChatPage() {
         setSelectedRoom(createdRoom);
         loadRooms();
         setShowNewChatModal(false);
-        setActiveViewMode('chat');
+        if (initialMode === 'video') {
+          handleDirectStartVideo(createdRoom);
+        } else {
+          setIsVideoActive(false);
+          setActiveViewMode('chat');
+        }
       }
     } catch (err: any) {
       console.error('Failed to create chat room:', err);
@@ -1009,6 +1022,97 @@ export default function ChatPage() {
       setCreatingRoom(false);
     }
   };
+
+  // Directly start video conference in any target room (created before or selected)
+  const handleDirectStartVideo = useCallback(async (targetRoom?: ChatRoom | null) => {
+    const roomToUse = targetRoom || selectedRoom;
+    if (!roomToUse) return;
+
+    if (!selectedRoom || selectedRoom.id !== roomToUse.id) {
+      setSelectedRoom(roomToUse);
+    }
+    setIsVideoActive(true);
+    setActiveViewMode('video');
+    setMobileSidebarOpen(false);
+
+    try {
+      let targetEmails: string[] = [];
+      if (roomToUse.room_type === 'direct') {
+        const partner = participants.find((p) => p.id !== currentUser.id);
+        if (partner?.email) {
+          targetEmails = [partner.email];
+        } else {
+          try {
+            const partRes = await chatApi.fetchRoomParticipants(roomToUse.id);
+            const list = partRes.data.data || [];
+            const other = list.find((p: any) => p.id !== currentUser.id);
+            if (other?.email) targetEmails = [other.email];
+          } catch {}
+        }
+      } else if (roomToUse.room_type === 'department' && roomToUse.department_id) {
+        try {
+          const membersRes = await chatApi.fetchDepartmentChatMembers(roomToUse.department_id);
+          const members = membersRes.data.data || [];
+          targetEmails = members
+            .filter((m: any) => m.id !== currentUser.id)
+            .map((m: any) => m.email)
+            .filter(Boolean);
+        } catch {}
+      } else if (roomToUse.room_type === 'ticket' && roomToUse.ticket_id) {
+        try {
+          const membersRes = await chatApi.fetchTicketChatMembers(roomToUse.ticket_id);
+          const members = membersRes.data.data || [];
+          targetEmails = members
+            .filter((m: any) => m.id !== currentUser.id)
+            .map((m: any) => m.email)
+            .filter(Boolean);
+        } catch {}
+      }
+
+      if (targetEmails.length > 0) {
+        const callerName = currentUser.first_name && currentUser.last_name
+          ? `${currentUser.first_name} ${currentUser.last_name}`
+          : currentUser.username || 'User';
+
+        await chatApi.sendMeetingInvite({
+          recipientEmails: targetEmails,
+          meetingUrl: `https://meet.dms.gov/room/${roomToUse.id}`,
+          roomId: roomToUse.id,
+          title: `${roomToUse.name} - Instant Video Conference`,
+          notes: `Direct conference started by ${callerName} Today`,
+          meetingType: 'dms_conference',
+          scheduledTime: new Date().toISOString(),
+          durationMinutes: 30,
+          customSettings: {
+            screenShareEnabled: true,
+            startAudioMuted: false,
+            startVideoMuted: false,
+            requireRegisteredOnly: true,
+          },
+        });
+
+        // Re-fetch messages for the room
+        const msgRes = await chatApi.fetchRoomMessages(roomToUse.id);
+        setMessages(msgRes.data.data || []);
+        loadRooms();
+      }
+    } catch (inviteErr) {
+      console.warn('Could not dispatch instant call invite:', inviteErr);
+    }
+  }, [currentUser, participants, selectedRoom, loadRooms]);
+
+  // Directly open pure text chat in any target room
+  const handleDirectStartChat = useCallback((targetRoom?: ChatRoom | null) => {
+    const roomToUse = targetRoom || selectedRoom;
+    if (!roomToUse) return;
+
+    if (!selectedRoom || selectedRoom.id !== roomToUse.id) {
+      setSelectedRoom(roomToUse);
+    }
+    setIsVideoActive(false);
+    setActiveViewMode('chat');
+    setMobileSidebarOpen(false);
+  }, [selectedRoom]);
 
   // Switch to In-App Video Mode
   const handleStartInAppVideo = () => {
@@ -1163,6 +1267,8 @@ export default function ChatPage() {
           unreadCount={unreadCount}
           mobileSidebarOpen={mobileSidebarOpen}
           isSidebarCollapsed={isSidebarCollapsed}
+          activeViewMode={activeViewMode}
+          isVideoActive={isVideoActive}
           roomTypeCounts={roomTypeCounts}
           onSelectRoom={(r) => setSelectedRoom(r)}
           onSearchChange={(q) => setSearchTerm(q)}
@@ -1170,6 +1276,8 @@ export default function ChatPage() {
           onStartNewChat={handleStartNewChat}
           onStartVideoConference={handleOpenVideoConferenceModal}
           onCloseMobileSidebar={() => setMobileSidebarOpen(false)}
+          onDirectStartVideo={handleDirectStartVideo}
+          onDirectStartChat={handleDirectStartChat}
         />
 
         {/* Center Active Workspace */}
@@ -1200,6 +1308,8 @@ export default function ChatPage() {
                 onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
                 onToggleWholePageMode={() => setIsWholePageMode(!isWholePageMode)}
                 onToggleSidebarCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                onDirectStartVideo={handleDirectStartVideo}
+                onDirectStartChat={handleDirectStartChat}
               />
 
               {/* Event Timing Banner for Scheduled Video & Screen Share Session - Shown ONLY when clicked and not yet in video conference */}
