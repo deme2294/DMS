@@ -832,11 +832,12 @@ function setupSocket(httpServer) {
             });
         });
 
-        socket.on('video-signal', ({ to, signal }) => {
+        socket.on('video-signal', ({ to, signal, peerInfo }) => {
             if (to) {
                 io.to(to).emit('video-signal', {
                     from: socket.id,
                     signal,
+                    peerInfo: peerInfo || {},
                     user: {
                         id: user.id,
                         username: user.username,

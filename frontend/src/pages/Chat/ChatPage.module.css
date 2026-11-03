@@ -196,11 +196,13 @@
 }
 
 .chatMessagesWrapper {
-  flex: 1;
+  flex: 1 1 0%;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* --------------------------------------------------------------------------
@@ -322,16 +324,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 18px;
+  padding: 8px 16px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-light);
-  gap: 12px;
-  min-height: 60px;
+  gap: 10px;
+  min-height: 56px;
+  max-height: 60px;
+  height: 58px;
   box-sizing: border-box;
   flex-shrink: 0;
   z-index: 10;
   transition: background-color 0.2s ease, border-color 0.2s ease;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .chatHeaderLeft {
@@ -480,10 +485,12 @@
 .chatHeaderRight {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 5px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Mode Switcher Segmented Control (Text Chat / Video Call / Split View) */
@@ -1297,13 +1304,17 @@
    6. MESSAGES AREA & CONVERSATION STREAM
    -------------------------------------------------------------------------- */
 .messagesArea {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   overflow-y: auto;
-  padding: 20px;
+  overflow-x: hidden !important;
+  padding: 14px 18px;
+  box-sizing: border-box;
   background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  overscroll-behavior: contain;
 }
 
 .messagesArea::-webkit-scrollbar {
@@ -1540,8 +1551,10 @@
   border-radius: var(--radius-md);
   padding: 14px;
   box-shadow: var(--shadow-md);
-  min-width: 280px;
-  max-width: 440px;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
   color: var(--text-main);
 }
 
@@ -1849,18 +1862,25 @@
    9. CHAT INPUT AREA COMPONENT
    -------------------------------------------------------------------------- */
 .chatInputContainer {
+  flex-shrink: 0 !important;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 10px 16px;
   background: #ffffff;
   border-top: 1px solid var(--border-light);
   box-sizing: border-box;
+  position: relative;
+  z-index: 10;
+  min-height: 58px;
 }
 
 .attachBtn {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  flex-shrink: 0 !important;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-light);
   background: #f8fafc;
@@ -1906,8 +1926,11 @@
 }
 
 .sendBtn {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  flex-shrink: 0 !important;
   border-radius: var(--radius-full);
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-hover) 100%);
   color: #ffffff;
@@ -6508,3 +6531,63 @@
 
 
 
+
+/* Responsive Header Action Labels and Controls */
+.headerActionBtnLabel {
+  display: inline;
+}
+
+.headerMembersBadge {
+  background: var(--primary-blue, #2563eb);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full, 9999px);
+  margin-left: 2px;
+}
+
+@media (max-width: 1250px) {
+  .headerActionBtnLabel {
+    display: none !important;
+  }
+  .headerActionBtn,
+  .headerQuickCallBtn {
+    padding: 6px 8px !important;
+  }
+}
+
+@media (max-width: 950px) {
+  .modeText {
+    display: none !important;
+  }
+  .modeSwitchBtn {
+    padding: 6px 8px !important;
+  }
+  .chatHeaderTitle {
+    font-size: 0.88rem !important;
+    max-width: 130px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .participantsSummary span:last-child {
+    display: none !important;
+  }
+  .metaDivider {
+    display: none !important;
+  }
+  .chatSidebar {
+    width: 270px !important;
+    min-width: 230px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .chatSidebar {
+    width: 250px !important;
+  }
+  .messageRow {
+    max-width: 95% !important;
+  }
+}

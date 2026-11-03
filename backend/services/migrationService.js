@@ -384,6 +384,11 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column notifications.room_id');
     }
 
+    if (!(await columnExists('notifications', 'article_id'))) {
+      await pool.query('ALTER TABLE notifications ADD COLUMN article_id CHAR(36) NULL');
+      console.log('[MIGRATION] Added column notifications.article_id');
+    }
+
     const [enumRows] = await pool.query(
       `SELECT COLUMN_TYPE FROM information_schema.COLUMNS 
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND COLUMN_NAME = 'type'`
@@ -1039,6 +1044,43 @@ export async function runAutoMigrations() {
       );
     } catch (permErr) {
       console.error('[MIGRATION] Warning seeding knowledge.rate permission:', permErr.message);
+    }
+
+    // 19. Fix SLA Policies missing escalation_hours and backfill active tickets escalation_due_date
+    try {
+      // 19a. Ensure escalation_hours has realistic default values in sla_policies
+      await pool.query(`
+        UPDATE sla_policies
+        SET escalation_hours = CASE
+          WHEN priority = 'urgent' THEN 2
+          WHEN priority = 'high' THEN 4
+          WHEN priority = 'medium' THEN 12
+          WHEN priority = 'low' THEN 36
+          ELSE 12
+        END
+        WHERE escalation_hours IS NULL OR escalation_hours = 0
+      `);
+
+      // 19b. Backfill escalation_due_date on active tickets where it was computed as NULL
+      await pool.query(`
+        UPDATE tickets t
+        LEFT JOIN sla_policies sp ON sp.id = t.sla_policy_id
+        SET t.escalation_due_date = DATE_ADD(
+          t.created_at,
+          INTERVAL COALESCE(sp.escalation_hours, CASE
+            WHEN t.priority = 'urgent' THEN 2
+            WHEN t.priority = 'high' THEN 4
+            WHEN t.priority = 'medium' THEN 12
+            WHEN t.priority = 'low' THEN 36
+            ELSE 12
+          END) HOUR
+        )
+        WHERE t.escalation_due_date IS NULL
+          AND t.status NOT IN ('resolved', 'closed', 'completed', 'rejected', 'cancelled')
+      `);
+      console.log('[MIGRATION] Verified/updated SLA policy escalation hours and backfilled active ticket escalation due dates.');
+    } catch (slaMigErr) {
+      console.error('[MIGRATION] Warning updating SLA escalation policies/tickets:', slaMigErr.message);
     }
 
     console.log('[MIGRATION] Schema verification completed successfully.');

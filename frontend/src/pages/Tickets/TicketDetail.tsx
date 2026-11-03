@@ -1,6 +1,6 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { useEffect, useState, useRef } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
 import {
@@ -160,6 +160,14 @@ export default function TicketDetail() {
   const [accessDenied, setAccessDenied] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state && (location.state as any).createdSuccess) {
+      const ref = (location.state as any).referenceNumber ? ` (${(location.state as any).referenceNumber})` : '';
+      setMessage(`Ticket${ref} was submitted successfully! You can track progress or add comments below.`);
+    }
+  }, [location.state]);
 
   // modal state
   const [statusModal, setStatusModal] = useState(false);

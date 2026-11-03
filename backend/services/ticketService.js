@@ -279,6 +279,9 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
 
   auditService.logAction(user.id, 'create', 'ticket', id, meta?.ip, { referenceNumber: created.referenceNumber, routingType }, { role: user.role, browser: meta?.browser }).catch(() => {});
 
+  // Always notify submitting tenant in-app so their notification bell and toast acknowledge receipt
+  await notificationService.notifyTenantTicketCreated(created, user.id).catch(() => {});
+
   if (routingType === 'direct' && departmentId) {
     // Direct-routing category: bypass the admin queue, route straight to the owning department
     await routeTicketToDepartment(id, departmentId, created, meta);

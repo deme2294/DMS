@@ -17,7 +17,7 @@ services:
     build:
       context: .
       dockerfile: docker/database/Dockerfile
-    image: ${DATABASE_IMAGE:-dms-database:1.0.0}
+    image: ${DATABASE_IMAGE:-deme22/dms:database-1.0.0}
     container_name: dms-db
     restart: unless-stopped
     environment:
@@ -53,7 +53,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-dms-backend:1.0.0}
+    image: ${BACKEND_IMAGE:-deme22/dms:backend-1.0.0}
     container_name: dms-backend
     restart: unless-stopped
     environment:
@@ -76,6 +76,12 @@ services:
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER:-}
       EMAIL_PASS: ${EMAIL_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-"ITPC Help Desk <demshuterefe94@gmail.com>"}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
       MAX_LOGIN_ATTEMPTS: ${MAX_LOGIN_ATTEMPTS:-5}
       LOCKOUT_MINUTES: ${LOCKOUT_MINUTES:-30}
     ports:
@@ -110,7 +116,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
-    image: ${FRONTEND_IMAGE:-dms-frontend:1.0.0}
+    image: ${FRONTEND_IMAGE:-deme22/dms:frontend-1.0.0}
     container_name: dms-frontend
     restart: unless-stopped
     ports:

@@ -58,6 +58,7 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
 };
 
 export const notifyTicketCreated = async (ticket, createdByUserId) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || 'New Ticket';
   const [admins] = await pool.query(
     `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
   );
@@ -66,11 +67,11 @@ export const notifyTicketCreated = async (ticket, createdByUserId) => {
     await notificationRepo.createNotification(
       admin.id,
       'New Ticket Created',
-      `Ticket ${ticket.reference_number} "${truncate(ticket.title, 60)}" has been submitted.`,
+      `Ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted.`,
       'ticket',
       ticket.id
     );
-    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ticket.reference_number || ticket.referenceNumber} has been submitted.`, type: 'ticket', ticketId: ticket.id });
+    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ref} has been submitted.`, type: 'ticket', ticketId: ticket.id });
   }
 
   // Ensure external ticket notification reaches the created system email (demshuterefe94@gmail.com)
@@ -80,21 +81,43 @@ export const notifyTicketCreated = async (ticket, createdByUserId) => {
     submitterEmail: '',
   }).catch(() => {});
 
-  broadcastTicketEvent(ticket.id, 'ticket:created', { ticketId: ticket.id, referenceNumber: ticket.reference_number || ticket.referenceNumber, title: ticket.title });
+  broadcastTicketEvent(ticket.id, 'ticket:created', { ticketId: ticket.id, referenceNumber: ref, title: ticket.title });
+};
+
+export const notifyTenantTicketCreated = async (ticket, tenantUserId) => {
+  if (!tenantUserId) return;
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Your ticket';
+  const title = 'Ticket Submitted Successfully';
+  const message = `Your ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted and is being processed.`;
+  await notificationRepo.createNotification(
+    tenantUserId,
+    title,
+    message,
+    'ticket',
+    ticket.id
+  );
+  emitToUser(tenantUserId, 'notification', {
+    title,
+    message,
+    type: 'ticket',
+    ticketId: ticket.id,
+    referenceNumber: ref,
+  });
 };
 
 export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUserId) => {
   if (assignedUserId === assignedByUserId) return;
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
   await notificationRepo.createNotification(
     assignedUserId,
     'Ticket Assigned to You',
-    `You have been assigned ticket ${ticket.reference_number} "${truncate(ticket.title, 60)}".`,
+    `You have been assigned ticket ${ref} "${truncate(ticket.title, 60)}".`,
     'assignment',
     ticket.id
   );
   emitToUser(assignedUserId, 'notification', {
     title: 'Ticket Assigned to You',
-    message: `Ticket ${ticket.reference_number} has been assigned to you.`,
+    message: `Ticket ${ref} has been assigned to you.`,
     type: 'assignment',
     ticketId: ticket.id,
   });
@@ -350,7 +373,7 @@ export const notifyTicketStatusChanged = async (ticket, toStatus, changedByUserI
     await notificationRepo.createNotification(
       userId,
       'Ticket Status Updated',
-      `Ticket ${ticket.reference_number} status changed to ${toStatus}.`,
+      `Ticket ${ticket.reference_number || ticket.referenceNumber} status changed to ${toStatus}.`,
       'status',
       ticket.id
     );

@@ -2,11 +2,36 @@ import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export const createNotification = async (userId, title, message, type = 'ticket', ticketId = null, noticeId = null, roomId = null, articleId = null) => {
-  await pool.query(
-    `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, article_id)
-     VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :articleId)`,
-    { id: uuidv4(), userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, articleId: articleId || null }
-  );
+  const id = uuidv4();
+  try {
+    await pool.query(
+      `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, article_id)
+       VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :articleId)`,
+      { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, articleId: articleId || null }
+    );
+  } catch (err) {
+    if (err.code === 'ER_BAD_FIELD_ERROR' || err.errno === 1054) {
+      try {
+        await pool.query(
+          `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id)
+           VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId)`,
+          { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null }
+        );
+      } catch (innerErr) {
+        if (innerErr.code === 'ER_BAD_FIELD_ERROR' || innerErr.errno === 1054) {
+          await pool.query(
+            `INSERT INTO notifications (id, user_id, title, message, type, ticket_id)
+             VALUES (:id, :userId, :title, :message, :type, :ticketId)`,
+            { id, userId, title, message, type, ticketId: ticketId || null }
+          );
+        } else {
+          throw innerErr;
+        }
+      }
+    } else {
+      throw err;
+    }
+  }
 };
 
 export const getUnreadCount = async (userId) => {

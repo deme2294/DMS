@@ -56,7 +56,7 @@ const processNearDeadlineWarnings = async () => {
   const [responseRows] = await pool.query(
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, response_due_date
       FROM tickets
-      WHERE response_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 HOUR)
+      WHERE response_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
         AND status NOT IN ('resolved','closed','completed','rejected','cancelled')
         AND (response_sla_breached IS NULL OR response_sla_breached = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
@@ -65,7 +65,7 @@ const processNearDeadlineWarnings = async () => {
   const [escalationRows] = await pool.query(
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, escalation_due_date
       FROM tickets
-      WHERE escalation_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 HOUR)
+      WHERE escalation_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
         AND status NOT IN ('resolved','closed','completed','rejected','cancelled','escalated')
         AND (escalation_sla_breached IS NULL OR escalation_sla_breached = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
@@ -74,7 +74,7 @@ const processNearDeadlineWarnings = async () => {
   const [resolutionRows] = await pool.query(
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, due_date
       FROM tickets
-      WHERE due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 1 HOUR)
+      WHERE due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
         AND status NOT IN ('resolved','closed','completed','rejected','cancelled')
         AND (is_overdue IS NULL OR is_overdue = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
@@ -107,13 +107,32 @@ const processNearDeadlineWarnings = async () => {
       remainingHours
     );
 
+    const ref = ticket.reference_number || ticket.referenceNumber;
     if (ticket.assigned_to) {
       const [staffRows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.assigned_to });
       if (staffRows.length) {
         await sendSLANearDeadlineEmail({
           email: staffRows[0].email,
           firstName: staffRows[0].first_name,
-          ticket: { ...ticket, reference_number: ticket.reference_number, title: ticket.title, priority: ticket.priority, status: ticket.status },
+          ticket: { ...ticket, reference_number: ref, title: ticket.title, priority: ticket.priority, status: ticket.status },
+          breachType: ticket.breachType,
+          remainingHours,
+        }).catch(() => {});
+      }
+    } else if (ticket.department_id) {
+      // If ticket is unassigned, notify active department manager so they can act before SLA breach
+      const [mgrRows] = await pool.query(
+        `SELECT u.email, u.first_name FROM users u
+         JOIN user_departments ud ON ud.user_id = u.id
+         JOIN roles r ON r.id = u.role_id
+         WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
+        { departmentId: ticket.department_id }
+      );
+      for (const mgr of mgrRows) {
+        await sendSLANearDeadlineEmail({
+          email: mgr.email,
+          firstName: mgr.first_name,
+          ticket: { ...ticket, reference_number: ref, title: ticket.title, priority: ticket.priority, status: ticket.status },
           breachType: ticket.breachType,
           remainingHours,
         }).catch(() => {});

@@ -224,13 +224,16 @@ export const computeAllDueDates = (policy, createdAt = new Date()) => {
   const base = createdAt instanceof Date ? createdAt : new Date(createdAt);
   const responseHours = Number(policy.response_hours ?? SLA_RESPONSE_HOURS[policy.priority] ?? 4);
   const resolutionHours = Number(policy.resolution_hours ?? SLA_RESOLUTION_HOURS[policy.priority] ?? 24);
-  const escalationHours = Number(policy.escalation_hours ?? 0);
+  let escalationHours = Number(policy.escalation_hours ?? 0);
+  if (escalationHours <= 0) {
+    // Default escalation to 50% of resolution hours (minimum 1 hour)
+    escalationHours = Math.max(1, Math.round(resolutionHours * 0.5));
+  }
   const workingHours = policy.working_hours || null;
 
   const responseDueDate = addBusinessHours(base, responseHours, workingHours);
   const resolutionDueDate = addBusinessHours(base, resolutionHours, workingHours);
-  const escalationDueDate =
-    escalationHours > 0 ? addBusinessHours(base, escalationHours, workingHours) : null;
+  const escalationDueDate = addBusinessHours(base, escalationHours, workingHours);
 
   return { responseDueDate, resolutionDueDate, escalationDueDate };
 };

@@ -17,6 +17,8 @@ interface CategoryOption {
 export default function TicketCreate() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
     const [categories, setCategories] = useState<CategoryOption[]>([]);
     const [suggested, setSuggested] = useState<Article[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -54,6 +56,8 @@ export default function TicketCreate() {
     };
 
     const onSubmit = async (values: TicketFormValues) => {
+        setError(null);
+        setSuccess(null);
         setLoading(true);
         try {
             const formData = new FormData();
@@ -70,8 +74,26 @@ export default function TicketCreate() {
             }
 
             const res = await createTicket(formData);
-            const shortId = res.data.data.ticketNum ? String(res.data.data.ticketNum) : (res.data.data.referenceNumber || res.data.data.id);
-            navigate(`/tenant/tickets/${shortId}`);
+            const ticketData = res.data?.data || {};
+            const refNumber = ticketData.referenceNumber || ticketData.reference_number || 'New Ticket';
+            const shortId = ticketData.ticketNum ? String(ticketData.ticketNum) : (ticketData.referenceNumber || ticketData.id);
+
+            setSuccess(`Ticket ${refNumber} has been submitted successfully! Redirecting to ticket details...`);
+            setTimeout(() => {
+                navigate(`/tenant/tickets/${shortId}`, {
+                    state: { createdSuccess: true, referenceNumber: refNumber }
+                });
+            }, 1200);
+        } catch (err: any) {
+            console.error('[TicketCreate] Submission failed:', err);
+            const serverMsg = err.response?.data?.message || err.response?.data?.error || err.message;
+            if (err.response?.status === 413) {
+                setError('Attached files are too large. Maximum allowed upload size is 10MB.');
+            } else if (serverMsg) {
+                setError(`Failed to submit help request: ${serverMsg}`);
+            } else {
+                setError('Failed to submit help request. Please check your network connection and try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,6 +106,25 @@ export default function TicketCreate() {
                 description="Describe your issue and attach supporting files if needed."
                 backTo="/tenant/tickets"
             />
+            {error && (
+                <div className={`${styles.toast} ${styles.error}`} role="alert">
+                    <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                    <span style={{ flex: 1 }}>{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+            {success && (
+                <div className={styles.toast} role="status">
+                    <span style={{ fontSize: '1.2rem' }}>✅</span>
+                    <span>{success}</span>
+                </div>
+            )}
             {showSuggestions && suggested.length > 0 && (
                 <div className={styles.kbSuggestions}>
                     <h4>Suggested Knowledge Base Articles</h4>

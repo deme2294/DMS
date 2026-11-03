@@ -402,27 +402,30 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                         );
                       })()}
 
-                      <div className={styles.messageMeta}>
-                        <span className={styles.messageTimestamp}>
-                          {formatTimeOnly(msg.created_at)}
-                        </span>
-                        {msg.is_edited && <span className={styles.editedTag}>(edited)</span>}
-                        {isOwn && <span className={styles.checkmarks}>✓✓</span>}
-                        {onDeleteMessage && (
-                          <button
-                            type="button"
-                            className={styles.messageDeleteIconBtn}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteMessage(msg);
-                            }}
-                            title={isOwn ? 'Delete message (For Everyone / For Me)' : 'Delete message only for me'}
-                            aria-label="Delete message"
-                          >
-                            🗑️
-                          </button>
-                        )}
-                      </div>
+                      {/* Only render outer messageMeta if message is NOT a video conference card */}
+                      {!parseMeetingMessage(msg.message) && (
+                        <div className={styles.messageMeta}>
+                          <span className={styles.messageTimestamp}>
+                            {formatTimeOnly(msg.created_at)}
+                          </span>
+                          {msg.is_edited && <span className={styles.editedTag}>(edited)</span>}
+                          {isOwn && <span className={styles.checkmarks}>✓✓</span>}
+                          {onDeleteMessage && (
+                            <button
+                              type="button"
+                              className={styles.messageDeleteIconBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteMessage(msg);
+                              }}
+                              title={isOwn ? 'Delete message (For Everyone / For Me)' : 'Delete message only for me'}
+                              aria-label="Delete message"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

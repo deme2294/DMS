@@ -207,8 +207,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }}
             title={`Start instant video conference today in ${isDirect ? partnerName : selectedRoom.name}`}
           >
-            <VideoCameraIcon style={{ width: '15px', height: '15px' }} />
-            <span>{isDirect ? 'Direct Call' : 'Video Call (Today)'}</span>
+            <VideoCameraIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+            <span className={styles.headerActionBtnLabel}>{isDirect ? 'Call' : 'Video Call'}</span>
           </button>
         )}
 
@@ -219,8 +219,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           onClick={onOpenMeetModal}
           title="Schedule conference date and invite registered users"
         >
-          <EnvelopeIcon style={{ width: '15px', height: '15px' }} />
-          <span>Invite & Schedule</span>
+          <EnvelopeIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+          <span className={styles.headerActionBtnLabel}>Invite</span>
         </button>
 
         {/* Members Roster Toggle */}
@@ -230,8 +230,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           onClick={onToggleMembersPanel}
           title="Toggle members and online status roster"
         >
-          <UserGroupIcon style={{ width: '15px', height: '15px' }} />
-          <span>Members ({onlineParticipants.length})</span>
+          <UserGroupIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+          <span className={styles.headerActionBtnLabel}>Members</span>
+          <span className={styles.headerMembersBadge}>{onlineParticipants.length}</span>
         </button>
 
         {/* Whole Page Mode Toggle */}
@@ -247,11 +248,11 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }
           >
             {isWholePageMode ? (
-              <ArrowsPointingInIcon style={{ width: '15px', height: '15px' }} />
+              <ArrowsPointingInIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
             ) : (
-              <ArrowsPointingOutIcon style={{ width: '15px', height: '15px' }} />
+              <ArrowsPointingOutIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
             )}
-            <span>{isWholePageMode ? 'Standard' : 'Whole Page'}</span>
+            <span className={styles.headerActionBtnLabel}>{isWholePageMode ? 'Standard' : 'Whole Page'}</span>
           </button>
         )}
 

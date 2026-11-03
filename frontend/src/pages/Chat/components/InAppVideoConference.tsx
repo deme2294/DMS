@@ -148,11 +148,34 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const peersRef = useRef<Map<string, PeerConnectionState>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const isMicMutedRef = useRef(false);
+  const isCameraOffRef = useRef(false);
+  const isScreenSharingRef = useRef(false);
+  const candidateQueueRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
-  // Keep peersRef in sync with state
-  useEffect(() => {
-    peersRef.current = peers;
-  }, [peers]);
+  // Keep refs in sync with state
+  useEffect(() => { peersRef.current = peers; }, [peers]);
+  useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+  useEffect(() => { screenStreamRef.current = screenStream; }, [screenStream]);
+  useEffect(() => { isMicMutedRef.current = isMicMuted; }, [isMicMuted]);
+  useEffect(() => { isCameraOffRef.current = isCameraOff; }, [isCameraOff]);
+  useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
+
+  // Reliable helper to find active video sender across direct senders and transceivers
+  const findVideoSender = (pc: RTCPeerConnection): RTCRtpSender | null => {
+    const direct = pc.getSenders().find((s) => s.track?.kind === 'video');
+    if (direct) return direct;
+
+    const transceivers = pc.getTransceivers();
+    const videoTransceiver = transceivers.find(
+      (t) => t.receiver?.track?.kind === 'video' || t.sender?.track?.kind === 'video' || (t as any).mid === 'video'
+    );
+    if (videoTransceiver?.sender) return videoTransceiver.sender;
+
+    return pc.getSenders().find((s) => (s as any).kind === 'video') || null;
+  };
 
   // 1. Initialize Local Media Stream with High-Fidelity Audio
   useEffect(() => {
@@ -239,10 +262,14 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
       if (socket?.connected) {
         socket.emit('video-leave', { roomId: room.id });
       }
       peersRef.current.forEach((p) => p.peerConnection.close());
+      candidateQueueRef.current.clear();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => {});
       }
@@ -341,40 +368,70 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
     (targetSocketId: string, peerUser: any): RTCPeerConnection => {
       const pc = new RTCPeerConnection(ICE_SERVERS);
 
-      // Add local audio and video tracks
-      const currentStream = screenStream || localStream;
-      if (currentStream) {
-        currentStream.getTracks().forEach((track) => {
-          pc.addTrack(track, currentStream);
-        });
+      // 1. Audio: always attach microphone track if available, else ensure audio transceiver exists
+      const audioTrack = localStreamRef.current?.getAudioTracks()[0];
+      if (audioTrack && localStreamRef.current) {
+        pc.addTrack(audioTrack, localStreamRef.current);
+      } else {
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
       }
 
-      // Handle remote stream tracks
+      // 2. Video: attach screen track if sharing, else camera if available, or add transceiver
+      const activeVideoTrack = isScreenSharingRef.current && screenStreamRef.current
+        ? screenStreamRef.current.getVideoTracks()[0]
+        : (!isCameraOffRef.current && localStreamRef.current ? localStreamRef.current.getVideoTracks()[0] : null);
+
+      if (activeVideoTrack) {
+        const activeStream = (isScreenSharingRef.current && screenStreamRef.current)
+          ? screenStreamRef.current
+          : localStreamRef.current!;
+        pc.addTrack(activeVideoTrack, activeStream);
+      } else {
+        pc.addTransceiver('video', { direction: 'sendrecv' });
+      }
+
+      // 3. Handle remote stream tracks (preserves both audio and video without overwriting)
       pc.ontrack = (event) => {
-        const remoteStream = event.streams[0] || new MediaStream([event.track]);
         setPeers((prev) => {
           const next = new Map(prev);
           const existing = next.get(targetSocketId);
-          if (existing) {
-            next.set(targetSocketId, { ...existing, remoteStream });
+          if (!existing) return prev;
+
+          let stream = existing.remoteStream;
+          if (!stream) {
+            stream = event.streams[0] || new MediaStream();
           }
+
+          if (!stream.getTracks().some((t) => t.id === event.track.id)) {
+            const sameKindTracks = stream.getTracks().filter((t) => t.kind === event.track.kind);
+            sameKindTracks.forEach((oldT) => stream!.removeTrack(oldT));
+            stream.addTrack(event.track);
+          }
+
+          const combinedStream = new MediaStream(stream.getTracks());
+          next.set(targetSocketId, { ...existing, remoteStream: combinedStream });
           return next;
         });
       };
 
-      // Handle ICE candidates
+      // 4. Handle ICE candidates with peer state metadata
       pc.onicecandidate = (event) => {
         if (event.candidate && socket?.connected) {
           socket.emit('video-signal', {
             to: targetSocketId,
             signal: { candidate: event.candidate },
+            peerInfo: {
+              isMicMuted: isMicMutedRef.current,
+              isCameraOff: isCameraOffRef.current,
+              isScreenSharing: isScreenSharingRef.current,
+            },
           });
         }
       };
 
       return pc;
     },
-    [localStream, screenStream, socket]
+    [socket]
   );
 
   // 4. Socket.IO Signaling Listeners with HD Opus Negotiation
@@ -385,7 +442,6 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
     const handleUserJoined = async ({ socketId, userId, username, firstName, lastName, role, peerInfo }: any) => {
       if (socketId === socket.id) return;
 
-      // Play entrance chime when another participant joins
       playAudioChime('join');
 
       const pc = createPeerConnection(socketId, { id: userId, username, firstName, lastName, role });
@@ -396,11 +452,19 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           socketId,
           user: { id: userId, username, firstName, lastName, role },
           peerConnection: pc,
-          isMicMuted: peerInfo?.isMicMuted,
-          isCameraOff: peerInfo?.isCameraOff,
-          isScreenSharing: peerInfo?.isScreenSharing,
+          isMicMuted: peerInfo?.isMicMuted ?? false,
+          isCameraOff: peerInfo?.isCameraOff ?? false,
+          isScreenSharing: peerInfo?.isScreenSharing ?? false,
         });
         return next;
+      });
+
+      // Synchronize our own current stream state to the joining peer
+      socket.emit('video-stream-state', {
+        roomId: room.id,
+        isMicMuted: isMicMutedRef.current,
+        isCameraOff: isCameraOffRef.current,
+        isScreenSharing: isScreenSharingRef.current,
       });
 
       // Create and send WebRTC offer with Opus HD audio optimization
@@ -414,6 +478,11 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         socket.emit('video-signal', {
           to: socketId,
           signal: { sdp: pc.localDescription },
+          peerInfo: {
+            isMicMuted: isMicMutedRef.current,
+            isCameraOff: isCameraOffRef.current,
+            isScreenSharing: isScreenSharingRef.current,
+          },
         });
       } catch (err) {
         console.error('[WebRTC] Error creating offer:', err);
@@ -421,7 +490,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
     };
 
     // Incoming WebRTC signal (SDP or ICE)
-    const handleSignal = async ({ from, signal, user }: any) => {
+    const handleSignal = async ({ from, signal, user, peerInfo }: any) => {
       let peer = peersRef.current.get(from);
       let pc: RTCPeerConnection;
 
@@ -431,6 +500,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           socketId: from,
           user,
           peerConnection: pc,
+          isMicMuted: peerInfo?.isMicMuted ?? false,
+          isCameraOff: peerInfo?.isCameraOff ?? false,
+          isScreenSharing: peerInfo?.isScreenSharing ?? false,
         };
         setPeers((prev) => {
           const next = new Map(prev);
@@ -439,11 +511,38 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         });
       } else {
         pc = peer.peerConnection;
+        if (peerInfo) {
+          setPeers((prev) => {
+            const next = new Map(prev);
+            const ex = next.get(from);
+            if (ex) {
+              next.set(from, {
+                ...ex,
+                isMicMuted: peerInfo.isMicMuted ?? ex.isMicMuted,
+                isCameraOff: peerInfo.isCameraOff ?? ex.isCameraOff,
+                isScreenSharing: peerInfo.isScreenSharing ?? ex.isScreenSharing,
+              });
+            }
+            return next;
+          });
+        }
       }
 
       try {
         if (signal.sdp) {
           await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+          // Drain queued ICE candidates
+          const queued = candidateQueueRef.current.get(from) || [];
+          for (const cand of queued) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch (e) {
+              console.warn('[WebRTC] Error adding queued candidate:', e);
+            }
+          }
+          candidateQueueRef.current.delete(from);
+
           if (signal.sdp.type === 'offer') {
             const answer = await pc.createAnswer();
             const enhancedSdp = enhanceOpusSDP(answer.sdp || '');
@@ -451,10 +550,21 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
             socket.emit('video-signal', {
               to: from,
               signal: { sdp: pc.localDescription },
+              peerInfo: {
+                isMicMuted: isMicMutedRef.current,
+                isCameraOff: isCameraOffRef.current,
+                isScreenSharing: isScreenSharingRef.current,
+              },
             });
           }
         } else if (signal.candidate) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } else {
+            const q = candidateQueueRef.current.get(from) || [];
+            q.push(signal.candidate);
+            candidateQueueRef.current.set(from, q);
+          }
         }
       } catch (err) {
         console.error('[WebRTC] Error handling signal:', err);
@@ -484,6 +594,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       const peer = peersRef.current.get(socketId);
       if (peer) {
         peer.peerConnection.close();
+        candidateQueueRef.current.delete(socketId);
         setPeers((prev) => {
           const next = new Map(prev);
           next.delete(socketId);
@@ -503,7 +614,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       socket.off('video-peer-state-changed', handlePeerStateChanged);
       socket.off('video-user-left', handleUserLeft);
     };
-  }, [socket, createPeerConnection]);
+  }, [socket, createPeerConnection, room.id]);
 
   // 5. Toggle Microphone
   const toggleMic = () => {
@@ -530,6 +641,20 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         track.enabled = !newOff;
       });
       setIsCameraOff(newOff);
+
+      // If not currently screen sharing, update the video sender for peers
+      if (!isScreenSharing) {
+        const trackToSend = newOff ? null : (localStream.getVideoTracks()[0] || null);
+        peersRef.current.forEach(async (peer) => {
+          try {
+            const sender = findVideoSender(peer.peerConnection);
+            if (sender) {
+              await sender.replaceTrack(trackToSend);
+            }
+          } catch (e) {}
+        });
+      }
+
       socket?.emit('video-stream-state', {
         roomId: room.id,
         isMicMuted,
@@ -549,14 +674,16 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       }
       setIsScreenSharing(false);
 
-      if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        peersRef.current.forEach((peer) => {
-          const sender = peer.peerConnection.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender && videoTrack) {
-            sender.replaceTrack(videoTrack).catch((e) => console.warn('replaceTrack err:', e));
+      const camTrack = (!isCameraOff && localStream) ? (localStream.getVideoTracks()[0] || null) : null;
+      for (const peer of peersRef.current.values()) {
+        try {
+          const sender = findVideoSender(peer.peerConnection);
+          if (sender) {
+            await sender.replaceTrack(camTrack);
           }
-        });
+        } catch (err) {
+          console.warn('[ScreenShare] Error reverting track to camera:', err);
+        }
       }
 
       socket?.emit('video-stream-state', {
@@ -569,7 +696,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
       // Start native in-app display capture
       try {
         if (!navigator.mediaDevices?.getDisplayMedia) {
-          setMediaError('Screen sharing is not supported in this browser context.');
+          setMediaError('Screen sharing is not supported in this browser context (requires HTTPS or modern browser).');
           return;
         }
 
@@ -578,8 +705,10 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: {
               frameRate: { ideal: 30, max: 30 },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
             },
-            audio: true,
+            audio: false,
           });
         } catch (err1: any) {
           if (err1.name === 'NotAllowedError') {
@@ -587,38 +716,54 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
             setTimeout(() => setScreenNotice(null), 5000);
             return;
           }
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              frameRate: { ideal: 30, max: 30 },
-            },
-          });
+          stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        }
+
+        const screenTrack = stream.getVideoTracks()[0];
+        if (!screenTrack) {
+          throw new Error('No video track available from screen capture.');
         }
 
         setScreenStream(stream);
         setIsScreenSharing(true);
         setScreenNotice(null);
 
-        const screenTrack = stream.getVideoTracks()[0];
-
-        // Replace track for all active peer connections
-        peersRef.current.forEach((peer) => {
-          const sender = peer.peerConnection.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender && screenTrack) {
-            sender.replaceTrack(screenTrack).catch((e) => console.warn('replaceTrack screen err:', e));
+        // Replace track for all active peer connections, or add and renegotiate
+        for (const peer of peersRef.current.values()) {
+          try {
+            const sender = findVideoSender(peer.peerConnection);
+            if (sender) {
+              await sender.replaceTrack(screenTrack);
+            } else {
+              peer.peerConnection.addTrack(screenTrack, stream);
+              const offer = await peer.peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true,
+              });
+              const enhancedSdp = enhanceOpusSDP(offer.sdp || '');
+              await peer.peerConnection.setLocalDescription({ type: 'offer', sdp: enhancedSdp });
+              socket?.emit('video-signal', {
+                to: peer.socketId,
+                signal: { sdp: peer.peerConnection.localDescription },
+                peerInfo: { isMicMuted, isCameraOff, isScreenSharing: true },
+              });
+            }
+          } catch (err) {
+            console.warn('[ScreenShare] Error sending screen track to peer:', peer.socketId, err);
           }
-        });
+        }
 
         screenTrack.onended = () => {
           setIsScreenSharing(false);
           setScreenStream(null);
-          if (localStream) {
-            const camTrack = localStream.getVideoTracks()[0];
-            peersRef.current.forEach((peer) => {
-              const sender = peer.peerConnection.getSenders().find((s) => s.track?.kind === 'video');
-              if (sender && camTrack) {
+          const camTrack = (!isCameraOff && localStream) ? (localStream.getVideoTracks()[0] || null) : null;
+          for (const peer of peersRef.current.values()) {
+            try {
+              const sender = findVideoSender(peer.peerConnection);
+              if (sender) {
                 sender.replaceTrack(camTrack).catch(() => {});
               }
-            });
+            } catch (e) {}
           }
           socket?.emit('video-stream-state', {
             roomId: room.id,
@@ -639,7 +784,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           setScreenNotice('Screen sharing was cancelled.');
           setTimeout(() => setScreenNotice(null), 5000);
         } else {
-          console.warn('Screen sharing error:', err);
+          console.warn('[InAppVideo] Screen share error:', err);
           setMediaError('Could not start screen sharing: ' + (err.message || 'Permission denied'));
         }
       }
@@ -814,7 +959,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           .map((p) => (
             <div key={`screen-${p.socketId}`} className={styles.inAppScreenStageCard}>
               <div className={styles.inAppScreenBadge}>
-                🖥️ {p.user.firstName} {p.user.lastName} is sharing screen
+                🖥️ {p.user.firstName || p.user.username} {p.user.lastName || ''} is sharing screen
               </div>
               {onToggleWholePageMode && (
                 <div className={styles.inAppScreenActions}>
@@ -831,9 +976,11 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               <video
                 autoPlay
                 playsInline
+                muted
                 ref={(el) => {
                   if (el && el.srcObject !== p.remoteStream) {
                     el.srcObject = p.remoteStream!;
+                    el.play().catch((e) => console.warn('[InAppVideo] Remote screen video play error:', e));
                   }
                 }}
                 className={styles.inAppScreenVideo}
@@ -845,7 +992,19 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         <div className={`${styles.inAppVideoGrid} ${hasActiveScreenShare ? styles.inAppVideoGridStrip : ''}`}>
           {/* Local User Tile */}
           <div className={`${styles.inAppParticipantCard} ${isCameraOff ? styles.inAppParticipantCardOff : ''} ${isLocalSpeaking ? styles.inAppParticipantCardSpeaking : ''}`}>
-            {!isCameraOff && localStream ? (
+            {isScreenSharing ? (
+              <div className={styles.inAppAvatarPlaceholder}>
+                <div
+                  className={styles.inAppAvatar}
+                  style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}
+                >
+                  🖥️
+                </div>
+                <span style={{ fontSize: '0.82rem', color: '#38bdf8', marginTop: '6px', fontWeight: 600 }}>
+                  Sharing Screen
+                </span>
+              </div>
+            ) : !isCameraOff && localStream && localStream.getVideoTracks().length > 0 ? (
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -857,9 +1016,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               <div className={styles.inAppAvatarPlaceholder}>
                 <div
                   className={styles.inAppAvatar}
-                  style={{ background: getAvatarGradient(`${currentUser?.first_name} ${currentUser?.last_name}`) }}
+                  style={{ background: getAvatarGradient(`${currentUser?.first_name || currentUser?.username || 'User'}`) }}
                 >
-                  {currentUser?.first_name?.[0] || 'U'}
+                  {(currentUser?.first_name?.[0] || currentUser?.username?.[0] || 'U').toUpperCase()}
                 </div>
                 <span style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '6px' }}>
                   Camera is Off
@@ -870,7 +1029,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
             {/* Tile Footer Tag */}
             <div className={styles.inAppTileFooter}>
               <div className={styles.inAppTileUser}>
-                <span>You ({currentUser?.first_name})</span>
+                <span>You ({currentUser?.first_name || currentUser?.username || 'You'})</span>
                 {isMicMuted ? (
                   <span className={styles.inAppMuteBadge}>🔇 Muted</span>
                 ) : (
@@ -899,13 +1058,26 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
                 key={peer.socketId}
                 className={`${styles.inAppParticipantCard} ${peer.isCameraOff ? styles.inAppParticipantCardOff : ''} ${isPeerSpeaking ? styles.inAppParticipantCardSpeaking : ''}`}
               >
-                {!peer.isCameraOff && peer.remoteStream ? (
+                {peer.isScreenSharing ? (
+                  <div className={styles.inAppAvatarPlaceholder}>
+                    <div
+                      className={styles.inAppAvatar}
+                      style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' }}
+                    >
+                      🖥️
+                    </div>
+                    <span style={{ fontSize: '0.82rem', color: '#38bdf8', marginTop: '6px', fontWeight: 600 }}>
+                      Presenting Screen
+                    </span>
+                  </div>
+                ) : !peer.isCameraOff && peer.remoteStream && peer.remoteStream.getVideoTracks().length > 0 ? (
                   <video
                     autoPlay
                     playsInline
                     ref={(el) => {
                       if (el && el.srcObject !== peer.remoteStream) {
                         el.srcObject = peer.remoteStream!;
+                        el.play().catch(() => {});
                       }
                     }}
                     className={styles.inAppParticipantVideo}
@@ -914,9 +1086,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
                   <div className={styles.inAppAvatarPlaceholder}>
                     <div
                       className={styles.inAppAvatar}
-                      style={{ background: getAvatarGradient(`${peer.user.firstName} ${peer.user.lastName}`) }}
+                      style={{ background: getAvatarGradient(`${peer.user.firstName || peer.user.username}`) }}
                     >
-                      {peer.user.firstName?.[0] || 'U'}
+                      {(peer.user.firstName?.[0] || peer.user.username?.[0] || 'U').toUpperCase()}
                     </div>
                     <span style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '6px' }}>
                       Camera Off
@@ -926,7 +1098,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
 
                 <div className={styles.inAppTileFooter}>
                   <div className={styles.inAppTileUser}>
-                    <span>{peer.user.firstName} {peer.user.lastName}</span>
+                    <span>{peer.user.firstName || peer.user.username} {peer.user.lastName || ''}</span>
                     {peer.isMicMuted ? (
                       <span className={styles.inAppMuteBadge}>🔇 Muted</span>
                     ) : (
