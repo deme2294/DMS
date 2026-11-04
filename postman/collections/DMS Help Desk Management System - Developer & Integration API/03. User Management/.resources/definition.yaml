@@ -1,3 +1,0 @@
-$kind: collection
-description: User provisioning, directory lookups, role assignments, activation and password resets
-order: 3000

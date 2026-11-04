@@ -147,5 +147,14 @@ desktop.ini
 backups/
 **/backups/
 xampp_*.sql
-
-
+# ============================================================
+# POSTMAN & API COLLECTIONS
+# ============================================================
+postman/
+**/postman/
+.postman/
+**/.postman/
+DMS Professional API Suite/
+**/DMS Professional API Suite/
+Help Desk Management System (HDMS) API Collection/
+**/Help Desk Management System (HDMS) API Collection/

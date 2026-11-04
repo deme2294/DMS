@@ -1,3 +1,0 @@
-$kind: collection
-description: Operational heartbeat, uptime, database pool status and diagnostics
-order: 1000
