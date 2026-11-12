@@ -120,9 +120,10 @@
 .chatPageWrapper {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px);
-  max-height: calc(100vh - 120px);
-  min-height: 480px;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  flex: 1;
   background: var(--bg-app);
   overflow: hidden;
   padding: 0;
@@ -163,7 +164,7 @@
 }
 
 .chatMainContainer {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   position: relative;
   background: var(--bg-card);
@@ -324,19 +325,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 0 16px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-light);
-  gap: 10px;
-  min-height: 56px;
-  max-height: 60px;
-  height: 58px;
+  gap: 12px;
+  min-height: 64px;
+  max-height: 64px;
+  height: 64px;
   box-sizing: border-box;
   flex-shrink: 0;
   z-index: 10;
   transition: background-color 0.2s ease, border-color 0.2s ease;
   flex-wrap: nowrap;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .chatHeaderLeft {
@@ -344,7 +346,8 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .mobileSidebarToggle {
@@ -353,34 +356,41 @@
   justify-content: center;
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-light);
-  background: var(--bg-card);
-  color: var(--text-main);
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
 .mobileSidebarToggle:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
 }
 
 .headerThemeToggleWrapper {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
-
 .roomAvatar {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: #ffffff;
   flex-shrink: 0;
@@ -391,14 +401,17 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
 }
 
 .chatHeaderTitleRow {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .chatHeaderTitle {
@@ -410,18 +423,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 400px;
+  line-height: 1.25;
 }
 
 .roomTypeTag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  line-height: 1.2;
+  flex-shrink: 0;
 }
 
 .tagDirect {
@@ -446,8 +461,19 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.partnerEmail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
 }
 
 .directStatusBadge {
@@ -456,6 +482,7 @@
   gap: 5px;
   font-size: 0.76rem;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .directStatusOnline {
@@ -472,50 +499,52 @@
   background: #22c55e;
   border-radius: 50%;
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+  flex-shrink: 0;
 }
 
 .metaDivider {
   color: var(--border-strong);
+  flex-shrink: 0;
 }
 
 .participantCount {
   font-weight: 500;
+  flex-shrink: 0;
 }
 
 .chatHeaderRight {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden;
 }
 
-/* Mode Switcher Segmented Control (Text Chat / Video Call / Split View) */
+/* Mode Switcher Segmented Control (Chat / Video / Split) */
 .modeSwitcherContainer {
   display: inline-flex;
   align-items: center;
-  background: #f1f5f9;
+  background: var(--bg-surface, #f1f5f9);
   padding: 3px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-light);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-  gap: 3px;
+  gap: 2px;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .modeSwitchBtn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 11px;
+  padding: 5px 10px;
   border-radius: var(--radius-full);
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -528,29 +557,30 @@
 }
 
 .modeHeaderIcon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
 }
 
 .modeSwitchBtnActive {
   background: #ffffff !important;
   color: var(--primary-blue) !important;
-  border-color: rgba(37, 99, 235, 0.15) !important;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(37, 99, 235, 0.2) !important;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15) !important;
   font-weight: 700 !important;
 }
 
 .liveTag {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.05em;
-  padding: 1px 6px;
+  padding: 1px 5px;
   background: #ef4444;
   color: #ffffff;
   border-radius: var(--radius-full);
-  margin-left: 3px;
+  margin-left: 2px;
   animation: pulseLight 1.8s infinite;
+  line-height: 1.2;
 }
 
 @keyframes pulseLight {
@@ -558,37 +588,15 @@
   50% { opacity: 1; transform: scale(1.05); }
 }
 
-.headerQuickCallBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 11px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
-  color: #ffffff;
-  border: none;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  white-space: nowrap;
-}
-
-.headerQuickCallBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
-}
-
 .headerActionBtn,
 .actionBtn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 11px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
-  background: #ffffff;
+  background: var(--bg-card);
   color: var(--text-main);
   font-size: 0.78rem;
   font-weight: 600;
@@ -597,6 +605,13 @@
   box-shadow: var(--shadow-sm);
   white-space: nowrap;
   user-select: none;
+  flex-shrink: 0;
+}
+
+.headerBtnIcon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 .headerActionBtn:hover,
@@ -630,12 +645,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px;
+  padding: 4px 8px;
   border-radius: var(--radius-full);
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .statusConnected {
@@ -804,20 +820,19 @@
 .filterPills {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
+  width: 100%;
+  box-sizing: border-box;
   padding-bottom: 2px;
-}
-
-.filterPills::-webkit-scrollbar {
-  display: none;
 }
 
 .filterPill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
   background: var(--bg-hover);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-full);
@@ -828,6 +843,9 @@
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
   user-select: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .filterPill:hover {
@@ -1545,33 +1563,63 @@
 /* --------------------------------------------------------------------------
    7. RICH VIDEO MEETING CARDS IN CHAT
    -------------------------------------------------------------------------- */
+.meetBubbleWrapper {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  max-width: 520px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: var(--radius-lg);
+}
+
+.meetMessageRow {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
 .meetMessageCard {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  box-shadow: var(--shadow-md);
+  border-left: 4px solid var(--primary-blue, #2563eb);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
   min-width: 0;
   max-width: 100%;
   width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
   color: var(--text-main);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.meetMessageCard:hover {
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.16);
+  border-color: rgba(37, 99, 235, 0.35);
+  border-left-color: var(--primary-blue, #2563eb);
 }
 
 .ownBubble .meetMessageCard {
   background: var(--bg-card);
   border-color: var(--border-light);
+  border-left: 4px solid var(--primary-blue, #2563eb);
   color: var(--text-main);
 }
 
 .otherBubble .meetMessageCard {
   background: var(--bg-card);
+  border-left: 4px solid var(--primary-blue, #2563eb);
 }
 
 .meetCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
 }
 
@@ -1619,9 +1667,12 @@
 
 .meetCardTitle {
   margin: 0 0 8px;
-  font-size: 1rem;
+  font-size: clamp(0.92rem, 2.5vw, 1.05rem);
   font-weight: 700;
   color: var(--text-main);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .meetCardDetails {
@@ -1638,27 +1689,35 @@
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+  word-break: break-word;
 }
 
 .meetDetailLabel {
   color: var(--text-muted);
   font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
 .meetDetailValue {
   color: var(--text-main);
   font-weight: 700;
+  word-break: break-word;
 }
 
 .meetDetailRoleTag {
   color: var(--primary-blue);
   font-size: 0.78rem;
   font-weight: 600;
+  word-break: break-word;
 }
 
 .meetDetailEmail {
   color: var(--text-muted);
   font-size: 0.78rem;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .meetScreenShareTag {
@@ -1666,6 +1725,8 @@
   font-size: 0.76rem;
   color: #10b981;
   font-weight: 600;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .meetPasscodeTag {
@@ -1673,6 +1734,7 @@
   font-size: 0.76rem;
   color: #f59e0b;
   font-weight: 600;
+  word-break: break-word;
 }
 
 .meetNotesText {
@@ -1680,12 +1742,15 @@
   font-style: italic;
   color: var(--text-muted);
   font-size: 0.78rem;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .meetUrlBox {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 7px 10px;
   background: var(--bg-app);
   border: 1px solid var(--border-light);
@@ -1694,6 +1759,17 @@
   font-size: 0.78rem;
   color: var(--primary-blue);
   word-break: break-all;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.meetUrlBox span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  flex: 1 1 auto;
 }
 
 .meetUrlCopyBtn {
@@ -1704,6 +1780,7 @@
   padding: 2px 4px;
   color: var(--text-muted);
   transition: transform 0.15s ease;
+  flex-shrink: 0;
 }
 
 .meetUrlCopyBtn:hover {
@@ -1713,14 +1790,22 @@
 
 .meetCardActions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.meetCardActions > * {
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .meetJoinBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px 14px;
   background: linear-gradient(135deg, #00897b 0%, #1a73e8 100%);
@@ -1730,6 +1815,13 @@
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 200px;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1740,9 +1832,58 @@
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
 }
 
+.meetJoinBtnLive {
+  background: linear-gradient(135deg, #16a34a 0%, #059669 100%) !important;
+  box-shadow: 0 0 12px rgba(22, 163, 74, 0.4) !important;
+}
+
+.meetJoinBtnLive:hover {
+  background: linear-gradient(135deg, #15803d 0%, #047857 100%) !important;
+}
+
+.meetJoinBtnPastOnline {
+  background: linear-gradient(135deg, #0284c7 0%, #059669 100%) !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35) !important;
+}
+
+.meetJoinBtnPastOnline:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #047857 100%) !important;
+}
+
+.meetJoinBtnPastOffline {
+  background: var(--bg-hover) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.65;
+}
+
+.meetJoinBtnPastOffline:hover {
+  background: var(--bg-hover) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.meetJoinBtnUpcoming {
+  background: var(--bg-hover) !important;
+  color: var(--primary-blue) !important;
+  border: 1px solid var(--border-light) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.8;
+}
+
+.meetJoinBtnUpcoming:hover {
+  background: var(--bg-hover) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .meetPreviewBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   padding: 7px 12px;
   background: var(--bg-app);
@@ -1752,6 +1893,8 @@
   font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
+  white-space: nowrap;
+  flex: 1 1 auto;
   transition: all 0.15s ease;
 }
 
@@ -1763,6 +1906,7 @@
 .meetDeleteBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   padding: 7px 12px;
   border-radius: var(--radius-sm);
@@ -1772,6 +1916,8 @@
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 0 1px 3px rgba(220, 38, 38, 0.1);
 }
@@ -1867,7 +2013,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: #ffffff;
+  background: var(--bg-card);
   border-top: 1px solid var(--border-light);
   box-sizing: border-box;
   position: relative;
@@ -1883,7 +2029,7 @@
   flex-shrink: 0 !important;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-light);
-  background: #f8fafc;
+  background: var(--bg-surface, #f8fafc);
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -1895,7 +2041,7 @@
 }
 
 .attachBtn:hover:not(:disabled) {
-  background: #f1f5f9;
+  background: var(--bg-hover);
   border-color: var(--border-strong);
   color: var(--primary-blue);
   transform: scale(1.05);
@@ -1903,10 +2049,10 @@
 
 .messageInput {
   flex: 1;
-  padding: 11px 16px;
+  padding: 10px 16px;
   border: 1px solid var(--border-light);
   border-radius: 24px;
-  background: #f8fafc;
+  background: var(--bg-surface, #f8fafc);
   font-size: 0.92rem;
   color: var(--text-main);
   outline: none;
@@ -1920,7 +2066,7 @@
 }
 
 .messageInput:focus {
-  background: #ffffff;
+  background: var(--bg-card);
   border-color: var(--primary-blue);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
@@ -2616,12 +2762,25 @@
 
 .splitChatPane {
   flex: 0.8;
-  min-width: 320px;
+  min-width: 0;
   border-left: 1px solid var(--border-light);
   display: flex;
   flex-direction: column;
   height: 100%;
   background: #ffffff;
+  overflow: hidden;
+}
+
+.splitChatPane .messageRow {
+  max-width: 100% !important;
+}
+
+.splitChatPane .messagesArea {
+  padding: 10px 12px !important;
+}
+
+.splitChatPane .meetMessageCard {
+  padding: 12px 14px !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -4491,33 +4650,23 @@
 /* --------------------------------------------------------------------------
    14. RESPONSIVE MEDIA QUERIES & TOUCH OPTIMIZATIONS
    -------------------------------------------------------------------------- */
-@media (max-width: 900px) {
-  .chatSidebar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 300px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
-    transform: translateX(-100%);
-  }
-
-  .sidebarOpenMobile {
-    transform: translateX(0) !important;
-  }
-
+@media (max-width: 1024px) {
   .chatSplitArea {
-    flex-direction: column;
+    flex-direction: column !important;
   }
 
   .splitVideoPane {
-    height: 50%;
+    height: 50% !important;
+    width: 100% !important;
+    min-height: 220px;
   }
 
   .splitChatPane {
-    height: 50%;
-    border-left: none;
-    border-top: 1px solid var(--border-light);
+    height: 50% !important;
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-light) !important;
+    min-width: 0 !important;
   }
 
   .chatMembersPanel {
@@ -4526,51 +4675,75 @@
     bottom: 0;
     right: 0;
     box-shadow: -5px 0 20px rgba(0, 0, 0, 0.2);
+    z-index: 50;
   }
 
   .messageRow {
-    max-width: 90%;
+    max-width: 92%;
   }
 }
 
 @media (max-width: 640px) {
+  .messagesArea {
+    padding: 10px 8px !important;
+  }
+
+  .messageRow {
+    max-width: 98% !important;
+  }
+
+  .meetMessageCard {
+    padding: 12px 10px !important;
+  }
+
+  .meetCardActions {
+    gap: 6px !important;
+  }
+
+  .meetJoinBtn {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    font-size: 0.8rem !important;
+    padding: 7px 10px !important;
+  }
+
   .inAppControlBar {
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 6px;
+    padding: 8px 10px;
   }
 
   .inAppControlBtn {
-    min-width: 58px;
-    height: 50px;
-    padding: 4px 6px;
-    border-radius: 10px;
+    min-width: 48px;
+    height: 46px;
+    padding: 3px 4px;
+    border-radius: 8px;
   }
 
   .inAppControlIcon {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .inAppControlLabel {
-    font-size: 0.65rem;
+    font-size: 0.62rem;
   }
 
   .inAppEndCallBtn {
-    min-width: 68px;
-    height: 50px;
-    padding: 4px 10px;
-    border-radius: 10px;
+    min-width: 58px;
+    height: 46px;
+    padding: 3px 6px;
+    border-radius: 8px;
   }
 
   .inAppConferenceHeader {
-    padding: 10px 14px;
+    padding: 8px 10px;
   }
 
   .inAppConferenceTitle {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
   }
 
   .inAppConferenceMeta {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
   }
 }
 
@@ -5157,15 +5330,17 @@
 :global([data-theme='dark']) .actionBtn,
 :global([data-theme='dark']) .mobileSidebarToggle {
   background: #1e293b;
-  border-color: #334155;
-  color: #f1f5f9;
+  border: 1.5px solid #475569;
+  color: #f8fafc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 :global([data-theme='dark']) .headerActionBtn:hover,
 :global([data-theme='dark']) .actionBtn:hover,
 :global([data-theme='dark']) .mobileSidebarToggle:hover {
   background: #26334a;
-  border-color: #475569;
+  border-color: #60a5fa;
+  color: #ffffff;
 }
 
 :global([data-theme='dark']) .chatMembersPanel {
@@ -6547,35 +6722,46 @@
   margin-left: 2px;
 }
 
-@media (max-width: 1250px) {
+@media (max-width: 1440px) {
   .headerActionBtnLabel {
     display: none !important;
   }
-  .headerActionBtn,
-  .headerQuickCallBtn {
+  .headerActionBtn {
     padding: 6px 8px !important;
+  }
+  .partnerEmail {
+    max-width: 140px !important;
   }
 }
 
-@media (max-width: 950px) {
+@media (max-width: 1200px) {
   .modeText {
     display: none !important;
   }
   .modeSwitchBtn {
-    padding: 6px 8px !important;
+    padding: 5px 8px !important;
   }
-  .chatHeaderTitle {
-    font-size: 0.88rem !important;
-    max-width: 130px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+  .socketStatusText {
+    display: none !important;
   }
-  .participantsSummary span:last-child {
+  .socketStatus {
+    padding: 4px 6px !important;
+  }
+  .partnerEmail {
     display: none !important;
   }
   .metaDivider {
     display: none !important;
+  }
+  .chatHeaderTitle {
+    max-width: 180px !important;
+  }
+}
+
+@media (max-width: 950px) {
+  .chatHeaderTitle {
+    font-size: 0.95rem !important;
+    max-width: 130px !important;
   }
   .chatSidebar {
     width: 270px !important;
@@ -6585,9 +6771,83 @@
 
 @media (max-width: 768px) {
   .chatSidebar {
-    width: 250px !important;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 280px !important;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+    transform: translateX(-100%);
+    z-index: 50;
+  }
+  .sidebarOpenMobile {
+    transform: translateX(0) !important;
   }
   .messageRow {
-    max-width: 95% !important;
+    max-width: 96% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .chatSidebar {
+    width: 100% !important;
+  }
+  .messageRow {
+    max-width: 100% !important;
+    gap: 6px !important;
+  }
+  .messagesArea {
+    padding: 8px 6px !important;
+  }
+  .senderAvatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.75rem !important;
+  }
+  .meetMessageCard {
+    padding: 10px 10px !important;
+    border-left-width: 3px !important;
+  }
+  .meetCardActions {
+    gap: 6px !important;
+  }
+  .meetJoinBtn {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    padding: 7px 10px !important;
+    font-size: 0.78rem !important;
+  }
+  .meetPreviewBtn {
+    flex: 1 1 45% !important;
+    padding: 6px 8px !important;
+    font-size: 0.74rem !important;
+  }
+  .meetDeleteBtn {
+    flex: 1 1 45% !important;
+    padding: 6px 8px !important;
+    font-size: 0.74rem !important;
+  }
+  .chatInputContainer {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+  }
+  .messageInput {
+    padding: 7px 10px !important;
+    font-size: 0.85rem !important;
+    min-height: 36px !important;
+    border-radius: 18px !important;
+  }
+  .sendBtn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+  }
+  .attachBtn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    font-size: 1rem !important;
   }
 }

@@ -10,8 +10,9 @@ import { fetchTicketStats, type TicketStatistics } from '../../api/dashboardApi'
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
 import { fetchCategories } from '../../api/categoryApi';
+import { toShortTicketId } from '../../utils/idUtils';
 import type { Ticket, TicketStatus } from '../../types/ticket';
-import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES } from '../../types/ticket';
+import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { usePagination } from '../../hooks/usePagination';
 import { useAuth } from '../../context/AuthContext';
 import { io, Socket } from 'socket.io-client';
@@ -214,10 +215,10 @@ export default function CeoTicketList() {
             key: 'reference',
             label: 'Reference',
             render: (row) => {
-              const shortId = row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id);
+              const shortId = toShortTicketId(row);
               return (
                 <Link to={`${base}/${shortId}`} className={styles.link}>
-                  #{row.ticketNum ?? row.referenceNumber}
+                  #{row.ticketNum ?? row.referenceNumber ?? shortId}
                 </Link>
               );
             },
@@ -282,7 +283,7 @@ export default function CeoTicketList() {
           {
             key: 'status',
             label: 'Status',
-            render: (row) => <span className={`${styles.badge} ${styles[row.status]}`}>{STATUS_LABELS[row.status]}</span>,
+            render: (row) => <span className={`${styles.badge} ${styles[getStatusClassName(row.status)] || styles[row.status]}`}>{getStatusLabel(row.status)}</span>,
           },
           { key: 'departmentName', label: 'Department', render: (row) => row.departmentName || '—' },
           {
@@ -309,7 +310,7 @@ export default function CeoTicketList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
-                <Link to={`${base}/${row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id)}`} className={styles.actionBtnView} title="View Details">
+                <Link to={`${base}/${toShortTicketId(row)}`} className={styles.actionBtnView} title="View Details">
                   <EyeIcon className={styles.actionIcon} />
                   <span>View</span>
                 </Link>
@@ -317,8 +318,16 @@ export default function CeoTicketList() {
                   <button
                     type="button"
                     className={styles.actionBtnDept}
-                    onClick={() => { setAssignTicket(row); setDeptModal(true); }}
-                    title="Assign to Department"
+                    onClick={() => {
+                      if (row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant') {
+                        setMessage('Cannot assign department: Ticket is waiting for tenant response/confirmation.');
+                        return;
+                      }
+                      setAssignTicket(row);
+                      setDeptModal(true);
+                    }}
+                    disabled={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant'}
+                    title={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant' ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation' : 'Assign to Department'}
                   >
                     <BuildingOffice2Icon className={styles.actionIcon} />
                     <span>Dept</span>
@@ -328,8 +337,16 @@ export default function CeoTicketList() {
                   <button
                     type="button"
                     className={styles.actionBtnStaff}
-                    onClick={() => { setAssignTicket(row); setStaffModal(true); }}
-                    title="Assign to Staff Member"
+                    onClick={() => {
+                      if (row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant') {
+                        setMessage('Cannot assign staff: Ticket is waiting for tenant response/confirmation.');
+                        return;
+                      }
+                      setAssignTicket(row);
+                      setStaffModal(true);
+                    }}
+                    disabled={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant'}
+                    title={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant' ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation' : 'Assign to Staff Member'}
                   >
                     <UserPlusIcon className={styles.actionIcon} />
                     <span>Staff</span>

@@ -1,6 +1,8 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAlert } from '../../context/AlertContext';
+import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import DepartmentForm from '../../components/Forms/DepartmentForm';
 import { createDepartment, fetchEligibleHeads } from '../../api/departmentApi';
 import { fetchUsers as fetchAllUsers } from '../../api/userApi';
@@ -13,6 +15,7 @@ import styles from './Departments.module.css';
 
 export default function ManagerDepartmentCreate() {
   const navigate = useNavigate();
+  const { showError } = useAlert();
   const [heads, setHeads] = useState<DepartmentHeadOption[]>([]);
   const [users, setUsers] = useState<DepartmentMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,12 +50,21 @@ export default function ManagerDepartmentCreate() {
         status: values.status,
         memberIds: values.memberIds || [],
       });
-      navigate('/manager/departments');
+      navigate('/manager/departments', {
+        state: {
+          alert: {
+            type: 'success',
+            message: `Department "${values.name}" created successfully`,
+            title: 'Department Created',
+          },
+        },
+      });
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to create department';
       setError(msg);
+      showError(msg, 'Department Assignment Notice');
     } finally {
       setLoading(false);
     }
@@ -65,7 +77,34 @@ export default function ManagerDepartmentCreate() {
         description="Add a new department and assign its head and members"
         backTo="/manager/departments"
       />
-      {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
+
+      {/* ── Professional Action Alert Banner ── */}
+      {error && (
+        <div className={styles.professionalAlertBanner}>
+          <div className={`${styles.alertCardInner} ${styles.alertCardError}`} role="alert">
+            <div className={styles.alertIconCol}>
+              <ExclamationTriangleIcon className={styles.alertActionIcon} />
+            </div>
+            <div className={styles.alertBodyCol}>
+              <div className={styles.alertHeaderRow}>
+                <span className={styles.alertCategoryBadge}>Assignment Conflict</span>
+                <span className={styles.alertTimestamp}>Action Required</span>
+              </div>
+              <h5 className={styles.alertHeadline}>Department Assignment Notice</h5>
+              <p className={styles.alertDescription}>{error}</p>
+            </div>
+            <button
+              type="button"
+              className={styles.alertCloseBtn}
+              onClick={() => setError('')}
+              title="Dismiss alert"
+            >
+              <XMarkIcon style={{ width: 18, height: 18 }} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <DepartmentForm
         heads={heads}
         users={users}

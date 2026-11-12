@@ -9,6 +9,11 @@ export const authorize = (...permissions) => async (req, res, next) => {
 
     if (!permissions.length) return next();
 
+    // Executive roles (admin, ceo) have full authority
+    if (req.user.role === 'admin' || req.user.role === 'ceo') {
+      return next();
+    }
+
     const placeholders = permissions.map(() => '?').join(',');
     const [rows] = await pool.query(
       `SELECT p.code

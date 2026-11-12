@@ -5,6 +5,7 @@ import type {
   DepartmentMember,
   PaginationMeta,
 } from '../types/department';
+import { toShortId } from '../utils/idUtils';
 
 export interface DepartmentListParams {
   search?: string;
@@ -22,13 +23,13 @@ export const fetchDepartments = (params: DepartmentListParams) =>
   );
 
 export const fetchDepartment = (id: string) =>
-  api.get<{ success: boolean; data: Department }>(`/departments/${id}`);
+  api.get<{ success: boolean; data: Department }>(`/departments/${toShortId(id)}`);
 
 export const fetchDepartmentMembers = (id: string) =>
-  api.get<{ success: boolean; data: DepartmentMember[] }>(`/departments/${id}/members`);
+  api.get<{ success: boolean; data: DepartmentMember[] }>(`/departments/${toShortId(id)}/members`);
 
 export const assignDepartmentUsers = (id: string, userIds: string[]) =>
-  api.post(`/departments/${id}/members`, { userIds });
+  api.post(`/departments/${toShortId(id)}/members`, { userIds: userIds.map((u) => toShortId(u)) });
 
 export const fetchActiveDepartments = () =>
   api.get<{ success: boolean; data: Pick<Department, 'id' | 'name' | 'code'>[] }>(
@@ -42,13 +43,13 @@ export const createDepartment = (payload: Record<string, unknown>) =>
   api.post('/departments', payload);
 
 export const updateDepartment = (id: string, payload: Record<string, unknown>) =>
-  api.put(`/departments/${id}`, payload);
+  api.put(`/departments/${toShortId(id)}`, payload);
 
 export const deleteDepartment = (id: string) =>
-  api.delete(`/departments/${id}`);
+  api.delete(`/departments/${toShortId(id)}`);
 
 export const activateDepartment = (id: string) =>
-  api.patch(`/departments/${id}/activate`);
+  api.patch(`/departments/${toShortId(id)}/activate`);
 
 export const deactivateDepartment = (id: string) =>
-  api.patch(`/departments/${id}/deactivate`);
+  api.patch(`/departments/${toShortId(id)}/deactivate`);

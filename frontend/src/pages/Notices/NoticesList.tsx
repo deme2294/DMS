@@ -15,7 +15,9 @@ import type { Notice } from '../../types/notice';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import { buildAttachmentUrl } from '../../utils/attachmentUtils';
+import { toShortNoticeId } from '../../utils/idUtils';
 import styles from './Notices.module.css';
 
 import {
@@ -43,6 +45,7 @@ export default function NoticesList() {
   const navigate = useNavigate();
   const { can } = usePermission();
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const isAdmin = user?.role === 'admin';
   const { page, limit, setPage, resetPage } = usePagination();
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -106,7 +109,9 @@ export default function NoticesList() {
     if (!deleteNoticeTarget) return;
     try {
       await deleteNotice(deleteNoticeTarget.id);
-      setMessage(`Notice "${deleteNoticeTarget.title}" deleted successfully`);
+      const msg = `Notice "${deleteNoticeTarget.title}" deleted successfully`;
+      setMessage(msg);
+      showSuccess(msg, 'Notice Deleted');
       setDeleteNoticeTarget(null);
       if (viewingNotice?.id === deleteNoticeTarget.id) {
         setViewingNotice(null);
@@ -117,6 +122,7 @@ export default function NoticesList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to delete notice';
       setMessage(msg);
+      showError(msg, 'Delete Error');
       setDeleteNoticeTarget(null);
     }
   };
@@ -125,7 +131,9 @@ export default function NoticesList() {
     try {
       const now = new Date().toISOString();
       await updateNotice(notice.id, { status: 'published' });
-      setMessage(`Notice "${notice.title}" published successfully.`);
+      const msg = `Notice "${notice.title}" published successfully.`;
+      setMessage(msg);
+      showSuccess(msg, 'Notice Published');
       if (viewingNotice?.id === notice.id) {
         setViewingNotice((prev) =>
           prev ? { ...prev, status: 'published', publishedAt: now, published_at: now } : null
@@ -137,6 +145,7 @@ export default function NoticesList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to publish notice';
       setMessage(msg);
+      showError(msg, 'Publish Error');
     }
   };
 
@@ -144,7 +153,9 @@ export default function NoticesList() {
     try {
       const newStatus = notice.status === 'draft' ? 'published' : 'draft';
       await updateNotice(notice.id, { status: newStatus });
-      setMessage(`Notice ${newStatus === 'published' ? 'published' : 'moved to draft'} successfully`);
+      const msg = `Notice ${newStatus === 'published' ? 'published' : 'moved to draft'} successfully`;
+      setMessage(msg);
+      showSuccess(msg, 'Status Updated');
       if (viewingNotice?.id === notice.id) {
         setViewingNotice((prev) => (prev ? { ...prev, status: newStatus } : null));
       }
@@ -154,6 +165,7 @@ export default function NoticesList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to update status';
       setMessage(msg);
+      showError(msg, 'Status Error');
     }
   };
 
@@ -161,7 +173,9 @@ export default function NoticesList() {
     try {
       await acknowledgeNotice(notice.id);
       setAcknowledgedIds((prev) => new Set(prev).add(notice.id));
-      setMessage(`Notice "${notice.title}" acknowledged.`);
+      const msg = `Notice "${notice.title}" acknowledged.`;
+      setMessage(msg);
+      showSuccess(msg, 'Notice Acknowledged');
       if (viewingNotice?.id === notice.id) {
         setViewingNotice((prev) =>
           prev
@@ -460,7 +474,7 @@ export default function NoticesList() {
                   type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
                   title="Edit notice"
-                  onClick={() => navigate(`/admin/notices/${row.id}/edit`)}
+                  onClick={() => navigate(`/admin/notices/${toShortNoticeId(row)}/edit`)}
                 >
                   <PencilSquareIcon className={styles.actionIcon} />
                   <span>Edit</span>
@@ -593,7 +607,7 @@ export default function NoticesList() {
                     type="button"
                     className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
                     onClick={() => {
-                      navigate(`/admin/notices/${viewingNotice.id}/edit`);
+                      navigate(`/admin/notices/${toShortNoticeId(viewingNotice)}/edit`);
                     }}
                   >
                     <PencilSquareIcon className={styles.actionIcon} />

@@ -33,30 +33,30 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
           { label: 'Matrix', path: '/admin/matrix', icon: '🔗', permission: 'matrix.manage' },
         ],
       },
-        {
-          title: 'Operations',
-          items: [
-            { label: 'Tickets', path: '/admin/tickets', icon: '🎫', permission: 'tickets.read' },
-            { label: 'Ticket Categories', path: '/admin/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
-            { label: 'SLA Policies', path: '/admin/sla', icon: '⏱️', permission: 'sla.manage' },
-            { label: 'Chat', path: '/admin/chat', icon: '💬' },
-            { label: 'Notifications', path: '/admin/notifications', icon: '🔔' },
-            { label: 'Notices', path: '/admin/notices', icon: '📢', permission: 'notices.read' },
-            { label: 'Knowledge Base', path: '/admin/knowledge', icon: '📚', permission: 'knowledge.read' },
-            { label: 'KB Approval', path: '/admin/knowledge/approval', icon: '✅', permission: 'knowledge.review' },
-            { label: 'KB Categories', path: '/admin/knowledge/categories', icon: '📂', permission: 'knowledge.manage_categories' },
-            { label: 'KB Statistics', path: '/admin/knowledge/statistics', icon: '📊', permission: 'knowledge.view_statistics' },
-            { label: 'Feedback', path: '/admin/feedback', icon: '📝', permission: 'feedback.read' },
-          ],
-        },
-        {
-          title: 'System',
-          items: [
-            { label: 'Reports', path: '/admin/reports', icon: '📑', permission: 'reports.read' },
-            { label: 'Audit Log', path: '/admin/audit', icon: '🔍', permission: 'audit.read' },
-            { label: 'My Profile', path: '/admin/profile', icon: '👤' },
-          ],
-        },
+      {
+        title: 'Operations',
+        items: [
+          { label: 'Tickets', path: '/admin/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Ticket Categories', path: '/admin/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
+          { label: 'SLA Policies', path: '/admin/sla', icon: '⏱️', permission: 'sla.manage' },
+          { label: 'Chat', path: '/admin/chat', icon: '💬' },
+          { label: 'Notifications', path: '/admin/notifications', icon: '🔔' },
+          { label: 'Notices', path: '/admin/notices', icon: '📢', permission: 'notices.read' },
+          { label: 'Knowledge Base', path: '/admin/knowledge', icon: '📚', permission: 'knowledge.read' },
+          { label: 'KB Approval', path: '/admin/knowledge/approval', icon: '✅', permission: 'knowledge.review' },
+          { label: 'KB Categories', path: '/admin/knowledge/categories', icon: '📂', permission: 'knowledge.manage_categories' },
+          { label: 'KB Statistics', path: '/admin/knowledge/statistics', icon: '📊', permission: 'knowledge.view_statistics' },
+          { label: 'Feedback', path: '/admin/feedback', icon: '📝', permission: 'feedback.read' },
+        ],
+      },
+      {
+        title: 'System',
+        items: [
+          { label: 'Reports', path: '/admin/reports', icon: '📑', permission: 'reports.read' },
+          { label: 'Audit Log', path: '/admin/audit', icon: '🔍', permission: 'audit.read' },
+          { label: 'My Profile', path: '/admin/profile', icon: '👤' },
+        ],
+      },
     ],
   },
   manager: {
@@ -65,7 +65,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Main',
         items: [
           { label: 'Dashboard', path: '/manager/dashboard', icon: '📊', permission: 'dashboard.read' },
-          { label: 'Analytics', path: '/admin/analytics', icon: '📈', permission: 'dashboard.read' },
+          { label: 'Analytics', path: '/manager/analytics', icon: '📈', permission: 'dashboard.read' },
         ],
       },
       {
@@ -75,19 +75,20 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
           { label: 'Matrix', path: '/manager/matrix', icon: '🔗', permission: 'matrix.manage' },
         ],
       },
-        {
-          title: 'Operations',
-          items: [
-            { label: 'Tickets', path: '/manager/tickets', icon: '🎫', permission: 'tickets.read' },
-            { label: 'Ticket Categories', path: '/manager/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
-            { label: 'Chat', path: '/manager/chat', icon: '💬' },
-            { label: 'Notifications', path: '/manager/notifications', icon: '🔔' },
-            { label: 'Notices', path: '/manager/notices', icon: '📢', permission: 'notices.read' },
-            { label: 'Knowledge Base', path: '/manager/knowledge', icon: '📚', permission: 'knowledge.read' },
-            { label: 'KB Approval Desk', path: '/manager/knowledge/approval', icon: '✅', permission: 'knowledge.approve' },
-            { label: 'My Articles', path: '/manager/knowledge/my-articles', icon: '📝', permission: 'knowledge.read' },
-          ],
-        },
+      {
+        title: 'Operations',
+        items: [
+          { label: 'Tickets', path: '/manager/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Ticket Categories', path: '/manager/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
+          { label: 'Chat', path: '/manager/chat', icon: '💬' },
+          { label: 'Notifications', path: '/manager/notifications', icon: '🔔' },
+          { label: 'Notices', path: '/manager/notices', icon: '📢', permission: 'notices.read' },
+          { label: 'Feedback Desk', path: '/manager/feedback', icon: '📝', permission: 'feedback.read' },
+          { label: 'Knowledge Base', path: '/manager/knowledge', icon: '📚', permission: 'knowledge.read' },
+          { label: 'KB Approval Desk', path: '/manager/knowledge/approval', icon: '✅', permission: 'knowledge.approve' },
+          { label: 'My Articles', path: '/manager/knowledge/my-articles', icon: '📝', permission: 'knowledge.read' },
+        ],
+      },
       {
         title: 'System',
         items: [
@@ -109,9 +110,10 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Work',
         items: [
           { label: 'Tickets', path: '/staff/tickets', icon: '🎫', permission: 'tickets.read' },
-            { label: 'Chat', path: '/staff/chat', icon: '💬' },
-            { label: 'Notifications', path: '/staff/notifications', icon: '🔔' },
-            { label: 'Notices', path: '/staff/notices', icon: '📢', permission: 'notices.read' },
+          { label: 'Feedback Tasks', path: '/staff/feedback', icon: '📝', permission: 'feedback.read' },
+          { label: 'Chat', path: '/staff/chat', icon: '💬' },
+          { label: 'Notifications', path: '/staff/notifications', icon: '🔔' },
+          { label: 'Notices', path: '/staff/notices', icon: '📢', permission: 'notices.read' },
           { label: 'Knowledge Base', path: '/staff/knowledge', icon: '📚', permission: 'knowledge.read' },
           { label: 'My Articles', path: '/staff/knowledge/my-articles', icon: '📝', permission: 'knowledge.read' },
           { label: 'My Profile', path: '/staff/profile', icon: '👤' },
@@ -127,15 +129,15 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
           { label: 'Dashboard', path: '/tenant/dashboard', icon: '📊', permission: 'dashboard.read' },
         ],
       },
-        {
-          title: 'Services',
-          items: [
-            { label: 'My Tickets', path: '/tenant/tickets', icon: '🎫', permission: 'tickets.read' },
-            { label: 'New Ticket', path: '/tenant/tickets/create', icon: '➕', permission: 'tickets.create' },
-            { label: 'Chat', path: '/tenant/chat', icon: '💬' },
-            { label: 'Notifications', path: '/tenant/notifications', icon: '🔔' },
-          ],
-        },
+      {
+        title: 'Services',
+        items: [
+          { label: 'My Tickets', path: '/tenant/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'New Ticket', path: '/tenant/tickets/create', icon: '➕', permission: 'tickets.create' },
+          { label: 'Chat', path: '/tenant/chat', icon: '💬' },
+          { label: 'Notifications', path: '/tenant/notifications', icon: '🔔' },
+        ],
+      },
       {
         title: 'Information',
         items: [
@@ -161,6 +163,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Operations',
         items: [
           { label: 'Tickets', path: '/ceo/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Feedback Oversight', path: '/ceo/feedback', icon: '📝', permission: 'feedback.read' },
           { label: 'Reports', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
           { label: 'Knowledge Base', path: '/ceo/knowledge', icon: '📚', permission: 'knowledge.read' },
           { label: 'Notices', path: '/ceo/notices', icon: '📢', permission: 'notices.read' },

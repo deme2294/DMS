@@ -182,6 +182,13 @@ export default function ChatPage() {
     let isCancelled = false;
 
     const initRoomsAndSelection = async () => {
+      // Pre-fetch all chat users early so online indicators and presence resolution work accurately
+      chatApi.fetchChatUsers().then((res) => {
+        if (!isCancelled && res.data?.data) {
+          setAllUsers(res.data.data);
+        }
+      }).catch(() => {});
+
       const fetchedRooms = await loadRooms();
       if (isCancelled) return;
 
@@ -336,12 +343,46 @@ export default function ChatPage() {
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     };
 
+    const handleUserOnline = ({ userId }: { userId: string }) => {
+      setParticipants((prev) =>
+        prev.map((p) => (p.user_id === userId ? { ...p, is_online: true } : p))
+      );
+      setAllUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_online: true } : u))
+      );
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.room_type === 'direct' && r.other_user_id === userId
+            ? { ...r, other_user_online: true }
+            : r
+        )
+      );
+    };
+
+    const handleUserOffline = ({ userId }: { userId: string }) => {
+      setParticipants((prev) =>
+        prev.map((p) => (p.user_id === userId ? { ...p, is_online: false } : p))
+      );
+      setAllUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_online: false } : u))
+      );
+      setRooms((prev) =>
+        prev.map((r) =>
+          r.room_type === 'direct' && r.other_user_id === userId
+            ? { ...r, other_user_online: false }
+            : r
+        )
+      );
+    };
+
     socket.on('new-message', handleNewMessage);
     socket.on('message-deleted', handleMessageDeleted);
     socket.on('meeting-invite-received', handleMeetingInvite);
     socket.on('direct-room-created', handleDirectRoomCreated);
     socket.on('user-typing', handleUserTyping);
     socket.on('user-stopped-typing', handleUserStoppedTyping);
+    socket.on('user-online', handleUserOnline);
+    socket.on('user-offline', handleUserOffline);
 
     return () => {
       socket.off('new-message', handleNewMessage);
@@ -350,6 +391,8 @@ export default function ChatPage() {
       socket.off('direct-room-created', handleDirectRoomCreated);
       socket.off('user-typing', handleUserTyping);
       socket.off('user-stopped-typing', handleUserStoppedTyping);
+      socket.off('user-online', handleUserOnline);
+      socket.off('user-offline', handleUserOffline);
     };
   }, [socket, selectedRoom?.id]);
 
@@ -391,6 +434,7 @@ export default function ChatPage() {
 
     const formData = new FormData();
     formData.append('attachment', file);
+    formData.append('file', file);
     formData.append('roomId', selectedRoom.id);
     formData.append('message', `Shared file: ${file.name}`);
     formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
@@ -523,6 +567,47 @@ export default function ChatPage() {
     if (selectedRoom?.room_type === 'direct') return Boolean(selectedRoom.other_user_online);
     return false;
   }, [directPartner, selectedRoom]);
+
+  const isUserOnline = useCallback(
+    (userId?: string, userEmail?: string) => {
+      if (!userId && !userEmail) return false;
+      if (userId === currentUser.id) return true;
+      if (currentUser.email && userEmail && currentUser.email.toLowerCase() === userEmail.toLowerCase()) {
+        return true;
+      }
+
+      if (userId) {
+        const part = participants.find((p) => p.user_id === userId);
+        if (part && part.is_online !== undefined) return Boolean(part.is_online);
+
+        const u = allUsers.find((user) => user.id === userId);
+        if (u && u.is_online !== undefined) return Boolean(u.is_online);
+      }
+
+      if (userEmail) {
+        const lowerEmail = userEmail.toLowerCase();
+        const partByEmail = participants.find((p) => p.email?.toLowerCase() === lowerEmail);
+        if (partByEmail && partByEmail.is_online !== undefined) return Boolean(partByEmail.is_online);
+
+        const uByEmail = allUsers.find((user) => user.email?.toLowerCase() === lowerEmail);
+        if (uByEmail && uByEmail.is_online !== undefined) return Boolean(uByEmail.is_online);
+      }
+
+      if (selectedRoom?.room_type === 'direct') {
+        if (
+          directPartner &&
+          (directPartner.user_id === userId ||
+            (directPartner.email && userEmail && directPartner.email.toLowerCase() === userEmail.toLowerCase()))
+        ) {
+          return Boolean(directPartner.is_online);
+        }
+        return Boolean(selectedRoom.other_user_online);
+      }
+
+      return false;
+    },
+    [currentUser.id, currentUser.email, participants, allUsers, selectedRoom, directPartner]
+  );
 
   // ===================== MEETING INVITATION MODAL LOGIC =====================
   const openMeetModal = async () => {
@@ -1134,12 +1219,35 @@ export default function ChatPage() {
     setClickedScreenShareSession(null);
   }, [selectedRoom?.id]);
 
-  const handleJoinScreenShare = (sessionInfo?: any) => {
+  const handleJoinScreenShare = async (sessionInfo?: any) => {
     const targetSession = sessionInfo || clickedScreenShareSession;
     if (targetSession) {
       const key = targetSession.meetingUrl || targetSession.title || targetSession.scheduledTime;
       if (key) {
         setConsumedMeetingKeys((prev) => new Set(prev).add(key));
+      }
+
+      // Check if target session points to another room
+      const targetRoomId =
+        targetSession.roomId ||
+        targetSession.meetingUrl?.match(/\/room\/([a-zA-Z0-9_-]+)/i)?.[1];
+
+      if (targetRoomId && targetRoomId !== selectedRoom?.id) {
+        let found = rooms.find((r) => r.id === targetRoomId);
+        if (!found) {
+          try {
+            const res = await chatApi.fetchRoomById(targetRoomId);
+            if (res.data?.data) {
+              found = res.data.data;
+              setRooms((prev) => (prev.some((r) => r.id === found!.id) ? prev : [found!, ...prev]));
+            }
+          } catch (err) {
+            console.warn('Could not switch to target meeting room:', err);
+          }
+        }
+        if (found) {
+          setSelectedRoom(found);
+        }
       }
     }
     // Remove the screen share banner immediately
@@ -1160,15 +1268,6 @@ export default function ChatPage() {
         isWholePageMode ? styles.chatPageWrapperWholePage : ''
       }`}
     >
-      {!isWholePageMode && (
-        <div className={styles.chatPageHeaderCompact}>
-          <PageHeader
-            title="Help Desk Communications"
-            description="Unified real-time text chat, department channels, and 100% in-app video conferencing"
-          />
-        </div>
-      )}
-
       {/* Incoming Real-Time Meeting Alert Banner */}
       {incomingMeetingInvite && (
         <div className={styles.incomingInviteBanner}>
@@ -1338,11 +1437,11 @@ export default function ChatPage() {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: '1 1 260px' }}>
+                      <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>
                         {clickedScreenShareSession.screenShareEnabled ? '🖥️' : '📹'}
                       </span>
-                      <div>
+                      <div style={{ minWidth: 0, flex: '1 1 auto' }}>
                         <div
                           style={{
                             fontSize: '0.84rem',
@@ -1351,9 +1450,11 @@ export default function ChatPage() {
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
+                            flexWrap: 'wrap',
+                            wordBreak: 'break-word',
                           }}
                         >
-                          <span>{clickedScreenShareSession.title}</span>
+                          <span style={{ wordBreak: 'break-word' }}>{clickedScreenShareSession.title}</span>
                           <span
                             style={{
                               fontSize: '0.68rem',
@@ -1363,15 +1464,19 @@ export default function ChatPage() {
                               background:
                                 clickedScreenShareSession.statusObj?.status === 'live'
                                   ? 'rgba(16, 185, 129, 0.2)'
+                                  : clickedScreenShareSession.statusObj?.status === 'ended'
+                                  ? 'rgba(225, 29, 72, 0.15)'
                                   : 'rgba(37, 99, 235, 0.15)',
                               color: clickedScreenShareSession.statusObj?.badgeColor,
                               border: `1px solid ${clickedScreenShareSession.statusObj?.badgeColor}40`,
+                              whiteSpace: 'normal',
+                              wordBreak: 'break-word',
                             }}
                           >
                             {clickedScreenShareSession.statusObj?.label}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', wordBreak: 'break-word' }}>
                           Scheduled Event Time:{' '}
                           <strong style={{ color: 'var(--text-main)' }}>
                             {clickedScreenShareSession.scheduledTime
@@ -1394,29 +1499,85 @@ export default function ChatPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleJoinScreenShare(clickedScreenShareSession)}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          border: 'none',
-                          background:
-                            clickedScreenShareSession.statusObj?.status === 'live'
-                              ? 'linear-gradient(135deg, #16a34a 0%, #059669 100%)'
-                              : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                          color: '#ffffff',
-                          cursor: 'pointer',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        }}
-                      >
-                        {clickedScreenShareSession.statusObj?.status === 'live'
-                          ? '🚀 Join Screen Share Call (Live)'
-                          : '🗓️ Join / Enter Conference Room'}
-                      </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {(() => {
+                        const isPast = clickedScreenShareSession.statusObj?.status === 'ended';
+                        const canJoinPast = Boolean(
+                          clickedScreenShareSession.canJoinPastSession ??
+                            clickedScreenShareSession.statusObj?.canJoinNow
+                        );
+
+                        if (isPast) {
+                          if (canJoinPast) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => handleJoinScreenShare(clickedScreenShareSession)}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  border: 'none',
+                                  background: 'linear-gradient(135deg, #0284c7 0%, #059669 100%)',
+                                  color: '#ffffff',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                }}
+                                title="Scheduled time has passed, but host is online. Click to rejoin."
+                              >
+                                🔄 Rejoin Live Call (Host Online)
+                              </button>
+                            );
+                          } else {
+                            return (
+                              <button
+                                type="button"
+                                disabled
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  border: '1px solid var(--border-light)',
+                                  background: 'var(--bg-hover)',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'not-allowed',
+                                  opacity: 0.65,
+                                }}
+                                title={`Session has ended (${clickedScreenShareSession.statusObj?.timePassedStr}) and the host is offline.`}
+                              >
+                                ⏹️ Session Ended (Host Offline)
+                              </button>
+                            );
+                          }
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleJoinScreenShare(clickedScreenShareSession)}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '6px',
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              border: 'none',
+                              background:
+                                clickedScreenShareSession.statusObj?.status === 'live'
+                                  ? 'linear-gradient(135deg, #16a34a 0%, #059669 100%)'
+                                  : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                              color: '#ffffff',
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                            }}
+                          >
+                            {clickedScreenShareSession.statusObj?.status === 'live'
+                              ? '🚀 Join Screen Share Call (Live)'
+                              : '🗓️ Join / Enter Conference Room'}
+                          </button>
+                        );
+                      })()}
 
                       <button
                         type="button"
@@ -1461,6 +1622,8 @@ export default function ChatPage() {
                     messageGroups={messageGroups}
                     typingUsers={typingUsers}
                     messagesEndRef={messagesEndRef}
+                    isUserOnline={isUserOnline}
+                    participants={participants}
                     onJoinInAppVideo={(_url, sessionInfo) => {
                       handleJoinScreenShare(sessionInfo);
                     }}
@@ -1516,8 +1679,10 @@ export default function ChatPage() {
                       messageGroups={messageGroups}
                       typingUsers={typingUsers}
                       messagesEndRef={messagesEndRef}
-                      onJoinInAppVideo={() => {
-                        handleStartInAppVideo();
+                      isUserOnline={isUserOnline}
+                      participants={participants}
+                      onJoinInAppVideo={(_url, sessionInfo) => {
+                        handleJoinScreenShare(sessionInfo);
                       }}
                       onDeleteMessage={handleRequestDeleteMessage}
                     />

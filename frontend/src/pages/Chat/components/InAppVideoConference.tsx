@@ -143,6 +143,8 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [speakingPeers, setSpeakingPeers] = useState<Set<string>>(new Set());
   const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<string>('');
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +165,36 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
   useEffect(() => { isCameraOffRef.current = isCameraOff; }, [isCameraOff]);
   useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
 
+  // Ensure local video element always receives and plays the active camera stream whenever rendered
+  useEffect(() => {
+    if (localVideoRef.current && localStream && !isCameraOff) {
+      if (localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [localStream, isCameraOff, isScreenSharing]);
+
+  // Enumerate video input devices for camera browsing/selection
+  const refreshVideoDevices = useCallback(async () => {
+    if (navigator.mediaDevices?.enumerateDevices) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter((d) => d.kind === 'videoinput');
+        setVideoDevices(cams);
+        if (cams.length > 0 && !selectedVideoDeviceId) {
+          setSelectedVideoDeviceId(cams[0].deviceId);
+        }
+      } catch (err) {
+        console.warn('[InAppVideo] Device enumeration warning:', err);
+      }
+    }
+  }, [selectedVideoDeviceId]);
+
+  useEffect(() => {
+    refreshVideoDevices();
+  }, [localStream, refreshVideoDevices]);
+
   // Reliable helper to find active video sender across direct senders and transceivers
   const findVideoSender = (pc: RTCPeerConnection): RTCRtpSender | null => {
     const direct = pc.getSenders().find((s) => s.track?.kind === 'video');
@@ -177,21 +209,40 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
     return pc.getSenders().find((s) => (s as any).kind === 'video') || null;
   };
 
-  // 1. Initialize Local Media Stream with High-Fidelity Audio
+  // 1. Initialize Local Media Stream with Resilient Multi-Tier Fallback
   useEffect(() => {
     let stream: MediaStream | null = null;
     let isCancelled = false;
 
     const startMedia = async () => {
+      setMediaError(null);
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error('Webcam & audio media devices are not supported or blocked in this browser context.');
         }
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
-          audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
-        });
+        try {
+          // Tier 1: Ideal HD video constraints with high fidelity audio
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: selectedVideoDeviceId
+              ? { deviceId: { exact: selectedVideoDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+              : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } },
+            audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
+          });
+        } catch (hdErr) {
+          console.warn('[InAppVideo] HD video acquisition failed, attempting standard constraints:', hdErr);
+          try {
+            // Tier 2: Standard video and audio constraints (broadest compatibility across laptop/USB webcams)
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
+              audio: true,
+            });
+          } catch (stdErr) {
+            console.warn('[InAppVideo] Standard video/audio failed, attempting basic video only:', stdErr);
+            // Tier 3: Basic video only
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          }
+        }
 
         if (isCancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -199,8 +250,10 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
         }
 
         setLocalStream(stream);
+        setIsCameraOff(false);
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(() => {});
         }
 
         // Play entrance sound cue for entering user
@@ -218,13 +271,13 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           });
         }
       } catch (err: any) {
-        console.warn('[InAppVideo] getUserMedia failed, attempting HD audio-only:', err);
+        console.warn('[InAppVideo] getUserMedia video failed, attempting audio-only fallback:', err);
         try {
           if (!navigator.mediaDevices?.getUserMedia) {
             const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
             throw new Error(isHttp ? 'Webcam and mic require an HTTPS connection or localhost.' : 'Webcam and mic devices are not available.');
           }
-          stream = await navigator.mediaDevices.getUserMedia({ audio: HIGH_QUALITY_AUDIO_CONSTRAINTS });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           if (!isCancelled) {
             setLocalStream(stream);
             setIsCameraOff(true);
@@ -633,35 +686,141 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
     }
   };
 
-  // 6. Toggle Camera
-  const toggleCamera = () => {
-    if (localStream) {
-      const newOff = !isCameraOff;
-      localStream.getVideoTracks().forEach((track) => {
-        track.enabled = !newOff;
+  // 6. Camera Switcher (Browse connected webcams)
+  const switchCamera = async (deviceId: string) => {
+    setSelectedVideoDeviceId(deviceId);
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId } },
       });
-      setIsCameraOff(newOff);
+      const newTrack = newStream.getVideoTracks()[0];
+      if (newTrack) {
+        if (localStream) {
+          localStream.getVideoTracks().forEach((t) => {
+            localStream.removeTrack(t);
+            t.stop();
+          });
+          localStream.addTrack(newTrack);
+          newTrack.enabled = !isCameraOff;
+        } else {
+          setLocalStream(newStream);
+        }
 
-      // If not currently screen sharing, update the video sender for peers
-      if (!isScreenSharing) {
-        const trackToSend = newOff ? null : (localStream.getVideoTracks()[0] || null);
-        peersRef.current.forEach(async (peer) => {
-          try {
-            const sender = findVideoSender(peer.peerConnection);
-            if (sender) {
-              await sender.replaceTrack(trackToSend);
-            }
-          } catch (e) {}
-        });
+        if (localVideoRef.current && localStream) {
+          localVideoRef.current.srcObject = localStream;
+          localVideoRef.current.play().catch(() => {});
+        }
+
+        if (!isScreenSharing) {
+          peersRef.current.forEach(async (peer) => {
+            try {
+              const sender = findVideoSender(peer.peerConnection);
+              if (sender) {
+                await sender.replaceTrack(isCameraOff ? null : newTrack);
+              }
+            } catch (err) {}
+          });
+        }
       }
+    } catch (err) {
+      console.warn('[InAppVideo] Could not switch camera:', err);
+    }
+  };
 
-      socket?.emit('video-stream-state', {
-        roomId: room.id,
-        isMicMuted,
-        isCameraOff: newOff,
-        isScreenSharing,
+  // 6b. Toggle Camera (with dynamic track acquisition if missing)
+  const toggleCamera = async () => {
+    if (!localStream) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
+          audio: true,
+        });
+        setLocalStream(stream);
+        setIsCameraOff(false);
+        setMediaError(null);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(() => {});
+        }
+        socket?.emit('video-stream-state', {
+          roomId: room.id,
+          isMicMuted,
+          isCameraOff: false,
+          isScreenSharing,
+        });
+      } catch (err: any) {
+        setMediaError(err?.message || 'Could not acquire camera permissions.');
+      }
+      return;
+    }
+
+    const newOff = !isCameraOff;
+    let videoTracks = localStream.getVideoTracks();
+
+    // If turning camera ON and there are no live video tracks, request camera device
+    if (!newOff && (videoTracks.length === 0 || videoTracks.every((t) => t.readyState === 'ended'))) {
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({
+          video: selectedVideoDeviceId ? { deviceId: { exact: selectedVideoDeviceId } } : true,
+        });
+        const newTrack = camStream.getVideoTracks()[0];
+        if (newTrack) {
+          localStream.getVideoTracks().forEach((t) => {
+            localStream.removeTrack(t);
+            t.stop();
+          });
+          localStream.addTrack(newTrack);
+          videoTracks = [newTrack];
+
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(() => {});
+          }
+
+          if (!isScreenSharing) {
+            peersRef.current.forEach(async (peer) => {
+              try {
+                const sender = findVideoSender(peer.peerConnection);
+                if (sender) {
+                  await sender.replaceTrack(newTrack);
+                } else {
+                  peer.peerConnection.addTrack(newTrack, localStream);
+                }
+              } catch (err) {}
+            });
+          }
+        }
+      } catch (err: any) {
+        setMediaError(err?.message || 'Could not acquire camera device.');
+        return;
+      }
+    }
+
+    videoTracks.forEach((track) => {
+      track.enabled = !newOff;
+    });
+    setIsCameraOff(newOff);
+
+    // If not currently screen sharing, update the video sender for peers
+    if (!isScreenSharing) {
+      const liveTrack = localStream.getVideoTracks().find((t) => t.readyState === 'live');
+      const trackToSend = newOff ? null : (liveTrack || null);
+      peersRef.current.forEach(async (peer) => {
+        try {
+          const sender = findVideoSender(peer.peerConnection);
+          if (sender) {
+            await sender.replaceTrack(trackToSend);
+          }
+        } catch (e) {}
       });
     }
+
+    socket?.emit('video-stream-state', {
+      roomId: room.id,
+      isMicMuted,
+      isCameraOff: newOff,
+      isScreenSharing,
+    });
   };
 
   // 7. Native In-App Screen Sharing
@@ -915,7 +1074,24 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
 
       {mediaError && (
         <div className={styles.inAppMediaWarning}>
-          ⚠️ {mediaError} You can still participate in audio/chat and view others' shared screens.
+          <span>⚠️ {mediaError} You can still participate in audio/chat and view others' shared screens.</span>
+          <button
+            type="button"
+            onClick={toggleCamera}
+            style={{
+              marginLeft: '12px',
+              padding: '4px 10px',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.78rem',
+            }}
+          >
+            🔄 Retry Camera
+          </button>
         </div>
       )}
 
@@ -1004,9 +1180,15 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
                   Sharing Screen
                 </span>
               </div>
-            ) : !isCameraOff && localStream && localStream.getVideoTracks().length > 0 ? (
+            ) : !isCameraOff && localStream && localStream.getVideoTracks().some((t) => t.readyState !== 'ended') ? (
               <video
-                ref={localVideoRef}
+                ref={(el) => {
+                  (localVideoRef as any).current = el;
+                  if (el && localStream && el.srcObject !== localStream) {
+                    el.srcObject = localStream;
+                    el.play().catch(() => {});
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted
@@ -1174,6 +1356,31 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           <span className={styles.inAppControlIcon}>{isCameraOff ? '🚫' : '📹'}</span>
           <span className={styles.inAppControlLabel}>{isCameraOff ? 'Start Video' : 'Stop Video'}</span>
         </button>
+
+        {videoDevices.length > 1 && (
+          <select
+            value={selectedVideoDeviceId}
+            onChange={(e) => switchCamera(e.target.value)}
+            style={{
+              background: '#1e293b',
+              color: '#f8fafc',
+              border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              fontSize: '0.78rem',
+              outline: 'none',
+              cursor: 'pointer',
+              maxWidth: '140px',
+            }}
+            title="Browse and select active camera"
+          >
+            {videoDevices.map((dev, idx) => (
+              <option key={dev.deviceId || idx} value={dev.deviceId}>
+                📷 {dev.label || `Camera ${idx + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
 
         <button
           type="button"

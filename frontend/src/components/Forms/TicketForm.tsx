@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { useEffect, useState } from 'react';
 import type { TicketFormValues, TicketPriority } from '../../types/ticket';
-import { DEFAULT_CATEGORIES, TICKET_PRIORITIES } from '../../types/ticket';
+import { TICKET_PRIORITIES } from '../../types/ticket';
 import { previewSLA, type SLAPreview } from '../../api/slaApi';
 import styles from './TicketForm.module.css';
 
@@ -29,17 +29,20 @@ export default function TicketForm({
   onSubmit,
   loading,
   onCancel,
-  categories = DEFAULT_CATEGORIES,
+  categories = [],
   departments = [],
   onSearchKnowledge,
   suggestedArticles = [],
   onUseArticle,
 }: Props) {
+  const firstCatName = categories.length
+    ? (typeof categories[0] === 'string' ? categories[0] : (categories[0] as any)?.name || '')
+    : '';
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<TicketFormValues>({
     defaultValues: {
       title: '',
       description: '',
-      category: typeof categories[0] === 'string' ? categories[0] || 'General Inquiry' : (categories[0] as any)?.name || 'General Inquiry',
+      category: firstCatName,
       priority: 'medium',
     },
   });
@@ -52,6 +55,17 @@ export default function TicketForm({
   const watchedAttachments = watch('attachments');
   const watchedTitle = watch('title');
   const watchedDescription = watch('description');
+
+  useEffect(() => {
+    if (!categories.length) {
+      if (watchedCategory) setValue('category', '');
+      return;
+    }
+    const validNames = categories.map((c) => (typeof c === 'string' ? c : c.name));
+    if (!watchedCategory || !validNames.includes(watchedCategory)) {
+      setValue('category', validNames[0] || '');
+    }
+  }, [categories, watchedCategory, setValue]);
 
   useEffect(() => {
     if (onSearchKnowledge) {
@@ -118,10 +132,14 @@ export default function TicketForm({
             <label htmlFor="category">
               Category <span className={styles.required} aria-hidden="true">*</span>
             </label>
-            <select id="category" {...register('category', { required: true })}>
-              {categories.map((cat) => (
-                <option key={getCategoryValue(cat)} value={getCategoryValue(cat)}>{getCategoryValue(cat)}</option>
-              ))}
+            <select id="category" {...register('category', { required: true })} disabled={categories.length === 0}>
+              {categories.length === 0 ? (
+                <option value="">No active ticket categories available</option>
+              ) : (
+                categories.map((cat) => (
+                  <option key={getCategoryValue(cat)} value={getCategoryValue(cat)}>{getCategoryValue(cat)}</option>
+                ))
+              )}
             </select>
             {errors.category && <span className={styles.error}>Please select a category</span>}
           </div>
@@ -186,14 +204,14 @@ export default function TicketForm({
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
             </svg>
           </span>
-          <p className={styles.fileText}>Click to upload supporting files</p>
-          <p className={styles.fileSub}>PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG · Max 5 files · 10 MB each</p>
+          <p className={styles.fileText}>Click to upload supporting files or screenshots</p>
+          <p className={styles.fileSub}>PDF, DOC/DOCX, XLS/XLSX, Images, Screenshots, TXT, ZIP · Max 10 files · 25 MB each</p>
           <input
             id="attachments"
             className={styles.fileInput}
             type="file"
             multiple
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.tar,.gz,.7z,.png,.jpg,.jpeg,.webp,.gif,.bmp,image/*"
             {...register('attachments')}
           />
         </label>

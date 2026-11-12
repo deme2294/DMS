@@ -197,6 +197,28 @@ export const countTickets = async (id) => {
   return rows[0].total;
 };
 
+export const getNextTenantId = async () => {
+  const [rows] = await pool.query(
+    `SELECT id FROM tenants WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1`
+  );
+  let nextNum = 3001;
+  if (rows.length && rows[0].id) {
+    const val = parseInt(rows[0].id, 10);
+    if (!isNaN(val) && val >= 3000 && val < 3999) {
+      nextNum = val + 1;
+    }
+  }
+  while (nextNum <= 3999) {
+    const idStr = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM tenants WHERE id = :idStr LIMIT 1', { idStr });
+    if (!exists.length) {
+      return idStr;
+    }
+    nextNum++;
+  }
+  return String(nextNum);
+};
+
 export const getTenantRoleId = async () => {
   const [rows] = await pool.query(
     `SELECT id FROM roles WHERE name = 'tenant' LIMIT 1`

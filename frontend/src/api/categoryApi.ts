@@ -57,7 +57,7 @@ export const createCategory = (payload: {
 
 export const updateCategory = (
     id: string,
-    payload: { name?: string; description?: string; departmentId?: string; slaPolicyId?: string; isActive?: boolean; routingType?: 'general' | 'direct' }
+    payload: { name?: string; description?: string; departmentId?: string; slaPolicyId?: string | null; isActive?: boolean; routingType?: 'general' | 'direct' }
 ) => api.put<{ success: boolean; data: TicketCategory }>(`/ticket-categories/${id}`, payload);
 
 export const approveCategory = (id: string, reviewNotes?: string) =>

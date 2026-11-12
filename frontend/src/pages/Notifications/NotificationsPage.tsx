@@ -122,7 +122,7 @@ export default function NotificationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchNotifications({ limit: 50 });
+      const res = await fetchNotifications({ limit: 100 });
       setNotifications(res.data.data);
     } catch (err: any) {
       if (err?.response?.status === 401) {
@@ -199,15 +199,23 @@ export default function NotificationsPage() {
       const kbBase = knowledgePaths[role] || '/admin/knowledge';
       navigate(n.articleId ? `${kbBase}/${n.articleId}` : kbBase);
     } else if (isChatNotification(n)) {
-      navigate(chatPaths[role] || '/admin/chat', {
-        state: { selectedRoomId: n.roomId || undefined },
-      });
+      const chatBase = chatPaths[role] || '/admin/chat';
+      const isVideoInvite = Boolean(
+        (n.title && /video|conference|meeting|call|screen share/i.test(n.title)) ||
+        (n.message && /video|conference|meeting|call|screen share/i.test(n.message))
+      );
+      if (n.roomId) {
+        const query = `?room=${encodeURIComponent(n.roomId)}${isVideoInvite ? '&video=true' : ''}`;
+        navigate(`${chatBase}${query}`, { state: { selectedRoomId: n.roomId, autoJoinVideo: isVideoInvite } });
+      } else {
+        navigate(chatBase);
+      }
     } else if (n.type === 'notice' || Boolean(n.noticeId)) {
       navigate(noticePaths[role] || '/admin/notices');
     } else if (isFeedbackNotification(n)) {
       navigate(feedbackPaths[role] || '/admin/feedback');
     } else if (n.ticketId) {
-      navigate(`${basePaths[role] || '/admin/tickets'}/${n.ticketId}`);
+      navigate(`${basePaths[role] || '/admin/tickets'}/${(n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId}`);
     } else {
       navigate(basePaths[role] || '/admin/tickets');
     }
@@ -237,14 +245,20 @@ export default function NotificationsPage() {
     });
   };
 
-  const filterCounts = {
+  const filterCounts = useMemo(() => ({
     all: notifications.length,
     unread: notifications.filter((n) => !n.readAt).length,
     knowledge: notifications.filter((n) => isKnowledgeNotification(n)).length,
     chat: notifications.filter((n) => isChatNotification(n)).length,
-    ticket: notifications.filter((n) => !isChatNotification(n) && !isKnowledgeNotification(n) && !isFeedbackNotification(n) && (n.type === 'ticket' || n.type === 'reply' || n.type === 'status' || n.type === 'assignment' || n.type === 'escalation')).length,
+    ticket: notifications.filter(
+      (n) =>
+        !isChatNotification(n) &&
+        !isKnowledgeNotification(n) &&
+        !isFeedbackNotification(n) &&
+        ['ticket', 'reply', 'status', 'assignment', 'escalation', 'completion', 'approval', 'rejection', 'reopen', 'merge', 'sla'].includes(n.type)
+    ).length,
     notice: notifications.filter((n) => n.type === 'notice' || Boolean(n.noticeId)).length,
-  };
+  }), [notifications, isKnowledgeNotification, isChatNotification, isFeedbackNotification]);
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread') return !n.readAt;
@@ -318,11 +332,9 @@ export default function NotificationsPage() {
             onClick={() => { setFilter(key); setNotifPage(1); }}
           >
             {label}
-            {filterCounts[key] > 0 && (
-              <span className={`${styles.pillCount} ${filter === key ? styles.pillCountActive : ''}`}>
-                {filterCounts[key]}
-              </span>
-            )}
+            <span className={`${styles.pillCount} ${filter === key ? styles.pillCountActive : ''}`}>
+              {filterCounts[key] ?? 0}
+            </span>
           </button>
         ))}
       </div>

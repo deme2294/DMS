@@ -24,6 +24,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
+import { toShortKnowledgeId } from '../../utils/idUtils';
 import styles from './KnowledgeList.module.css';
 
 import {
@@ -279,7 +280,7 @@ export default function KnowledgeList() {
   const renderActions = (a: Article) => {
     if (isTenant) {
       return (
-        <button className={styles.viewBtn} onClick={() => navigate(`${basePath}/${a.id}`)}>
+        <button className={styles.viewBtn} onClick={() => navigate(`${basePath}/${toShortKnowledgeId(a)}`)}>
           <EyeIcon className={styles.btnIcon} />
           <span>Read</span>
         </button>
@@ -578,7 +579,7 @@ export default function KnowledgeList() {
     // Edit button
     if (canEdit(a)) {
       buttons.push(
-        <button key="edit" className={styles.editBtn} title="Edit Article" onClick={() => navigate(`${basePath}/${a.id}/edit`)}>
+        <button key="edit" className={styles.editBtn} title="Edit Article" onClick={() => navigate(`${basePath}/${toShortKnowledgeId(a)}/edit`)}>
           <PencilSquareIcon className={styles.btnIcon} />
           <span>Edit</span>
         </button>
@@ -587,7 +588,7 @@ export default function KnowledgeList() {
 
     // View button
     buttons.push(
-      <button key="view" className={styles.viewBtn} title="View Article" onClick={() => navigate(`${basePath}/${a.id}`)}>
+      <button key="view" className={styles.viewBtn} title="View Article" onClick={() => navigate(`${basePath}/${toShortKnowledgeId(a)}`)}>
         <EyeIcon className={styles.btnIcon} />
         <span>View</span>
       </button>

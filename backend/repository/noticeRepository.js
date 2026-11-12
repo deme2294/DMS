@@ -60,7 +60,28 @@ export const mapNotice = (row) => {
   };
 };
 
+export const resolveNoticeId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const [rows] = await pool.query(
+    `SELECT id FROM notices
+     WHERE id = ?
+        OR id LIKE CONCAT(?, '%')
+        OR legacy_id = ?
+        OR legacy_id LIKE CONCAT(?, '%')
+     ORDER BY CASE
+       WHEN id = ? THEN 1
+       WHEN legacy_id = ? THEN 2
+       ELSE 3
+     END
+     LIMIT 1`,
+    [str, str, str, str, str, str]
+  );
+  return rows[0]?.id || idOrShort;
+};
+
 export const findById = async (id) => {
+  const actualId = await resolveNoticeId(id);
   const [rows] = await pool.query(
     `SELECT notices.*,
             d.name AS department_name,
@@ -74,7 +95,7 @@ export const findById = async (id) => {
      LEFT JOIN users u ON u.id = notices.created_by
      LEFT JOIN users assigned_user ON assigned_user.id = notices.assigned_to
      WHERE notices.id = ? LIMIT 1`,
-    [id]
+    [actualId]
   );
   return mapNotice(rows[0]);
 };

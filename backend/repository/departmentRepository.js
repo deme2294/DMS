@@ -84,14 +84,37 @@ export const findAll = async ({
   };
 };
 
+export const resolveDepartmentId = async (idOrShort) => {
+  if (!idOrShort) return null;
+  const str = String(idOrShort).trim();
+  const [rows] = await pool.query(
+    `SELECT id FROM departments
+     WHERE id = :str
+        OR code = :str
+        OR id LIKE CONCAT(:str, '%')
+        OR name = :str
+     ORDER BY CASE
+       WHEN id = :str THEN 1
+       WHEN code = :str THEN 2
+       WHEN id LIKE CONCAT(:str, '%') THEN 3
+       ELSE 4
+     END
+     LIMIT 1`,
+    { str }
+  );
+  return rows[0]?.id || idOrShort;
+};
+
 export const findById = async (id) => {
+  if (!id) return null;
+  const actualId = await resolveDepartmentId(id);
   const [rows] = await pool.query(
     `SELECT d.*, ${headSelect}, ${userCountSelect}
      FROM departments d
      LEFT JOIN users u ON u.id = d.head_user_id
-     WHERE d.id = :id
+     WHERE d.id = :actualId
      LIMIT 1`,
-    { id }
+    { actualId }
   );
   return rows[0] || null;
 };
@@ -127,9 +150,10 @@ export const create = async (dept) => {
 };
 
 export const update = async (id, fields) => {
+  const actualId = await resolveDepartmentId(id);
   const allowed = ['name', 'code', 'description', 'head_user_id', 'status'];
   const sets = [];
-  const params = { id };
+  const params = { id: actualId };
 
   Object.entries(fields).forEach(([key, value]) => {
     if (allowed.includes(key) && value !== undefined) {
@@ -143,13 +167,15 @@ export const update = async (id, fields) => {
 };
 
 export const remove = async (id) => {
-  await pool.query('DELETE FROM departments WHERE id = :id', { id });
+  const actualId = await resolveDepartmentId(id);
+  await pool.query('DELETE FROM departments WHERE id = :id', { id: actualId });
 };
 
 export const countAssignedUsers = async (id) => {
+  const actualId = await resolveDepartmentId(id);
   const [rows] = await pool.query(
     'SELECT COUNT(*) AS total FROM user_departments WHERE department_id = :id',
-    { id }
+    { id: actualId }
   );
   return rows[0].total;
 };
@@ -180,29 +206,31 @@ export const findEligibleHeads = async () => {
 
 /** Members (users) assigned to a department */
 export const getMembers = async (departmentId) => {
+  const actualId = await resolveDepartmentId(departmentId);
   const [rows] = await pool.query(
     `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.status, r.name AS role
      FROM user_departments ud
      JOIN users u ON u.id = ud.user_id
      JOIN roles r ON r.id = u.role_id
-     WHERE ud.department_id = :departmentId
+     WHERE ud.department_id = :actualId
      ORDER BY u.first_name, u.last_name`,
-    { departmentId }
+    { actualId }
   );
   return rows;
 };
 
 /** Replace a department's full member set (active users only). */
 export const setMembers = async (departmentId, userIds = []) => {
+  const actualId = await resolveDepartmentId(departmentId);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    await conn.query('DELETE FROM user_departments WHERE department_id = :departmentId', { departmentId });
+    await conn.query('DELETE FROM user_departments WHERE department_id = :departmentId', { departmentId: actualId });
     for (const userId of userIds) {
       await conn.query(
         `INSERT INTO user_departments (id, user_id, department_id)
          VALUES (:id, :userId, :departmentId)`,
-        { id: uuidv4(), userId, departmentId }
+        { id: uuidv4(), userId, departmentId: actualId }
       );
     }
     await conn.commit();
@@ -212,4 +240,27 @@ export const setMembers = async (departmentId, userIds = []) => {
   } finally {
     conn.release();
   }
+};
+
+
+export const getNextDepartmentId = async () => {
+  const [rows] = await pool.query(
+    `SELECT id FROM departments WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1`
+  );
+  let nextNum = 2001;
+  if (rows.length && rows[0].id) {
+    const val = parseInt(rows[0].id, 10);
+    if (!isNaN(val) && val >= 2000 && val < 2999) {
+      nextNum = val + 1;
+    }
+  }
+  while (nextNum <= 2999) {
+    const idStr = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM departments WHERE id = :idStr LIMIT 1', { idStr });
+    if (!exists.length) {
+      return idStr;
+    }
+    nextNum++;
+  }
+  return String(nextNum);
 };

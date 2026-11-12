@@ -15,6 +15,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import pool from '../config/db.js';
 
 // ── Build transporter lazily with dual SMTP/EMAIL env support ─────────────
 let _transporter = null;
@@ -121,24 +122,66 @@ const logoHtml = EMAIL_LOGO
   ? `<div style="margin-bottom:12px"><img src="${EMAIL_LOGO}" alt="${COMPANY_NAME}" style="max-height:48px" /></div>`
   : '';
 
-const getAppUrl = () => (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5174').replace(/\/$/, '');
+export const getAppUrl = () => {
+  const candidate = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+  if (!candidate) return 'http://localhost:5173';
 
-const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant') => {
+  // If candidate is a comma-separated list (e.g. multiple CORS origins), extract a single valid URL
+  const urls = candidate
+    .split(',')
+    .map((u) => u.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+  if (urls.length === 0) return 'http://localhost:5173';
+
+  // If running in development, prefer localhost if present in the configured list
+  if (process.env.NODE_ENV !== 'production') {
+    const localMatch = urls.find((u) => u.includes('localhost') || u.includes('127.0.0.1'));
+    if (localMatch) return localMatch;
+  }
+
+  return urls[0];
+};
+
+export const createPortalTaskUrl = (targetPath) => {
   const appUrl = getAppUrl();
+  const cleanPath = targetPath.startsWith('/') ? targetPath : '/' + targetPath;
+  return `${appUrl}/login?redirect=${encodeURIComponent(cleanPath)}`;
+};
+
+const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant', customAction = null) => {
   const refNum = ticket?.reference_number || ticket?.referenceNumber;
-  const ticketRef = ticket?.ticket_num || ticket?.ticketNum || ticket?.id || '';
-  const portalPrefix = targetRole === 'admin' ? '/admin' : targetRole === 'manager' ? '/manager' : targetRole === 'staff' ? '/staff' : '/tenant';
-  const directLink = (ticketRef) ? `${appUrl}${portalPrefix}/tickets/${ticketRef}` : '';
-  const link = (directLink && refNum)
-    ? `<div style="text-align:center;margin:24px 0 10px 0;">
-        <a href="${directLink}" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
+  const ticketRef = ticket?.ticket_num || ticket?.ticketNum || ticket?.id || refNum || '';
+  const portalPrefix = targetRole === 'admin' ? '/admin' : targetRole === 'manager' ? '/manager' : targetRole === 'staff' ? '/staff' : targetRole === 'ceo' ? '/ceo' : '/tenant';
+  const targetPath = ticketRef ? `${portalPrefix}/tickets/${ticketRef}` : '';
+  const ticketLink = targetPath ? createPortalTaskUrl(targetPath) : '';
+
+  let actionHtml = '';
+  if (customAction && customAction.url && customAction.label) {
+    actionHtml = `<div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${customAction.url}" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
+          ${customAction.label} →
+        </a>
+      </div>
+      <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+        Direct link: <a href="${customAction.url}" style="color:#2563eb;word-break:break-all;">${customAction.url}</a>
+      </p>
+      <p style="text-align:center;font-size:11px;color:#94a3b8;margin:4px 0 0 0;">
+        💡 <em>Clicking will route you through login directly to this task.</em>
+      </p>`;
+  } else if (ticketLink && refNum) {
+    actionHtml = `<div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${ticketLink}" style="background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;box-shadow:0 3px 10px rgba(37,99,235,0.3);">
           View Ticket ${refNum} in Portal →
         </a>
       </div>
       <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
-        Direct link: <a href="${directLink}" style="color:#2563eb;word-break:break-all;">${directLink}</a>
-      </p>`
-    : '';
+        Direct link: <a href="${ticketLink}" style="color:#2563eb;word-break:break-all;">${ticketLink}</a>
+      </p>
+      <p style="text-align:center;font-size:11px;color:#94a3b8;margin:4px 0 0 0;">
+        💡 <em>Clicking will route you through login directly to this task.</em>
+      </p>`;
+  }
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -155,7 +198,7 @@ const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant') => {
   <div class="header"><h2 style="margin:0">${title}</h2></div>
   ${logoHtml}
   ${bodyHtml}
-  ${link}
+  ${actionHtml}
   <div class="footer">This is an automated message from the ${COMPANY_NAME} System. Please do not reply.</div>
 </div></body></html>`;
 };
@@ -165,26 +208,126 @@ const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant') => {
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Notify a user that their account was created.
- * @param {object} p  { email, firstName, username, tempPassword? }
+ * Notify a user that their account was created with their login credentials and role-based access link.
+ * @param {object} p  { email, firstName, lastName?, username, tempPassword?, role?, departmentName?, loginUrl? }
  */
-export const sendWelcomeEmail = async ({ email, firstName, username, tempPassword }) => {
-    const passwordLine = tempPassword
-        ? `<div class="info-row"><span class="label">Temporary Password:</span> <strong>${tempPassword}</strong></div>`
-        : '';
+export const sendWelcomeEmail = async ({
+  email,
+  firstName = 'User',
+  lastName = '',
+  username,
+  tempPassword,
+  role = 'user',
+  departmentName = null,
+  loginUrl = null,
+}) => {
+  const appUrl = getAppUrl();
+  const effectiveLoginUrl = loginUrl || `${appUrl}/login?username=${encodeURIComponent(username)}`;
+  const formattedRole = (role || 'User').charAt(0).toUpperCase() + (role || 'User').slice(1).toLowerCase();
 
-    await sendMail({
-        to: email,
-        subject: 'Welcome to the Government Help Desk System',
-        text: `Hello ${firstName}, your account has been created. Username: ${username}`,
-        html: wrap('Welcome to Help Desk', `
-      <p>Hello <strong>${firstName}</strong>,</p>
-      <p>Your account has been created successfully.</p>
-      <div class="info-row"><span class="label">Username:</span> <strong>${username}</strong></div>
-      ${passwordLine}
-      <p>Please log in and change your password as soon as possible.</p>
-    `),
-    });
+  const roleColor =
+    formattedRole.toLowerCase() === 'admin'
+      ? '#7c3aed'
+      : formattedRole.toLowerCase() === 'manager'
+      ? '#ea580c'
+      : formattedRole.toLowerCase() === 'staff'
+      ? '#0284c7'
+      : formattedRole.toLowerCase() === 'ceo'
+      ? '#d97706'
+      : '#059669';
+
+  const roleBg =
+    formattedRole.toLowerCase() === 'admin'
+      ? '#f5f3ff'
+      : formattedRole.toLowerCase() === 'manager'
+      ? '#fff7ed'
+      : formattedRole.toLowerCase() === 'staff'
+      ? '#f0f9ff'
+      : formattedRole.toLowerCase() === 'ceo'
+      ? '#fffbeb'
+      : '#ecfdf5';
+
+  const roleBorder =
+    formattedRole.toLowerCase() === 'admin'
+      ? '#ddd6fe'
+      : formattedRole.toLowerCase() === 'manager'
+      ? '#fed7aa'
+      : formattedRole.toLowerCase() === 'staff'
+      ? '#bae6fd'
+      : formattedRole.toLowerCase() === 'ceo'
+      ? '#fde68a'
+      : '#a7f3d0';
+
+  const passwordLine = tempPassword
+    ? `
+      <div style="margin: 12px 0 6px 0; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px;">
+        <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Temporary Password</span>
+        <code style="font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: 0.05em; font-family: 'Courier New', Courier, monospace; background: #e2e8f0; padding: 4px 10px; border-radius: 4px; display: inline-block;">${tempPassword}</code>
+      </div>`
+    : '';
+
+  const departmentLine = departmentName
+    ? `<div style="margin: 8px 0; font-size: 13.5px; color: #334155;"><strong style="color: #64748b; width: 140px; display: inline-block;">Department:</strong> <strong>${departmentName}</strong></div>`
+    : '';
+
+  const bodyHtml = `
+    <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+      <p style="margin-top: 0;">Hello <strong>${firstName}${lastName ? ' ' + lastName : ''}</strong>,</p>
+      <p>Welcome to the <strong>${COMPANY_NAME}</strong>. An account has been created for you with the following credentials and role permissions:</p>
+
+      <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin: 18px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+        <div style="margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Access Credentials</span>
+          <span style="display: inline-block; background: ${roleBg}; color: ${roleColor}; border: 1px solid ${roleBorder}; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 12px;">
+            ${formattedRole}
+          </span>
+        </div>
+
+        <div style="margin: 8px 0; font-size: 13.5px; color: #334155;">
+          <strong style="color: #64748b; width: 140px; display: inline-block;">Username:</strong>
+          <span style="font-weight: 700; color: #0f172a; font-family: monospace; font-size: 14.5px;">${username}</span>
+        </div>
+
+        <div style="margin: 8px 0; font-size: 13.5px; color: #334155;">
+          <strong style="color: #64748b; width: 140px; display: inline-block;">Registered Email:</strong>
+          <span>${email}</span>
+        </div>
+
+        <div style="margin: 8px 0; font-size: 13.5px; color: #334155;">
+          <strong style="color: #64748b; width: 140px; display: inline-block;">Assigned Role:</strong>
+          <strong style="color: ${roleColor}; font-size: 14px;">${formattedRole}</strong>
+        </div>
+
+        ${departmentLine}
+
+        ${passwordLine}
+      </div>
+
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin: 18px 0; font-size: 13px; color: #1e40af; line-height: 1.5;">
+        <strong>🚀 Role-Based Access:</strong> Based on your role (<strong>${formattedRole}</strong>), logging in with your credentials will automatically route you directly to your dedicated <strong>${formattedRole} Portal & Dashboard</strong>.
+      </div>
+
+      <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: 12.5px; color: #854d0e;">
+        💡 <strong>Security Notice:</strong> Please keep your credentials confidential. For security reasons, we recommend updating your password after logging in for the first time.
+      </div>
+    </div>
+  `;
+
+  await sendMail({
+    to: email,
+    subject: `🔐 [Help Desk] Your Account Credentials & Login Details (${formattedRole})`,
+    text: `Hello ${firstName}${lastName ? ' ' + lastName : ''},\n\nYour user account has been created in the Help Desk Management System.\n\nUsername: ${username}\nEmail: ${email}\nAssigned Role: ${formattedRole}${departmentName ? `\nDepartment: ${departmentName}` : ''}${tempPassword ? `\nTemporary Password: ${tempPassword}` : ''}\n\nSign in to your ${formattedRole} account at:\n${effectiveLoginUrl}\n\nPlease keep your credentials confidential.`,
+    html: wrap(
+      'Account Created Successfully',
+      bodyHtml,
+      null,
+      'tenant',
+      {
+        url: effectiveLoginUrl,
+        label: `Sign In to Your ${formattedRole} Account`,
+      }
+    ),
+  });
 };
 
 /**
@@ -192,10 +335,9 @@ export const sendWelcomeEmail = async ({ email, firstName, username, tempPasswor
  * @param {object} p  { email, firstName, ticket: { referenceNumber, trackNumber, title, priority } }
  */
 export const sendTicketCreatedEmail = async ({ email, firstName, ticket }) => {
-    const appUrl = getAppUrl();
     const refNum = ticket.referenceNumber || ticket.reference_number;
     const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
-    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+    const directUrl = createPortalTaskUrl(`/tenant/tickets/${ticketRef}`);
 
     await sendMail({
         to: email,
@@ -224,10 +366,9 @@ export const sendTicketCreatedEmail = async ({ email, firstName, ticket }) => {
  * @param {object} p  { email, firstName, ticket, fromStatus, toStatus, notes? }
  */
 export const sendTicketStatusEmail = async ({ email, firstName, ticket, fromStatus, toStatus, notes }) => {
-    const appUrl = getAppUrl();
     const refNum = ticket.referenceNumber || ticket.reference_number;
     const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
-    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+    const directUrl = createPortalTaskUrl(`/tenant/tickets/${ticketRef}`);
 
     const notesHtml = notes
         ? `<div class="info-row"><span class="label">Notes:</span> ${notes}</div>`
@@ -259,10 +400,9 @@ export const sendTicketStatusEmail = async ({ email, firstName, ticket, fromStat
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketAssignedEmail = async ({ email, firstName, ticket }) => {
-    const appUrl = getAppUrl();
     const refNum = ticket.reference_number || ticket.referenceNumber;
     const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
-    const directUrl = `${appUrl}/staff/tickets/${ticketRef}`;
+    const directUrl = createPortalTaskUrl(`/staff/tickets/${ticketRef}`);
 
     await sendMail({
         to: email,
@@ -291,6 +431,45 @@ export const sendTicketAssignedEmail = async ({ email, firstName, ticket }) => {
  * Notify relevant parties that an announcement or reply was added, with direct portal link.
  * @param {object} p  { email, firstName, ticket, replyPreview, recipientRole, isAnnouncement, authorName, authorRole }
  */
+
+/**
+ * Send assignment reminder email to the assigned staff member.
+ * @param {object} p { email, firstName, ticket, senderName, notes }
+ */
+export const sendTicketReminderEmail = async ({
+    email,
+    firstName,
+    ticket,
+    senderName = 'Department Manager',
+    notes = '',
+}) => {
+    const refNum = ticket.reference_number || ticket.referenceNumber;
+    const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+    const directUrl = createPortalTaskUrl(`/staff/tickets/${ticketRef}`);
+
+    await sendMail({
+        to: email,
+        subject: `[Reminder] Action Required: Ticket ${refNum} – ${ticket.title}`,
+        text: `Reminder from ${senderName}: Please attend to your assigned ticket "${ticket.title}" (${refNum}). Notes: ${notes || 'Action required'}. View at: ${directUrl}`,
+        html: wrap('Assignment Reminder', `
+      <p>Hello <strong>${firstName}</strong>,</p>
+      <p>This is a reminder from <strong>${senderName}</strong> regarding a ticket currently assigned to you that requires your attention or resolution.</p>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${directUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
+      <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
+      <div class="info-row"><span class="label">Priority:</span> ${ticket.priority}</div>
+      <div class="info-row"><span class="label">Current Status:</span> ${ticket.status}</div>
+      ${notes ? `<div class="info-row"><span class="label">Manager Message:</span> <em>${notes}</em></div>` : ''}
+      ${ticket.response_due_date ? `<div class="info-row"><span class="label">Response Due:</span> <strong>${new Date(ticket.response_due_date).toLocaleString()}</strong></div>` : ''}
+      ${ticket.due_date ? `<div class="info-row"><span class="label">Resolution Due:</span> <strong>${new Date(ticket.due_date).toLocaleString()}</strong></div>` : ''}
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${directUrl}" style="background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          Open Ticket & Take Action →
+        </a>
+      </div>
+    `),
+    });
+};
+
 export const sendTicketReplyEmail = async ({
     email,
     firstName,
@@ -314,7 +493,7 @@ export const sendTicketReplyEmail = async ({
         portalPath = `/staff/tickets/${ticketRef}`;
     }
 
-    const directTicketUrl = `${appUrl}${portalPath}`;
+    const directTicketUrl = createPortalTaskUrl(portalPath);
     const subjectPrefix = isAnnouncement ? '📢 [Important Update]' : '💬 [Ticket Update]';
     const headingTitle = isAnnouncement ? 'New Announcement on Your Ticket' : 'New Reply on Ticket';
     const ticketStatus = (ticket.status || 'in_progress').replace(/_/g, ' ');
@@ -382,10 +561,9 @@ export const sendTicketReplyEmail = async ({
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketResolvedEmail = async ({ email, firstName, ticket }) => {
-    const appUrl = getAppUrl();
     const refNum = ticket.reference_number || ticket.referenceNumber;
     const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
-    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+    const directUrl = createPortalTaskUrl(`/tenant/tickets/${ticketRef}`);
 
     await sendMail({
         to: email,
@@ -412,10 +590,9 @@ export const sendTicketResolvedEmail = async ({ email, firstName, ticket }) => {
  * @param {object} p  { email, firstName, ticket }
  */
 export const sendTicketClosedEmail = async ({ email, firstName, ticket }) => {
-    const appUrl = getAppUrl();
     const refNum = ticket.reference_number || ticket.referenceNumber;
     const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
-    const directUrl = `${appUrl}/tenant/tickets/${ticketRef}`;
+    const directUrl = createPortalTaskUrl(`/tenant/tickets/${ticketRef}`);
 
     await sendMail({
         to: email,
@@ -485,17 +662,42 @@ export const sendNoticePublishedEmail = async ({ email, firstName, notice }) => 
  * Send password reset confirmation after admin resets a user's password.
  * @param {object} p  { email, firstName, newPassword }
  */
-export const sendPasswordResetEmail = async ({ email, firstName, newPassword }) => {
+export const sendPasswordResetEmail = async ({ email, firstName, newPassword, username = null, role = null }) => {
+  const appUrl = getAppUrl();
+  const loginUrl = username ? `${appUrl}/login?username=${encodeURIComponent(username)}` : `${appUrl}/login`;
+  const roleLabel = role ? ` (${role.charAt(0).toUpperCase() + role.slice(1)})` : '';
+
   await sendMail({
     to: email,
     subject: '[Help Desk] Your Password Has Been Reset',
-    text: `Hello ${firstName}, your password has been reset by an administrator.`,
-    html: wrap('Password Reset', `
-      <p>Hello <strong>${firstName}</strong>,</p>
-      <p>Your account password has been reset by an administrator.</p>
-      <div class="info-row"><span class="label">New Password:</span> <strong>${newPassword}</strong></div>
-      <p>Please log in and change your password immediately.</p>
-    `),
+    text: `Hello ${firstName},\n\nYour account password has been reset by an administrator.\n\nNew Password: ${newPassword}\n\nSign in to your account at:\n${loginUrl}\n\nPlease log in and change your password immediately.`,
+    html: wrap(
+      'Password Reset Successfully',
+      `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top: 0;">Hello <strong>${firstName}</strong>,</p>
+        <p>Your account password has been updated by an administrator. Please find your new credentials below:</p>
+
+        <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin: 18px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+          ${username ? `<div style="margin: 6px 0; font-size: 13.5px;"><strong style="color: #64748b; width: 140px; display: inline-block;">Username:</strong> <code style="font-weight: 700; color: #0f172a;">${username}</code></div>` : ''}
+          <div style="margin: 10px 0 6px 0; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px;">
+            <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">New Temporary Password</span>
+            <code style="font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: 0.05em; font-family: monospace; background: #e2e8f0; padding: 4px 10px; border-radius: 4px; display: inline-block;">${newPassword}</code>
+          </div>
+        </div>
+
+        <p style="color: #b91c1c; font-weight: 600; font-size: 13px;">
+          ⚠️ Please log in and change your password immediately after signing in.
+        </p>
+      </div>
+      `,
+      null,
+      'tenant',
+      {
+        url: loginUrl,
+        label: `Sign In to Portal${roleLabel}`,
+      }
+    ),
   });
 };
 
@@ -524,11 +726,20 @@ export const sendNoticeExpiryWarningEmail = async ({ email, firstName, notice })
  * Notify relevant parties that a ticket has been escalated.
  */
 export const sendTicketEscalatedEmail = async (ticket, notes) => {
-  if (!ticket.created_by) return;
-  const [rows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  const creatorId = ticket.created_by || ticket.createdBy;
+  if (!creatorId) return;
+  const [rows] = await pool.query(
+    `SELECT u.email, u.first_name, t.email AS tenant_email
+     FROM users u
+     LEFT JOIN tenants t ON t.id = u.tenant_id
+     WHERE u.id = :id LIMIT 1`,
+    { id: creatorId }
+  );
   if (!rows.length) return;
+  const targetEmail = (rows[0].email && rows[0].email.trim()) || (rows[0].tenant_email && rows[0].tenant_email.trim());
+  if (!targetEmail) return;
   await sendMail({
-    to: rows[0].email,
+    to: targetEmail,
     subject: `[Help Desk] Ticket Escalated – ${ticket.referenceNumber || ticket.reference_number}`,
     text: `Ticket "${ticket.title}" has been escalated.`,
     html: wrap('Ticket Escalated', `
@@ -545,25 +756,59 @@ export const sendTicketEscalatedEmail = async (ticket, notes) => {
 /**
  * Notify the admin that a ticket has been marked completed (awaiting approval).
  */
-export const sendTicketCompletedEmail = async (ticket) => {
-  if (!ticket.created_by) return;
-  const [rows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
-  if (!rows.length) return;
+export const sendTicketCompletedEmail = async (param1, param2) => {
+  let email, firstName, ticket, rating, feedback;
+  if (param1 && param1.ticket) {
+    ({ email, firstName, ticket, rating, feedback } = param1);
+  } else {
+    ticket = param1;
+  }
+
+  const creatorId = ticket?.created_by || ticket?.createdBy;
+  let targetEmail = email;
+  let targetName = firstName;
+
+  if (!targetEmail && creatorId) {
+    const [rows] = await pool.query(
+      `SELECT u.email, u.first_name, t.email AS tenant_email
+       FROM users u
+       LEFT JOIN tenants t ON t.id = u.tenant_id
+       WHERE u.id = :id LIMIT 1`,
+      { id: creatorId }
+    );
+    if (rows.length) {
+      targetEmail = (rows[0].email && rows[0].email.trim()) || (rows[0].tenant_email && rows[0].tenant_email.trim());
+      targetName = rows[0].first_name || 'User';
+    }
+  }
+
+  if (!targetEmail) return;
+
+  const refNum = ticket.referenceNumber || ticket.reference_number;
+  const ticketRef = ticket.ticket_num || ticket.ticketNum || ticket.id || refNum;
+  const taskUrl = createPortalTaskUrl(`/tickets/${ticketRef}`);
+
   await sendMail({
-    to: rows[0].email,
-    subject: `[Help Desk] Ticket Completed – ${ticket.referenceNumber || ticket.reference_number}`,
-    text: `Ticket "${ticket.title}" has been marked completed.`,
-    html: wrap('Ticket Completed', `
-      <p>Hello <strong>${rows[0].first_name}</strong>,</p>
-      <p>Ticket <strong>${ticket.referenceNumber || ticket.reference_number}</strong> has been marked <strong>completed</strong> and is now awaiting admin approval.</p>
-      <div class="info-row"><span class="label">Reference:</span> <strong>${ticket.referenceNumber || ticket.reference_number}</strong></div>
+    to: targetEmail,
+    subject: `[Help Desk] Ticket Completed & Closed – ${refNum}`,
+    text: `Ticket "${ticket.title}" (${refNum}) has been confirmed completed.${rating ? ` Rating: ${rating}/5.` : ''} View at: ${taskUrl}`,
+    html: wrap('Ticket Completed & Closed', `
+      <p>Hello <strong>${targetName || 'User'}</strong>,</p>
+      <p>Ticket <strong>${refNum}</strong> has been marked as <strong>Completed</strong> and closed.</p>
+      <div class="info-row"><span class="label">Reference:</span> <a href="${taskUrl}" style="color:#2563eb;font-weight:700;text-decoration:underline;">${refNum} ↗</a></div>
       <div class="info-row"><span class="label">Title:</span> ${ticket.title}</div>
-      <div class="info-row"><span class="label">Priority:</span> ${ticket.priority}</div>
-      <div class="info-row"><span class="label">Category:</span> ${ticket.category}</div>
-      <div class="info-row"><span class="label">Status:</span> Completed (awaiting approval)</div>
-      ${ticket.due_date ? `<div class="info-row"><span class="label">SLA Due:</span> ${new Date(ticket.due_date).toLocaleString()}</div>` : ''}
-      ${ticket.response_due_date ? `<div class="info-row"><span class="label">Response Due:</span> ${new Date(ticket.response_due_date).toLocaleString()}</div>` : ''}
-      ${ticket.escalation_due_date ? `<div class="info-row"><span class="label">Escalation Due:</span> ${new Date(ticket.escalation_due_date).toLocaleString()}</div>` : ''}
+      <div class="info-row"><span class="label">Priority:</span> ${ticket.priority || 'Normal'}</div>
+      <div class="info-row"><span class="label">Status:</span> <strong style="color:#16a34a;text-transform:uppercase;">Completed</strong></div>
+      ${rating ? `<div class="info-row"><span class="label">Satisfaction Rating:</span> <strong>${rating} / 5 ⭐</strong></div>` : ''}
+      ${feedback ? `<div class="info-row"><span class="label">Tenant Feedback:</span> <em>${feedback}</em></div>` : ''}
+      <div style="text-align:center;margin:24px 0 10px 0;">
+        <a href="${taskUrl}" style="background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:7px;font-weight:700;display:inline-block;font-size:14px;">
+          View Completed Ticket in Portal →
+        </a>
+      </div>
+      <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+        Direct link: <a href="${taskUrl}" style="color:#2563eb;word-break:break-all;">${taskUrl}</a>
+      </p>
     `, ticket),
   });
 };
@@ -616,11 +861,20 @@ export const sendTicketRejectedEmail = async (ticket, rejectedBy, reason) => {
  * Notify the tenant that the ticket has been approved.
  */
 export const sendTicketApprovedEmail = async (ticket, notes) => {
-  if (!ticket.created_by) return;
-  const [rows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  const creatorId = ticket.created_by || ticket.createdBy;
+  if (!creatorId) return;
+  const [rows] = await pool.query(
+    `SELECT u.email, u.first_name, t.email AS tenant_email
+     FROM users u
+     LEFT JOIN tenants t ON t.id = u.tenant_id
+     WHERE u.id = :id LIMIT 1`,
+    { id: creatorId }
+  );
   if (!rows.length) return;
+  const targetEmail = (rows[0].email && rows[0].email.trim()) || (rows[0].tenant_email && rows[0].tenant_email.trim());
+  if (!targetEmail) return;
   await sendMail({
-    to: rows[0].email,
+    to: targetEmail,
     subject: `[Help Desk] Ticket Approved – ${ticket.referenceNumber || ticket.reference_number}`,
     text: `Ticket "${ticket.title}" has been approved.`,
     html: wrap('Ticket Approved', `
@@ -637,11 +891,20 @@ export const sendTicketApprovedEmail = async (ticket, notes) => {
  * Notify the tenant that the ticket has been reopened.
  */
 export const sendTicketReopenedEmail = async (ticket) => {
-  if (!ticket.created_by) return;
-  const [rows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  const creatorId = ticket.created_by || ticket.createdBy;
+  if (!creatorId) return;
+  const [rows] = await pool.query(
+    `SELECT u.email, u.first_name, t.email AS tenant_email
+     FROM users u
+     LEFT JOIN tenants t ON t.id = u.tenant_id
+     WHERE u.id = :id LIMIT 1`,
+    { id: creatorId }
+  );
   if (!rows.length) return;
+  const targetEmail = (rows[0].email && rows[0].email.trim()) || (rows[0].tenant_email && rows[0].tenant_email.trim());
+  if (!targetEmail) return;
   await sendMail({
-    to: rows[0].email,
+    to: targetEmail,
     subject: `[Help Desk] Ticket Reopened – ${ticket.referenceNumber || ticket.reference_number}`,
     text: `Ticket "${ticket.title}" has been reopened.`,
     html: wrap('Ticket Reopened', `
@@ -657,11 +920,20 @@ export const sendTicketReopenedEmail = async (ticket) => {
  * Notify the tenant that duplicate tickets were merged.
  */
 export const sendTicketMergedEmail = async (ticket, count) => {
-  if (!ticket.created_by) return;
-  const [rows] = await pool.query('SELECT email, first_name FROM users WHERE id = :id LIMIT 1', { id: ticket.created_by });
+  const creatorId = ticket.created_by || ticket.createdBy;
+  if (!creatorId) return;
+  const [rows] = await pool.query(
+    `SELECT u.email, u.first_name, t.email AS tenant_email
+     FROM users u
+     LEFT JOIN tenants t ON t.id = u.tenant_id
+     WHERE u.id = :id LIMIT 1`,
+    { id: creatorId }
+  );
   if (!rows.length) return;
+  const targetEmail = (rows[0].email && rows[0].email.trim()) || (rows[0].tenant_email && rows[0].tenant_email.trim());
+  if (!targetEmail) return;
   await sendMail({
-    to: rows[0].email,
+    to: targetEmail,
     subject: `[Help Desk] Tickets Merged – ${ticket.referenceNumber || ticket.reference_number}`,
     text: `${count} duplicate tickets were merged into ${ticket.referenceNumber || ticket.reference_number}.`,
     html: wrap('Tickets Merged', `
@@ -875,6 +1147,7 @@ export const sendMeetingInvitationEmail = async ({
   roomName = 'Help Desk Chat',
   notes = '',
   webAppUrl = '',
+  roomId = null,
   scheduledTime = null,
   formattedScheduledTime = '',
   createdTime = '',
@@ -882,6 +1155,9 @@ export const sendMeetingInvitationEmail = async ({
   isScreenShare = false,
 }) => {
   const formattedRole = senderRole.charAt(0).toUpperCase() + senderRole.slice(1);
+  const portalJoinUrl = roomId
+    ? createPortalTaskUrl(`/chat?room=${encodeURIComponent(roomId)}&video=true`)
+    : createPortalTaskUrl('/chat');
   const notesSection = notes
     ? `
       <div style="margin: 20px 0; background: #f8fafc; border-left: 4px solid #00897b; padding: 14px 18px; border-radius: 4px;">
@@ -894,7 +1170,7 @@ export const sendMeetingInvitationEmail = async ({
     isScreenShare || meetingTitle.toLowerCase().includes('screen') || notes.toLowerCase().includes('screen')
   );
 
-  const appUrl = webAppUrl || process.env.APP_URL || 'http://10.195.207.9:5173';
+  const appUrl = webAppUrl || getAppUrl();
   const headerBadge = effectiveScreenShare ? '🖥️ SCREEN SHARING & VIDEO SESSION' : '🎥 LIVE VIDEO MEETING';
   const ctaText = formattedScheduledTime
     ? (effectiveScreenShare ? '🖥️ Join Scheduled Screen Share & Call' : '📹 Join Scheduled Video Call')
@@ -958,22 +1234,22 @@ export const sendMeetingInvitationEmail = async ({
         ${notesSection}
 
         <div style="text-align: center; margin: 30px 0 20px 0;">
-          <a href="${meetingUrl}" target="_blank" rel="noopener noreferrer"
+          <a href="${portalJoinUrl}" target="_blank" rel="noopener noreferrer"
              style="background: #1a73e8; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; padding: 14px 32px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 6px rgba(26,115,232,0.4);">
             ${ctaText}
           </a>
         </div>
 
         <div style="text-align: center; margin-top: 15px;">
-          <span style="font-size: 12px; color: #5f6368;">Or join using URL:</span><br/>
-          <a href="${meetingUrl}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; font-size: 13px; word-break: break-all;">
-            ${meetingUrl}
+          <span style="font-size: 12px; color: #5f6368;">Direct portal link:</span><br/>
+          <a href="${portalJoinUrl}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; font-size: 13px; word-break: break-all;">
+            ${portalJoinUrl}
           </a>
         </div>
 
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; text-align: center;">
           <span style="font-size: 13px; color: #4b5563;">You can also view this chat and join the call inside the web application:</span><br/>
-          <a href="${appUrl}" target="_blank" rel="noopener noreferrer" style="color: #00897b; font-weight: 600; font-size: 13px; display: inline-block; margin-top: 6px;">
+          <a href="${portalJoinUrl}" target="_blank" rel="noopener noreferrer" style="color: #00897b; font-weight: 600; font-size: 13px; display: inline-block; margin-top: 6px;">
             💬 Open Help Desk Web Chat
           </a>
         </div>
@@ -1025,9 +1301,8 @@ export const sendDirectEmail = async ({ to, toName, subject, message, senderName
  */
 export const sendNewTicketAdminAlert = async ({ adminEmail, ticket, submitterName, submitterEmail }) => {
   const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
-  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const refNum = ticket.reference_number || ticket.referenceNumber;
-  const ticketUrl = `${appUrl}/admin/tickets/${ticket.id}`;
+  const ticketUrl = createPortalTaskUrl(`/admin/tickets/${refNum || ticket.id}`);
 
   await sendMail({
     to: targetEmail,
@@ -1078,8 +1353,7 @@ export const sendTenantRegistrationPendingEmail = async ({ email, organizationNa
  */
 export const sendTenantRegistrationAdminAlert = async ({ adminEmail, tenant }) => {
   const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
-  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const reviewUrl = `${appUrl}/admin/tenants`;
+  const reviewUrl = createPortalTaskUrl('/admin/tenants');
 
   await sendMail({
     to: targetEmail,
@@ -1108,7 +1382,7 @@ export const sendTenantRegistrationAdminAlert = async ({ adminEmail, tenant }) =
  * @param {object} p { email, organizationName, contactPerson }
  */
 export const sendTenantApprovedEmail = async ({ email, organizationName, contactPerson }) => {
-  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const appUrl = getAppUrl();
   const loginUrl = `${appUrl}/login`;
 
   await sendMail({
@@ -1135,8 +1409,7 @@ export const sendTenantApprovedEmail = async ({ email, organizationName, contact
  */
 export const sendFeedbackAlertEmail = async ({ adminEmail, feedback, submitterName, submitterEmail }) => {
   const targetEmail = adminEmail || process.env.EMAIL_USER || 'demshuterefe94@gmail.com';
-  const appUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const feedbackUrl = `${appUrl}/admin/feedback`;
+  const feedbackUrl = createPortalTaskUrl('/admin/feedback');
 
   await sendMail({
     to: targetEmail,
@@ -1164,10 +1437,11 @@ export const sendFeedbackAlertEmail = async ({ adminEmail, feedback, submitterNa
  * @param {object} p { email, recipientName, feedback, responseMessage, responderName }
  */
 export const sendFeedbackResponseEmail = async ({ email, recipientName, feedback, responseMessage, responderName }) => {
+  const feedbackUrl = createPortalTaskUrl('/tenant/feedback');
   await sendMail({
     to: email,
     subject: `[HDMS Feedback] Response to: ${feedback.subject}`,
-    text: `Hello ${recipientName || 'User'},\n\nAn administrator has responded to your feedback regarding "${feedback.subject}":\n\n${responseMessage}\n\nThank you for helping us improve our services.`,
+    text: `Hello ${recipientName || 'User'},\n\nAn administrator has responded to your feedback regarding "${feedback.subject}":\n\n${responseMessage}\n\nView in portal: ${feedbackUrl}\n\nThank you for helping us improve our services.`,
     html: wrap('Feedback Response from Administration', `
       <p>Hello <strong>${recipientName || 'User'}</strong>,</p>
       <p>Thank you for submitting your feedback regarding <strong>${feedback.subject}</strong>.</p>
@@ -1175,6 +1449,14 @@ export const sendFeedbackResponseEmail = async ({ email, recipientName, feedback
         <div style="font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">Admin Response (${responderName || 'Operations Team'}):</div>
         <div style="font-size: 14.5px; color: #1e293b;">${(responseMessage || '').replace(/\n/g, '<br/>')}</div>
       </div>
+      <div style="text-align: center; margin: 24px 0 10px 0;">
+        <a href="${feedbackUrl}" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; display: inline-block;">
+          View Feedback in Portal →
+        </a>
+      </div>
+      <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+        Direct link: <a href="${feedbackUrl}" style="color:#2563eb;word-break:break-all;">${feedbackUrl}</a>
+      </p>
       <p style="font-size: 13px; color: #64748b;">We appreciate your contribution to improving the Government Help Desk Management System.</p>
     `),
   });
@@ -1182,3 +1464,323 @@ export const sendFeedbackResponseEmail = async ({ email, recipientName, feedback
 
 
 
+
+
+/**
+ * Notify participant of a new chat message.
+ * @param {object} p { email, recipientName, senderName, senderRole, roomName, messageSnippet, roomId }
+ */
+/**
+ * Notify Department Manager when Admin assigns feedback to their department.
+ * @param {object} p { email, managerName, departmentName, feedback, adminDirective, adminName }
+ */
+export const sendFeedbackDepartmentAssignedEmail = async ({
+  email,
+  managerName = 'Department Manager',
+  departmentName = 'Department',
+  feedback,
+  adminDirective = '',
+  adminName = 'System Administrator',
+}) => {
+  const feedbackRef = feedback.feedbackNum || feedback.feedback_num || feedback.id;
+  const feedbackUrl = createPortalTaskUrl(`/manager/feedback/${feedbackRef}`);
+
+  await sendMail({
+    to: email,
+    subject: `📋 [Feedback Assigned] Department Action Required: ${feedback.subject}`,
+    text: `Hello ${managerName},\n\nAdministration has assigned user feedback to your department (${departmentName}) for review and action.\n\nSubject: ${feedback.subject}\nRating: ${feedback.rating || 'N/A'}/5\nDirective: ${adminDirective || 'Please investigate and assign to a team specialist.'}\n\nPlease review and assign a team member in your department:\n${feedbackUrl}`,
+    html: wrap('Feedback Assigned to Your Department', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${managerName}</strong>,</p>
+        <p>Administration has assigned a user feedback item to your department (<strong>${departmentName}</strong>) for review, action, and assignment to a staff member.</p>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin: 18px 0;">
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Feedback ID:</strong> #${feedbackRef}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Subject:</strong> <strong>${feedback.subject}</strong></div>
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Rating:</strong> ${feedback.rating ? `${feedback.rating} / 5 ⭐` : 'Not rated'}</div>
+          ${feedback.whatIsCorrect ? `<div style="margin-bottom: 8px; color: #047857;"><strong>What is Working Well / Continue:</strong><br/><span style="background:#ecfdf5;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:2px;">${feedback.whatIsCorrect}</span></div>` : ''}
+          ${feedback.whatShouldChange ? `<div style="margin-bottom: 8px; color: #b45309;"><strong>What Should Change / Improve:</strong><br/><span style="background:#fffbeb;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:2px;">${feedback.whatShouldChange}</span></div>` : ''}
+          <div style="margin-top: 10px;"><strong style="color: #64748b;">Tenant Feedback Message:</strong><br/>
+            <div style="margin-top: 4px; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">${feedback.message}</div>
+          </div>
+        </div>
+
+        ${adminDirective ? `
+        <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="font-size: 12px; color: #1d4ed8; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Admin Directive (${adminName}):</div>
+          <div style="color: #1e3a8a; font-weight: 500;">${adminDirective.replace(/\n/g, '<br/>')}</div>
+        </div>` : ''}
+
+        <p style="font-size: 14px; color: #475569;">Please log in to your Manager Portal to review this feedback and assign a specialist from your department to handle it.</p>
+
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="${feedbackUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 11px 24px; border-radius: 6px; font-weight: 600; display: inline-block;">
+            Open Feedback & Assign Staff →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+          Direct login link: <a href="${feedbackUrl}" style="color:#2563eb;word-break:break-all;">${feedbackUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify Staff member when Department Manager assigns feedback to them.
+ * @param {object} p { email, staffName, departmentName, feedback, departmentNotes, managerName }
+ */
+export const sendFeedbackStaffAssignedEmail = async ({
+  email,
+  staffName = 'Specialist',
+  departmentName = 'Department',
+  feedback,
+  departmentNotes = '',
+  managerName = 'Department Manager',
+}) => {
+  const feedbackRef = feedback.feedbackNum || feedback.feedback_num || feedback.id;
+  const feedbackUrl = createPortalTaskUrl(`/staff/feedback/${feedbackRef}`);
+
+  await sendMail({
+    to: email,
+    subject: `🎯 [Task Assignment] Feedback Assigned to You: ${feedback.subject}`,
+    text: `Hello ${staffName},\n\nYour department head (${managerName}) has assigned a user feedback action item to you for resolution.\n\nSubject: ${feedback.subject}\nManager Notes: ${departmentNotes || 'Please investigate and formulate a resolution response.'}\n\nPlease review and work on this feedback item:\n${feedbackUrl}`,
+    html: wrap('Feedback Task Assigned to You', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${staffName}</strong>,</p>
+        <p>Your Department Manager (<strong>${managerName}</strong>) has assigned user feedback to you for analysis, resolution, and tenant response.</p>
+        
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin: 18px 0;">
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Feedback ID:</strong> #${feedbackRef}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Department:</strong> ${departmentName}</div>
+          <div style="margin-bottom: 8px;"><strong style="color: #64748b;">Subject:</strong> <strong>${feedback.subject}</strong></div>
+          ${feedback.whatIsCorrect ? `<div style="margin-bottom: 8px; color: #047857;"><strong>What is Working Well / Continue:</strong><br/><span style="background:#ecfdf5;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:2px;">${feedback.whatIsCorrect}</span></div>` : ''}
+          ${feedback.whatShouldChange ? `<div style="margin-bottom: 8px; color: #b45309;"><strong>What Should Change / Improve:</strong><br/><span style="background:#fffbeb;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:2px;">${feedback.whatShouldChange}</span></div>` : ''}
+          <div style="margin-top: 10px;"><strong style="color: #64748b;">User Message:</strong><br/>
+            <div style="margin-top: 4px; padding: 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">${feedback.message}</div>
+          </div>
+        </div>
+
+        ${departmentNotes ? `
+        <div style="background: #fdf2f8; border-left: 4px solid #ec4899; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="font-size: 12px; color: #be185d; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Department Head Instructions (${managerName}):</div>
+          <div style="color: #831843; font-weight: 500;">${departmentNotes.replace(/\n/g, '<br/>')}</div>
+        </div>` : ''}
+
+        ${feedback.adminDirective || feedback.admin_directive ? `
+        <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 14px 18px; margin: 16px 0;">
+          <div style="font-size: 12px; color: #1d4ed8; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">Admin Directive:</div>
+          <div style="color: #1e3a8a; font-weight: 500;">${(feedback.adminDirective || feedback.admin_directive).replace(/\n/g, '<br/>')}</div>
+        </div>` : ''}
+
+        <p style="font-size: 14px; color: #475569;">Please log in to your Staff Portal to review the details and post your progress or resolution.</p>
+
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="${feedbackUrl}" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 11px 24px; border-radius: 6px; font-weight: 600; display: inline-block;">
+            Open Feedback Task →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+          Direct login link: <a href="${feedbackUrl}" style="color:#2563eb;word-break:break-all;">${feedbackUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+export const sendChatMessageEmail = async ({
+  email,
+  recipientName = 'Colleague',
+  senderName = 'Team Member',
+  senderRole = 'User',
+  roomName = 'Help Desk Chat',
+  messageSnippet = '',
+  roomId = '',
+}) => {
+  const targetPath = roomId ? `/chat?room=${encodeURIComponent(roomId)}` : '/chat';
+  const chatUrl = createPortalTaskUrl(targetPath);
+  const snippet = messageSnippet ? messageSnippet.slice(0, 500) : 'Sent a file or message';
+
+  await sendMail({
+    to: email,
+    subject: `💬 [Chat] New message from ${senderName} in "${roomName}"`,
+    text: `Hello ${recipientName},\n\n${senderName} sent a message in "${roomName}":\n\n"${snippet}"\n\nLog in and reply at:\n${chatUrl}`,
+    html: wrap(`New Chat Message in ${roomName}`, `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${recipientName}</strong>,</p>
+        <p><strong>${senderName}</strong> (${senderRole}) sent you a message in chat channel <strong>${roomName}</strong>:</p>
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">
+            💬 Latest Message
+          </div>
+          <div style="color: #0f172a; white-space: pre-wrap; font-size: 14.5px;">${snippet}</div>
+        </div>
+        <div style="text-align: center; margin: 26px 0 14px 0;">
+          <a href="${chatUrl}" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
+            💬 Open Chat & Reply →
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 12px 0 0 0;">
+          Direct link: <a href="${chatUrl}" style="color: #2563eb; word-break: break-all; font-weight: 600;">${chatUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify managers that a staff member submitted a knowledge article for approval.
+ */
+export const sendKnowledgeSubmittedEmail = async ({
+  email,
+  firstName = 'Manager',
+  article,
+  submittedByName = 'Staff Member',
+}) => {
+  const targetPath = '/manager/knowledge/approval';
+  const taskUrl = createPortalTaskUrl(targetPath);
+  const ref = article.article_reference || article.id;
+
+  await sendMail({
+    to: email,
+    subject: `📚 [Knowledge Base] Article Submitted for Approval – ${article.title}`,
+    text: `Hello ${firstName},\n\nStaff member ${submittedByName} has submitted an article for your review:\n"${article.title}" (${ref}).\n\nPlease log in to review and approve:\n${taskUrl}`,
+    html: wrap('Knowledge Article Pending Review', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${firstName}</strong>,</p>
+        <p>A new knowledge base article has been submitted by <strong>${submittedByName}</strong> and is awaiting your department review and approval.</p>
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Reference:</strong> <strong>${ref}</strong></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Title:</strong> <strong>${article.title}</strong></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Category:</strong> ${article.category || 'General'}</div>
+          ${article.summary ? `<div><strong style="color: #64748b;">Summary:</strong><div style="margin-top:4px;color:#334155;">${article.summary}</div></div>` : ''}
+        </div>
+        <div style="text-align: center; margin: 26px 0 14px 0;">
+          <a href="${taskUrl}" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">
+            Review & Approve Article →
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 12px 0 0 0;">
+          Direct link: <a href="${taskUrl}" style="color: #2563eb; word-break: break-all;">${taskUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify admin or author when knowledge article is approved by department manager.
+ */
+export const sendKnowledgeApprovedEmail = async ({
+  email,
+  firstName = 'User',
+  article,
+  approvedByName = 'Department Manager',
+  targetRole = 'admin',
+}) => {
+  const targetPath = targetRole === 'admin' ? '/admin/knowledge' : `/knowledge/${article.id || ''}`;
+  const taskUrl = createPortalTaskUrl(targetPath);
+  const ref = article.article_reference || article.id;
+
+  await sendMail({
+    to: email,
+    subject: `✅ [Knowledge Base] Article Approved – ${article.title}`,
+    text: `Hello ${firstName},\n\nArticle "${article.title}" (${ref}) was approved by ${approvedByName}.\n\nView at:\n${taskUrl}`,
+    html: wrap('Knowledge Article Approved', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${firstName}</strong>,</p>
+        <p>The knowledge article <strong>"${article.title}"</strong> (${ref}) has been approved by <strong>${approvedByName}</strong>.</p>
+        <p>${targetRole === 'admin' ? 'It is now ready for Administration to review and publish to the live platform.' : 'Your submitted article has passed department review and is pending live publication.'}</p>
+        <div style="text-align: center; margin: 26px 0 14px 0;">
+          <a href="${taskUrl}" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">
+            ${targetRole === 'admin' ? 'Open Knowledge Admin to Publish →' : 'View Article Status in Portal →'}
+          </a>
+        </div>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin: 12px 0 0 0;">
+          Direct link: <a href="${taskUrl}" style="color: #2563eb; word-break: break-all;">${taskUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify users across the system when a knowledge article is published.
+ */
+export const sendKnowledgePublishedEmail = async ({
+  email,
+  firstName = 'User',
+  article,
+  publishedByName = 'Administrator',
+}) => {
+  const targetPath = `/knowledge/${article.id || article.article_reference || ''}`;
+  const taskUrl = createPortalTaskUrl(targetPath);
+  const ref = article.article_reference || article.id;
+
+  await sendMail({
+    to: email,
+    subject: `📢 [Knowledge Base] New Article Published – ${article.title}`,
+    text: `Hello ${firstName},\n\nA new knowledge article "${article.title}" (${ref}) has been published by ${publishedByName}.\n\nRead the article at:\n${taskUrl}`,
+    html: wrap('New Knowledge Article Published', `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${firstName}</strong>,</p>
+        <p>A new knowledge base article has been published and is now available in your help desk portal:</p>
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-left: 4px solid #10b981; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Title:</strong> <strong>${article.title}</strong></div>
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Category:</strong> ${article.category || 'General'}</div>
+          ${article.summary ? `<div><strong style="color: #64748b;">Summary:</strong><div style="margin-top:4px;color:#334155;">${article.summary}</div></div>` : ''}
+        </div>
+        <div style="text-align: center; margin: 26px 0 14px 0;">
+          <a href="${taskUrl}" style="background: #2563eb; color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">
+            Read Article in Portal →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+          Direct link: <a href="${taskUrl}" style="color:#2563eb;word-break:break-all;">${taskUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};
+
+/**
+ * Notify author when article is rejected or revision is requested.
+ */
+export const sendKnowledgeStatusEmail = async ({
+  email,
+  firstName = 'Author',
+  article,
+  status = 'rejected',
+  reason = '',
+  reviewerName = 'Reviewer',
+}) => {
+  const targetPath = '/staff/knowledge/my-articles';
+  const taskUrl = createPortalTaskUrl(targetPath);
+  const isRevision = status === 'revision_requested' || status === 'needs_revision';
+  const heading = isRevision ? 'Article Revision Requested' : 'Article Review Status Update';
+  const color = isRevision ? '#f59e0b' : '#ef4444';
+
+  await sendMail({
+    to: email,
+    subject: `📝 [Knowledge Base] ${heading} – ${article.title}`,
+    text: `Hello ${firstName},\n\nYour article "${article.title}" review status: ${status}.\nReviewer: ${reviewerName}\nNotes: ${reason || 'N/A'}\n\nUpdate your article at:\n${taskUrl}`,
+    html: wrap(heading, `
+      <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
+        <p style="margin-top:0;">Hello <strong>${firstName}</strong>,</p>
+        <p>Your knowledge article <strong>"${article.title}"</strong> has received a review update from <strong>${reviewerName}</strong>.</p>
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-left: 4px solid ${color}; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+          <div style="margin-bottom: 6px;"><strong style="color: #64748b;">Status:</strong> <strong style="color:${color};text-transform:uppercase;">${status.replace(/_/g, ' ')}</strong></div>
+          <div><strong style="color: #64748b;">Reviewer Notes:</strong><div style="margin-top:4px;color:#334155;">${reason || 'Please see portal for details.'}</div></div>
+        </div>
+        <div style="text-align: center; margin: 26px 0 14px 0;">
+          <a href="${taskUrl}" style="background: ${color}; color: #ffffff; text-decoration: none; padding: 13px 30px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">
+            Open My Articles in Portal →
+          </a>
+        </div>
+        <p style="text-align:center;font-size:11.5px;color:#6b7280;margin:6px 0 0 0;">
+          Direct link: <a href="${taskUrl}" style="color:#2563eb;word-break:break-all;">${taskUrl}</a>
+        </p>
+      </div>
+    `),
+  });
+};

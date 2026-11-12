@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import * as slaRepo from '../repository/slaRepository.js';
+import * as categoryRepo from '../repository/categoryRepository.js';
 import * as auditService from './auditService.js';
 import { SLA_RESOLUTION_HOURS, SLA_RESPONSE_HOURS } from '../config/constants.js';
 
@@ -36,6 +37,21 @@ export const createPolicy = async (user, payload) => {
       { statusCode: 409 }
     );
   }
+  
+  // Check if policy with same category and priority already exists
+  const existingByPriority = await slaRepo.findByPriorityAndCategory(payload.priority, categoryId);
+  if (existingByPriority) {
+    let scopeName = 'Global (All Categories)';
+    if (categoryId) {
+      const [catRows] = await pool.query('SELECT name FROM ticket_categories WHERE id = :categoryId LIMIT 1', { categoryId });
+      if (catRows.length) scopeName = `category "${catRows[0].name}"`;
+    }
+    throw Object.assign(
+      new Error(`An SLA policy with '${payload.priority.toUpperCase()}' priority already exists for ${scopeName} (Policy: "${existingByPriority.name}"). An SLA policy cannot be created twice for the same category and priority.`),
+      { statusCode: 409 }
+    );
+  }
+
   const responseHours = payload.responseHours !== undefined && payload.responseHours !== '' ? Number(payload.responseHours) : 4;
   const resolutionHours = payload.resolutionHours !== undefined && payload.resolutionHours !== '' ? Number(payload.resolutionHours) : 24;
   const escalationHours = payload.escalationHours !== undefined && payload.escalationHours !== null && payload.escalationHours !== ''
@@ -101,6 +117,22 @@ export const updatePolicy = async (user, id, payload) => {
       const scope = newCategoryId ? `category '${newCategoryId}'` : 'global';
       throw Object.assign(
         new Error(`An SLA policy named '${payload.name.trim()}' (${scope}) already exists`),
+        { statusCode: 409 }
+      );
+    }
+  }
+
+  const newPriority = payload.priority || policy.priority;
+  if ((payload.priority && payload.priority !== policy.priority) || (payload.categoryId !== undefined && newCategoryId !== policy.category_id)) {
+    const existingByPriority = await slaRepo.findByPriorityAndCategory(newPriority, newCategoryId, id);
+    if (existingByPriority) {
+      let scopeName = 'Global (All Categories)';
+      if (newCategoryId) {
+        const [catRows] = await pool.query('SELECT name FROM ticket_categories WHERE id = :newCategoryId LIMIT 1', { newCategoryId });
+        if (catRows.length) scopeName = `category "${catRows[0].name}"`;
+      }
+      throw Object.assign(
+        new Error(`An SLA policy with '${newPriority.toUpperCase()}' priority already exists for ${scopeName} (Policy: "${existingByPriority.name}"). An SLA policy cannot be created twice for the same category and priority.`),
         { statusCode: 409 }
       );
     }
@@ -330,4 +362,116 @@ export const computeReopenDueDates = (
     effectiveRemainingHours,
     elapsedHours: Number(elapsedHours.toFixed(2)),
   };
+};
+
+
+/**
+ * computeStatusImprovementDeadlines(ticket, fromStatus, toStatus, now = new Date())
+ *
+ * Dynamically updates and recalculates SLA deadlines (response_due_date, escalation_due_date, due_date)
+ * based on the improvement of the ticket's status through its lifecycle.
+ */
+export const computeStatusImprovementDeadlines = async (ticket, fromStatus, toStatus, now = new Date()) => {
+  const baseNow = now instanceof Date ? now : new Date(now);
+  const categoryRecord = ticket.category ? await categoryRepo.findByName(ticket.category).catch(() => null) : null;
+  const categoryId = categoryRecord?.id || ticket.category_id || ticket.categoryId || null;
+  const priority = ticket.priority || 'medium';
+  const slaPolicyId = ticket.sla_policy_id || ticket.slaPolicyId || null;
+
+  const policy = await resolveEffectivePolicy(categoryId, priority, slaPolicyId);
+  const effectivePolicy = policy || {
+    priority,
+    response_hours: SLA_RESPONSE_HOURS[priority] || 4,
+    resolution_hours: SLA_RESOLUTION_HOURS[priority] || 24,
+    escalation_hours: 0,
+    working_hours: null,
+  };
+
+  const updateFields = {};
+
+  // 1. Moving from 'open' -> 'assigned'
+  // Admin or auto-routing assigned department. First response achieved.
+  if (toStatus === 'assigned') {
+    if (!ticket.first_response_at && !ticket.firstResponseAt) {
+      updateFields.first_response_at = baseNow;
+      const respDue = ticket.response_due_date || ticket.responseDueDate ? new Date(ticket.response_due_date || ticket.responseDueDate) : null;
+      updateFields.response_sla_breached = respDue && baseNow > respDue ? 1 : 0;
+    }
+    // Calculate new resolution and escalation deadlines from assignment time
+    const dueDates = computeAllDueDates(effectivePolicy, baseNow);
+    updateFields.due_date = dueDates.resolutionDueDate;
+    updateFields.escalation_due_date = dueDates.escalationDueDate;
+    updateFields.is_overdue = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_escalated = 0;
+  }
+
+  // 2. Moving to 'in_progress'
+  // Department manager or staff actively working on the ticket.
+  else if (toStatus === 'in_progress') {
+    if (!ticket.first_response_at && !ticket.firstResponseAt) {
+      updateFields.first_response_at = baseNow;
+      updateFields.response_sla_breached = 0;
+    }
+    // De-escalate and clear overdue since work is actively in progress
+    updateFields.is_escalated = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_overdue = 0;
+
+    // Refresh resolution and escalation deadlines from start of active work
+    const dueDates = computeAllDueDates(effectivePolicy, baseNow);
+    updateFields.due_date = dueDates.resolutionDueDate;
+    updateFields.escalation_due_date = dueDates.escalationDueDate;
+  }
+
+  // 3. Moving to 'under_review'
+  // Staff marked resolved; awaiting Department Manager review.
+  else if (toStatus === 'under_review') {
+    updateFields.is_overdue = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_escalated = 0;
+    // Set 24h Department Manager review deadline
+    const reviewHours = 24;
+    updateFields.due_date = addBusinessHours(baseNow, reviewHours, effectivePolicy.working_hours);
+    updateFields.escalation_due_date = null;
+  }
+
+  // 4. Moving to 'pending_approval'
+  // Department manager approved; awaiting Admin verification.
+  else if (toStatus === 'pending_approval') {
+    updateFields.is_overdue = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_escalated = 0;
+    // Set 24h Admin verification deadline
+    const adminHours = 24;
+    updateFields.due_date = addBusinessHours(baseNow, adminHours, effectivePolicy.working_hours);
+    updateFields.escalation_due_date = null;
+  }
+
+  // 5. Moving to 'waiting_tenant' or 'resolved'
+  // Admin verified; solution delivered to tenant.
+  else if (toStatus === 'waiting_tenant' || toStatus === 'resolved') {
+    const origDue = ticket.due_date || ticket.dueDate ? new Date(ticket.due_date || ticket.dueDate) : null;
+    updateFields.resolved_at = ticket.resolved_at || ticket.resolvedAt || baseNow;
+    updateFields.sla_achieved = (!origDue || baseNow <= origDue) ? 1 : 0;
+    updateFields.is_overdue = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_escalated = 0;
+    // Set 72 business hours (3 business days) tenant confirmation window
+    const tenantHours = 72;
+    updateFields.due_date = addBusinessHours(baseNow, tenantHours, effectivePolicy.working_hours);
+    updateFields.escalation_due_date = null;
+  }
+
+  // 6. Moving to 'completed' or 'closed'
+  // Solution confirmed by tenant or closed.
+  else if (toStatus === 'completed' || toStatus === 'closed') {
+    updateFields.is_overdue = 0;
+    updateFields.escalation_sla_breached = 0;
+    updateFields.is_escalated = 0;
+    updateFields.sla_achieved = 1;
+    updateFields.escalation_due_date = null;
+  }
+
+  return updateFields;
 };

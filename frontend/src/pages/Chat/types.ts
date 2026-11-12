@@ -44,16 +44,55 @@ export interface ParsedMeetingInfo {
   createdAt?: string;
 }
 
+export const parseEventDate = (dateStr?: string, fallbackCreatedStr?: string): Date | null => {
+  if (!dateStr) return null;
+  let parsed = new Date(dateStr);
+  if (isNaN(parsed.getTime())) {
+    // Try appending current year if the string lacks year (e.g. "Nov 3, 10:20 AM")
+    const currentYear = new Date().getFullYear();
+    parsed = new Date(`${dateStr} ${currentYear}`);
+  }
+  if (isNaN(parsed.getTime())) return null;
+
+  // If year parsed was defaulted far in the past (e.g. 2001) while current system year is 2026:
+  const now = new Date();
+  if (parsed.getFullYear() < 2020 && now.getFullYear() >= 2024) {
+    const fallbackYear = fallbackCreatedStr ? new Date(fallbackCreatedStr).getFullYear() : now.getFullYear();
+    const withYear = new Date(parsed);
+    withYear.setFullYear(fallbackYear || now.getFullYear());
+    return withYear;
+  }
+  return parsed;
+};
+
+export const getEffectiveConferenceUrl = (
+  rawUrl?: string
+): { isDmsAppRoom: boolean; url: string; roomId?: string } => {
+  if (!rawUrl) {
+    return { isDmsAppRoom: true, url: window.location.href };
+  }
+  const match = rawUrl.match(/\/room\/([a-zA-Z0-9_-]+)/i);
+  if (match && match[1]) {
+    const roomId = match[1];
+    const appUrl = `${window.location.origin}/chat?room=${encodeURIComponent(roomId)}&video=true`;
+    return { isDmsAppRoom: true, url: appUrl, roomId };
+  }
+  return { isDmsAppRoom: false, url: rawUrl };
+};
+
 export const formatEventDateDisplay = (isoString?: string): string => {
   if (!isoString) return 'Today (Active Now)';
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return 'Today (Active Now)';
+  const date = parseEventDate(isoString);
+  if (!date || isNaN(date.getTime())) return 'Today (Active Now)';
 
   const now = new Date();
   const isToday = now.toDateString() === date.toDateString();
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const isTomorrow = tomorrow.toDateString() === date.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = yesterday.toDateString() === date.toDateString();
 
   const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (isToday) {
@@ -61,6 +100,9 @@ export const formatEventDateDisplay = (isoString?: string): string => {
   }
   if (isTomorrow) {
     return `Tomorrow at ${timeStr}`;
+  }
+  if (isYesterday) {
+    return `Yesterday at ${timeStr}`;
   }
   return date.toLocaleString([], {
     weekday: 'short',
@@ -73,21 +115,72 @@ export const formatEventDateDisplay = (isoString?: string): string => {
 
 export type MeetingTimeStatus = 'upcoming' | 'live' | 'ended' | 'immediate';
 
+export interface MeetingEventStatusResult {
+  status: MeetingTimeStatus;
+  label: string;
+  badgeColor: string;
+  badgeBg: string;
+  canJoinNow: boolean;
+  isPast: boolean;
+  timePassedStr?: string;
+  formattedWindow?: string;
+  formattedDateStr?: string;
+  startTime?: Date;
+  endTime?: Date;
+  durationMinutes: number;
+}
+
 export const getMeetingEventStatus = (
   scheduledTime?: string,
-  durationMinutes = 30
-): { status: MeetingTimeStatus; label: string; badgeColor: string; canJoinNow: boolean } => {
+  durationMinutes = 30,
+  isHostOrPeerOnline = false,
+  createdAt?: string
+): MeetingEventStatusResult => {
+  const duration = durationMinutes || 30;
+
   if (!scheduledTime) {
-    return { status: 'immediate', label: 'Ready to Join', badgeColor: '#059669', canJoinNow: true };
+    return {
+      status: 'immediate',
+      label: 'Ready to Join',
+      badgeColor: '#059669',
+      badgeBg: '#ecfdf5',
+      canJoinNow: true,
+      isPast: false,
+      durationMinutes: duration,
+    };
   }
-  const eventDate = new Date(scheduledTime);
-  if (isNaN(eventDate.getTime())) {
-    return { status: 'immediate', label: 'Active Session', badgeColor: '#059669', canJoinNow: true };
+
+  const eventDate = parseEventDate(scheduledTime, createdAt);
+  if (!eventDate || isNaN(eventDate.getTime())) {
+    return {
+      status: 'immediate',
+      label: 'Active Session',
+      badgeColor: '#059669',
+      badgeBg: '#ecfdf5',
+      canJoinNow: true,
+      isPast: false,
+      durationMinutes: duration,
+    };
   }
+
   const now = Date.now();
   const startMs = eventDate.getTime();
-  const endMs = startMs + (durationMinutes || 30) * 60 * 1000;
+  const endMs = startMs + duration * 60 * 1000;
   const earlyJoinWindowMs = 15 * 60 * 1000; // allow joining up to 15 minutes before
+
+  const startDate = new Date(startMs);
+  const endDate = new Date(endMs);
+
+  const startFormatted = startDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const endFormatted = endDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const formattedWindow = `${startFormatted} – ${endFormatted}`;
+  const formattedDateStr = startDate.toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   if (now < startMs - earlyJoinWindowMs) {
     const diffMs = startMs - now;
@@ -102,21 +195,62 @@ export const getMeetingEventStatus = (
       status: 'upcoming',
       label: timeRemainingStr,
       badgeColor: '#2563eb',
+      badgeBg: '#eff6ff',
       canJoinNow: false,
+      isPast: false,
+      formattedWindow,
+      formattedDateStr,
+      startTime: startDate,
+      endTime: endDate,
+      durationMinutes: duration,
     };
   } else if (now <= endMs) {
     return {
       status: 'live',
-      label: '🟢 Live / Starting Now',
+      label: '🟢 Live / In Progress',
       badgeColor: '#10b981',
+      badgeBg: '#dcfce7',
       canJoinNow: true,
+      isPast: false,
+      formattedWindow,
+      formattedDateStr,
+      startTime: startDate,
+      endTime: endDate,
+      durationMinutes: duration,
     };
   } else {
+    // Scheduled time has passed over
+    const diffMs = now - endMs;
+    const diffMins = Math.floor(diffMs / (60 * 1000));
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    let timePassedStr = '';
+    if (diffDays > 0) {
+      timePassedStr = `Ended ${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    } else if (diffHours > 0) {
+      const remainingMins = diffMins % 60;
+      timePassedStr = remainingMins > 0 ? `Ended ${diffHours}h ${remainingMins}m ago` : `Ended ${diffHours}h ago`;
+    } else if (diffMins > 0) {
+      timePassedStr = `Ended ${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    } else {
+      timePassedStr = 'Just ended';
+    }
+
     return {
       status: 'ended',
-      label: 'Event Completed',
-      badgeColor: '#64748b',
-      canJoinNow: true,
+      label: `Time Passed Over (${timePassedStr})`,
+      badgeColor: '#e11d48',
+      badgeBg: '#ffe4e6',
+      // Join condition: only if the host or participant is currently online
+      canJoinNow: Boolean(isHostOrPeerOnline),
+      isPast: true,
+      timePassedStr,
+      formattedWindow,
+      formattedDateStr,
+      startTime: startDate,
+      endTime: endDate,
+      durationMinutes: duration,
     };
   }
 };

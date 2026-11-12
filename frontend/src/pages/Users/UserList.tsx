@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
+import { toShortUserId } from '../../utils/idUtils';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
@@ -15,6 +16,7 @@ import type { User } from '../../types/user';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import styles from './Users.module.css';
 
 import {
@@ -41,8 +43,10 @@ import {
 
 export default function UserList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser } = useAuth();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const { page, limit, setPage, resetPage } = usePagination();
   const [users, setUsers] = useState<User[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -60,6 +64,7 @@ export default function UserList() {
   const [showPassword, setShowPassword] = useState(false);
   const [deleteModal, setDeleteModal] = useState<User | null>(null);
   const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Stats overview state
   const [stats, setStats] = useState({
@@ -92,6 +97,13 @@ export default function UserList() {
       setUsers(res.data.data || []);
       setTotalPages(res.data.pagination?.totalPages || 1);
       setTotalCount(res.data.pagination?.total || (res.data.data || []).length);
+      setErrorMessage('');
+    } catch (err: any) {
+      console.error('Failed to load users:', err);
+      setErrorMessage(err?.response?.data?.message || 'Failed to load user list.');
+      setUsers([]);
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -104,6 +116,46 @@ export default function UserList() {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  // Read action message passed via navigation state (e.g. from create/edit pages)
+  useEffect(() => {
+    if (!location.state) return;
+    const st = location.state as any;
+    const successMsg =
+      st.message ||
+      st.alert?.message ||
+      (typeof st.alert === 'string' ? st.alert : null);
+    const errorMsg =
+      st.errorMessage ||
+      st.error ||
+      (st.alert?.type === 'error' ? st.alert.message : null);
+
+    if (successMsg) {
+      setMessage(successMsg);
+      setErrorMessage('');
+      showSuccess(successMsg, st.alert?.title || 'User Action Completed');
+    } else if (errorMsg) {
+      setErrorMessage(errorMsg);
+      showError(errorMsg, st.alert?.title || 'User Management Notice');
+    }
+
+    try {
+      window.history.replaceState({}, document.title);
+    } catch { }
+  }, [location.state, showSuccess, showError]);
+
+  // Auto-dismiss notification alerts after 5 seconds
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(''), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(''), 6000);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
 
   const handleFilterStatus = (targetStatus: string) => {
     if (status === targetStatus) {
@@ -127,50 +179,71 @@ export default function UserList() {
   const handleConfirmDelete = async () => {
     if (!deleteModal) return;
     if (deleteModal.id === currentUser?.id) {
-      setMessage('You cannot delete your own account.');
+      const err = 'You cannot delete your own account.';
+      setErrorMessage(err);
+      showError(err, 'Action Not Allowed');
       setDeleteModal(null);
       return;
     }
     try {
-      await deleteUser(deleteModal.id);
-      setMessage(`User @${deleteModal.username} was permanently deleted.`);
+      const res = await deleteUser(deleteModal.id);
+      const text = res?.data?.message || `User @${deleteModal.username} was permanently deleted.`;
+      setMessage(text);
+      showSuccess(text, 'User Deleted');
+      setErrorMessage('');
       setDeleteModal(null);
       loadUsers();
       loadStats();
-    } catch {
-      setMessage('Failed to delete user.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to delete user account.';
+      setErrorMessage(msg);
+      showError(msg, 'Delete Failed');
     }
   };
 
   const handleToggleStatus = async (user: User) => {
     if (user.id === currentUser?.id) {
-      setMessage('You cannot deactivate your own account.');
+      const err = 'You cannot deactivate your own account.';
+      setErrorMessage(err);
+      showError(err, 'Action Not Allowed');
       return;
     }
     try {
       if (user.status === 'active') {
-        await deactivateUser(user.id);
-        setMessage(`User @${user.username} deactivated.`);
+        const res = await deactivateUser(user.id);
+        const text = res?.data?.message || `User @${user.username} was deactivated.`;
+        setMessage(text);
+        showSuccess(text, 'User Deactivated');
       } else {
-        await activateUser(user.id);
-        setMessage(`User @${user.username} activated.`);
+        const res = await activateUser(user.id);
+        const text = res?.data?.message || `User @${user.username} was activated.`;
+        setMessage(text);
+        showSuccess(text, 'User Activated');
       }
+      setErrorMessage('');
       loadUsers();
       loadStats();
-    } catch {
-      setMessage('Failed to update user status.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to update user status.';
+      setErrorMessage(msg);
+      showError(msg, 'Status Update Failed');
     }
   };
 
   const handleResetPassword = async () => {
     if (!resetModal || newPassword.length < 8) return;
     try {
-      await resetUserPassword(resetModal.id, newPassword);
+      const res = await resetUserPassword(resetModal.id, newPassword);
+      const text = res?.data?.message || `Password for @${resetModal.username} reset successfully.`;
       setResetModal(null);
       setNewPassword('');
-      setMessage(`Password for @${resetModal.username} reset successfully.`);
-    } catch {
-      setMessage('Failed to reset password.');
+      setMessage(text);
+      showSuccess(text, 'Password Reset');
+      setErrorMessage('');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to reset password.';
+      setErrorMessage(msg);
+      showError(msg, 'Reset Failed');
     }
   };
 
@@ -435,6 +508,46 @@ export default function UserList() {
         </div>
       </div>
 
+      {/* ── Professional Action Alert Banner ── */}
+      {(message || errorMessage) && (
+        <div className={styles.professionalAlertBanner}>
+          <div className={`${styles.alertCardInner} ${errorMessage ? styles.alertCardError : styles.alertCardSuccess}`} role={errorMessage ? 'alert' : 'status'}>
+            <div className={styles.alertIconCol}>
+              {errorMessage ? (
+                <ExclamationTriangleIcon className={styles.alertActionIcon} />
+              ) : (
+                <CheckCircleIcon className={styles.alertActionIcon} />
+              )}
+            </div>
+            <div className={styles.alertBodyCol}>
+              <div className={styles.alertHeaderRow}>
+                <span className={styles.alertCategoryBadge}>
+                  {errorMessage ? 'Action Failed' : 'Action Confirmed'}
+                </span>
+                <span className={styles.alertTimestamp}>Just now</span>
+              </div>
+              <h5 className={styles.alertHeadline}>
+                {errorMessage ? 'User Management Notice' : 'User Action Completed'}
+              </h5>
+              <p className={styles.alertDescription}>
+                {message || errorMessage}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.alertCloseBtn}
+              onClick={() => {
+                setMessage('');
+                setErrorMessage('');
+              }}
+              title="Dismiss notification"
+            >
+              <XMarkIcon style={{ width: 18, height: 18 }} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Enterprise Users Table ── */}
       <DataTable<User>
         loading={loading}
@@ -521,11 +634,14 @@ export default function UserList() {
           {
             key: 'userCode',
             label: 'User ID',
-            render: (row) => (
-              <span className={styles.userCodeChip}>
-                #{row.userNum ?? (row.userCode || row.id.slice(0, 7).toUpperCase())}
-              </span>
-            ),
+            render: (row) => {
+              const displayId = row.userCode || (row.id && /^\d{4}$/.test(row.id) ? row.id : toShortUserId(row));
+              return (
+                <span className={styles.userCodeChip}>
+                  #{displayId}
+                </span>
+              );
+            },
           },
           {
             key: 'status',
@@ -557,7 +673,7 @@ export default function UserList() {
                     <button
                       type="button"
                       className={styles.actionBtnEdit}
-                      onClick={() => navigate(`/admin/users/${row.userNum || row.id}/edit`)}
+                      onClick={() => navigate(`/admin/users/${toShortUserId(row)}/edit`)}
                       title="Edit user profile and permissions"
                     >
                       <PencilSquareIcon className={styles.actionIcon} />
@@ -573,8 +689,8 @@ export default function UserList() {
                         row.id === currentUser?.id
                           ? 'You cannot deactivate your own account'
                           : row.status === 'active'
-                          ? 'Deactivate account access'
-                          : 'Activate account access'
+                            ? 'Deactivate account access'
+                            : 'Activate account access'
                       }
                     >
                       {row.status === 'active' ? (
@@ -748,9 +864,8 @@ export default function UserList() {
                   Generate Strong Password
                 </button>
                 <span
-                  className={`${styles.pwLengthHint} ${
-                    newPassword.length >= 8 ? styles.pwValid : ''
-                  }`}
+                  className={`${styles.pwLengthHint} ${newPassword.length >= 8 ? styles.pwValid : ''
+                    }`}
                 >
                   {newPassword.length >= 8
                     ? '✓ Min 8 characters met'

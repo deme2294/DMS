@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_DASHBOARD } from '../config/routes';
+import { resolveRoleRedirect } from '../utils/redirectUtils';
 
 export default function ProtectedRoute({
   children,
@@ -42,11 +43,10 @@ export default function ProtectedRoute({
   }
 
   if (roles && !roles.includes(user.role)) {
-    const ticketMatch = location.pathname.match(/^\/(?:tenant|admin|manager|staff|ceo|tickets)\/tickets\/(.+)$/);
-    if (ticketMatch) {
-      const ticketParam = ticketMatch[1];
-      const rolePrefix = user.role === 'admin' ? '/admin' : user.role === 'manager' ? '/manager' : user.role === 'staff' ? '/staff' : user.role === 'ceo' ? '/ceo' : '/tenant';
-      return <Navigate to={`${rolePrefix}/tickets/${ticketParam}${location.search}`} replace />;
+    const fullTarget = location.pathname + location.search + location.hash;
+    const resolved = resolveRoleRedirect(fullTarget, user.role);
+    if (resolved && resolved !== (location.pathname + location.search + location.hash)) {
+      return <Navigate to={resolved} replace />;
     }
     return <Navigate to={ROLE_DASHBOARD[user.role] ?? '/login'} replace />;
   }

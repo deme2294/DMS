@@ -12,8 +12,10 @@ import {
   approveTenant,
 } from '../../api/tenantApi';
 import type { Tenant } from '../../types/tenant';
+import { toShortTenantId } from '../../utils/idUtils';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
+import { useAlert } from '../../context/AlertContext';
 import styles from './Tenants.module.css';
 
 import {
@@ -41,6 +43,7 @@ import {
 export default function TenantList() {
   const navigate = useNavigate();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const { page, limit, setPage, resetPage } = usePagination(1, 10);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -128,7 +131,9 @@ export default function TenantList() {
     if (!deleteModal) return;
     try {
       await deleteTenant(deleteModal.id);
-      setMessage({ text: `Organization "${deleteModal.organizationName}" deleted successfully.` });
+      const msg = `Organization "${deleteModal.organizationName}" deleted successfully.`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Tenant Deleted');
       setDeleteModal(null);
       loadTenants();
       loadStats();
@@ -137,17 +142,22 @@ export default function TenantList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to delete tenant';
       setMessage({ text: msg, isError: true });
+      showError(msg, 'Delete Error');
     }
   };
 
   const handleApprove = async (tenant: Tenant) => {
     try {
       await approveTenant(tenant.id);
-      setMessage({ text: `Tenant "${tenant.organizationName}" approved and activated.` });
+      const msg = `Tenant "${tenant.organizationName}" approved and activated.`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Tenant Approved');
       loadTenants();
       loadStats();
     } catch {
-      setMessage({ text: 'Failed to approve tenant.', isError: true });
+      const msg = 'Failed to approve tenant.';
+      setMessage({ text: msg, isError: true });
+      showError(msg, 'Approve Failed');
     }
   };
 
@@ -155,10 +165,14 @@ export default function TenantList() {
     try {
       if (tenant.status === 'active') {
         await deactivateTenant(tenant.id);
-        setMessage({ text: `Tenant "${tenant.organizationName}" deactivated.` });
+        const msg = `Tenant "${tenant.organizationName}" deactivated.`;
+        setMessage({ text: msg });
+        showSuccess(msg, 'Tenant Deactivated');
       } else {
         await activateTenant(tenant.id);
-        setMessage({ text: `Tenant "${tenant.organizationName}" activated.` });
+        const msg = `Tenant "${tenant.organizationName}" activated.`;
+        setMessage({ text: msg });
+        showSuccess(msg, 'Tenant Activated');
       }
       loadTenants();
       loadStats();
@@ -167,6 +181,7 @@ export default function TenantList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to update tenant status';
       setMessage({ text: msg, isError: true });
+      showError(msg, 'Status Update Failed');
     }
   };
 
@@ -485,7 +500,7 @@ export default function TenantList() {
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnView}`}
-                  onClick={() => navigate(`/admin/tenants/${row.tenantId || (row as any).tenant_id || row.id}`)}
+                  onClick={() => navigate(`/admin/tenants/${toShortTenantId(row)}`)}
                   title="View details"
                 >
                   <EyeIcon className={styles.actionIcon} />
@@ -495,7 +510,7 @@ export default function TenantList() {
                 <button
                   type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
-                  onClick={() => navigate(`/admin/tenants/${row.tenantId || (row as any).tenant_id || row.id}/edit`)}
+                  onClick={() => navigate(`/admin/tenants/${toShortTenantId(row)}/edit`)}
                   title="Edit tenant"
                 >
                   <PencilSquareIcon className={styles.actionIcon} />

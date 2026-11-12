@@ -3,6 +3,7 @@ import { HTTP } from '../config/constants.js';
 
 const UUID_REGEX = /^[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$/i;
 const ID_PARAM_REGEX = /^[0-9a-zA-Z_-]{1,36}$/;
+const UUID_OR_SHORT_REGEX = /^([0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}|[0-9a-zA-Z_-]{1,36})$/i;
 
 export const validate = (req, res, next) => {
   const errors = validationResult(req);
@@ -30,15 +31,15 @@ export const idParam = (name = 'id') =>
 
 /**
  * uuidBody(name)
- * Validates a request body field is a UUID-shaped string
- * (standard OR seed-data repeated-char format like dddddddd-dddd-dddd-dddd-dddddddddddd).
+ * Validates a request body field is a UUID-shaped string or concise short ID
+ * (standard, reduced short ID, or seed-data format).
  */
 export const uuidBody = (name) =>
   body(name)
     .optional({ values: 'falsy' })
     .trim()
-    .matches(UUID_REGEX)
-    .withMessage(`${name} must be a valid UUID`);
+    .matches(UUID_OR_SHORT_REGEX)
+    .withMessage(`${name} must be a valid identifier`);
 
 export const DEPT_ID_REGEX = /^[0-9a-zA-Z_-]{2,36}$/i;
 
@@ -54,4 +55,3 @@ export const departmentIdBody = (name = 'departmentId') =>
     .trim()
     .matches(DEPT_ID_REGEX)
     .withMessage(`${name} must be a valid department identifier`);
-

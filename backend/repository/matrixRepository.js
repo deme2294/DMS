@@ -140,7 +140,10 @@ export const findAssignmentByPair = async (userId, departmentId) => {
 
 export const findAssignmentByUser = async (userId) => {
   const [rows] = await pool.query(
-    `SELECT user_id, department_id FROM user_departments WHERE user_id = ? LIMIT 1`,
+    `SELECT ud.user_id, ud.department_id, d.name AS department_name
+     FROM user_departments ud
+     LEFT JOIN departments d ON d.id = ud.department_id
+     WHERE ud.user_id = ? LIMIT 1`,
     [userId]
   );
   return rows[0] || null;
@@ -255,16 +258,20 @@ export const replaceDepartmentUser = async (departmentId, userId) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    if (departmentId) {
+    if (departmentId && !userId) {
+      // Unassign all users from this department
       await conn.query('DELETE FROM user_departments WHERE department_id = :departmentId', { departmentId });
-    }
-
-    if (userId && departmentId) {
+    } else if (userId && departmentId) {
+      // Reassign or assign this specific user to the department
+      await conn.query('DELETE FROM user_departments WHERE user_id = :userId', { userId });
       await conn.query(
         `INSERT INTO user_departments (id, user_id, department_id)
          VALUES (UUID(), :userId, :departmentId)`,
         { userId, departmentId }
       );
+    } else if (userId && !departmentId) {
+      // Unassign this user
+      await conn.query('DELETE FROM user_departments WHERE user_id = :userId', { userId });
     }
 
     await conn.commit();

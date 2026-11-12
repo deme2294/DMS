@@ -1,3 +1,4 @@
+import { toShortUserId } from '../../utils/idUtils';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ShieldCheckIcon,
@@ -584,7 +585,7 @@ export default function CeoAudit() {
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Actor (User)</span>
                   <span className={styles.metaValueBold}>{selectedLog.username || 'System'}</span>
-                  {selectedLog.userId && <span className={styles.metaSub}>User ID: {selectedLog.userId}</span>}
+                  {selectedLog.userId && <span className={styles.metaSub}>User ID: {toShortUserId(selectedLog.userId)}</span>}
                 </div>
 
                 <div className={styles.metaItem}>

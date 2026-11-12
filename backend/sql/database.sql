@@ -241,12 +241,7 @@ CREATE TABLE tickets (
   description TEXT NOT NULL,
   priority ENUM('low','medium','high','urgent') DEFAULT 'medium',
   category VARCHAR(100) NOT NULL,
-  status ENUM(
-    'open','assigned','in_progress','pending','waiting_tenant',
-    'waiting_vendor','resolved','reopened','closed',
-    'submitted','under_review','assigned_department','assigned_staff','pending_approval',
-    'accepted','completed','approved','rejected','cancelled','escalated'
-  ) DEFAULT 'open',
+  status VARCHAR(50) NOT NULL DEFAULT 'open',
   tenant_confirmation_status ENUM('not_required','pending','approved','rejected') NOT NULL DEFAULT 'not_required',
   is_escalated TINYINT(1) NOT NULL DEFAULT 0,
   attachment_count INT NOT NULL DEFAULT 0,
@@ -401,8 +396,16 @@ CREATE TABLE notice_replies (
 
 CREATE TABLE feedback (
   id CHAR(36) PRIMARY KEY,
+  feedback_num INT NULL,
   tenant_id CHAR(36) NULL,
   ticket_id CHAR(36) NULL,
+  category_id VARCHAR(36) NULL,
+  service_name VARCHAR(150) NULL,
+  department_id CHAR(36) NULL,
+  department_head_id VARCHAR(36) NULL,
+  assigned_to_user_id CHAR(36) NULL,
+  admin_directive TEXT NULL,
+  department_notes TEXT NULL,
   subject VARCHAR(200) NOT NULL,
   message TEXT NOT NULL,
   rating INT,
@@ -414,9 +417,16 @@ CREATE TABLE feedback (
   admin_response TEXT NULL,
   response_at DATETIME NULL,
   response_by CHAR(36) NULL,
-  status ENUM('pending','read','resolved') DEFAULT 'pending',
+  status VARCHAR(40) DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_feedback_tenant (tenant_id),
+  KEY idx_feedback_ticket (ticket_id),
+  KEY idx_feedback_category (category_id),
+  KEY idx_feedback_dept (department_id),
+  KEY idx_feedback_dept_head (department_head_id),
+  KEY idx_feedback_assigned (assigned_to_user_id),
+  KEY idx_feedback_status (status)
 );
 
 CREATE TABLE feedback_replies (
@@ -844,35 +854,35 @@ JOIN permissions p ON p.code IN (
 WHERE r.name = 'ceo';
 
 INSERT INTO tenants (id, tenant_id, organization_name, registration_number, contact_person, email, phone, address, notes, status, username, password, created_by) VALUES
-('11111111-1111-1111-1111-111111111111', 1, 'City Housing Office', 'REG-2024-001', 'John Tenant', 'tenant@demo.gov', '555-0100', 'Main Street 1', 'Demo tenant organization', 'active', 'tenant', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL);
+('3001', 1, 'City Housing Office', 'REG-2024-001', 'John Tenant', 'tenant@demo.gov', '555-0100', 'Main Street 1', 'Demo tenant organization', 'active', 'tenant', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', NULL);
 
 INSERT INTO departments (id, name, code, description, status) VALUES
-('IT-01', 'IT Support', 'IT', 'Information Technology Support', 'active'),
-('HR-01', 'Human Resources', 'HR', 'Human Resources Department', 'active');
+('2001', 'IT Support', 'IT', 'Information Technology Support', 'active'),
+('2002', 'Human Resources', 'HR', 'Human Resources Department', 'active');
 
 -- Password for all demo users is: password
 INSERT INTO users (id, tenant_id, role_id, username, email, password_hash, first_name, last_name, status, user_code) VALUES
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', NULL, 1, 'admin', 'admin@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Admin', 'active', '1001'),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', NULL, 2, 'manager', 'manager@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Dept', 'Manager', 'active', '1002'),
-('cccccccc-cccc-cccc-cccc-cccccccccccc', NULL, 3, 'staff', 'staff@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Help', 'Staff', 'active', '1003'),
-('ffffffff-ffff-ffff-ffff-ffffffffffff', '11111111-1111-1111-1111-111111111111', 4, 'tenant', 'tenant@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Tenant', 'active', '1005'),
-('cccccccc-cecc-cecc-cecc-cccccccccecc', NULL, 5, 'ceo', 'ceo@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Executive', 'Officer', 'active', '1004');
+('1001', NULL, 1, 'admin', 'admin@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Admin', 'active', '1001'),
+('1002', NULL, 2, 'manager', 'manager@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Dept', 'Manager', 'active', '1002'),
+('1003', NULL, 3, 'staff', 'staff@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Help', 'Staff', 'active', '1003'),
+('1005', '3001', 4, 'tenant', 'tenant@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Tenant', 'active', '1005'),
+('1004', NULL, 5, 'ceo', 'ceo@demo.gov', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Executive', 'Officer', 'active', '1004');
 
 INSERT INTO user_departments (id, user_id, department_id) VALUES
-('uddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'IT-01'),
-('ueeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'IT-01');
+('uddddddd-dddd-dddd-dddd-dddddddddddd', '1002', '2001'),
+('ueeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '1003', '2001');
 
 INSERT INTO ticket_categories (id, name, description, department_id, is_active, status, routing_type, created_by) VALUES
-('cat00001-0000-0000-0000-000000000001', 'Hardware', 'Hardware related issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00002-0000-0000-0000-000000000002', 'Software', 'Software and application issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00003-0000-0000-0000-000000000003', 'Network', 'Network and connectivity issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00004-0000-0000-0000-000000000004', 'Account Access', 'Login and account access problems', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00005-0000-0000-0000-000000000005', 'Email', 'Email related issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00006-0000-0000-0000-000000000006', 'General Inquiry', 'General inquiries and questions', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-('cat00007-0000-0000-0000-000000000007', 'Other', 'Other issues not listed above', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+('4001', 'Hardware', 'Hardware related issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4002', 'Software', 'Software and application issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4003', 'Network', 'Network and connectivity issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4004', 'Account Access', 'Login and account access problems', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4005', 'Email', 'Email related issues', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4006', 'General Inquiry', 'General inquiries and questions', NULL, 1, 'approved', 'general', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+('4007', 'Other', 'Other issues not listed above', NULL, 1, 'approved', 'general', '1001');
 
 INSERT INTO sla_policies (id, name, priority, category_id, response_hours, resolution_hours, description) VALUES
-('sla00001-0000-0000-0000-000000000001', 'Critical SLA', 'urgent', NULL, 1, 4, 'Critical tickets resolved within 4 hours'),
+('5001', 'Critical SLA', 'urgent', NULL, 1, 4, 'Critical tickets resolved within 4 hours'),
 ('sla00002-0000-0000-0000-000000000002', 'High SLA', 'high', NULL, 2, 8, 'High priority tickets resolved within 8 hours'),
 ('sla00003-0000-0000-0000-000000000003', 'Medium SLA', 'medium', NULL, 4, 24, 'Medium priority tickets resolved within 24 hours'),
 ('sla00004-0000-0000-0000-000000000004', 'Low SLA', 'low', NULL, 8, 72, 'Low priority tickets resolved within 72 hours');

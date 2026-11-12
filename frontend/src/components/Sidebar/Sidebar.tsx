@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  ChevronDownIcon,
   Cog6ToothIcon,
   ClipboardDocumentCheckIcon,
   BuildingOffice2Icon,
+  BuildingOfficeIcon,
+  Squares2X2Icon,
+  WrenchScrewdriverIcon,
+  BriefcaseIcon,
+  SparklesIcon,
+  InformationCircleIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
@@ -31,6 +39,19 @@ const HeadsetIcon = ({ className }: { className?: string }) => (
     <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
   </svg>
 );
+
+const getSectionIcon = (title: string = '') => {
+  const norm = title.toLowerCase();
+  if (norm.includes('main')) return Squares2X2Icon;
+  if (norm.includes('manage')) return BuildingOfficeIcon;
+  if (norm.includes('operat')) return WrenchScrewdriverIcon;
+  if (norm.includes('execut')) return CrownIcon;
+  if (norm.includes('work')) return BriefcaseIcon;
+  if (norm.includes('service')) return SparklesIcon;
+  if (norm.includes('info')) return InformationCircleIcon;
+  if (norm.includes('system')) return Cog6ToothIcon;
+  return FolderIcon;
+};
 
 interface SidebarProps {
   roleOverride?: string;
@@ -102,6 +123,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const config = SIDEBAR_ITEMS[role] || SIDEBAR_ITEMS.admin;
   const sections: SidebarSection[] = config?.sections || [];
 
+  // Helper to determine which section index contains the currently active route
+  const getActiveSectionIndex = useCallback(() => {
+    for (let i = 0; i < sections.length; i++) {
+      const hasActive = sections[i].items.some((item) => {
+        if (!item.permission || can(item.permission)) {
+          return (
+            location.pathname === item.path ||
+            (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
+          );
+        }
+        return false;
+      });
+      if (hasActive) return i;
+    }
+    return 0; // default to first section (e.g. 'Main')
+  }, [sections, location.pathname, can]);
+
+  // Accordion state: only one navigation group heading is open at a time
+  const [openSectionIndex, setOpenSectionIndex] = useState<number | null>(() => getActiveSectionIndex());
+
+  // Automatically update the opened group when user navigates to a new route in a different section
+  const previousPathRef = useRef(location.pathname);
+  useEffect(() => {
+    if (previousPathRef.current !== location.pathname) {
+      previousPathRef.current = location.pathname;
+      const activeIdx = getActiveSectionIndex();
+      setOpenSectionIndex(activeIdx);
+    }
+  }, [location.pathname, getActiveSectionIndex]);
+
+  // When a navigation group heading is clicked:
+  // If another heading was open, it collapses and the clicked one opens.
+  // If the same heading is clicked, it toggles open/closed.
+  const handleToggleSection = (sIdx: number) => {
+    setOpenSectionIndex((prev) => (prev === sIdx ? null : sIdx));
+  };
+
   const getInitials = () => {
     if (!user) return 'IT';
     const first = user.firstName?.[0] || '';
@@ -163,35 +221,84 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : null}
       </div>
 
-      {/* ── Navigation Items ── */}
+      {/* ── Navigation Items (Accordion Groups) ── */}
       <nav className={styles.nav}>
         {sections.map((section, sIdx) => {
           const visibleItems = section.items.filter((item) => !item.permission || can(item.permission));
           if (!visibleItems.length) return null;
+
+          const hasActiveItem = visibleItems.some(
+            (item) =>
+              location.pathname === item.path ||
+              (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
+          );
+
+          // In expanded mode: accordion controls open/close. In collapsed icon mode: all icons remain accessible.
+          const isOpen = isCollapsed ? true : openSectionIndex === sIdx;
+
           return (
             <div key={sIdx} className={styles.section}>
-              {section.title && <div className={styles.sectionLabel}>{section.title}</div>}
-              <div className={styles.sectionItems}>
-                {visibleItems.map((item) => {
-                  const isActive =
-                    location.pathname === item.path ||
-                    (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={onCloseMobile}
-                      className={`${styles.navItem} ${isActive ? styles.active : ''}`}
-                      title={item.label}
-                    >
-                      <span className={styles.navIconBox}>
-                        <SidebarIcon label={item.label} path={item.path} className={styles.navIconSvg} />
-                      </span>
-                      <span className={styles.navLabel}>{item.label}</span>
-                    </Link>
-                  );
-                })}
+              {section.title && (
+                <button
+                  type="button"
+                  className={`${styles.sectionHeaderBtn} ${isOpen ? styles.sectionHeaderBtnOpen : ''} ${
+                    hasActiveItem ? styles.sectionHeaderHasActive : ''
+                  }`}
+                  onClick={() => handleToggleSection(sIdx)}
+                  aria-expanded={isOpen}
+                  title={`${isOpen ? 'Collapse' : 'Expand'} ${section.title} section (${visibleItems.length} items)`}
+                >
+                  <div className={styles.sectionHeaderLeft}>
+                    <span className={styles.sectionIconBadge}>
+                      {React.createElement(getSectionIcon(section.title), { className: styles.sectionIconSvg })}
+                    </span>
+                    <span className={styles.sectionLabelText}>{section.title}</span>
+                  </div>
+
+                  <div className={styles.sectionHeaderRight}>
+                    {hasActiveItem && !isOpen && (
+                      <span className={styles.activeGroupDot} title="Current active page is in this section" />
+                    )}
+                    <span className={styles.sectionItemCountBadge}>
+                      {visibleItems.length}
+                    </span>
+                    <span className={styles.chevronPill}>
+                      <ChevronDownIcon
+                        className={`${styles.sectionChevron} ${isOpen ? styles.sectionChevronOpen : ''}`}
+                      />
+                    </span>
+                  </div>
+                </button>
+              )}
+
+              <div
+                className={`${styles.sectionItemsWrapper} ${
+                  isOpen ? styles.sectionItemsWrapperOpen : ''
+                }`}
+              >
+                <div className={styles.sectionItemsInner}>
+                  {visibleItems.map((item) => {
+                    const isActive =
+                      location.pathname === item.path ||
+                      (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={onCloseMobile}
+                        className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+                        title={item.label}
+                      >
+                        <span className={styles.navIconBox}>
+                          <SidebarIcon label={item.label} path={item.path} className={styles.navIconSvg} />
+                        </span>
+                        <span className={styles.navLabel}>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
+
               {sIdx < sections.length - 1 && <div className={styles.divider} />}
             </div>
           );

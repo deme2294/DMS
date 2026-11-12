@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
+import { toShortDepartmentId } from '../../utils/idUtils';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import {
@@ -12,6 +13,7 @@ import {
 import type { Department } from '../../types/department';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
+import { useAlert } from '../../context/AlertContext';
 import styles from './Departments.module.css';
 
 import {
@@ -34,6 +36,7 @@ import {
 export default function DepartmentList() {
   const navigate = useNavigate();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const { page, limit, setPage, resetPage } = usePagination(1, 10);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -119,7 +122,9 @@ export default function DepartmentList() {
     if (!deleteModal) return;
     try {
       await deleteDepartment(deleteModal.id);
-      setMessage({ text: `Department "${deleteModal.name}" deleted successfully.` });
+      const msg = `Department "${deleteModal.name}" deleted successfully.`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Department Deleted');
       setDeleteModal(null);
       loadDepartments();
       loadStats();
@@ -128,6 +133,7 @@ export default function DepartmentList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to delete department';
       setMessage({ text: msg, isError: true });
+      showError(msg, 'Delete Error');
     }
   };
 
@@ -135,10 +141,14 @@ export default function DepartmentList() {
     try {
       if (dept.status === 'active') {
         await deactivateDepartment(dept.id);
-        setMessage({ text: `Department "${dept.name}" deactivated.` });
+        const msg = `Department "${dept.name}" deactivated.`;
+        setMessage({ text: msg });
+        showSuccess(msg, 'Department Deactivated');
       } else {
         await activateDepartment(dept.id);
-        setMessage({ text: `Department "${dept.name}" activated.` });
+        const msg = `Department "${dept.name}" activated.`;
+        setMessage({ text: msg });
+        showSuccess(msg, 'Department Activated');
       }
       loadDepartments();
       loadStats();
@@ -147,6 +157,7 @@ export default function DepartmentList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to update department status';
       setMessage({ text: msg, isError: true });
+      showError(msg, 'Status Update Failed');
     }
   };
 
@@ -423,7 +434,7 @@ export default function DepartmentList() {
                     <button
                       type="button"
                       className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
-                      onClick={() => navigate(`/admin/departments/${row.id}/edit`)}
+                      onClick={() => navigate(`/admin/departments/${toShortDepartmentId(row)}/edit`)}
                       title="Edit department"
                     >
                       <PencilSquareIcon className={styles.actionIcon} />

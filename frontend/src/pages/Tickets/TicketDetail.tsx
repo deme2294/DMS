@@ -3,21 +3,25 @@ import { useEffect, useState, useRef } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
+import { canNotifyTenant } from '../../utils/permissionUtils';
+import { toShortId } from '../../utils/idUtils';
 import {
    changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
    assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
    escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
-   markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments,
-   overrideAssignment, fetchDepartmentManagers, type DepartmentManager,
+   requestReopenTicket, approveReopenTicket, rejectReopenTicket,
+   markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments, updateTicketAttachment, deleteTicketAttachment,
+   overrideAssignment, remindStaff, fetchDepartmentManagers, type DepartmentManager,
  } from '../../api/ticketApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
 import { searchArticles } from '../../api/knowledgeApi';
-import type { Ticket, TicketStatus, TicketReply, TimelineEvent } from '../../types/ticket';
+import type { Ticket, TicketStatus, TicketReply, TimelineEvent, TicketAttachment } from '../../types/ticket';
 import type { User } from '../../types/user';
 import type { Article } from '../../types/article';
-import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES } from '../../types/ticket';
+import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import styles from './Tickets.module.css';
 import {
   ArrowPathIcon,
@@ -32,6 +36,8 @@ import {
   ArrowTrendingUpIcon,
   ArrowsRightLeftIcon,
   XMarkIcon,
+  PencilSquareIcon,
+  TrashIcon,
   ChatBubbleLeftRightIcon,
   PaperClipIcon,
   MegaphoneIcon,
@@ -45,6 +51,7 @@ import {
   CalendarDaysIcon,
   ClockIcon,
   ExclamationTriangleIcon,
+  BellAlertIcon,
   BuildingOfficeIcon,
   ChevronDoubleUpIcon,
   ChevronUpIcon,
@@ -77,7 +84,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
@@ -98,7 +105,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     pending: ['in_progress', 'escalated'],
     under_review: ['pending_approval', 'in_progress', 'rejected'],
     pending_approval: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'escalated'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress'],
     resolved: ['waiting_tenant', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
@@ -148,6 +155,7 @@ function formatRemaining(ms?: number | null): string {
 export default function TicketDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const base = user ? basePaths[user.role] : '/tenant/tickets';
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [replies, setReplies] = useState<TicketReply[]>([]);
@@ -175,6 +183,10 @@ export default function TicketDetail() {
   const [notes, setNotes] = useState('');
   const [deptModal, setDeptModal] = useState(false);
   const [staffModal, setStaffModal] = useState(false);
+  const [assigningStaff, setAssigningStaff] = useState(false);
+  const [remindModal, setRemindModal] = useState(false);
+  const [remindNotes, setRemindNotes] = useState('');
+  const [remindingStaff, setRemindingStaff] = useState(false);
   const [attributionModal, setAttributionModal] = useState(false);
   const [attributionUsers, setAttributionUsers] = useState<User[]>([]);
   const [overrideAssignTo, setOverrideAssignTo] = useState('');
@@ -186,12 +198,21 @@ export default function TicketDetail() {
   const [mergeModal, setMergeModal] = useState(false);
   const [noteModal, setNoteModal] = useState(false);
   const [attachModal, setAttachModal] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<TicketAttachment | null>(null);
+  const [editAttachment, setEditAttachment] = useState<TicketAttachment | null>(null);
+  const [editAttachmentComment, setEditAttachmentComment] = useState('');
+  const [editAttachmentSaving, setEditAttachmentSaving] = useState(false);
+  const [deleteAttachmentTarget, setDeleteAttachmentTarget] = useState<TicketAttachment | null>(null);
+  const [deleteAttachmentDeleting, setDeleteAttachmentDeleting] = useState(false);
   const [announceModal, setAnnounceModal] = useState(false);
   const [announceMessage, setAnnounceMessage] = useState('');
   const [announceSubmitting, setAnnounceSubmitting] = useState(false);
   const [reopenModal, setReopenModal] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenSubmitting, setReopenSubmitting] = useState(false);
+  const [declineModal, setDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [declineSubmitting, setDeclineSubmitting] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [assignPrefill, setAssignPrefill] = useState<{ text: string } | null>(null);
@@ -202,6 +223,15 @@ export default function TicketDetail() {
   const [deptManagers, setDeptManagers] = useState<DepartmentManager[]>([]);
   const [selectedManager, setSelectedManager] = useState('');
   const [loadingManagers, setLoadingManagers] = useState(false);
+  const [assigningDept, setAssigningDept] = useState(false);
+  const [assignmentAlert, setAssignmentAlert] = useState<{
+    type: 'department' | 'staff';
+    title: string;
+    message: string;
+    departmentName?: string;
+    managerName?: string;
+    timestamp: Date;
+  } | null>(null);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('medium');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -229,9 +259,9 @@ export default function TicketDetail() {
       const res = await fetchTicket(id);
       const ticketData = res.data.data;
       setTicket(ticketData);
-      const shortId = ticketData?.ticketNum ? String(ticketData.ticketNum) : ticketData?.referenceNumber;
-      if (shortId && id !== shortId && id.length > 20) {
-        navigate(`${base}/${shortId}`, { replace: true });
+      const targetRef = ticketData?.referenceNumber || (ticketData as any)?.reference_number;
+      if (targetRef && id !== targetRef) {
+        navigate(`${base}/${targetRef}`, { replace: true });
       }
     } catch (e: any) {
       if (e?.response?.status === 403) {
@@ -265,6 +295,11 @@ export default function TicketDetail() {
   };
 
   useEffect(() => {
+    setNotes('');
+    setSelectedStaff('');
+    setRemindNotes('');
+    setStaffModal(false);
+    setRemindModal(false);
     loadTicket();
     loadReplies();
     loadTimeline();
@@ -298,8 +333,14 @@ export default function TicketDetail() {
   useEffect(() => {
     if (deptModal || noteModal) fetchActiveDepartments().then((r) => setDepartments(r.data.data));
     if (staffModal || mergeModal || attributionModal) {
-      fetchUsers({ role: 'staff', limit: 200, departmentId: ticket?.departmentId || undefined }).then((r) => {
-        const list = (r.data.data || []).filter((u) => !ticket?.departmentId || u.departments?.some((d) => d.id === ticket?.departmentId));
+      const targetDeptId = toShortId(ticket?.departmentId) || undefined;
+      fetchUsers({ role: 'staff', limit: 200, departmentId: targetDeptId }).then((r) => {
+        const tid = ticket?.departmentId;
+        const tidShort = toShortId(tid);
+        const list = (r.data.data || []).filter((u) => {
+          if (!tid) return true;
+          return u.departments?.some((d) => d.id === tid || d.code === tid || toShortId(d.id) === tidShort);
+        });
         setStaffUsers(list.map((u) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName })));
       });
     }
@@ -431,13 +472,144 @@ export default function TicketDetail() {
   }, [selectedDept]);
 
   const flash = (msg: string, isErr = false) => {
-    if (isErr) setError(msg); else setMessage(msg);
-    setTimeout(() => { setMessage(''); setError(''); }, 3500);
+    if (isErr) {
+      setError(msg);
+      showError(msg, 'Ticket Alert');
+    } else {
+      setMessage(msg);
+      showSuccess(msg, 'Ticket Updated');
+    }
+    setTimeout(() => { setMessage(''); setError(''); }, 4000);
+  };
+
+  const openStaffModal = () => {
+    if (ticket?.status === 'waiting_tenant' || (ticket as any)?.status === 'escalated.waiting_tenant') {
+      flash('Cannot assign staff: Ticket is waiting for tenant response/confirmation.', true);
+      return;
+    }
+    setSelectedStaff('');
+    setNotes('');
+    setStaffModal(true);
+  };
+
+  const closeStaffModal = () => {
+    setStaffModal(false);
+    setSelectedStaff('');
+    setNotes('');
+  };
+
+  const closeDeptModal = () => {
+    setDeptModal(false);
+    setSelectedManager('');
+    setNotes('');
+  };
+
+  const handleAssignDepartmentSubmit = async () => {
+    if (!selectedDept || !ticket) return;
+    if (ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant') {
+      flash('Cannot assign department: Ticket is waiting for tenant response/confirmation.', true);
+      return;
+    }
+
+    const targetDeptObj = departments.find((d) => d.id === selectedDept);
+    const targetDeptName = targetDeptObj?.name || 'Department';
+
+    const targetManagerObj = deptManagers.find((m) => m.id === selectedManager);
+    const targetManagerName = targetManagerObj
+      ? `${targetManagerObj.firstName} ${targetManagerObj.lastName}`
+      : null;
+
+    try {
+      setAssigningDept(true);
+      await assignDepartment(ticket.id, {
+        departmentId: selectedDept,
+        managerId: selectedManager || undefined,
+        notes,
+      });
+
+      closeDeptModal();
+
+      const successMessage = targetManagerName
+        ? `Ticket ${ticket.referenceNumber || ticket.id} was successfully assigned to the ${targetDeptName} department and routed to Manager ${targetManagerName}. In-app alert notification and registered email have been dispatched.`
+        : `Ticket ${ticket.referenceNumber || ticket.id} was successfully assigned to the ${targetDeptName} department unassigned queue. In-app alert notification and registered email have been dispatched.`;
+
+      setAssignmentAlert({
+        type: 'department',
+        title: 'Department & Manager Assignment Confirmed',
+        message: successMessage,
+        departmentName: targetDeptName,
+        managerName: targetManagerName || undefined,
+        timestamp: new Date(),
+      });
+
+      flash(`✓ Ticket ${ticket.referenceNumber || ticket.id} was successfully assigned to ${targetDeptName}. In-app alert and registered email dispatched.`);
+      await Promise.all([loadTicket(), loadReplies(), loadTimeline()]);
+    } catch (e: any) {
+      flash(e?.response?.data?.message || 'Failed to assign department', true);
+    } finally {
+      setAssigningDept(false);
+    }
+  };
+
+  const handleAssignStaffSubmit = async () => {
+    if (!selectedStaff || !ticket) return;
+    if (ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant') {
+      flash('Cannot assign staff: Ticket is waiting for tenant response/confirmation.', true);
+      return;
+    }
+    if (selectedStaff === ticket.assignedTo) {
+      flash('This staff member is already assigned to this ticket. Duplicate assignment is restricted. Use the reminder feature instead.', true);
+      return;
+    }
+    const targetStaffObj = staffUsers.find((s) => s.id === selectedStaff);
+    const targetStaffName = targetStaffObj ? `${targetStaffObj.firstName} ${targetStaffObj.lastName}` : 'Staff';
+    try {
+      setAssigningStaff(true);
+      await assignStaff(ticket.id, { staffId: selectedStaff, notes });
+      closeStaffModal();
+
+      setAssignmentAlert({
+        type: 'staff',
+        title: 'Staff Member Assignment Confirmed',
+        message: `Ticket ${ticket.referenceNumber || (ticket as any).reference_number || ''} was successfully assigned to ${targetStaffName}. High-priority in-app alert and registered email notification have been dispatched.`,
+        departmentName: ticket.departmentName || undefined,
+        managerName: targetStaffName,
+        timestamp: new Date(),
+      });
+
+      flash(`✓ Ticket ${ticket.referenceNumber || (ticket as any).reference_number || ''} was successfully assigned to ${targetStaffName}. In-app alert and registered email notification have been dispatched.`);
+      loadTicket();
+      loadReplies();
+      loadTimeline();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || 'Failed to assign staff', true);
+    } finally {
+      setAssigningStaff(false);
+    }
+  };
+
+  const handleSendReminderSubmit = async (customNote?: string) => {
+    if (!ticket) return;
+    try {
+      setRemindingStaff(true);
+      const noteToSend = customNote !== undefined ? customNote : (remindNotes || notes);
+      await remindStaff(ticket.id, { notes: noteToSend });
+      setRemindModal(false);
+      setRemindNotes('');
+      if (staffModal) closeStaffModal();
+      flash(`✓ Reminder successfully dispatched to ${ticket.assignedToName || 'assigned staff'} via in-app alert and registered email.`);
+      loadTimeline();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || 'Failed to send reminder', true);
+    } finally {
+      setRemindingStaff(false);
+    }
   };
 
   const getTransitions = (): TicketStatus[] => {
     if (!ticket || !user) return [];
-    return TRANSITIONS[user.role]?.[ticket.status] || [];
+    const baseStatus = ((ticket.status || '') as string).replace(/^escalated\./, '') as TicketStatus;
+    return TRANSITIONS[user.role]?.[baseStatus] || [];
   };
 
   const call = async (fn: () => Promise<unknown>, okMsg: string) => {
@@ -447,6 +619,26 @@ export default function TicketDetail() {
       loadTicket(); loadReplies(); loadTimeline();
     } catch (e: any) {
       flash(e?.response?.data?.message || 'Action failed', true);
+    }
+  };
+
+  const handleDeleteAttachmentPrompt = async (fileToDelete: TicketAttachment) => {
+    const fName = fileToDelete.fileName || (fileToDelete as any).file_name || 'this file';
+    const confirmed = window.confirm(`Permanently delete "${fName}" from the database?\n\nThis will remove the attachment record from the database and delete the file from storage.`);
+    if (!confirmed) return;
+    const targetId = fileToDelete.id || (fileToDelete as any).id;
+    const currentTicketId = ticket?.id || id || '';
+    try {
+      await deleteTicketAttachment(currentTicketId, targetId);
+      flash(`Attachment "${fName}" permanently deleted from database`);
+      loadTicket(); loadReplies(); loadTimeline();
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        flash(`Attachment "${fName}" removed from database`);
+        loadTicket(); loadReplies(); loadTimeline();
+      } else {
+        flash(e?.response?.data?.message || 'Failed to delete attachment', true);
+      }
     }
   };
 
@@ -487,6 +679,53 @@ export default function TicketDetail() {
       {message && <div className={styles.toast}>{message}</div>}
       {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
 
+      {assignmentAlert && (
+        <div className={styles.assignmentSuccessAlert}>
+          <div className={styles.assignmentSuccessAlertContent}>
+            <div className={styles.assignmentSuccessAlertIcon}>
+              🔔
+            </div>
+            <div className={styles.assignmentSuccessAlertBody}>
+              <div className={styles.assignmentSuccessAlertTitleRow}>
+                <span className={styles.assignmentSuccessAlertBadge}>ASSIGNMENT DISPATCHED</span>
+                <strong className={styles.assignmentSuccessAlertTitle}>{assignmentAlert.title}</strong>
+              </div>
+              <p className={styles.assignmentSuccessAlertMsg}>{assignmentAlert.message}</p>
+              <div className={styles.assignmentSuccessAlertMeta}>
+                {assignmentAlert.departmentName && (
+                  <span className={styles.assignmentSuccessAlertPill}>
+                    🏢 Department: <strong>{assignmentAlert.departmentName}</strong>
+                  </span>
+                )}
+                {assignmentAlert.managerName && (
+                  <span className={styles.assignmentSuccessAlertPill}>
+                    👤 Assigned {assignmentAlert.type === 'department' ? 'Manager' : 'Staff'}: <strong>{assignmentAlert.managerName}</strong>
+                  </span>
+                )}
+                <span
+                  className={styles.assignmentSuccessAlertPill}
+                  style={{ background: '#ecfdf5', color: '#065f46', borderColor: '#a7f3d0' }}
+                >
+                  ✓ In-App Alert & Registered Email Notification Dispatched
+                </span>
+                <span className={styles.assignmentSuccessAlertTime}>
+                  {assignmentAlert.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.assignmentSuccessAlertClose}
+            onClick={() => setAssignmentAlert(null)}
+            title="Dismiss notification alert"
+            aria-label="Dismiss alert"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className={styles.detailGrid}>
         <div className={styles.card}>
           <div className={styles.detailsCardHeader}>
@@ -505,7 +744,7 @@ export default function TicketDetail() {
                 Status
               </span>
               <span className={styles.detailValue}>
-                <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status] || ticket.status}</span>
+                <span className={`${styles.badge} ${styles[getStatusClassName(ticket.status)] || styles[ticket.status]}`}>{getStatusLabel(ticket.status)}</span>
               </span>
             </div>
             <div className={styles.detailItem}>
@@ -652,22 +891,33 @@ export default function TicketDetail() {
               </span>
               <span className={styles.detailValue}>
                 {ticket.tenantEmail || ticket.createdByEmail ? (
-                  <button
-                    type="button"
-                    className={styles.tenantEmailLink}
-                    title={`Send direct email to ${ticket.tenantEmail || ticket.createdByEmail}`}
-                    onClick={() => {
-                      setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
-                      setContactTarget({
-                        email: (ticket.tenantEmail || ticket.createdByEmail)!,
-                        name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
-                        roleOrType: 'Ticket Submitter',
-                      });
-                    }}
-                  >
-                    <EnvelopeIcon className={styles.contactIconSmall} />
-                    <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
-                  </button>
+                  canNotifyTenant(user, ticket) ? (
+                    <button
+                      type="button"
+                      className={styles.tenantEmailLink}
+                      title={`Send official notification to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                      onClick={() => {
+                        setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
+                        setContactTarget({
+                          email: (ticket.tenantEmail || ticket.createdByEmail)!,
+                          name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
+                          roleOrType: 'Ticket Submitter',
+                          ticketId: ticket.id,
+                        });
+                      }}
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                    </button>
+                  ) : (
+                    <span
+                      className={styles.tenantEmailReadOnly}
+                      title="Official email notifications to tenants are restricted to Administrators and the assigned Department Manager"
+                    >
+                      <EnvelopeIcon className={styles.contactIconSmall} />
+                      <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                    </span>
+                  )
                 ) : (
                   <span className={styles.unassignedChip}>—</span>
                 )}
@@ -680,14 +930,24 @@ export default function TicketDetail() {
               </span>
               <span className={styles.detailValue}>
                 {ticket.tenantPhone || ticket.createdByPhone ? (
-                  <a
-                    href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
-                    className={styles.tenantPhoneLink}
-                    title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
-                  >
-                    <PhoneIcon className={styles.contactIconSmall} />
-                    <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
-                  </a>
+                  canNotifyTenant(user, ticket) ? (
+                    <a
+                      href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                      className={styles.tenantPhoneLink}
+                      title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                    </a>
+                  ) : (
+                    <span
+                      className={styles.tenantPhoneReadOnly}
+                      title="Direct calls to tenants are restricted to Administrators and the assigned Department Manager"
+                    >
+                      <PhoneIcon className={styles.contactIconSmall} />
+                      <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                    </span>
+                  )
                 ) : (
                   <span className={styles.unassignedChip}>—</span>
                 )}
@@ -834,23 +1094,44 @@ export default function TicketDetail() {
           </div>
         </div>
 
-        {(role === 'admin' || role === 'manager' || role === 'staff') && (() => {
+        {(() => {
+          const isAdminRole = role === 'admin' || role === 'ceo';
+          if (!isAdminRole && role !== 'manager' && role !== 'staff') return null;
+
+          const normalizedStatus = ((ticket.status || '') as string).replace(/^escalated\./, '') as TicketStatus;
+          const isClosed = normalizedStatus === 'closed';
+          if (isClosed) {
+            return (
+              <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
+                  <span>🔒</span> Ticket Actions Locked
+                </h3>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '8px 0 0' }}>
+                  This ticket is <strong>Closed (Inactive)</strong>. Normal processing, assignments, reassignments, and status modifications are disabled.
+                  {(ticket.reopenStatus === 'requested' || ticket.reopen_status === 'requested') ? ' A tenant reopening request is currently pending review below.' : ''}
+                </p>
+              </div>
+            );
+          }
+
+          const isWaitingTenant = normalizedStatus === 'waiting_tenant';
           const canReopen =
-            (role === 'admin' || role === 'manager') &&
-            ['resolved', 'closed', 'completed', 'waiting_tenant'].includes(ticket.status);
+            (isAdminRole || role === 'manager') &&
+            !isWaitingTenant &&
+            ['resolved', 'closed', 'completed'].includes(normalizedStatus);
 
           const hasWorkflowActions =
             transitions.length > 0 ||
-            (role === 'admin' && (ticket.routingType ?? 'general') !== 'direct') ||
+            (isAdminRole && (ticket.routingType ?? 'general') !== 'direct') ||
             (role === 'manager' && !!ticket.departmentId) ||
-            ((role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open')) ||
-            (role === 'staff' && ticket.status === 'in_progress') ||
-            (role === 'manager' && (ticket.status === 'under_review' || ticket.status === 'in_progress')) ||
-            (role === 'admin' && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
+            ((role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open')) ||
+            (role === 'staff' && normalizedStatus === 'in_progress') ||
+            (role === 'manager' && (normalizedStatus === 'under_review' || normalizedStatus === 'in_progress')) ||
+            (isAdminRole && (normalizedStatus === 'pending_approval' || normalizedStatus === 'in_progress' || normalizedStatus === 'under_review')) ||
             transitions.includes('closed') ||
             (transitions.includes('reopened') && canReopen);
 
-          const hasManagementActions = role === 'admin' || role === 'manager';
+          const hasManagementActions = isAdminRole || role === 'manager';
 
           return (
             <div className={styles.card}>
@@ -858,7 +1139,7 @@ export default function TicketDetail() {
                 <span>⚡</span> Ticket Actions
               </h3>
               <div className={styles.actionsSection}>
-                {role === 'admin' && (
+                {isAdminRole && (
                   <div className={ticket.departmentId ? styles.deptInfoBanner : styles.deptWarnBanner}>
                     {ticket.departmentId ? (
                       <>
@@ -897,27 +1178,47 @@ export default function TicketDetail() {
                             Update Status
                           </button>
                         )}
-                        {role === 'admin' && (ticket.routingType ?? 'general') !== 'direct' && (
+                        {isAdminRole && (ticket.routingType ?? 'general') !== 'direct' && (
                           <button
                             className={styles.btnInfo}
-                            onClick={() => setDeptModal(true)}
-                            title="Assign Department"
+                            onClick={() => {
+                              if (isWaitingTenant) {
+                                flash('Cannot assign department: Ticket is waiting for tenant response/confirmation.', true);
+                                return;
+                              }
+                              setDeptModal(true);
+                            }}
+                            disabled={isWaitingTenant}
+                            title={isWaitingTenant ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation' : 'Assign Department'}
                           >
                             <BuildingOffice2Icon className={styles.btnIcon} />
                             Assign Dept
                           </button>
                         )}
                         {role === 'manager' && ticket.departmentId && (
-                          <button
-                            className={styles.btnInfo}
-                            onClick={() => setStaffModal(true)}
-                            title="Assign Staff to Department Member"
-                          >
-                            <UserPlusIcon className={styles.btnIcon} />
-                            Assign Staff
-                          </button>
+                          <>
+                            <button
+                              className={styles.btnInfo}
+                              onClick={openStaffModal}
+                              disabled={isWaitingTenant}
+                              title={isWaitingTenant ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation' : (ticket.assignedTo ? 'Reassign Staff to Another Department Member' : 'Assign Staff to Department Member')}
+                            >
+                              <UserPlusIcon className={styles.btnIcon} />
+                              {ticket.assignedTo ? 'Reassign Staff' : 'Assign Staff'}
+                            </button>
+                            {ticket.assignedTo && ['open', 'assigned', 'in_progress', 'reopened'].includes(ticket.status) && (
+                              <button
+                                className={styles.btnAmber}
+                                onClick={() => { setRemindNotes(''); setRemindModal(true); }}
+                                title="Send an assignment reminder to the currently assigned staff member"
+                              >
+                                <BellAlertIcon className={styles.btnIcon} />
+                                Remind Staff
+                              </button>
+                            )}
+                          </>
                         )}
-                        {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                        {(role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open') && (
                           <button
                             className={styles.btnSuccess}
                             onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}
@@ -927,7 +1228,7 @@ export default function TicketDetail() {
                             Accept
                           </button>
                         )}
-                        {(role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open') && (
+                        {(role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open') && (
                           <button
                             className={styles.btnReject}
                             onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}
@@ -939,7 +1240,7 @@ export default function TicketDetail() {
                         )}
 
                         {/* Staff: on in_progress, clicking Resolve submits to Department Manager approval */}
-                        {role === 'staff' && ticket.status === 'in_progress' && (
+                        {role === 'staff' && normalizedStatus === 'in_progress' && (
                           <button
                             className={styles.btnEmerald}
                             onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Department Manager approval!')}
@@ -951,7 +1252,7 @@ export default function TicketDetail() {
                         )}
 
                         {/* Manager: on under_review -> Approve Resolution & Request Rework; on in_progress -> Resolve */}
-                        {role === 'manager' && ticket.status === 'under_review' && (
+                        {role === 'manager' && normalizedStatus === 'under_review' && (
                           <>
                             <button
                               className={styles.btnEmerald}
@@ -971,7 +1272,7 @@ export default function TicketDetail() {
                             </button>
                           </>
                         )}
-                        {role === 'manager' && ticket.status === 'in_progress' && (
+                        {role === 'manager' && normalizedStatus === 'in_progress' && (
                           <button
                             className={styles.btnEmerald}
                             onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Resolution submitted for Admin verification.')}
@@ -983,7 +1284,7 @@ export default function TicketDetail() {
                         )}
 
                         {/* Admin: on pending_approval -> Verify & Resolve or Return for Revision; on under_review/in_progress -> Resolve */}
-                        {role === 'admin' && ticket.status === 'pending_approval' && (
+                        {isAdminRole && normalizedStatus === 'pending_approval' && (
                           <>
                             <button
                               className={styles.btnEmerald}
@@ -1003,7 +1304,7 @@ export default function TicketDetail() {
                             </button>
                           </>
                         )}
-                        {role === 'admin' && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
+                        {isAdminRole && (normalizedStatus === 'in_progress' || normalizedStatus === 'under_review') && (
                           <button
                             className={styles.btnEmerald}
                             onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}
@@ -1045,7 +1346,7 @@ export default function TicketDetail() {
                         <span className={styles.clusterLabel}>Properties & Routing</span>
                       </div>
                       <div className={styles.btnClusterRow}>
-                        {(role === 'admin' || role === 'manager') && (
+                        {(isAdminRole || role === 'manager') && (
                           <button
                             className={styles.btnAmber}
                             onClick={() => setPriorityModal(true)}
@@ -1055,7 +1356,7 @@ export default function TicketDetail() {
                             Change Priority
                           </button>
                         )}
-                        {role === 'admin' && (
+                        {isAdminRole && (
                           <button
                             className={styles.btnRose}
                             onClick={() => setCategoryModal(true)}
@@ -1065,7 +1366,7 @@ export default function TicketDetail() {
                             Change Category
                           </button>
                         )}
-                        {(role === 'admin' || role === 'manager') && (
+                        {(isAdminRole || role === 'manager') && (
                           <button
                             className={styles.btnOrange}
                             onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}
@@ -1075,7 +1376,7 @@ export default function TicketDetail() {
                             Escalate
                           </button>
                         )}
-                        {role === 'admin' && (
+                        {isAdminRole && (
                           <button
                             className={styles.btnIndigo}
                             onClick={() => setMergeModal(true)}
@@ -1112,7 +1413,7 @@ export default function TicketDetail() {
                         <PaperClipIcon className={styles.btnIcon} />
                         Upload File
                       </button>
-                      {(role === 'admin' || role === 'manager') && (
+                      {((ticket.routingType || 'general') === 'direct' ? role === 'manager' : role === 'admin') && (
                         <button
                           className={styles.btnAnnounce}
                           onClick={() => setAnnounceModal(true)}
@@ -1205,7 +1506,7 @@ export default function TicketDetail() {
         })()}
 
         {/* Under Review Banner (Staff submitted -> Pending Dept Manager Approval) */}
-        {ticket.status === 'under_review' && (
+        {((ticket.status || '').replace(/^escalated\./, '') === 'under_review') && (
           <div className={`${styles.card} ${styles.slaWarningCard}`} style={{ borderLeft: '4px solid #a855f7' }}>
             <h3>
               <span>📋</span> {role === 'manager' ? 'Staff Resolution Awaiting Your Approval' : 'Resolution Under Department Review'}
@@ -1237,10 +1538,10 @@ export default function TicketDetail() {
         )}
 
         {/* Pending Approval Banner (Dept Manager approved -> Pending Admin Verification) */}
-        {ticket.status === 'pending_approval' && (
+        {((ticket.status || '').replace(/^escalated\./, '') === 'pending_approval') && (
           <div className={`${styles.card} ${styles.slaWarningCard}`} style={{ borderLeft: '4px solid #3b82f6' }}>
             <h3>
-              <span>🛡️</span> {role === 'admin' ? 'Resolution Awaiting Admin Verification' : 'Pending Administrative Verification'}
+              <span>🛡️</span> {(role === 'admin' || role === 'ceo') ? 'Resolution Awaiting Admin Verification' : 'Pending Administrative Verification'}
             </h3>
             <p>
               {role === 'admin'
@@ -1269,7 +1570,7 @@ export default function TicketDetail() {
         )}
 
         {/* Waiting for Tenant Banner (Admin approved & verified -> Waiting for Tenant) */}
-        {(role === 'admin' || role === 'manager' || role === 'staff') && ticket.status === 'waiting_tenant' && (
+        {(role === 'admin' || role === 'manager' || role === 'staff') && (ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant') && (
           <div className={`${styles.card} ${styles.slaWarningCard}`}>
             <h3>
               <span>⏳</span> Waiting for Tenant Confirmation
@@ -1277,6 +1578,9 @@ export default function TicketDetail() {
             <p>
               The ticket has been resolved by our team and verified by Admin. Waiting for the tenant to inspect the resolution, rate satisfaction, and confirm if the issue is solved.
             </p>
+            <div style={{ marginTop: '8px', fontSize: '13px', color: '#b45309', fontWeight: 600 }}>
+              🔒 Department assignment and status modifications are locked until the tenant responds or confirms the resolution.
+            </div>
           </div>
         )}
 
@@ -1353,24 +1657,129 @@ export default function TicketDetail() {
           </div>
         )}
 
-        {/* Completed Status Card */}
-        {ticket.status === 'completed' && (
-          <div className={`${styles.card} ${styles.completedCard}`}>
-            <h3><span>🎉</span> Ticket Completed</h3>
-            <p>
-              The tenant has verified and confirmed this ticket is solved. The request is officially completed.
+        {/* Closed & Inactive Status Card with Reopening Workflow */}
+        {(ticket.status === 'closed' || ticket.status === 'completed') && (
+          <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
+                <span>🔒</span> Ticket Closed (Inactive)
+              </h3>
+              <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', textTransform: 'uppercase' }}>
+                Read-Only
+              </span>
+            </div>
+            <p style={{ color: '#475569', fontSize: '14px', margin: '6px 0 14px' }}>
+              All work has been completed and the issue was confirmed resolved by the tenant. This ticket is officially closed and inactive. Normal processing, assignments, and status modifications are disabled.
             </p>
-            {role === 'tenant' && (
-              <div style={{ marginTop: '1rem' }}>
+
+            {/* Pending Reopening Request Box */}
+            {(ticket.reopenStatus === 'requested' || ticket.reopen_status === 'requested') && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#92400e', fontSize: '15px' }}>
+                    <span>⏳</span> Reopening Request from Tenant (Pending Approval)
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px', background: '#fef3c7', color: '#b45309' }}>
+                    Awaiting Review
+                  </span>
+                </div>
+                <div style={{ background: '#ffffff', border: '1px solid #fed7aa', borderRadius: '6px', padding: '12px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#9a3412', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Reason for Reopening:
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#1c1917', lineHeight: 1.5 }}>
+                    {(ticket.reopenRequestReason || ticket.reopen_request_reason || 'No details provided')}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '12px', color: '#78350f', marginBottom: '12px' }}>
+                  {(ticket.reopenRequestedAt || ticket.reopen_requested_at) && (
+                    <div>
+                      <strong>Requested:</strong> {new Date(ticket.reopenRequestedAt || ticket.reopen_requested_at || '').toLocaleString()}
+                    </div>
+                  )}
+                  {(ticket.reopenRequestedByName || ticket.reopen_requested_by_name) && (
+                    <div>
+                      <strong>Requester:</strong> {ticket.reopenRequestedByName || ticket.reopen_requested_by_name}
+                    </div>
+                  )}
+                </div>
+
+                {/* Manager / Admin Review Actions */}
+                {(role === 'admin' || role === 'ceo' || role === 'manager') && (() => {
+                  const isAuthorizedManager = role === 'admin' || role === 'ceo' || (
+                    role === 'manager' && (
+                      !ticket.departmentId ||
+                      ticket.departmentId === (user as any)?.department_id ||
+                      (user as any)?.departments?.some((d: any) => d.id === ticket.departmentId || d === ticket.departmentId)
+                    )
+                  );
+
+                  if (!isAuthorizedManager) {
+                    return (
+                      <div style={{ fontSize: '13px', color: '#b45309', fontStyle: 'italic', background: '#fef3c7', padding: '8px 12px', borderRadius: '6px' }}>
+                        ℹ️ Reopening approval for this ticket is restricted to the assigned Department Manager or System Administrator.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                      <button
+                        type="button"
+                        className={styles.btnApprove}
+                        onClick={() => call(() => approveReopenTicket(ticket.id), 'Ticket Reopening Approved! Active processing resumed.')}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: 600 }}
+                      >
+                        <CheckCircleIcon style={{ width: 18, height: 18 }} />
+                        Approve Reopening
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnReject}
+                        onClick={() => {
+                          setDeclineReason('');
+                          setDeclineModal(true);
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: 600 }}
+                      >
+                        <XMarkIcon style={{ width: 18, height: 18 }} />
+                        Decline Request
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Tenant pending notice */}
+                {role === 'tenant' && (
+                  <div style={{ fontSize: '13px', color: '#92400e', fontStyle: 'italic' }}>
+                    Your reopening request has been delivered to management and is awaiting review. You will receive a notification once a decision is made.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Declined notice if previously rejected */}
+            {(ticket.reopenStatus === 'rejected' || ticket.reopen_status === 'rejected') && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '10px', fontSize: '13px', color: '#991b1b' }}>
+                ℹ️ Previous reopening request was reviewed and declined. The ticket remains closed.
+              </div>
+            )}
+
+            {/* Tenant Request Reopen Button (if not already requested) */}
+            {role === 'tenant' && ticket.reopenStatus !== 'requested' && ticket.reopen_status !== 'requested' && (
+              <div style={{ marginTop: '14px' }}>
                 <button
                   type="button"
                   className={styles.btnAmber}
                   onClick={() => { setReopenReason(''); setReopenModal(true); }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: 600 }}
                 >
                   <ArrowPathIcon style={{ width: 16, height: 16 }} />
-                  Reopen Ticket (Issue Recurred)
+                  Request Ticket Reopening
                 </button>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '6px' }}>
+                  If the issue remains unfinished, unresolved, or requires further attention, you can request reopening for review by management.
+                </div>
               </div>
             )}
           </div>
@@ -1397,16 +1806,16 @@ export default function TicketDetail() {
               </div>
             )}
             <div className={styles.reopenedMetaGrid}>
-              {ticket.reopenedAt && (
+              {(ticket.reopenedAt || ticket.reopened_at) && (
                 <div className={styles.reopenedMetaItem}>
                   <span className={styles.reopenedMetaLabel}>Reopened:</span>
-                  <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt).toLocaleString()}</span>
+                  <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt || ticket.reopened_at || '').toLocaleString()}</span>
                 </div>
               )}
-              {ticket.reopenedByName && (
+              {(ticket.reopenedByName || ticket.reopened_by_name) && (
                 <div className={styles.reopenedMetaItem}>
                   <span className={styles.reopenedMetaLabel}>Reopened By:</span>
-                  <span className={styles.reopenedMetaValue}>{ticket.reopenedByName}</span>
+                  <span className={styles.reopenedMetaValue}>{ticket.reopenedByName || ticket.reopened_by_name}</span>
                 </div>
               )}
               {ticket.dueDate && (
@@ -1426,7 +1835,7 @@ export default function TicketDetail() {
             <ul className={styles.relatedArticles}>
               {relatedArticles.map((a) => (
                 <li key={a.id}>
-                  <Link to={`/admin/knowledge/${a.id}`} className={styles.kbLink}>
+                  <Link to={`/admin/knowledge/${a.articleReference || a.id.slice(0, 4)}`} className={styles.kbLink}>
                     <strong>{a.title}</strong>
                     <span>{a.articleReference} · {a.category}</span>
                   </Link>
@@ -1491,29 +1900,44 @@ export default function TicketDetail() {
                 <td><strong>Tenant / Creator Email</strong></td>
                 <td>
                   {(ticket.tenantEmail || ticket.createdByEmail) ? (
-                    <button
-                      type="button"
-                      className={styles.tenantEmailLink}
-                      title={`Send direct email to ${ticket.tenantEmail || ticket.createdByEmail}`}
-                      onClick={() => {
-                        setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
-                        setContactTarget({
-                          email: (ticket.tenantEmail || ticket.createdByEmail)!,
-                          name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
-                          roleOrType: 'Ticket Submitter',
-                        });
-                      }}
-                    >
-                      <EnvelopeIcon className={styles.contactIconSmall} />
-                      <span className={styles.emailTextStrong}>{ticket.tenantEmail || ticket.createdByEmail}</span>
-                    </button>
+                    canNotifyTenant(user, ticket) ? (
+                      <button
+                        type="button"
+                        className={styles.tenantEmailLink}
+                        title={`Send official notification to ${ticket.tenantEmail || ticket.createdByEmail}`}
+                        onClick={() => {
+                          setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
+                          setContactTarget({
+                            email: (ticket.tenantEmail || ticket.createdByEmail)!,
+                            name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
+                            roleOrType: 'Ticket Submitter',
+                            ticketId: ticket.id,
+                          });
+                        }}
+                      >
+                        <EnvelopeIcon className={styles.contactIconSmall} />
+                        <span className={styles.emailTextStrong}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                      </button>
+                    ) : (
+                      <span
+                        className={styles.tenantEmailReadOnly}
+                        title="Official email notifications to tenants are restricted to Administrators and the assigned Department Manager"
+                      >
+                        <EnvelopeIcon className={styles.contactIconSmall} />
+                        <span className={styles.emailTextStrong}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                      </span>
+                    )
                   ) : (
                     <span className={styles.textMuted}>No email on record</span>
                   )}
                 </td>
                 <td>
                   {(ticket.tenantEmail || ticket.createdByEmail) && (
-                    <span className={styles.autoFetchedPill}>✓ Direct Email Link</span>
+                    canNotifyTenant(user, ticket) ? (
+                      <span className={styles.autoFetchedPill}>✓ Direct Email Link</span>
+                    ) : (
+                      <span className={styles.restrictedContactPill}>🔒 Admin/Manager Only</span>
+                    )
                   )}
                 </td>
               </tr>
@@ -1521,21 +1945,35 @@ export default function TicketDetail() {
                 <td><strong>Tenant / Creator Phone</strong></td>
                 <td>
                   {(ticket.tenantPhone || ticket.createdByPhone) ? (
-                    <a
-                      href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
-                      className={styles.tenantPhoneLink}
-                      title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
-                    >
-                      <PhoneIcon className={styles.contactIconSmall} />
-                      <span className={styles.phoneTextStrong}>{ticket.tenantPhone || ticket.createdByPhone}</span>
-                    </a>
+                    canNotifyTenant(user, ticket) ? (
+                      <a
+                        href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
+                        className={styles.tenantPhoneLink}
+                        title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
+                      >
+                        <PhoneIcon className={styles.contactIconSmall} />
+                        <span className={styles.phoneTextStrong}>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                      </a>
+                    ) : (
+                      <span
+                        className={styles.tenantPhoneReadOnly}
+                        title="Direct calls to tenants are restricted to Administrators and the assigned Department Manager"
+                      >
+                        <PhoneIcon className={styles.contactIconSmall} />
+                        <span className={styles.phoneTextStrong}>{ticket.tenantPhone || ticket.createdByPhone}</span>
+                      </span>
+                    )
                   ) : (
                     <span className={styles.textMuted}>No phone number on record</span>
                   )}
                 </td>
                 <td>
                   {(ticket.tenantPhone || ticket.createdByPhone) && (
-                    <span className={styles.autoFetchedPill}>✓ Direct Telephone Link</span>
+                    canNotifyTenant(user, ticket) ? (
+                      <span className={styles.autoFetchedPill}>✓ Direct Telephone Link</span>
+                    ) : (
+                      <span className={styles.restrictedContactPill}>🔒 Admin/Manager Only</span>
+                    )
                   )}
                 </td>
               </tr>
@@ -1579,6 +2017,11 @@ export default function TicketDetail() {
               const sizeStr = formatFileSize(file.fileSize || (file as any).file_size);
               const isImage = (file.mimeType || (file as any).mime_type || '').startsWith('image/') ||
                 /\.(png|jpe?g|webp|gif|svg)$/i.test(fileName);
+              const uploaderId = file.uploadedBy || (file as any).uploaded_by;
+              const isCreator = Boolean(ticket.createdBy && String(ticket.createdBy) === String(user?.id));
+              const isUploader = Boolean(uploaderId && String(uploaderId) === String(user?.id));
+              const isAdmin = Boolean(user && (user.role === 'admin' || user.role === 'ceo'));
+              const canManage = Boolean(user && (isUploader || isCreator || isAdmin));
 
               return (
                 <div key={file.id} className={styles.attachmentCard}>
@@ -1592,15 +2035,15 @@ export default function TicketDetail() {
                       )}
                     </div>
                     <div className={styles.attachmentDetails}>
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(file)}
                         className={styles.attachmentFileName}
-                        title={`Click to open: ${fileName}`}
+                        style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer' }}
+                        title={`Click to preview: ${fileName}`}
                       >
                         {fileName}
-                      </a>
+                      </button>
                       <div className={styles.attachmentSubMeta}>
                         {sizeStr && <span className={styles.attachmentSize}>{sizeStr}</span>}
                         {sizeStr && dateStr && <span>•</span>}
@@ -1612,15 +2055,14 @@ export default function TicketDetail() {
                       </div>
                     </div>
                     <div className={styles.attachmentActions}>
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPreviewAttachment(file)}
                         className={styles.attachmentActionBtn}
-                        title="View file in new tab"
+                        title="View file preview"
                       >
                         <EyeIcon className={styles.attachmentActionIcon} />
-                      </a>
+                      </button>
                       <a
                         href={fileUrl}
                         download={fileName}
@@ -1631,20 +2073,43 @@ export default function TicketDetail() {
                       >
                         <ArrowDownTrayIcon className={styles.attachmentActionIcon} />
                       </a>
+                      {canManage && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditAttachment(file);
+                              setEditAttachmentComment(comment || '');
+                            }}
+                            className={styles.attachmentActionBtnEdit}
+                            title="Edit attachment description / comment"
+                          >
+                            <PencilSquareIcon className={styles.attachmentActionIcon} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAttachmentPrompt(file)}
+                            className={styles.attachmentActionBtnDelete}
+                            title="Delete attachment permanently from database"
+                          >
+                            <TrashIcon className={styles.attachmentActionIcon} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   {/* Optional Image Thumbnail Preview */}
                   {isImage && (
-                    <a
-                      href={fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAttachment(file)}
                       className={styles.attachmentThumbContainer}
-                      title="Click to view full image"
+                      title="Click to preview image"
+                      style={{ cursor: 'pointer', background: 'transparent', padding: 0, textAlign: 'left', width: '100%', border: 'none' }}
                     >
                       <img src={fileUrl} alt={fileName} className={styles.attachmentThumb} loading="lazy" />
-                    </a>
+                    </button>
                   )}
 
                   {/* Middle: Uploader Badge */}
@@ -1943,7 +2408,7 @@ export default function TicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={deptModal} title="Assign Department & Manager" onClose={() => { setDeptModal(false); setSelectedManager(''); }}>
+      <Modal open={deptModal} title="Assign Department & Manager" onClose={closeDeptModal}>
         <div className={styles.modalForm}>
           <label>Department</label>
           <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
@@ -1973,36 +2438,178 @@ export default function TicketDetail() {
           )}
 
           <label>Notes</label>
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <button
-            disabled={!selectedDept}
-            onClick={() =>
-              call(
-                () =>
-                  assignDepartment(ticket.id, {
-                    departmentId: selectedDept,
-                    managerId: selectedManager || undefined,
-                    notes,
-                  }),
-                'Department assigned'
-              )
-            }
-          >
-            Assign
-          </button>
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional directives, instructions, or notes for the assigned department..." />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+            <button
+              type="button"
+              onClick={closeDeptModal}
+              style={{
+                background: 'var(--tk-bg-surface, #ffffff)',
+                color: 'var(--tk-text-secondary, #475569)',
+                border: '1px solid var(--tk-border-subtle, #cbd5e1)',
+                borderRadius: '8px',
+                padding: '9px 18px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selectedDept || assigningDept}
+              onClick={handleAssignDepartmentSubmit}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 24px',
+                cursor: (!selectedDept || assigningDept) ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                opacity: (!selectedDept || assigningDept) ? 0.6 : 1,
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)',
+              }}
+            >
+              {assigningDept ? 'Assigning...' : 'Assign'}
+            </button>
+          </div>
         </div>
       </Modal>
 
-      <Modal open={staffModal} title="Assign Staff" onClose={() => setStaffModal(false)}>
+      <Modal
+        open={staffModal}
+        title={ticket?.assignedTo ? "Reassign Staff" : "Assign Staff"}
+        onClose={closeStaffModal}
+        maxWidth="540px"
+      >
         <div className={styles.modalForm}>
-          <label>Staff</label>
-          <select value={selectedStaff} onChange={(e) => setSelectedStaff(e.target.value)}>
+          {ticket?.assignedTo && (
+            <div className={styles.assignmentCurrentBox}>
+              <span className={styles.assignmentCurrentLabel}>Currently Assigned:</span>
+              <span className={styles.assignmentCurrentValue}>{ticket.assignedToName || 'Assigned Staff'}</span>
+            </div>
+          )}
+
+          <label>Staff Member <span style={{ color: '#ef4444' }}>*</span></label>
+          <select
+            value={selectedStaff}
+            onChange={(e) => setSelectedStaff(e.target.value)}
+            className={styles.modalSelect}
+          >
             <option value="">Select Staff</option>
-            {staffUsers.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+            {staffUsers.map((s) => {
+              const isCurrent = s.id === ticket?.assignedTo;
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.firstName} {s.lastName} {isCurrent ? '— (Currently Assigned)' : ''}
+                </option>
+              );
+            })}
           </select>
-          <label>Notes</label>
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <button disabled={!selectedStaff} onClick={() => call(() => assignStaff(ticket.id, { staffId: selectedStaff, notes }), 'Staff assigned')}>Assign</button>
+
+          {selectedStaff && selectedStaff === ticket?.assignedTo && (
+            <div className={styles.duplicateAssignWarning}>
+              <div className={styles.duplicateAssignHeader}>
+                <ExclamationTriangleIcon className={styles.duplicateAssignIcon} />
+                <span>Duplicate Assignment Restricted</span>
+              </div>
+              <p style={{ margin: '4px 0' }}>
+                <strong>{ticket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+              </p>
+              <p style={{ margin: '6px 0 10px 0', fontSize: '0.82rem', color: '#6b7280' }}>
+                If the staff member has not seen or fixed this task, click below to send them a direct reminder alert and email.
+              </p>
+              <button
+                type="button"
+                className={styles.btnReminderInline}
+                disabled={remindingStaff}
+                onClick={() => handleSendReminderSubmit(notes)}
+              >
+                <BellAlertIcon style={{ width: 15, height: 15 }} />
+                {remindingStaff ? 'Sending Reminder...' : `Send Reminder to ${ticket.assignedToName || 'Staff'}`}
+              </button>
+            </div>
+          )}
+
+          <label>Assignment Notes / Handover Instructions</label>
+          <textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add optional assignment notes or handover instructions..."
+            className={styles.modalTextarea}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              className={styles.modalCancelBtn}
+              onClick={closeStaffModal}
+              disabled={assigningStaff}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selectedStaff || selectedStaff === ticket?.assignedTo || assigningStaff}
+              onClick={handleAssignStaffSubmit}
+              className={styles.modalSubmitBtn}
+            >
+              <UserPlusIcon style={{ width: 16, height: 16, marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }} />
+              {assigningStaff ? 'Assigning...' : (ticket?.assignedTo ? 'Reassign Staff' : 'Assign Staff')}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={remindModal}
+        title="Send Assignment Reminder"
+        onClose={() => { setRemindModal(false); setRemindNotes(''); }}
+        maxWidth="540px"
+      >
+        <div className={styles.modalForm}>
+          <div className={styles.remindInfoBox}>
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              Send a task reminder to {ticket?.assignedToName || 'the assigned staff member'}
+            </p>
+            <p style={{ margin: '6px 0 0 0', fontSize: '0.82rem', color: '#6b7280' }}>
+              A high-priority in-app notification alert and an email reminder will be sent to their registered profile account.
+            </p>
+          </div>
+
+          <label>Reminder Message / Notes (Optional)</label>
+          <textarea
+            rows={3}
+            value={remindNotes}
+            onChange={(e) => setRemindNotes(e.target.value)}
+            placeholder="e.g. Please check and provide an update on this assigned task as soon as possible..."
+            className={styles.modalTextarea}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button
+              type="button"
+              className={styles.modalCancelBtn}
+              onClick={() => { setRemindModal(false); setRemindNotes(''); }}
+              disabled={remindingStaff}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnAmber}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 6, fontWeight: 600, fontSize: '0.88rem', border: 'none', cursor: 'pointer' }}
+              onClick={() => handleSendReminderSubmit()}
+              disabled={remindingStaff}
+            >
+              <BellAlertIcon style={{ width: 16, height: 16 }} />
+              {remindingStaff ? 'Sending...' : 'Send Reminder'}
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -2188,7 +2795,7 @@ export default function TicketDetail() {
                       <div className={styles.mergeCandidateMeta}>
                         <span>Tenant: {cand.tenantName || 'N/A'}</span>
                         <span>•</span>
-                        <span>Status: {STATUS_LABELS[cand.status] || cand.status}</span>
+                        <span>Status: {getStatusLabel(cand.status)}</span>
                         <span>•</span>
                         <span>{cand.createdAt ? new Date(cand.createdAt).toLocaleDateString() : 'N/A'}</span>
                       </div>
@@ -2274,10 +2881,11 @@ export default function TicketDetail() {
       <Modal open={attachModal} title="Upload Ticket Attachment" onClose={() => setAttachModal(false)}>
         <div className={styles.modalForm}>
           <div className={styles.modalField}>
-            <label className={styles.modalLabel}>Select File(s) (Max 5, 10MB each)</label>
+            <label className={styles.modalLabel}>Select File(s) (Max 10, 25MB each — Screenshots, Images, PDF, Docs, Excel, ZIP)</label>
             <input
               type="file"
               multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.tar,.gz,.7z,.png,.jpg,.jpeg,.webp,.gif,.bmp,image/*"
               className={styles.modalFileInput}
               onChange={(e) => setAttachFiles(e.target.files)}
             />
@@ -2330,6 +2938,239 @@ export default function TicketDetail() {
               }}
             >
               Upload Attachment
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Attachment In-App Preview Modal */}
+      <Modal
+        open={Boolean(previewAttachment)}
+        title={previewAttachment ? `Attachment: ${previewAttachment.fileName || (previewAttachment as any).file_name || 'Preview'}` : 'Attachment Preview'}
+        onClose={() => setPreviewAttachment(null)}
+        maxWidth="850px"
+      >
+        {previewAttachment && (() => {
+          const pName = previewAttachment.fileName || (previewAttachment as any).file_name || 'Attachment';
+          const pRaw = previewAttachment.filePath || (previewAttachment as any).file_path || '';
+          const pUrl = buildAttachmentUrl(pRaw) || (pRaw.startsWith('http') ? pRaw : `${API_BASE}${pRaw}`);
+          const pIsImg = (previewAttachment.mimeType || (previewAttachment as any).mime_type || '').startsWith('image/') ||
+            /\.(png|jpe?g|webp|gif|svg)$/i.test(pName);
+          const pIsPdf = (previewAttachment.mimeType || (previewAttachment as any).mime_type || '').includes('pdf') ||
+            /\.pdf$/i.test(pName);
+          const pSize = formatFileSize(previewAttachment.fileSize || (previewAttachment as any).file_size);
+          const pUploader = previewAttachment.uploadedByName || (previewAttachment as any).uploaded_by_name || 'User';
+          const pComment = previewAttachment.comment || (previewAttachment as any).comment;
+
+          return (
+            <div className={styles.attachmentPreviewModalBody}>
+              {pIsImg ? (
+                <img src={pUrl} alt={pName} className={styles.attachmentPreviewImage} />
+              ) : pIsPdf ? (
+                <iframe src={pUrl} title={pName} className={styles.attachmentPreviewDoc} />
+              ) : (
+                <div style={{ padding: '32px 16px', textAlign: 'center', width: '100%' }}>
+                  <DocumentIcon style={{ width: 64, height: 64, margin: '0 auto 12px', color: '#64748b' }} />
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '1.1rem', color: '#1e293b' }}>{pName}</h4>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: '#64748b' }}>
+                    Direct in-browser viewer not supported for this document format ({pSize || 'File'}). You can download it or open original.
+                  </p>
+                  <a
+                    href={pUrl}
+                    download={pName}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.btnPrimary}
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <ArrowDownTrayIcon style={{ width: 18, height: 18 }} />
+                    Download {pName}
+                  </a>
+                </div>
+              )}
+
+              {pComment && (
+                <div className={styles.attachmentCommentBox} style={{ width: '100%' }}>
+                  <div className={styles.commentBoxLabel}>
+                    <ChatBubbleBottomCenterTextIcon className={styles.commentBoxIcon} />
+                    <span>Upload Comment:</span>
+                  </div>
+                  <p className={styles.commentBoxText}>{pComment}</p>
+                </div>
+              )}
+
+              <div className={styles.attachmentPreviewFooter}>
+                <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                  Uploaded by <strong>{pUploader}</strong> {pSize ? `• ${pSize}` : ''}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <a
+                    href={pUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.btnSlate}
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <EyeIcon style={{ width: 16, height: 16 }} />
+                    Open Original
+                  </a>
+                  <a
+                    href={pUrl}
+                    download={pName}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.btnPrimary}
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <ArrowDownTrayIcon style={{ width: 16, height: 16 }} />
+                    Download
+                  </a>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Edit Attachment Comment Modal */}
+      <Modal
+        open={Boolean(editAttachment)}
+        title="Edit Attachment Comment / Reason"
+        onClose={() => {
+          if (!editAttachmentSaving) {
+            setEditAttachment(null);
+            setEditAttachmentComment('');
+          }
+        }}
+        maxWidth="540px"
+      >
+        <div className={styles.modalForm}>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>File</label>
+            <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>
+              {editAttachment?.fileName || (editAttachment as any)?.file_name}
+            </div>
+          </div>
+          <div className={styles.modalField}>
+            <label className={styles.modalLabel}>Why was this file uploaded? (Comment / Reason)</label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              placeholder="Update purpose or notes for this attachment..."
+              value={editAttachmentComment}
+              onChange={(e) => setEditAttachmentComment(e.target.value)}
+            />
+            <span className={styles.modalHint}>
+              Only the uploader or an Administrator can edit this comment.
+            </span>
+          </div>
+          <div className={styles.modalFooterActions}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              disabled={editAttachmentSaving}
+              onClick={() => {
+                setEditAttachment(null);
+                setEditAttachmentComment('');
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnPrimary}
+              disabled={editAttachmentSaving}
+              onClick={async () => {
+                if (!editAttachment) return;
+                setEditAttachmentSaving(true);
+                await call(
+                  () => updateTicketAttachment(ticket.id, editAttachment.id, editAttachmentComment),
+                  'Attachment updated successfully'
+                );
+                setEditAttachmentSaving(false);
+                setEditAttachment(null);
+                setEditAttachmentComment('');
+              }}
+            >
+              {editAttachmentSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Attachment Confirmation Modal */}
+      <Modal
+        open={Boolean(deleteAttachmentTarget)}
+        title="Delete Attachment"
+        onClose={() => {
+          if (!deleteAttachmentDeleting) {
+            setDeleteAttachmentTarget(null);
+          }
+        }}
+        maxWidth="460px"
+      >
+        <div className={styles.modalForm}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#dc2626',
+              flexShrink: 0
+            }}>
+              <TrashIcon style={{ width: 24, height: 24 }} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: 600, color: '#1e293b' }}>
+                Are you sure you want to delete this file?
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                {deleteAttachmentTarget?.fileName || (deleteAttachmentTarget as any)?.file_name}
+              </p>
+            </div>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: '#dc2626', background: '#fef2f2', padding: '10px 12px', borderRadius: 8 }}>
+            Warning: This file will be permanently removed from the database and storage, and cannot be recovered.
+          </p>
+          <div className={styles.modalFooterActions}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              disabled={deleteAttachmentDeleting}
+              onClick={() => setDeleteAttachmentTarget(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={styles.btnReject}
+              disabled={deleteAttachmentDeleting}
+              onClick={async () => {
+                if (!deleteAttachmentTarget) return;
+                const targetId = deleteAttachmentTarget.id || (deleteAttachmentTarget as any).id;
+                const currentTicketId = ticket?.id || id || '';
+                setDeleteAttachmentDeleting(true);
+                try {
+                  await deleteTicketAttachment(currentTicketId, targetId);
+                  flash('Attachment permanently deleted from database');
+                  loadTicket(); loadReplies(); loadTimeline();
+                } catch (e: any) {
+                  if (e?.response?.status === 404) {
+                    flash('Attachment removed from database');
+                    loadTicket(); loadReplies(); loadTimeline();
+                  } else {
+                    flash(e?.response?.data?.message || 'Failed to delete attachment', true);
+                  }
+                }
+                setDeleteAttachmentDeleting(false);
+                setDeleteAttachmentTarget(null);
+              }}
+            >
+              {deleteAttachmentDeleting ? 'Deleting...' : 'Delete Permanently'}
             </button>
           </div>
         </div>
@@ -2463,7 +3304,7 @@ export default function TicketDetail() {
       </Modal>
 
       {/* Reopen Ticket Modal */}
-      <Modal open={reopenModal} title="Reopen Ticket" onClose={() => setReopenModal(false)}>
+      <Modal open={reopenModal} title={role === 'tenant' ? "Request Ticket Reopening" : "Reopen Ticket"} onClose={() => setReopenModal(false)}>
         <form
           className={styles.modalForm}
           onSubmit={async (e) => {
@@ -2471,7 +3312,11 @@ export default function TicketDetail() {
             if (!reopenReason.trim()) return;
             setReopenSubmitting(true);
             try {
-              await call(() => reopenTicket(ticket.id, reopenReason.trim()), 'Ticket Reopened');
+              if (role === 'tenant') {
+                await call(() => requestReopenTicket(ticket.id, reopenReason.trim()), 'Reopening request submitted for review');
+              } else {
+                await call(() => approveReopenTicket(ticket.id, reopenReason.trim()), 'Ticket Reopened! Active processing resumed.');
+              }
               setReopenModal(false);
               setReopenReason('');
             } finally {
@@ -2480,7 +3325,11 @@ export default function TicketDetail() {
           }}
         >
           <div style={{ padding: '10px 14px', background: '#fef3c7', borderRadius: 8, border: '1px solid #fde68a', marginBottom: 12, fontSize: '0.875rem', color: '#92400e' }}>
-            🔄 <strong>Reopening Ticket:</strong> The ticket will return to active workflow. Its SLA resolution timer will resume with remaining time, and assigned staff and managers will be alerted.
+            {role === 'tenant' ? (
+              <>📝 <strong>Reopening Request:</strong> Please explain why the issue is unfinished, unresolved, or requires further attention. Your request will be reviewed by the Administrator or responsible Department Manager.</>
+            ) : (
+              <>🔄 <strong>Reopening Ticket:</strong> The ticket will return to active workflow. Its SLA resolution timer will resume with remaining time, and assigned staff and managers will be alerted.</>
+            )}
           </div>
           <div className={styles.modalField} style={{ marginBottom: '14px' }}>
             <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
@@ -2491,7 +3340,7 @@ export default function TicketDetail() {
               rows={4}
               value={reopenReason}
               onChange={(e) => setReopenReason(e.target.value)}
-              placeholder="Explain what issue remains unresolved, has recurred, or why the proposed solution was rejected..."
+              placeholder={role === 'tenant' ? "Explain why the issue is unfinished, unresolved, or needs further work..." : "Explain reason for reopening..."}
               required
               style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.9rem' }}
             />
@@ -2512,7 +3361,63 @@ export default function TicketDetail() {
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <ArrowPathIcon style={{ width: 18, height: 18 }} />
-              {reopenSubmitting ? 'Reopening…' : 'Confirm & Reopen Ticket'}
+              {reopenSubmitting ? 'Submitting…' : (role === 'tenant' ? 'Submit Reopening Request' : 'Confirm & Reopen Ticket')}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Decline Reopening Request Modal */}
+      <Modal open={declineModal} title="Decline Reopening Request" onClose={() => setDeclineModal(false)}>
+        <form
+          className={styles.modalForm}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!declineReason.trim()) return;
+            setDeclineSubmitting(true);
+            try {
+              await call(() => rejectReopenTicket(ticket.id, declineReason.trim()), 'Reopening request declined');
+              setDeclineModal(false);
+              setDeclineReason('');
+            } finally {
+              setDeclineSubmitting(false);
+            }
+          }}
+        >
+          <div style={{ padding: '10px 14px', background: '#fee2e2', borderRadius: 8, border: '1px solid #fecaca', marginBottom: 12, fontSize: '0.875rem', color: '#991b1b' }}>
+            ⚠️ <strong>Declining Reopening Request:</strong> The ticket will remain Closed and Inactive. A notification will be sent to the tenant.
+          </div>
+          <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+            <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+              Reason for Declining <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Provide a reason for declining the reopening request..."
+              required
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.9rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => setDeclineModal(false)}
+              disabled={declineSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.btnReject}
+              disabled={declineSubmitting || !declineReason.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <XMarkIcon style={{ width: 18, height: 18 }} />
+              {declineSubmitting ? 'Declining…' : 'Confirm Decline'}
             </button>
           </div>
         </form>
@@ -2549,12 +3454,13 @@ function ReplyForm({
   const canTarget = user?.role !== 'tenant';
 
   const isDirect = ticket?.routingType === 'direct';
+  const canRespondToTenant = isDirect ? isManager : isAdmin;
   const deptName = ticket?.departmentName || 'department';
 
   // Staff: always department-only. Tenants: both for direct, admin for general.
   const [text, setText] = useState('');
   const [visibility, setVisibility] = useState<'tenant' | 'department' | 'both' | 'admin' | 'staff'>(
-    isStaff ? 'department' : isTenant ? (isDirect ? 'both' : 'admin') : 'both'
+    isStaff ? 'department' : isTenant ? (isDirect ? 'both' : 'admin') : canRespondToTenant ? 'both' : 'department'
   );
   const [targetStaffId, setTargetStaffId] = useState<string>('');
   const [deptStaffUsers, setDeptStaffUsers] = useState<StaffUser[]>([]);
@@ -2574,10 +3480,13 @@ function ReplyForm({
   // Load department staff for managers and admins to assign comments to staff
   useEffect(() => {
     if ((isManager || isAdmin) && ticket?.departmentId) {
-      fetchUsers({ role: 'staff', limit: 200, departmentId: ticket.departmentId })
+      const targetDeptId = toShortId(ticket.departmentId);
+      fetchUsers({ role: 'staff', limit: 200, departmentId: targetDeptId })
         .then((r) => {
+          const tid = ticket.departmentId;
+          const tidShort = toShortId(tid);
           const list = (r.data.data || []).filter(
-            (u: any) => !ticket.departmentId || u.departments?.some((d: any) => d.id === ticket.departmentId)
+            (u: any) => !tid || u.departments?.some((d: any) => d.id === tid || d.code === tid || toShortId(d.id) === tidShort)
           );
           setDeptStaffUsers(list.map((u: any) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName })));
         })
@@ -2637,7 +3546,8 @@ function ReplyForm({
       setMsg('No department assigned to this ticket yet.');
       return;
     }
-    if (!isStaff && needsDept && !departmentId) {
+    const resolvedDeptId = departmentId || ticket?.departmentId || null;
+    if (!isStaff && !isAdmin && needsDept && !resolvedDeptId) {
       setMsg('Please select a department');
       return;
     }
@@ -2718,8 +3628,12 @@ function ReplyForm({
               onChange={(e) => setVisibility(e.target.value as 'tenant' | 'department' | 'both' | 'admin' | 'staff')}
               className={styles.replyFormSelect}
             >
-              <option value="both">👤🏢 Tenant & Department — both can see</option>
-              <option value="tenant">👤 Tenant Only — visible to the tenant</option>
+              {canRespondToTenant && (
+                <>
+                  <option value="both">👤🏢 Tenant & Department — both can see</option>
+                  <option value="tenant">👤 Tenant Only — visible to the tenant</option>
+                </>
+              )}
               <option value="department">🏢 Department Only — internal note to all dept staff</option>
               {(isManager || isAdmin) && (
                 <option value="staff">🎯 Assign to Staff User — direct comment/task to staff</option>
@@ -2787,7 +3701,7 @@ function ReplyForm({
         onClick={submit}
         disabled={
           !text.trim() ||
-          (!isStaff && !isTenant && needsDept && !departmentId) ||
+          (!isStaff && !isAdmin && !isTenant && needsDept && !departmentId && !ticket?.departmentId) ||
           (isTargetStaff && !targetStaffId)
         }
       >

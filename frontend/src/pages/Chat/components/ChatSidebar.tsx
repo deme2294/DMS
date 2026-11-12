@@ -140,53 +140,52 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           )}
         </div>
 
-        {/* Category Filter Pills */}
+        {/* Category Filter Pills - Previous Chat System Order: All, Users/Direct, Department, Tickets, Video */}
         <div className={styles.filterPills}>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillAll} ${activeFilter === 'all' ? styles.filterActiveAll : ''
-              }`}
+            className={`${styles.filterPill} ${styles.filterPillAll} ${activeFilter === 'all' ? styles.filterActiveAll : ''}`}
             onClick={() => onFilterChange('all')}
+            title="All conversations"
           >
             <span>💬 All</span>
             <span className={styles.pillCount}>{roomTypeCounts.all}</span>
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillVideo} ${activeFilter === 'video' ? styles.filterActiveVideo : ''
-              }`}
-            onClick={() => onFilterChange('video')}
-            title="Video conferences & active call channels"
-          >
-            <span>📹 Video</span>
-            <span className={styles.pillCount}>{roomTypeCounts.video}</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.filterPill} ${styles.filterPillDirect} ${activeFilter === 'direct' ? styles.filterActiveDirect : ''
-              }`}
+            className={`${styles.filterPill} ${styles.filterPillDirect} ${activeFilter === 'direct' ? styles.filterActiveDirect : ''}`}
             onClick={() => onFilterChange('direct')}
+            title="Direct 1-on-1 User Chats"
           >
-            <span>👤 Direct</span>
+            <span>👤 Users</span>
             <span className={styles.pillCount}>{roomTypeCounts.direct}</span>
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillDept} ${activeFilter === 'department' ? styles.filterActiveDept : ''
-              }`}
+            className={`${styles.filterPill} ${styles.filterPillDept} ${activeFilter === 'department' ? styles.filterActiveDept : ''}`}
             onClick={() => onFilterChange('department')}
+            title="Department discussion channels"
           >
             <span>🏢 Dept</span>
             <span className={styles.pillCount}>{roomTypeCounts.department}</span>
           </button>
           <button
             type="button"
-            className={`${styles.filterPill} ${styles.filterPillTicket} ${activeFilter === 'ticket' ? styles.filterActiveTicket : ''
-              }`}
+            className={`${styles.filterPill} ${styles.filterPillTicket} ${activeFilter === 'ticket' ? styles.filterActiveTicket : ''}`}
             onClick={() => onFilterChange('ticket')}
+            title="Ticket discussion rooms"
           >
             <span>🎫 Tickets</span>
             <span className={styles.pillCount}>{roomTypeCounts.ticket}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.filterPill} ${styles.filterPillVideo} ${activeFilter === 'video' ? styles.filterActiveVideo : ''}`}
+            onClick={() => onFilterChange('video')}
+            title="Video conferences & active call channels"
+          >
+            <span>📹 Video</span>
+            <span className={styles.pillCount}>{roomTypeCounts.video}</span>
           </button>
         </div>
       </div>
@@ -292,7 +291,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <div className={styles.roomContent}>
                   <div className={styles.roomTopRow}>
                     <div className={styles.roomNameWrapper}>
-                      <span className={styles.roomName}>{room.name}</span>
+                      <span className={styles.roomName} title={room.name}>{room.name}</span>
                       <span
                         className={`${styles.roomTypeBadge} ${room.room_type === 'direct'
                             ? styles.badgeDirect
@@ -306,7 +305,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       {isVideoRoom && (
                         <span className={styles.videoRoomBadge} title="Video Conference Available">
                           <VideoCameraIcon className={styles.videoBadgeIcon} />
-                          <span>Video</span>
                         </span>
                       )}
                     </div>

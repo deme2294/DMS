@@ -1,4 +1,5 @@
 import pool from '../config/db.js';
+import { resolveUserId } from './userRepository.js';
 
 export const getAdminDashboard = async () => {
   const [users] = await pool.query(`
@@ -109,19 +110,20 @@ export const getAdminDashboard = async () => {
   };
 };
 
-// ── Helper: fetch department IDs for a manager ─────────────────────────────
+// â”€â”€ Helper: fetch department IDs for a manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const getManagerDepartmentIds = async (userId) => {
+  const actualUserId = (await resolveUserId(userId)) || userId;
   const [rows] = await pool.query(
     `SELECT DISTINCT d.id AS department_id
      FROM departments d
-     LEFT JOIN user_departments ud ON ud.department_id = d.id
+     LEFT JOIN user_departments ud ON ud.department_id = d.id AND ud.user_id = :userId
      WHERE d.head_user_id = :userId OR ud.user_id = :userId`,
-    { userId }
+    { userId: actualUserId }
   );
   return rows.map((r) => r.department_id);
 };
 
-// ── Helper: fetch department IDs for a staff user ──────────────────────────
+// â”€â”€ Helper: fetch department IDs for a staff user â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const getStaffDepartmentIds = async (userId) => {
   const [rows] = await pool.query(
     `SELECT department_id FROM user_departments WHERE user_id = :userId`,
@@ -130,7 +132,7 @@ export const getStaffDepartmentIds = async (userId) => {
   return rows.map((r) => r.department_id);
 };
 
-// ── Helper: Build dynamic SQL WHERE filter based on user role, department & assignment ──
+// â”€â”€ Helper: Build dynamic SQL WHERE filter based on user role, department & assignment â”€â”€
 export const buildUserTicketScope = async (user, tableAlias = 't', paramPrefix = 'scope') => {
   if (!user || user.role === 'admin' || user.role === 'ceo') {
     return { whereClause: '', params: {} };
@@ -381,18 +383,30 @@ export const getTicketCharts = async (user = null) => {
   const scope = await buildUserTicketScope(user, 'tickets', 'chart');
   const scopeWhere = scope.whereClause ? `WHERE 1=1 ${scope.whereClause}` : '';
 
-  const [byCategory] = await pool.query(
-    `SELECT category, COUNT(*) AS count FROM tickets ${scopeWhere} GROUP BY category ORDER BY count DESC`,
-    scope.params
-  );
-
   const tScope = await buildUserTicketScope(user, 't', 'tchart');
   const tWhere = tScope.whereClause ? `WHERE 1=1 ${tScope.whereClause}` : '';
+
+  const [byCategory] = await pool.query(
+    `SELECT tc.name AS category, COUNT(t.id) AS count
+     FROM ticket_categories tc
+     INNER JOIN tickets t
+       ON (t.category = tc.id OR LOWER(TRIM(t.category)) = LOWER(TRIM(tc.name)))
+     ${tWhere ? `${tWhere} AND` : 'WHERE'} tc.is_active = 1
+       AND tc.status = 'approved'
+       AND NOT EXISTS (
+         SELECT 1 FROM departments d WHERE LOWER(TRIM(d.name)) = LOWER(TRIM(tc.name))
+       )
+     GROUP BY tc.id, tc.name
+     ORDER BY count DESC`,
+    tScope.params
+  );
+
   const [byDepartment] = await pool.query(
-    `SELECT COALESCE(d.name, 'Unassigned') AS name, COUNT(*) AS count
-     FROM tickets t LEFT JOIN departments d ON d.id = t.department_id
+    `SELECT d.name AS name, COUNT(t.id) AS count
+     FROM departments d
+     INNER JOIN tickets t ON t.department_id = d.id
      ${tWhere}
-     GROUP BY d.name ORDER BY count DESC`,
+     GROUP BY d.id, d.name ORDER BY count DESC`,
     tScope.params
   );
 
@@ -866,24 +880,33 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
           if (mgrDeptIds.includes(departmentId)) {
             deptFilter = 'AND t.department_id = :mgrSpecificDeptId';
             queryParams.mgrSpecificDeptId = departmentId;
+            deptAnalyticsDeptConstraint = 'WHERE d.id = :mgrSpecificDeptId';
           } else {
             // Manager trying to access a department they don't belong to: restrict to their own departments
             const placeholders = mgrDeptIds.map((_, i) => `:mgrDeptId${i}`).join(',');
             mgrDeptIds.forEach((id, i) => { queryParams[`mgrDeptId${i}`] = id; });
             deptFilter = `AND (t.department_id IN (${placeholders}) OR t.assigned_to = :mgrUserId)`;
             queryParams.mgrUserId = user.id;
+            const tblPlaceholders = mgrDeptIds.map((_, i) => `:tableDeptId${i}`).join(',');
+            mgrDeptIds.forEach((id, i) => { queryParams[`tableDeptId${i}`] = id; });
+            deptAnalyticsDeptConstraint = `WHERE d.id IN (${tblPlaceholders})`;
           }
         } else {
-          const placeholders = mgrDeptIds.map((_, i) => `:mgrDeptId${i}`).join(',');
-          mgrDeptIds.forEach((id, i) => { queryParams[`mgrDeptId${i}`] = id; });
-          deptFilter = `AND (t.department_id IN (${placeholders}) OR t.assigned_to = :mgrUserId)`;
-          queryParams.mgrUserId = user.id;
+          // If manager heads/belongs to a single department, strictly lock analytics to that department!
+          if (mgrDeptIds.length === 1) {
+            deptFilter = 'AND t.department_id = :mgrSingleDeptId';
+            queryParams.mgrSingleDeptId = mgrDeptIds[0];
+            deptAnalyticsDeptConstraint = 'WHERE d.id = :mgrSingleDeptId';
+          } else {
+            const placeholders = mgrDeptIds.map((_, i) => `:mgrDeptId${i}`).join(',');
+            mgrDeptIds.forEach((id, i) => { queryParams[`mgrDeptId${i}`] = id; });
+            deptFilter = `AND (t.department_id IN (${placeholders}) OR t.assigned_to = :mgrUserId)`;
+            queryParams.mgrUserId = user.id;
+            const tblPlaceholders = mgrDeptIds.map((_, i) => `:tableDeptId${i}`).join(',');
+            mgrDeptIds.forEach((id, i) => { queryParams[`tableDeptId${i}`] = id; });
+            deptAnalyticsDeptConstraint = `WHERE d.id IN (${tblPlaceholders})`;
+          }
         }
-
-        // Restrict departmentAnalytics breakdown table strictly to the manager's departments
-        const placeholders = mgrDeptIds.map((_, i) => `:tableDeptId${i}`).join(',');
-        mgrDeptIds.forEach((id, i) => { queryParams[`tableDeptId${i}`] = id; });
-        deptAnalyticsDeptConstraint = `WHERE d.id IN (${placeholders})`;
       } else {
         deptFilter = 'AND t.assigned_to = :mgrUserId';
         queryParams.mgrUserId = user.id;
@@ -912,21 +935,13 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
     } else {
       // admin / ceo: standard filtering
       if (departmentId && departmentId !== 'all') {
-        if (departmentId === 'unassigned') {
-          deptFilter = 'AND t.department_id IS NULL';
-        } else {
-          deptFilter = 'AND t.department_id = :departmentId';
-          queryParams.departmentId = departmentId;
-        }
+        deptFilter = 'AND t.department_id = :departmentId';
+        queryParams.departmentId = departmentId;
       }
     }
   } else if (departmentId && departmentId !== 'all') {
-    if (departmentId === 'unassigned') {
-      deptFilter = 'AND t.department_id IS NULL';
-    } else {
-      deptFilter = 'AND t.department_id = :departmentId';
-      queryParams.departmentId = departmentId;
-    }
+    deptFilter = 'AND t.department_id = :departmentId';
+    queryParams.departmentId = departmentId;
   }
 
   // 1. Overall KPIs
@@ -1015,65 +1030,104 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
     ORDER BY date_key ASC
   `, queryParams);
 
-  let unassignedUnion = '';
-  if (!user || user.role === 'admin' || user.role === 'ceo') {
-    unassignedUnion = `
-      UNION ALL
+  const dateFilterC = dateFilter ? dateFilter.replace(/t\./g, 't_c.') : '';
 
-      SELECT
-        'unassigned' AS department_id,
-        'General / Unassigned' AS department_name,
-        'GEN' AS department_code,
-        'Helpdesk Admin' AS head_name,
-        COUNT(t.id) AS total_tickets,
-        SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
-        SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
-        SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
-        SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
-        ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
-                       THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-        ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
-        ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
-      FROM tickets t
-      WHERE t.department_id IS NULL ${dateFilter}
-      HAVING total_tickets > 0
-    `;
-  }
-
-  // 5. Department-based analytics
+  // 5. Department-based problem resolution analytics (strictly registered departments from departments table)
   const [departmentAnalytics] = await pool.query(`
-    SELECT * FROM (
+    SELECT
+      d.id AS department_id,
+      d.name AS department_name,
+      d.code AS department_code,
+      COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unassigned') AS head_name,
+      COALESCE(dept_t.total_routed, 0) AS total_tickets,
+      COALESCE(dept_t.total_routed, 0) AS assigned_tickets,
+      COALESCE(dept_t.resolved_tickets, 0) AS resolved_tickets,
+      COALESCE(dept_t.resolved_tickets, 0) AS assigned_resolved_tickets,
+      ROUND(COALESCE(dept_t.resolved_tickets, 0) * 100.0 / NULLIF(COALESCE(dept_t.total_routed, 0), 0), 1) AS resolution_rate,
+      ROUND(COALESCE(dept_t.resolved_tickets, 0) * 100.0 / NULLIF(COALESCE(dept_t.total_routed, 0), 0), 1) AS assigned_resolution_rate,
+      COALESCE(dept_created.created_count, 0) AS created_by_tickets,
+      COALESCE(dept_created.created_resolved, 0) AS created_by_resolved_tickets,
+      ROUND(COALESCE(dept_created.created_resolved, 0) * 100.0 / NULLIF(COALESCE(dept_created.created_count, 0), 0), 1) AS created_by_resolution_rate,
+      COALESCE(dept_t.open_tickets, 0) AS open_tickets,
+      COALESCE(dept_t.in_progress_tickets, 0) AS in_progress_tickets,
+      COALESCE(dept_t.early_resolved_tickets, 0) AS early_resolved_tickets,
+      COALESCE(dept_t.on_time_resolved_tickets, 0) AS on_time_resolved_tickets,
+      COALESCE(dept_t.late_resolved_tickets, 0) AS late_resolved_tickets,
+      COALESCE(dept_t.overdue_tickets, 0) AS overdue_tickets,
+      COALESCE(dept_t.active_on_track_tickets, 0) AS active_on_track_tickets,
+      COALESCE(dept_t.avg_resolution_hours, 0) AS avg_resolution_hours,
+      COALESCE(dept_t.sla_compliance_rate, 100) AS sla_compliance_rate
+    FROM departments d
+    LEFT JOIN users u ON u.id = d.head_user_id
+    LEFT JOIN (
       SELECT
-        d.id AS department_id,
-        d.name AS department_name,
-        d.code AS department_code,
-        COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unassigned') AS head_name,
-        COUNT(t.id) AS total_tickets,
+        t.department_id,
+        COUNT(t.id) AS total_routed,
+        SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
         SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
         SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
-        SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved_tickets,
-        SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+        SUM(CASE 
+          WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+           AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at, t.completed_at) <= t.due_date))
+           AND (
+             t.due_date IS NOT NULL 
+             AND TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at, t.completed_at)) <= (TIMESTAMPDIFF(MINUTE, t.created_at, t.due_date) * 0.75)
+           )
+          THEN 1 ELSE 0 END) AS early_resolved_tickets,
+        SUM(CASE 
+          WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+           AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at, t.completed_at) <= t.due_date))
+           AND (
+             t.due_date IS NULL 
+             OR TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at, t.completed_at)) > (TIMESTAMPDIFF(MINUTE, t.created_at, t.due_date) * 0.75)
+           )
+          THEN 1 ELSE 0 END) AS on_time_resolved_tickets,
+        SUM(CASE 
+          WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+           AND (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND COALESCE(t.resolved_at, t.closed_at, t.completed_at) > t.due_date))
+          THEN 1 ELSE 0 END) AS late_resolved_tickets,
+        SUM(CASE 
+          WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW()))
+           AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL
+          THEN 1 ELSE 0 END) AS overdue_tickets,
+        SUM(CASE 
+          WHEN t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL
+           AND (t.is_overdue = 0 AND (t.due_date IS NULL OR t.due_date >= NOW()))
+          THEN 1 ELSE 0 END) AS active_on_track_tickets,
         ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                        THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
         ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
-        ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
-      FROM departments d
-      LEFT JOIN users u ON u.id = d.head_user_id
-      LEFT JOIN tickets t ON t.department_id = d.id ${dateFilter}
-      ${deptAnalyticsDeptConstraint}
-      GROUP BY d.id, d.name, d.code, head_name
-      ${unassignedUnion}
-    ) AS combined_depts
-    ORDER BY total_tickets DESC
+              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate
+      FROM tickets t
+      WHERE t.department_id IS NOT NULL ${dateFilter}
+      GROUP BY t.department_id
+    ) dept_t ON dept_t.department_id = d.id
+    LEFT JOIN (
+      SELECT
+        ud_map.department_id,
+        COUNT(t_c.id) AS created_count,
+        SUM(CASE WHEN t_c.status IN ('resolved', 'closed', 'completed') OR t_c.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS created_resolved
+      FROM tickets t_c
+      JOIN (
+        SELECT DISTINCT user_id, department_id FROM user_departments
+        UNION
+        SELECT head_user_id AS user_id, id AS department_id FROM departments WHERE head_user_id IS NOT NULL
+      ) ud_map ON ud_map.user_id = t_c.created_by
+      WHERE 1=1 ${dateFilterC}
+      GROUP BY ud_map.department_id
+    ) dept_created ON dept_created.department_id = d.id
+    ${deptAnalyticsDeptConstraint}
+    ORDER BY total_tickets DESC, d.name ASC
   `, queryParams);
 
   // 6. Status Breakdown
   const [statusBreakdown] = await pool.query(`
     SELECT
       t.status,
-      COUNT(*) AS count
+      COUNT(*) AS count,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_count,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_hours
     FROM tickets t
     WHERE 1=1 ${dateFilter} ${deptFilter}
     GROUP BY t.status
@@ -1095,15 +1149,30 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
     ORDER BY FIELD(t.priority, 'urgent', 'high', 'medium', 'low')
   `, queryParams);
 
-  // 8. Category Breakdown
+  // 8. Category Breakdown & Ticket Performance (strictly from active approved ticket_categories matched to created tickets, never departments)
   const [categoryBreakdown] = await pool.query(`
     SELECT
-      COALESCE(t.category, 'General') AS category_name,
+      tc.name AS category_name,
       COUNT(t.id) AS count,
-      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved
-    FROM tickets t
-    WHERE 1=1 ${dateFilter} ${deptFilter}
-    GROUP BY category_name
+      SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved,
+      SUM(CASE WHEN (t.status IN ('open', 'submitted', 'assigned', 'assigned_department', 'assigned_staff', 'pending', 'under_review', 'pending_approval')) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS open_tickets,
+      SUM(CASE WHEN (t.status IN ('in_progress', 'reopened', 'escalated', 'waiting_vendor') OR (t.status = 'waiting_tenant' AND t.resolved_at IS NULL)) AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS in_progress_tickets,
+      SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
+      ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
+                     THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
+      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
+            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+      ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
+    FROM ticket_categories tc
+    INNER JOIN tickets t
+      ON (t.category = tc.id OR LOWER(TRIM(t.category)) = LOWER(TRIM(tc.name)))
+    WHERE tc.is_active = 1
+      AND tc.status = 'approved'
+      ${dateFilter} ${deptFilter}
+      AND NOT EXISTS (
+        SELECT 1 FROM departments d WHERE LOWER(TRIM(d.name)) = LOWER(TRIM(tc.name))
+      )
+    GROUP BY tc.id, tc.name
     ORDER BY count DESC
     LIMIT 50
   `, queryParams);
@@ -1173,23 +1242,162 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
       totalCreated: Number(d.total_created || 0),
       totalResolved: Number(d.total_resolved || 0),
     })),
-    departmentAnalytics: departmentAnalytics.map((dept) => ({
-      departmentId: dept.department_id,
-      departmentName: dept.department_name,
-      departmentCode: dept.department_code,
-      headName: dept.head_name || 'Unassigned',
-      totalTickets: Number(dept.total_tickets || 0),
-      openTickets: Number(dept.open_tickets || 0),
-      inProgressTickets: Number(dept.in_progress_tickets || 0),
-      resolvedTickets: Number(dept.resolved_tickets || 0),
-      overdueTickets: Number(dept.overdue_tickets || 0),
-      avgResolutionHours: Number(dept.avg_resolution_hours || 0),
-      slaComplianceRate: Number(dept.sla_compliance_rate || 0),
-      resolutionRate: Number(dept.resolution_rate || 0),
-    })),
+    departmentAnalytics: departmentAnalytics.map((dept) => {
+      const dTotal = Number(dept.total_tickets || 0);
+      const dResolved = Number(dept.resolved_tickets || 0);
+      const dOpen = Number(dept.open_tickets || 0);
+      const dInProgress = Number(dept.in_progress_tickets || 0);
+      const dEarly = Number(dept.early_resolved_tickets || 0);
+      const dOnTime = Number(dept.on_time_resolved_tickets || 0);
+      const dLate = Number(dept.late_resolved_tickets || 0);
+      const dOverdue = Number(dept.overdue_tickets || 0);
+      const dOnTrack = Number(dept.active_on_track_tickets || 0);
+      const dSlaRate = Number(dept.sla_compliance_rate || 0);
+      const dResRate = Number(dept.resolution_rate || 0);
+
+      const earlyRate = dTotal > 0 ? Number(((dEarly / dTotal) * 100).toFixed(1)) : 0;
+      const onTimeRate = dTotal > 0 ? Number(((dOnTime / dTotal) * 100).toFixed(1)) : 0;
+      const lateRate = dTotal > 0 ? Number(((dLate / dTotal) * 100).toFixed(1)) : 0;
+
+      // Strict 100% Rule: A department CANNOT become 100% unless:
+      // 1. All routed tickets are resolved (resolved === total, open + inProgress === 0)
+      // 2. Zero overdue tickets in backlog (overdue === 0)
+      // 3. Zero late tickets (late === 0)
+      // 4. 100% SLA compliance achieved on all routed tickets (slaRate >= 100)
+      // 5. Total routed tickets > 0
+      const allSlaMet = dSlaRate >= 100 && dLate === 0;
+      const allResolved = dTotal > 0 && dResolved === dTotal && (dOpen + dInProgress) === 0;
+      const zeroOverdue = dOverdue === 0;
+      const zeroLate = dLate === 0;
+      const is100PercentQualified = dTotal > 0 && allSlaMet && allResolved && zeroOverdue && zeroLate;
+
+      const performanceReasons = [];
+      if (dTotal === 0) {
+        performanceReasons.push('No tickets routed to department in selected period');
+      } else {
+        if (!allResolved) {
+          performanceReasons.push(`${dOpen + dInProgress} pending ticket(s) in active backlog`);
+        }
+        if (dLate > 0) {
+          performanceReasons.push(`${dLate} ticket(s) resolved late (SLA deadline breached)`);
+        }
+        if (!allSlaMet && dLate === 0) {
+          performanceReasons.push(`SLA compliance is ${dSlaRate.toFixed(1)}% (deadline breached)`);
+        }
+        if (!zeroOverdue) {
+          performanceReasons.push(`${dOverdue} ticket(s) currently overdue in backlog`);
+        }
+        if (is100PercentQualified) {
+          performanceReasons.push('100% SLA met: all tickets resolved early or on-time with zero backlog');
+        }
+      }
+
+      let performanceScore = 0;
+      if (dTotal > 0) {
+        if (is100PercentQualified) {
+          performanceScore = 100.0;
+        } else {
+          // 1. Resolution Delivery (40%)
+          const resScore = (dResolved / dTotal) * 40;
+
+          // 2. SLA Timeliness Delivery (40%)
+          // Early = 1.0 (ahead of schedule), On-Time = 0.85 (met deadline), Late = 0.25 (breached SLA), On-Track = 0.50 (in-flight within SLA)
+          const timelinessWeight = ((dEarly * 1.0) + (dOnTime * 0.85) + (dLate * 0.25) + (dOnTrack * 0.50)) / dTotal;
+          const timelinessScore = timelinessWeight * 40;
+
+          // 3. Overall SLA Compliance (20%)
+          const slaScore = (dSlaRate / 100) * 20;
+
+          // 4. Overdue Backlog Penalty
+          const overdueRatio = dOverdue / dTotal;
+          const overduePenalty = overdueRatio * 35;
+
+          let rawScore = Math.max(0, resScore + timelinessScore + slaScore - overduePenalty);
+
+          // HARD CEILING: If not 100% qualified, score is capped strictly below 100% (max 95.0%)
+          rawScore = Math.min(rawScore, 95.0);
+
+          // If any ticket in active backlog is overdue, cap at 75.0% max
+          if (dOverdue > 0) {
+            rawScore = Math.min(rawScore, Math.max(10, 75.0 - (overdueRatio * 30)));
+          }
+          // If any ticket was resolved late after SLA, cap at 85.0% max
+          if (dLate > 0) {
+            rawScore = Math.min(rawScore, Math.max(10, 85.0 - ((dLate / dTotal) * 25)));
+          }
+          // Cap by SLA compliance if below 80%
+          if (dSlaRate < 80) {
+            rawScore = Math.min(rawScore, Math.max(10, dSlaRate));
+          }
+          // Cap by resolution rate if below 50%
+          if (dResRate < 50) {
+            rawScore = Math.min(rawScore, Math.max(10, dResRate));
+          }
+
+          performanceScore = Number(Math.max(0, rawScore).toFixed(1));
+        }
+      }
+
+      let performanceGrade = 'N/A';
+      let performanceTier = 'inactive';
+      if (dTotal === 0) {
+        performanceGrade = 'N/A';
+        performanceTier = 'inactive';
+      } else if (is100PercentQualified) {
+        performanceGrade = 'A+';
+        performanceTier = 'flawless';
+      } else if (performanceScore >= 80) {
+        performanceGrade = 'A';
+        performanceTier = 'top';
+      } else if (performanceScore >= 65) {
+        performanceGrade = 'B';
+        performanceTier = 'good';
+      } else if (performanceScore >= 45) {
+        performanceGrade = 'C';
+        performanceTier = 'moderate';
+      } else {
+        performanceGrade = 'D';
+        performanceTier = 'critical';
+      }
+
+      return {
+        departmentId: dept.department_id,
+        departmentName: dept.department_name,
+        departmentCode: dept.department_code,
+        headName: dept.head_name || 'Unassigned',
+        totalTickets: dTotal,
+        openTickets: dOpen,
+        inProgressTickets: dInProgress,
+        resolvedTickets: dResolved,
+        earlyResolvedTickets: dEarly,
+        onTimeResolvedTickets: dOnTime,
+        lateResolvedTickets: dLate,
+        overdueTickets: dOverdue,
+        activeOnTrackTickets: dOnTrack,
+        earlyResolutionRate: earlyRate,
+        onTimeResolutionRate: onTimeRate,
+        lateResolutionRate: lateRate,
+        avgResolutionHours: Number(dept.avg_resolution_hours || 0),
+        slaComplianceRate: dSlaRate,
+        resolutionRate: dResRate,
+        assignedTickets: Number(dept.assigned_tickets || 0),
+        assignedResolvedTickets: Number(dept.assigned_resolved_tickets || 0),
+        assignedResolutionRate: Number(dept.assigned_resolution_rate || 0),
+        createdByTickets: Number(dept.created_by_tickets || 0),
+        createdByResolvedTickets: Number(dept.created_by_resolved_tickets || 0),
+        createdByResolutionRate: Number(dept.created_by_resolution_rate || 0),
+        performanceScore,
+        is100PercentQualified,
+        performanceReasons,
+        performanceGrade,
+        performanceTier,
+      };
+    }),
     statusBreakdown: statusBreakdown.map((sb) => ({
       status: sb.status,
       count: Number(sb.count || 0),
+      overdueCount: Number(sb.overdue_count || 0),
+      avgHours: Number(sb.avg_hours || 0),
       percentage: total > 0 ? Number(((Number(sb.count || 0) / total) * 100).toFixed(1)) : 0,
     })),
     priorityDistribution: priorityDistribution.map((p) => ({
@@ -1200,11 +1408,41 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
       avgHours: Number(p.avg_hours || 0),
       percentage: total > 0 ? Number(((Number(p.count || 0) / total) * 100).toFixed(1)) : 0,
     })),
-    categoryBreakdown: categoryBreakdown.map((c) => ({
-      categoryName: c.category_name,
-      count: Number(c.count || 0),
-      resolved: Number(c.resolved || 0),
-    })),
+    categoryBreakdown: categoryBreakdown.map((c) => {
+      const cTotal = Number(c.count || 0);
+      const cResolved = Number(c.resolved || 0);
+      const cOpen = Number(c.open_tickets || 0);
+      const cInProgress = Number(c.in_progress_tickets || 0);
+      const cOverdue = Number(c.overdue_tickets || 0);
+      const cSlaRate = Number(c.sla_compliance_rate || 0);
+      const cResRate = Number(c.resolution_rate || 0);
+      const is100 = cTotal > 0 && cResolved === cTotal && (cOpen + cInProgress) === 0 && cOverdue === 0 && cSlaRate >= 100;
+
+      let perf = 0;
+      if (cTotal > 0) {
+        if (is100) {
+          perf = 100.0;
+        } else {
+          const raw = (cResolved / cTotal) * 45 + (cSlaRate / 100) * 35 + Math.max(0, 1 - (cOverdue / cTotal) * 2) * 20;
+          perf = Math.min(Number(raw.toFixed(1)), 95.0);
+          if (cOverdue > 0) perf = Math.min(perf, 79.0);
+        }
+      }
+
+      return {
+        categoryName: c.category_name,
+        count: cTotal,
+        resolved: cResolved,
+        openTickets: cOpen,
+        inProgressTickets: cInProgress,
+        overdue: cOverdue,
+        avgHours: Number(c.avg_resolution_hours || 0),
+        slaComplianceRate: cSlaRate,
+        resolutionRate: cResRate,
+        performanceScore: perf,
+        is100PercentQualified: is100,
+      };
+    }),
   };
 };
 

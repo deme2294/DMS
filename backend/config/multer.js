@@ -79,21 +79,29 @@ const chatStorage = multer.diskStorage({
 });
 
 const chatFileFilter = (req, file, cb) => {
-  const allowed = [
-    'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  const isImage = (file.mimetype || '').startsWith('image/');
+  const allowedMimes = [
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'application/zip',
     'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/x-7z-compressed',
+    'text/plain',
+    'text/csv',
+    'application/json',
   ];
-  
-  if (allowed.includes(file.mimetype)) {
+  const allowedExts = /\.(jpe?g|png|webp|gif|bmp|svg|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z)$/i;
+
+  if (isImage || allowedMimes.includes(file.mimetype) || allowedExts.test(file.originalname)) {
     cb(null, true);
   } else {
-    cb(new Error('File type not allowed. Allowed: images, PDF, Word, Excel, ZIP'), false);
+    cb(new Error('File type not allowed. Supported formats: Images, Screenshots, PDF, Word, Excel, PPT, TXT, CSV, ZIP'), false);
   }
 };
 

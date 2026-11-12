@@ -262,7 +262,7 @@ app.use((req, res, next) => {
 });
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
-const configuredOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:5173')
     .split(',')
     .map((value) => value.trim().replace(/\/+$/, ''))
     .filter(Boolean);
@@ -550,6 +550,7 @@ app.use(
         res.setHeader('Access-Control-Allow-Origin', '*');
         next();
     },
+    express.static(path.join(process.cwd(), 'uploads')),
     express.static(path.join(__dirname, 'uploads'))
 );
 
@@ -560,7 +561,7 @@ if (process.env.NODE_ENV === 'production') {
     const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
     app.use(express.static(frontendDist));
     // Any non-API route falls through to the SPA shell
-    app.get(/^(?!\/api).*/, (_req, res) => {
+    app.get(/^(?!\/(api|uploads)).*/, (_req, res) => {
         res.sendFile(path.join(frontendDist, 'index.html'));
     });
 }

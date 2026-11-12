@@ -102,7 +102,15 @@ export default function NoticesCreate() {
       }
 
       await createNotice(payload);
-      navigate('/admin/notices');
+      navigate('/admin/notices', {
+        state: {
+          alert: {
+            type: 'success',
+            message: `Notice "${values.title}" created successfully`,
+            title: 'Notice Created',
+          },
+        },
+      });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setServerError(e?.response?.data?.message || 'Failed to create notice');

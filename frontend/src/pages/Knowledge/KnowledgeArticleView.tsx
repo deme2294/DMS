@@ -31,6 +31,7 @@ import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
 import { RevisionThreadCard } from './components/RevisionThreadCard';
 import { ManagerAssignRevisionModal } from './components/ManagerAssignRevisionModal';
 import { printArticleAsPdf } from '../../utils/pdfExportUtils';
+import { toShortKnowledgeId } from '../../utils/idUtils';
 import styles from './KnowledgeArticleView.module.css';
 
 import {
@@ -138,7 +139,12 @@ export default function KnowledgeArticleView() {
     setLoading(true);
     try {
       const res = await fetchArticle(id);
-      setArticle(res.data.data);
+      const art = res.data.data;
+      setArticle(art);
+      const shortId = toShortKnowledgeId(art);
+      if (shortId && id !== shortId && id.length > 20) {
+        navigate(`${basePath}/${shortId}`, { replace: true });
+      }
       if (can('knowledge.view_versions')) {
         const vRes = await fetchVersions(id);
         setVersions(vRes.data.data || []);

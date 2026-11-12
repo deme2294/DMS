@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../Modal/Modal';
 import { sendDirectEmail } from '../../api/userApi';
+import { useAuth } from '../../context/AuthContext';
 import styles from './ContactModal.module.css';
 import {
   EnvelopeIcon,
@@ -17,6 +18,7 @@ export interface ContactTarget {
   email: string;
   name?: string;
   roleOrType?: string;
+  ticketId?: string;
 }
 
 interface ContactModalProps {
@@ -24,6 +26,7 @@ interface ContactModalProps {
   onClose: () => void;
   target: ContactTarget | null;
   defaultSubject?: string;
+  ticketId?: string;
 }
 
 const TEMPLATES = [
@@ -32,7 +35,8 @@ const TEMPLATES = [
   { label: 'Follow-up', subject: 'Follow-up regarding your Support Inquiries', body: 'Hello,\n\nOur administration team is following up on your pending support items.\n\nPlease let us know if you require any further assistance.' },
 ];
 
-export default function ContactModal({ open, onClose, target, defaultSubject = '' }: ContactModalProps) {
+export default function ContactModal({ open, onClose, target, defaultSubject = '', ticketId }: ContactModalProps) {
+  const { user: currentUser } = useAuth();
   const [subject, setSubject] = useState(defaultSubject);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -87,6 +91,7 @@ export default function ContactModal({ open, onClose, target, defaultSubject = '
         toName: target.name,
         subject: subject.trim(),
         message: message.trim(),
+        ticketId: target.ticketId || ticketId,
       });
 
       if (res.data?.data?.simulated) {
@@ -163,8 +168,10 @@ export default function ContactModal({ open, onClose, target, defaultSubject = '
             </span>
             <div className={styles.metaValue}>
               <span className={styles.senderPill}>
-                <span>demshuterefe94@gmail.com</span>
-                <span style={{ opacity: 0.8, fontSize: '0.75rem' }}>(DMS Mailer)</span>
+                <span>{currentUser?.email || 'demshuterefe94@gmail.com'}</span>
+                <span style={{ opacity: 0.8, fontSize: '0.75rem' }}>
+                  ({currentUser?.role === 'admin' ? 'DMS Administrator' : currentUser?.role === 'manager' ? 'Department Manager' : 'Help Desk'})
+                </span>
               </span>
             </div>
           </div>

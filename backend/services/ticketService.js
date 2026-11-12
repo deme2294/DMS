@@ -10,6 +10,7 @@ import * as slaRepo from '../repository/slaRepository.js';
 import * as categoryRepo from '../repository/categoryRepository.js';
 import * as userRepository from '../repository/userRepository.js';
 import * as feedbackRepo from '../repository/feedbackRepository.js';
+import { getNextFeedbackId } from './feedbackService.js';
 import { broadcastTicketEvent } from './socketService.js';
 import pool from '../config/db.js';
 
@@ -20,7 +21,7 @@ const canTransition = (role, fromStatus, toStatus) => {
 };
 
 const buildScope = async (user) => {
-  if (user.role === 'admin') return {};
+  if (user.role === 'admin' || user.role === 'ceo') return {};
   if (user.role === 'tenant') return { tenantId: user.tenant_id, createdBy: user.id };
   if (user.role === 'staff') return { assignedTo: user.id };
   if (user.role === 'manager') {
@@ -42,7 +43,7 @@ const applyScopeToQuery = (scope, query) => {
 
 const canAccessTicket = async (user, ticket) => {
   if (!ticket) return false;
-  if (user.role === 'admin') return true;
+  if (user.role === 'admin' || user.role === 'ceo') return true;
   if (user.role === 'tenant') return ticket.tenant_id === user.tenant_id;
   if (user.role === 'staff') return ticket.assigned_to === user.id;
   if (user.role === 'manager') {
@@ -198,11 +199,24 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
     throw Object.assign(new Error('Tenant account required'), { statusCode: 400 });
   }
 
-  // Auto-detect department from category
-  const catInfo = await ticketRepo.getDepartmentForCategory(payload.category).catch(() => ({ department_id: null, sla_policy_id: null, routing_type: 'general' }));
+  // Auto-detect department from category and resolve canonical ticket_categories name
+  let categoryRecord = await categoryRepo.findByName(payload.category).catch(() => null);
+  if (!categoryRecord && payload.category) {
+    categoryRecord = await categoryRepo.findById(payload.category).catch(() => null);
+  }
+  if (!categoryRecord && payload.category) {
+    const [deptMatch] = await pool.query(
+      'SELECT id FROM departments WHERE LOWER(TRIM(name)) = LOWER(TRIM(:cat)) LIMIT 1',
+      { cat: payload.category }
+    ).catch(() => [[]]);
+    if (deptMatch && deptMatch.length > 0) {
+      throw Object.assign(new Error('Invalid category: please select a created ticket category rather than a department name'), { statusCode: 400 });
+    }
+  }
+  const canonicalCategory = categoryRecord?.name || payload.category;
+  const catInfo = await ticketRepo.getDepartmentForCategory(canonicalCategory).catch(() => ({ department_id: null, sla_policy_id: null, routing_type: 'general' }));
   const departmentId = catInfo.department_id || payload.departmentId || null;
   const routingType = catInfo.routing_type || 'general';
-  const categoryRecord = await categoryRepo.findByName(payload.category).catch(() => null);
   const categoryId = categoryRecord?.id || null;
 
   const id = uuidv4();
@@ -234,7 +248,7 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
     title: payload.title,
     description: payload.description,
     priority,
-    category: payload.category,
+    category: canonicalCategory,
     status: 'open',
     dueDate,
     responseDueDate: dueDates.responseDueDate,
@@ -300,10 +314,23 @@ export const updateTicket = async (user, id, payload, meta = {}) => {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
   }
 
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (baseStatus === 'closed') {
+    throw Object.assign(
+      new Error('Closed tickets are inactive and read-only. A Closed ticket cannot be modified or processed until reopening is requested by the tenant and approved by an authorized manager or administrator.'),
+      { statusCode: 400 }
+    );
+  }
+
   const isTenant = user.role === 'tenant';
-  const isClosed = ['closed', 'rejected', 'cancelled'].includes(ticket.status);
-  if (isClosed && isTenant) {
-    throw Object.assign(new Error('Cannot update closed or rejected ticket'), { statusCode: 400 });
+  const isRejectedOrCancelled = ['rejected', 'cancelled'].includes(ticket.status);
+  if (isRejectedOrCancelled && isTenant) {
+    throw Object.assign(new Error('Cannot update rejected or cancelled ticket'), { statusCode: 400 });
+  }
+  if (baseStatus === 'waiting_tenant' && !isTenant) {
+    if (payload.departmentId !== undefined || payload.assignedTo !== undefined) {
+      throw Object.assign(new Error('Cannot assign department or staff: Ticket is waiting for tenant response/confirmation.'), { statusCode: 400 });
+    }
   }
 
   const updateFields = {};
@@ -371,6 +398,22 @@ export const changeStatus = async (user, id, { status, notes }, meta = {}) => {
   // If status is reopened, delegate to dedicated reopenTicket handler
   if (status === 'reopened') {
     return reopenTicket(user, id, notes, meta);
+  }
+
+  // If status is closed, delegate to dedicated closeTicket handler (enforcing tenant resolution confirmation)
+  if (status === 'closed') {
+    return closeTicket(user, id, notes, meta);
+  }
+
+  const currentBase = (ticket.status || '').replace(/^escalated\./, '');
+  if (currentBase === 'closed') {
+    throw Object.assign(
+      new Error('Closed tickets are inactive and read-only. A Closed ticket cannot have its status changed until reopening is requested by the tenant and approved by an authorized manager or administrator.'),
+      { statusCode: 400 }
+    );
+  }
+  if (currentBase === 'waiting_tenant' && user.role !== 'tenant') {
+    throw Object.assign(new Error('This ticket is waiting for tenant response/confirmation and cannot have its status changed until the tenant responds.'), { statusCode: 400 });
   }
 
   // Multi-tier role-aware resolution routing:
@@ -455,6 +498,14 @@ export const assignDepartment = async (user, id, departmentId, notes, managerId 
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
 
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (baseStatus === 'closed') {
+    throw Object.assign(new Error('Closed tickets are inactive and read-only. Cannot assign department to a closed ticket.'), { statusCode: 400 });
+  }
+  if (baseStatus === 'waiting_tenant') {
+    throw Object.assign(new Error('Cannot assign department: Ticket is waiting for tenant response/confirmation.'), { statusCode: 400 });
+  }
+
   // Direct-route tickets are already routed to their owning department at creation,
   // so the admin must not (re)assign a department here. They are notified instead.
   if (ticket.routing_type === 'direct') {
@@ -536,6 +587,14 @@ export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (baseStatus === 'closed') {
+    throw Object.assign(new Error('Closed tickets are inactive and read-only. Cannot assign staff to a closed ticket.'), { statusCode: 400 });
+  }
+  if (baseStatus === 'waiting_tenant') {
+    throw Object.assign(new Error('Cannot assign staff: Ticket is waiting for tenant response/confirmation.'), { statusCode: 400 });
+  }
 
   // Validate manager belongs to the ticket's department
   if (user.role === 'manager' && ticket.department_id) {
@@ -683,6 +742,14 @@ export const overrideAssignment = async (user, id, { assignedTo, assignedBy, not
 
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (baseStatus === 'closed') {
+    throw Object.assign(new Error('Closed tickets are inactive and read-only. Cannot modify assignments on a closed ticket.'), { statusCode: 400 });
+  }
+  if (baseStatus === 'waiting_tenant') {
+    throw Object.assign(new Error('Cannot override assignment: Ticket is waiting for tenant response/confirmation.'), { statusCode: 400 });
+  }
 
   const onlyAttribution = assignedTo === undefined;
   const attributionUser = assignedBy ? assignedBy : user.id;
@@ -842,7 +909,62 @@ export const mergeTickets = async (user, targetId, sourceIds, notes, meta = {}) 
 };
 
 export const closeTicket = async (user, id, notes, meta = {}) => {
-  return changeStatus(user, id, { status: 'closed', notes }, meta);
+  const ticket = await ticketRepo.findById(id);
+  if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // A ticket can be marked Closed only after all required work has been completed and the issue has been resolved.
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (!['waiting_tenant', 'resolved', 'completed'].includes(baseStatus)) {
+    throw Object.assign(
+      new Error('A ticket can only be marked Closed after all required work has been completed and the issue has been resolved.'),
+      { statusCode: 400 }
+    );
+  }
+
+  // The tenant must confirm that the issue is resolved before the ticket can be finally closed.
+  const isTenant = user.role === 'tenant';
+  const isTenantConfirmed = ticket.tenant_confirmation_status === 'approved' || isTenant;
+  if (!isTenantConfirmed) {
+    throw Object.assign(
+      new Error('The tenant must confirm that the issue is resolved before the ticket can be finally closed.'),
+      { statusCode: 400 }
+    );
+  }
+
+  const now = new Date();
+  const updateFields = {
+    status: 'closed',
+    closed_at: now,
+    tenant_confirmation_status: 'approved',
+    reopen_status: 'none',
+  };
+  if (!ticket.completed_at) updateFields.completed_at = now;
+  if (!ticket.resolved_at) updateFields.resolved_at = now;
+  if (!ticket.approved_by && isTenant) {
+    updateFields.approved_by = user.id;
+    updateFields.approved_at = now;
+  }
+
+  await ticketRepo.update(id, updateFields);
+  await logStatus(id, ticket.status, 'closed', user, notes || 'Ticket marked closed after tenant resolution confirmation', meta);
+
+  const updated = await getTicket(user, id);
+  await notificationService.notifyTicketClosed(updated);
+  broadcastTicketEvent(id, 'ticket:closed', { ticketId: id, status: 'closed' });
+  broadcastTicketEvent(id, 'ticket:updated', { ticketId: id, status: 'closed' });
+
+  auditService.logAction(
+    user.id,
+    'close',
+    'ticket',
+    id,
+    meta?.ip,
+    { from: ticket.status, to: 'closed', notes, tenantConfirmationStatus: 'approved' },
+    { role: user.role, browser: meta?.browser }
+  ).catch(() => {});
+
+  return updated;
 };
 
 export const calculateActiveElapsedMs = (ticket, history = []) => {
@@ -881,52 +1003,120 @@ export const calculateActiveElapsedMs = (ticket, history = []) => {
   return totalActiveMs;
 };
 
-export const reopenTicket = async (user, id, notes, meta = {}) => {
+// ── Reopening Workflow ──
+
+/**
+ * requestReopenTicket
+ * Only the Tenant who created the ticket can submit a reopening request.
+ * The tenant must provide a reason explaining why the issue is unfinished, unresolved, or requires further attention.
+ * A Closed ticket remains inactive until the tenant submits a reopening request.
+ */
+export const requestReopenTicket = async (user, id, reason, meta = {}) => {
   const ticket = await ticketRepo.findById(id);
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
-  if (!(await canAccessTicket(user, ticket))) {
-    throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+  if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // Only Tenant can submit a reopening request
+  if (user.role !== 'tenant') {
+    throw Object.assign(new Error('Only the Tenant who created the ticket can submit a reopening request.'), { statusCode: 403 });
   }
 
-  // Role validation: staff cannot reopen tickets
+  // Must be the original tenant creator of the ticket
+  const isCreator = ticket.created_by === user.id;
+  if (!isCreator) {
+    throw Object.assign(new Error('Only the original tenant who created the ticket can request reopening.'), { statusCode: 403 });
+  }
+
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (!['closed', 'completed'].includes(baseStatus)) {
+    throw Object.assign(
+      new Error(`Cannot request reopening for ticket in '${ticket.status}' status. Reopening requests can only be submitted for Closed tickets.`),
+      { statusCode: 400 }
+    );
+  }
+
+  if (ticket.reopen_status === 'requested') {
+    throw Object.assign(new Error('A reopening request is already pending review for this ticket.'), { statusCode: 400 });
+  }
+
+  const cleanReason = (typeof reason === 'string' ? reason : (reason?.reason || reason?.notes || '')).trim();
+  if (!cleanReason) {
+    throw Object.assign(new Error('A reason explaining why the issue is unfinished, unresolved, or requires further attention is required.'), { statusCode: 400 });
+  }
+
+  const now = new Date();
+  const updateFields = {
+    reopen_status: 'requested',
+    reopen_requested_at: now,
+    reopen_requested_by: user.id,
+    reopen_request_reason: cleanReason,
+  };
+
+  await ticketRepo.update(id, updateFields);
+  await logStatus(id, ticket.status, ticket.status, user, `Tenant requested ticket reopening: ${cleanReason}`, meta);
+
+  const updated = await getTicket(user, id);
+  await notificationService.notifyTicketReopenRequested(updated, user.id, cleanReason);
+  broadcastTicketEvent(id, 'ticket:reopen_requested', { ticketId: id, reason: cleanReason });
+  broadcastTicketEvent(id, 'ticket:updated', { ticketId: id, reopenStatus: 'requested' });
+
+  auditService.logAction(
+    user.id,
+    'reopen_requested',
+    'ticket',
+    id,
+    meta?.ip,
+    { reason: cleanReason, status: ticket.status },
+    { role: user.role, browser: meta?.browser }
+  ).catch(() => {});
+
+  return updated;
+};
+
+/**
+ * approveReopenTicket
+ * The Admin can approve and reopen any ticket.
+ * The Department Manager can approve and reopen only tickets directly routed to or assigned to their department.
+ * Staff cannot reopen Closed tickets or independently approve reopening requests.
+ */
+export const approveReopenTicket = async (user, id, notes, meta = {}) => {
+  const ticket = await ticketRepo.findById(id);
+  if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  // Staff cannot reopen Closed tickets or independently approve reopening requests
   if (user.role === 'staff') {
-    throw Object.assign(
-      new Error('Staff cannot reopen tickets. Only Tenants, Department Managers, or Administrators can reopen tickets.'),
-      { statusCode: 403 }
-    );
+    throw Object.assign(new Error('Staff cannot reopen Closed tickets or independently approve reopening requests.'), { statusCode: 403 });
   }
 
-  const ALLOWED_REOPEN_ROLES = ['admin', 'manager', 'tenant', 'ceo'];
-  if (!ALLOWED_REOPEN_ROLES.includes(user.role)) {
-    throw Object.assign(
-      new Error(`Role ${user.role} is not permitted to reopen tickets.`),
-      { statusCode: 403 }
-    );
+  // Tenant cannot approve reopening requests
+  if (user.role === 'tenant') {
+    throw Object.assign(new Error('Tenants cannot approve ticket reopening.'), { statusCode: 403 });
   }
 
-  // Status validation
-  if (ticket.status === 'reopened') {
-    throw Object.assign(
-      new Error('Ticket is already reopened and in active workflow.'),
-      { statusCode: 400 }
-    );
+  // Role permissions: Admin can approve any; Dept Manager can approve only tickets directly routed or assigned to their department
+  if (user.role === 'manager') {
+    const deptIds = await ticketRepo.getManagerDepartmentIds(user.id);
+    const ticketDept = ticket.department_id || ticket.auto_department_id;
+    const isDirectlyRoutedOrAssigned = (ticketDept && deptIds.includes(ticketDept)) || ticket.assigned_to === user.id;
+    if (!isDirectlyRoutedOrAssigned) {
+      throw Object.assign(
+        new Error('Department Managers can approve and reopen only tickets directly routed to or assigned to their department.'),
+        { statusCode: 403 }
+      );
+    }
+  } else if (user.role !== 'admin' && user.role !== 'ceo') {
+    throw Object.assign(new Error(`Role ${user.role} is not permitted to approve reopening.`), { statusCode: 403 });
   }
 
-  const REOPENABLE_STATUSES = ['resolved', 'closed', 'completed', 'waiting_tenant'];
-  if (!REOPENABLE_STATUSES.includes(ticket.status)) {
-    throw Object.assign(
-      new Error(`Cannot transition from ${ticket.status} to reopened. Only resolved, completed, waiting-for-tenant, or closed tickets can be reopened.`),
-      { statusCode: 400 }
-    );
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (baseStatus === 'reopened') {
+    throw Object.assign(new Error('Ticket is already reopened and in active workflow.'), { statusCode: 400 });
   }
 
-  const reason = (typeof notes === 'string' ? notes : (meta?.reason || notes?.reason || notes?.notes || '')).trim();
-  if (!reason) {
-    throw Object.assign(
-      new Error('A reason is required to reopen the ticket.'),
-      { statusCode: 400 }
-    );
-  }
+  const reason = (typeof notes === 'string' ? notes : (meta?.reason || notes?.reason || notes?.notes || '')).trim()
+    || ticket.reopen_request_reason
+    || 'Reopening approved by management';
 
   const now = new Date();
 
@@ -943,13 +1133,14 @@ export const reopenTicket = async (user, id, notes, meta = {}) => {
     slaService.computeReopenDueDates(
       policy || { priority: ticket.priority },
       ticket.created_at,
-      ticket.resolved_at,
+      ticket.resolved_at || ticket.closed_at,
       now,
       activeElapsedMs
     );
 
   const updateFields = {
     status: 'reopened',
+    reopen_status: 'approved',
     reopened_at: now,
     reopened_by: user.id,
     reopen_reason: reason,
@@ -960,20 +1151,20 @@ export const reopenTicket = async (user, id, notes, meta = {}) => {
     escalation_sla_breached: 0,
     tenant_confirmation_status: 'rejected',
   };
-  // NOTE: ticket.first_response_at and previous resolution timestamps in ticket_status_history are strictly preserved!
 
   await ticketRepo.update(id, updateFields);
-  await logStatus(id, ticket.status, 'reopened', user, reason, meta);
+  await logStatus(id, ticket.status, 'reopened', user, `Reopening approved: ${reason}`, meta);
 
   const updated = await getTicket(user, id);
 
   await notificationService.notifyTicketReopened(updated, user.id, reason);
   sendTicketReopenedEmail(updated).catch(() => {});
+  broadcastTicketEvent(id, 'ticket:reopened', { ticketId: id, status: 'reopened' });
   broadcastTicketEvent(id, 'ticket:updated', { ticketId: id, status: 'reopened' });
 
   auditService.logAction(
     user.id,
-    'reopen',
+    'approve_reopen',
     'ticket',
     id,
     meta?.ip,
@@ -990,6 +1181,118 @@ export const reopenTicket = async (user, id, notes, meta = {}) => {
   ).catch(() => {});
 
   return updated;
+};
+
+/**
+ * rejectReopenTicket
+ * Admin or authorized Department Manager declines tenant reopening request.
+ * Ticket remains Closed (Inactive).
+ */
+export const rejectReopenTicket = async (user, id, notes, meta = {}) => {
+  const ticket = await ticketRepo.findById(id);
+  if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+  if (user.role === 'staff' || user.role === 'tenant') {
+    throw Object.assign(new Error('Only Administrators or authorized Department Managers can decline reopening requests.'), { statusCode: 403 });
+  }
+
+  if (user.role === 'manager') {
+    const deptIds = await ticketRepo.getManagerDepartmentIds(user.id);
+    const ticketDept = ticket.department_id || ticket.auto_department_id;
+    const isDirectlyRoutedOrAssigned = (ticketDept && deptIds.includes(ticketDept)) || ticket.assigned_to === user.id;
+    if (!isDirectlyRoutedOrAssigned) {
+      throw Object.assign(
+        new Error('Department Managers can decline reopening requests only for tickets directly routed to or assigned to their department.'),
+        { statusCode: 403 }
+      );
+    }
+  }
+
+  if (ticket.reopen_status !== 'requested') {
+    throw Object.assign(new Error('This ticket does not have a pending reopening request.'), { statusCode: 400 });
+  }
+
+  const cleanNotes = (typeof notes === 'string' ? notes : (notes?.notes || notes?.reason || '')).trim();
+  if (!cleanNotes) {
+    throw Object.assign(new Error('A reason is required to decline the reopening request.'), { statusCode: 400 });
+  }
+
+  const updateFields = {
+    reopen_status: 'rejected',
+  };
+
+  await ticketRepo.update(id, updateFields);
+  await logStatus(id, ticket.status, ticket.status, user, `Reopening request declined: ${cleanNotes}`, meta);
+
+  const updated = await getTicket(user, id);
+  await notificationService.notifyTicketReopenRejected(updated, user.id, cleanNotes);
+  broadcastTicketEvent(id, 'ticket:reopen_declined', { ticketId: id, notes: cleanNotes });
+  broadcastTicketEvent(id, 'ticket:updated', { ticketId: id, reopenStatus: 'rejected' });
+
+  auditService.logAction(
+    user.id,
+    'reject_reopen',
+    'ticket',
+    id,
+    meta?.ip,
+    { notes: cleanNotes, fromReopenStatus: 'requested', toReopenStatus: 'rejected' },
+    { role: user.role, browser: meta?.browser }
+  ).catch(() => {});
+
+  return updated;
+};
+
+/**
+ * reopenTicket
+ * Enforces the complete lifecycle:
+ * Closed (Inactive) → Tenant Requests Reopening → Admin/Authorized Department Manager Approves → Reopened (Active)
+ */
+export const reopenTicket = async (user, id, notes, meta = {}) => {
+  const ticket = await ticketRepo.findById(id);
+  if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
+  if (!(await canAccessTicket(user, ticket))) {
+    throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+  }
+
+  // Staff cannot reopen Closed tickets or independently approve reopening requests
+  if (user.role === 'staff') {
+    throw Object.assign(
+      new Error('Staff cannot reopen Closed tickets or independently approve reopening requests.'),
+      { statusCode: 403 }
+    );
+  }
+
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+
+  // Critical business rule: For a Closed ticket, tenant submits a request; admin / manager approves
+  if (['closed', 'completed'].includes(baseStatus)) {
+    if (user.role === 'tenant') {
+      return requestReopenTicket(user, id, notes, meta);
+    }
+    return approveReopenTicket(user, id, notes, meta);
+  }
+
+  // If waiting for tenant, tenant rejecting resolution
+  if (baseStatus === 'waiting_tenant') {
+    if (user.role !== 'tenant') {
+      throw Object.assign(new Error('This ticket is waiting for tenant response/confirmation and cannot be reopened until the tenant responds.'), { statusCode: 400 });
+    }
+    return approveReopenTicket({ ...user, role: 'admin' }, id, notes || 'Tenant rejected proposed solution (issue not resolved)', meta);
+  }
+
+  // Resolved status prior to closure
+  if (baseStatus === 'resolved') {
+    if (user.role === 'tenant') {
+      return requestReopenTicket(user, id, notes, meta);
+    }
+    return approveReopenTicket(user, id, notes, meta);
+  }
+
+  throw Object.assign(
+    new Error(`Cannot transition from ${ticket.status} to reopened. Only resolved or closed tickets can be reopened.`),
+    { statusCode: 400 }
+  );
 };
 
 export const approveResolution = async (user, id, notes, meta = {}, feedbackData = {}) => {
@@ -1060,22 +1363,26 @@ export const approveResolution = async (user, id, notes, meta = {}, feedbackData
     }
 
     const updateFields = {
-      status: 'completed',
+      status: 'closed',
       closed_at: now,
       completed_at: now,
       tenant_confirmation_status: 'approved',
       approved_by: user.id,
       approved_at: now,
+      reopen_status: 'none',
     };
     await ticketRepo.update(id, updateFields);
-    await logStatus(id, ticket.status, 'completed', user, notes || 'Tenant confirmed issue resolved (completed)', meta);
+    await logStatus(id, ticket.status, 'closed', user, notes || 'Tenant confirmed issue resolved; ticket closed', meta);
 
     // Save Tenant satisfaction feedback if rating or feedback text is provided
     const ratingVal = feedbackData?.rating ? Number(feedbackData.rating) : null;
     const feedbackText = feedbackData?.feedback || feedbackData?.message || notes;
     if (ratingVal || feedbackText) {
+      const fbId = await getNextFeedbackId().catch(() => null);
+      const fbNum = fbId && /^\d+$/.test(fbId) ? Number(fbId) : null;
       await feedbackRepo.create({
-        id: uuidv4(),
+        id: fbId || uuidv4().slice(0, 8),
+        feedbackNum: fbNum,
         tenantId: user.tenant_id || ticket.tenant_id || null,
         ticketId: id,
         subject: `Ticket ${ticket.reference_number || ticket.referenceNumber} Resolution Feedback`,
@@ -1156,6 +1463,11 @@ export const markResolved = async (user, id, notes, meta = {}) => {
   if (!ticket) throw Object.assign(new Error('Ticket not found'), { statusCode: 404 });
   if (!(await canAccessTicket(user, ticket))) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+  }
+
+  const rawTicketStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (rawTicketStatus === 'waiting_tenant') {
+    throw Object.assign(new Error('Ticket is already resolved and waiting for tenant response/confirmation.'), { statusCode: 400 });
   }
 
   const now = new Date();
@@ -1267,12 +1579,24 @@ export const changeCategory = async (user, id, category, meta = {}) => {
   if (!(await canAccessTicket(user, ticket))) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
 
   const old = ticket.category;
-  const catInfo = await ticketRepo.getDepartmentForCategory(category).catch(() => ({ department_id: null, sla_policy_id: null, routing_type: 'general' }));
-  const updateFields = { category };
+  let categoryRecord = await categoryRepo.findByName(category).catch(() => null);
+  if (!categoryRecord && category) {
+    categoryRecord = await categoryRepo.findById(category).catch(() => null);
+  }
+  if (!categoryRecord && category) {
+    const [deptMatch] = await pool.query(
+      'SELECT id FROM departments WHERE LOWER(TRIM(name)) = LOWER(TRIM(:cat)) LIMIT 1',
+      { cat: category }
+    ).catch(() => [[]]);
+    if (deptMatch && deptMatch.length > 0) {
+      throw Object.assign(new Error('Invalid category: please select a created ticket category rather than a department name'), { statusCode: 400 });
+    }
+  }
+  const canonicalCategory = categoryRecord?.name || category;
+  const catInfo = await ticketRepo.getDepartmentForCategory(canonicalCategory).catch(() => ({ department_id: null, sla_policy_id: null, routing_type: 'general' }));
+  const updateFields = { category: canonicalCategory };
   if (catInfo.department_id) updateFields.department_id = catInfo.department_id;
   updateFields.routing_type = catInfo.routing_type || 'general';
-
-  const categoryRecord = await categoryRepo.findByName(category).catch(() => null);
   const dueDates = await slaService.computeDueDate(ticket.priority, new Date(ticket.created_at), categoryRecord?.id || null);
   updateFields.due_date = dueDates.resolutionDueDate;
   updateFields.response_due_date = dueDates.responseDueDate;
@@ -1462,6 +1786,46 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
     effectiveVisibility = 'department';
   }
 
+  // Enforce tenant announcement / tenant-facing response routing rules:
+  // - General routing: only Admin can announce or respond directly to tenants
+  // - Direct routing: only the Department Head (manager) of the assigned department can announce or respond directly to tenants
+  if (
+    ['admin', 'manager', 'staff'].includes(user.role) &&
+    ['all', 'tenant', 'both'].includes(effectiveVisibility)
+  ) {
+    let ticketRouting = ticket.routing_type;
+    let ticketDeptId = ticket.department_id || ticket.auto_department_id;
+    if (!ticketRouting || !ticketDeptId) {
+      const catInfo = await ticketRepo.getDepartmentForCategory(ticket.category).catch(() => null);
+      if (catInfo) {
+        if (!ticketRouting) ticketRouting = catInfo.routing_type;
+        if (!ticketDeptId) ticketDeptId = catInfo.department_id;
+      }
+    }
+    ticketRouting = ticketRouting || 'general';
+
+    if (ticketRouting === 'direct') {
+      if (user.role !== 'manager') {
+        throw Object.assign(
+          new Error('For direct-routing tickets, only the Head of the assigned department can announce or respond to the tenant.'),
+          { statusCode: 403 }
+        );
+      }
+      const userDeptIds = await ticketRepo.getUserDepartmentIds(user.id);
+      if (!ticketDeptId || !userDeptIds.includes(ticketDeptId)) {
+        throw Object.assign(
+          new Error('Only the Department Head of the ticket\'s assigned department can announce or respond to the tenant.'),
+          { statusCode: 403 }
+        );
+      }
+    } else if (user.role !== 'admin') {
+      throw Object.assign(
+        new Error('For general-routing tickets, only Admin can announce or respond to the tenant.'),
+        { statusCode: 403 }
+      );
+    }
+  }
+
   const replyId = uuidv4();
   const isInternal = (effectiveVisibility === 'internal' || effectiveVisibility === 'department' || effectiveVisibility === 'admin' || !!targetUserId) ? 1 : 0;
   await ticketRepo.addReply({
@@ -1469,6 +1833,18 @@ export const addReply = async (user, ticketId, message, visibility = 'all', atta
     type: 'reply', isInternal, departmentIds: effectiveDeptIds || null,
     targetUserId: targetUserId || null,
   });
+
+  // If the ticket was waiting for tenant response/confirmation, a tenant reply unlocks it and automatically transitions back to in_progress
+  const baseStatus = (ticket.status || '').replace(/^escalated\./, '');
+  if (user.role === 'tenant' && baseStatus === 'waiting_tenant') {
+    const targetStatus = ticket.status.startsWith('escalated.') ? 'escalated.in_progress' : (ticket.status === 'escalated' ? 'escalated' : 'in_progress');
+    const updatePayload = {
+      status: targetStatus,
+    };
+    await ticketRepo.update(ticketId, updatePayload);
+    await logStatus(ticketId, ticket.status, targetStatus, user, 'Tenant replied to inquiry: Ticket resumed to In Progress', meta);
+    broadcastTicketEvent(ticketId, 'ticket:updated', { ticketId, status: targetStatus });
+  }
 
   // Track response SLA satisfaction when staff/manager/admin responds to user
   if (!isInternal && ['admin', 'manager', 'staff'].includes(user.role)) {
@@ -1497,7 +1873,7 @@ export const getReplies = async (user, ticketId) => {
 
   const replies = await ticketRepo.getReplies(ticketId);
 
-  const userDeptIds = (user.role === 'tenant' || user.role === 'admin')
+  const userDeptIds = (user.role === 'tenant' || user.role === 'admin' || user.role === 'ceo')
     ? []
     : await ticketRepo.getUserDepartmentIds(user.id);
 
@@ -1521,7 +1897,7 @@ export const getTimeline = async (user, ticketId) => {
   }
   const events = await ticketRepo.getTimeline(ticketId);
 
-  const userDeptIds = (user.role === 'tenant' || user.role === 'admin')
+  const userDeptIds = (user.role === 'tenant' || user.role === 'admin' || user.role === 'ceo')
     ? []
     : await ticketRepo.getUserDepartmentIds(user.id);
 

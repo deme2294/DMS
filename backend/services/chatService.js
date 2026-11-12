@@ -6,7 +6,7 @@ import * as notificationRepo from '../repository/notificationRepository.js';
 import * as notificationService from '../services/notificationService.js';
 import { canContact } from '../config/contactMatrix.js';
 import pool from '../config/db.js';
-import { sendMeetingInvitationEmail } from './emailService.js';
+import { sendMeetingInvitationEmail, sendChatMessageEmail } from './emailService.js';
 import { emitToRoom, emitToUser, getIo } from './socketService.js';
 
 // ===================== CHAT ROOMS =====================
@@ -355,6 +355,49 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
     }
   }
 
+  // Notify target user via in-app notification, real-time socket alert, and email
+  try {
+    const isVid = initialMode === 'video';
+    const notifTitle = isVid ? '📹 Incoming Video Call Invitation' : '💬 New Chat Conversation';
+    const notifMsg = isVid
+      ? `${user1.first_name} ${user1.last_name} (${user1.role}) invited you to a video conference.`
+      : `${user1.first_name} ${user1.last_name} (${user1.role}) started a direct conversation with you.`;
+
+    await notificationRepo.createNotification(
+      targetUser2Id,
+      notifTitle,
+      notifMsg,
+      'chat',
+      null,
+      null,
+      roomId
+    ).catch(() => {});
+
+    emitToUser(targetUser2Id, 'notification', {
+      title: notifTitle,
+      message: notifMsg,
+      type: 'chat',
+      roomId,
+      autoJoinVideo: isVid,
+      createdAt: new Date().toISOString(),
+    });
+
+    const targetEmail = (user2.email && user2.email.trim()) || '';
+    if (targetEmail) {
+      sendChatMessageEmail({
+        email: targetEmail,
+        recipientName: `${user2.first_name} ${user2.last_name || ''}`.trim(),
+        senderName: `${user1.first_name} ${user1.last_name || ''}`.trim(),
+        senderRole: user1.role,
+        roomName: `${user1.first_name} & ${user2.first_name}`,
+        messageSnippet: isVid ? '📹 Invited you to an in-app video conference' : '💬 Started a new conversation with you',
+        roomId,
+      }).catch((err) => console.error('[createDirectRoom] Notification email error:', err.message));
+    }
+  } catch (notifErr) {
+    console.warn('[createDirectRoom] Notification dispatch error:', notifErr);
+  }
+
   // Real-time update for recipient sidebar
   if (io) {
     try {
@@ -459,7 +502,7 @@ export const sendMessage = async (data, userId) => {
   const [sender] = await pool.query(`SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1`, [userId]);
   if (room.length && sender.length) {
     const senderName = `${sender[0].first_name} ${sender[0].last_name}`;
-    notificationService.notifyNewChatMessage({ room_id: roomId, sender_id: userId }, { name: room[0].name }, senderName).catch(() => {});
+    notificationService.notifyNewChatMessage({ room_id: roomId, sender_id: userId, message, messageType, attachmentName }, { name: room[0].name }, senderName).catch(() => {});
   }
   
   return chatRepo.findMessageById(messageId);
@@ -943,6 +986,7 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
       roomName,
       notes,
       webAppUrl: data.origin || '',
+      roomId: targetRoomId,
       scheduledTime: sessionDate.toISOString(),
       formattedScheduledTime: dateDisplay,
       createdTime: createdTimeStr,

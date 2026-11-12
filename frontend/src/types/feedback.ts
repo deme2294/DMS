@@ -1,11 +1,28 @@
-export type FeedbackType = 'suggestion' | 'complaint' | 'improvement' | 'bug' | 'other';
-export type FeedbackStatus = 'pending' | 'read' | 'resolved' | 'in_progress';
+export type FeedbackType = 'suggestion' | 'complaint' | 'improvement' | 'bug' | 'other' | 'office_inquiry' | 'general';
+export type FeedbackStatus = 'pending' | 'assigned_to_dept' | 'assigned_to_staff' | 'in_progress' | 'read' | 'resolved' | 'closed';
 
 export interface Feedback {
   id: string;
   feedbackNum?: number | null;
   tenantId: string;
   ticketId?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  serviceName?: string | null;
+  departmentId?: string | null;
+  resolvedDepartmentId?: string | null;
+  routingType?: 'general' | 'direct';
+  departmentName?: string | null;
+  departmentHeadId?: string | null;
+  departmentHeadName?: string | null;
+  departmentHeadEmail?: string | null;
+  assignedToUserId?: string | null;
+  assignedToName?: string | null;
+  assignedToEmail?: string | null;
+  assignmentScope?: 'department_only' | 'department_general' | 'specific_staff' | 'direct_user' | null;
+  assignedUserIds?: string[];
+  adminDirective?: string | null;
+  departmentNotes?: string | null;
   subject: string;
   message: string;
   rating?: number | null;
@@ -40,6 +57,9 @@ export interface FeedbackReply {
 
 export interface FeedbackFormValues {
   ticketId?: string;
+  categoryId?: string;
+  serviceName?: string;
+  departmentId?: string;
   subject: string;
   message: string;
   feedbackType: FeedbackType;
@@ -59,4 +79,43 @@ export interface AdminFeedbackResponse {
   adminResponse: string;
 }
 
+export interface AssignDepartmentPayload {
+  targetType?: 'department' | 'user';
+  departmentId?: string;
+  departmentHeadId?: string;
+  assignedToUserId?: string;
+  adminDirective?: string;
+  whatIsCorrect?: string;
+  whatShouldChange?: string;
+}
 
+export interface AssignStaffPayload {
+  assignmentScope?: 'department_general' | 'specific_staff';
+  assignedToUserId?: string;
+  assignedUserIds?: string[];
+  departmentNotes?: string;
+  whatIsCorrect?: string;
+  whatShouldChange?: string;
+}
+
+export type FeedbackAiDetectionType = 'keep_it_up' | 'needs_change' | 'mixed';
+
+export interface FeedbackAiQuickOption {
+  id: string;
+  label: string;
+  tone: string;
+  text: string;
+}
+
+export interface FeedbackAiResponseResult {
+  detectedType: FeedbackAiDetectionType;
+  detectedLabel: string;
+  feedbackTypeUsed?: string;
+  previousFeedbackCount?: number;
+  historySummary?: string;
+  keepUpHighlights: string[];
+  changeHighlights: string[];
+  recommendedResponse: string;
+  quickResponses: FeedbackAiQuickOption[];
+  source: string;
+}

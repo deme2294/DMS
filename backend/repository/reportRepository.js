@@ -75,9 +75,15 @@ export const getTicketReports = async (filters, managerDeptIds = null) => {
   );
 
   const [byCategory] = await pool.query(
-    `SELECT COALESCE(t.category, 'Uncategorized') AS category, COUNT(*) AS count
-     FROM tickets t ${where}
-     GROUP BY t.category ORDER BY count DESC`,
+    `SELECT tc.name AS category, COUNT(t.id) AS count
+     FROM ticket_categories tc
+     INNER JOIN tickets t
+       ON (t.category = tc.id OR LOWER(TRIM(t.category)) = LOWER(TRIM(tc.name)))
+     ${where}
+       AND tc.is_active = 1
+       AND tc.status = 'approved'
+       AND NOT EXISTS (SELECT 1 FROM departments d WHERE LOWER(TRIM(d.name)) = LOWER(TRIM(tc.name)))
+     GROUP BY tc.id, tc.name ORDER BY count DESC`,
     params
   );
 

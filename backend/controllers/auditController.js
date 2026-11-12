@@ -40,7 +40,7 @@ export const getAuditLogs = async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT al.id, al.user_id, al.action, al.entity_type AS entity,
               al.entity_id, al.ip_address, al.details, al.created_at,
-              u.username, u.first_name, u.last_name
+              u.username, u.first_name, u.last_name, u.user_code
        FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
        ${where}
@@ -51,7 +51,7 @@ export const getAuditLogs = async (req, res, next) => {
 
     const data = rows.map((r) => ({
       id: r.id,
-      userId: r.user_id,
+      userId: r.user_code || r.user_id,
       username: r.username || r.user_id,
       action: r.action,
       entity: r.entity,
@@ -122,7 +122,7 @@ export const exportAuditLogs = async (req, res, next) => {
     if (endDate) { where += ' AND al.created_at <= ?'; params.push(endDate); }
 
     const [rows] = await pool.query(
-      `SELECT al.id, al.user_id, u.username, u.first_name, u.last_name, u.email,
+      `SELECT al.id, al.user_id, u.username, u.first_name, u.last_name, u.email, u.user_code,
               al.action, al.entity_type AS entity, al.entity_id, al.ip_address,
               al.details, al.created_at
        FROM audit_logs al

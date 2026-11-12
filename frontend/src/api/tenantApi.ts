@@ -1,5 +1,6 @@
 import api from './axios';
 import type { Tenant, PaginationMeta, CreateTenantResponse } from '../types/tenant';
+import { toShortId } from '../utils/idUtils';
 
 export interface TenantListParams {
   search?: string;
@@ -17,25 +18,25 @@ export const fetchTenants = (params: TenantListParams) =>
   );
 
 export const fetchTenant = (id: string) =>
-  api.get<{ success: boolean; data: Tenant }>(`/tenants/${id}`);
+  api.get<{ success: boolean; data: Tenant }>(`/tenants/${toShortId(id)}`);
 
 export const createTenant = (payload: Record<string, unknown>) =>
   api.post<CreateTenantResponse>('/tenants', payload);
 
 export const updateTenant = (id: string, payload: Record<string, unknown>) =>
-  api.put(`/tenants/${id}`, payload);
+  api.put(`/tenants/${toShortId(id)}`, payload);
 
 export const deleteTenant = (id: string) =>
-  api.delete(`/tenants/${id}`);
+  api.delete(`/tenants/${toShortId(id)}`);
 
 export const activateTenant = (id: string) =>
-  api.patch(`/tenants/${id}/activate`);
+  api.patch(`/tenants/${toShortId(id)}/activate`);
 
 export const deactivateTenant = (id: string) =>
-  api.patch(`/tenants/${id}/deactivate`);
+  api.patch(`/tenants/${toShortId(id)}/deactivate`);
 
 export const approveTenant = (id: string) =>
-  api.patch(`/tenants/${id}/approve`);
+  api.patch(`/tenants/${toShortId(id)}/approve`);
 
 export const registerTenant = (payload: Record<string, unknown>) =>
   api.post('/tenants/register', payload);

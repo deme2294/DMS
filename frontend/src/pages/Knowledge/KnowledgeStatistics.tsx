@@ -15,6 +15,7 @@ import type { Article, ArticleStats } from '../../types/article';
 import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
 import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
 import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
+import { toShortKnowledgeId } from '../../utils/idUtils';
 import {
   ArrowsPointingOutIcon,
   ViewColumnsIcon,
@@ -947,7 +948,7 @@ export default function KnowledgeStatistics() {
                         <button
                           type="button"
                           className={styles.btnEditAction}
-                          onClick={() => navigate(`/admin/knowledge/${art.id}/edit`)}
+                          onClick={() => navigate(`/admin/knowledge/${toShortKnowledgeId(art)}/edit`)}
                           title="Directly edit and update this article"
                         >
                           ✏️ Edit Article
@@ -971,7 +972,7 @@ export default function KnowledgeStatistics() {
                         <button
                           type="button"
                           className={styles.btnViewPublicAction}
-                          onClick={() => navigate(`/admin/knowledge/${art.id}`)}
+                          onClick={() => navigate(`/admin/knowledge/${toShortKnowledgeId(art)}`)}
                           title="View live published article page"
                         >
                           🌐 View Live
@@ -1090,7 +1091,7 @@ export default function KnowledgeStatistics() {
           setWorkflowModalOpen(true);
         }}
         onApproveDirect={handleApproveDirect}
-        onOpenRevise={(art) => navigate(`/admin/knowledge/${art.id}/edit`)}
+        onOpenRevise={(art) => navigate(`/admin/knowledge/${toShortKnowledgeId(art)}/edit`)}
         onRouteToAuthor={(art) => {
           setSelectedArticle(art);
           setActionTargetArticle(art);

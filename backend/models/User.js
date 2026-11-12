@@ -28,3 +28,4 @@ export const sanitizeUser = (row) => {
     tenantName: row.tenant_name || row.tenantName || null,
   };
 };
+

@@ -155,9 +155,23 @@ export interface Ticket {
   approvedAt?: string | null;
   escalatedAt?: string | null;
   reopenedAt?: string | null;
+  reopened_at?: string | null;
   reopenedBy?: string | null;
+  reopened_by?: string | null;
   reopenedByName?: string | null;
+  reopened_by_name?: string | null;
   reopenReason?: string | null;
+  reopen_reason?: string | null;
+  reopenRequestedAt?: string | null;
+  reopen_requested_at?: string | null;
+  reopenRequestedBy?: string | null;
+  reopen_requested_by?: string | null;
+  reopenRequestedByName?: string | null;
+  reopen_requested_by_name?: string | null;
+  reopenRequestReason?: string | null;
+  reopen_request_reason?: string | null;
+  reopenStatus?: 'none' | 'requested' | 'approved' | 'rejected' | string | null;
+  reopen_status?: 'none' | 'requested' | 'approved' | 'rejected' | string | null;
   firstResponseAt?: string | null;
   cancelledAt?: string | null;
    mergedInto?: string | null;
@@ -210,7 +224,7 @@ export const TICKET_STATUSES: TicketStatus[] = [
 
 export const TICKET_PRIORITIES: TicketPriority[] = ['low', 'medium', 'high', 'urgent'];
 
-export const STATUS_LABELS: Record<TicketStatus, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   open: 'Open',
   assigned: 'Assigned',
   in_progress: 'In Progress',
@@ -231,6 +245,35 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
   assigned_department: 'Assigned to Department',
   assigned_staff: 'Assigned to Staff',
   pending_approval: 'Pending Admin Verification',
+  'escalated.open': 'Escalated • Open',
+  'escalated.assigned': 'Escalated • Assigned',
+  'escalated.in_progress': 'Escalated • In Progress',
+  'escalated.pending': 'Escalated • Pending',
+  'escalated.under_review': 'Escalated • Under Review',
+  'escalated.pending_approval': 'Escalated • Pending Approval',
+  'escalated.waiting_tenant': 'Escalated • Waiting Tenant',
+  'escalated.resolved': 'Escalated • Resolved',
+  'escalated.completed': 'Escalated • Completed',
+  'escalated.closed': 'Escalated • Closed',
+  'escalated.reopened': 'Escalated • Reopened',
+};
+
+export const getStatusLabel = (status?: string | null): string => {
+  if (!status) return 'Unknown';
+  if (STATUS_LABELS[status]) {
+    return STATUS_LABELS[status];
+  }
+  if (status.startsWith('escalated.')) {
+    const sub = status.replace(/^escalated\./, '');
+    const subLabel = STATUS_LABELS[sub] || sub.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return `Escalated • ${subLabel}`;
+  }
+  return STATUS_LABELS[status] || status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+export const getStatusClassName = (status?: string | null): string => {
+  if (!status) return 'open';
+  return status.replace(/\./g, '_');
 };
 
 export const TENANT_CONFIRMATION_LABELS: Record<TenantConfirmationStatus, string> = {

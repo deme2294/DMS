@@ -165,3 +165,151 @@
     align-items: flex-start;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Professional Action Alert Banner
+   -------------------------------------------------------------------------- */
+.professionalAlertBanner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 4px auto 16px auto;
+  position: relative;
+  z-index: 30;
+}
+
+.alertCardInner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 22px;
+  border-radius: 14px;
+  width: 100%;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backdrop-filter: blur(12px);
+  border-left-width: 5px;
+  border-left-style: solid;
+  transition: all 0.2s ease;
+}
+
+.alertCardSuccess {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #a7f3d0;
+  border-left-color: #10b981;
+}
+
+.alertCardError {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+  border: 1px solid #fecaca;
+  border-left-color: #ef4444;
+}
+
+.alertIconCol {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.alertCardSuccess .alertIconCol {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.alertCardError .alertIconCol {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.alertActionIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.alertBodyCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.alertHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.alertCategoryBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.alertCardSuccess .alertCategoryBadge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.alertCardError .alertCategoryBadge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.alertTimestamp {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.alertHeadline {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.alertCardSuccess .alertHeadline {
+  color: #065f46;
+}
+
+.alertCardError .alertHeadline {
+  color: #991b1b;
+}
+
+.alertDescription {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #334155;
+  word-break: break-word;
+}
+
+.alertCardError .alertDescription {
+  color: #7f1d1d;
+}
+
+.alertCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.alertCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #475569;
+}

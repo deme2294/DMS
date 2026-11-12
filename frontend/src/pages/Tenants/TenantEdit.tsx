@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import TenantForm from '../../components/Forms/TenantForm';
 import { fetchTenant, updateTenant } from '../../api/tenantApi';
 import type { Tenant, TenantFormValues } from '../../types/tenant';
+import { toShortTenantId } from '../../utils/idUtils';
 import styles from './Tenants.module.css';
 
 export default function TenantEdit() {
@@ -14,15 +15,30 @@ export default function TenantEdit() {
 
   useEffect(() => {
     if (!id) return;
-    fetchTenant(id).then((res) => setTenant(res.data.data));
-  }, [id]);
+    fetchTenant(id).then((res) => {
+      const data = res.data.data;
+      setTenant(data);
+      const shortId = toShortTenantId(data);
+      if (shortId && id !== shortId && id.length > 4) {
+        navigate(`/admin/tenants/${shortId}/edit`, { replace: true });
+      }
+    });
+  }, [id, navigate]);
 
   const onSubmit = async (values: TenantFormValues) => {
     if (!id) return;
     setLoading(true);
     try {
       await updateTenant(id, values as unknown as Record<string, unknown>);
-      navigate('/admin/tenants');
+      navigate('/admin/tenants', {
+        state: {
+          alert: {
+            type: 'success',
+            message: `Tenant "${values.organizationName}" updated successfully`,
+            title: 'Tenant Updated',
+          },
+        },
+      });
     } finally {
       setLoading(false);
     }

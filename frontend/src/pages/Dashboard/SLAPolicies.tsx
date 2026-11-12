@@ -24,6 +24,7 @@ import Modal from '../../components/Modal/Modal';
 import { fetchSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, type SLAPolicy } from '../../api/slaApi';
 import { fetchCategories, type TicketCategory } from '../../api/categoryApi';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import styles from './SLAPolicies.module.css';
 
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
@@ -50,7 +51,9 @@ const empty: SLAFormState = {
 
 export default function SLAPolicies() {
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const [policies, setPolicies] = useState<SLAPolicy[]>([]);
+  const [allPolicies, setAllPolicies] = useState<SLAPolicy[]>([]);
   const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -76,6 +79,13 @@ export default function SLAPolicies() {
       // keep previous policies on error
     } finally {
       setLoading(false);
+    }
+    try {
+      // Fetch full policy list for comprehensive duplicate validation across all categories
+      const allRes = await fetchSLAPolicies({ includeInactive: true });
+      setAllPolicies(allRes.data.data);
+    } catch {
+      // fallback
     }
     try {
       const cRes = await fetchCategories({ includeInactive: true });
@@ -160,6 +170,24 @@ export default function SLAPolicies() {
       }
     }
 
+    const targetCatId = form.categoryId ? form.categoryId : null;
+    const catLabel = targetCatId
+      ? (categories.find((c) => c.id === targetCatId)?.name || 'this category')
+      : 'Global (All Categories)';
+
+    const duplicatePriority = allPolicies.find(
+      (p) =>
+        (!editing || p.id !== editing.id) &&
+        (p.categoryId || null) === targetCatId &&
+        p.priority.toLowerCase() === form.priority.toLowerCase()
+    );
+    if (duplicatePriority) {
+      const duplicateMsg = `An SLA policy with "${form.priority.toUpperCase()}" priority already exists for ${catLabel} (Policy: "${duplicatePriority.name}"). An SLA policy cannot be created twice with the same category and priority.`;
+      setError(duplicateMsg);
+      showError(duplicateMsg, 'Duplicate SLA Policy');
+      return;
+    }
+
     const payload = {
       name: form.name.trim(),
       priority: form.priority,
@@ -171,21 +199,39 @@ export default function SLAPolicies() {
     };
 
     try {
-      if (editing) await updateSLAPolicy(editing.id, payload);
-      else await createSLAPolicy(payload);
-      setMessage(editing ? 'SLA policy updated successfully' : 'SLA policy created successfully');
+      if (editing) {
+        await updateSLAPolicy(editing.id, payload);
+        const msg = `SLA policy "${payload.name}" updated successfully`;
+        setMessage(msg);
+        showSuccess(msg, 'SLA Policy Updated');
+      } else {
+        await createSLAPolicy(payload);
+        const msg = `SLA policy "${payload.name}" created successfully`;
+        setMessage(msg);
+        showSuccess(msg, 'SLA Policy Created');
+      }
       setModalOpen(false);
       load();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to save');
+      const errMsg = e?.response?.data?.message || 'Failed to save SLA policy';
+      setError(errMsg);
+      showError(errMsg, 'Save Error');
     }
   };
 
   const handleDelete = async (p: SLAPolicy) => {
     if (!window.confirm(`Delete SLA policy "${p.name}"? This action cannot be undone.`)) return;
-    await deleteSLAPolicy(p.id);
-    setMessage('SLA policy deleted');
-    load();
+    try {
+      await deleteSLAPolicy(p.id);
+      const msg = `SLA policy "${p.name}" deleted`;
+      setMessage(msg);
+      showSuccess(msg, 'Policy Deleted');
+      load();
+    } catch (e: any) {
+      const errMsg = e?.response?.data?.message || 'Failed to delete policy';
+      setError(errMsg);
+      showError(errMsg, 'Delete Error');
+    }
   };
 
   const handleToggleStatus = async (p: SLAPolicy) => {
@@ -194,12 +240,16 @@ export default function SLAPolicies() {
     setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, isActive: next } : x)));
     try {
       await updateSLAPolicy(p.id, { isActive: next });
-      setMessage(`SLA policy ${next ? 'activated' : 'deactivated'} successfully`);
+      const msg = `SLA policy "${p.name}" ${next ? 'activated' : 'deactivated'} successfully`;
+      setMessage(msg);
+      showSuccess(msg, 'Status Updated');
       load();
     } catch (e: any) {
       // Rollback on failure
       setPolicies((prev) => prev.map((x) => (x.id === p.id ? { ...x, isActive: p.isActive } : x)));
-      setMessage(e?.response?.data?.message || 'Failed to update status');
+      const errMsg = e?.response?.data?.message || 'Failed to update status';
+      setMessage(errMsg);
+      showError(errMsg, 'Status Error');
     }
   };
 
@@ -252,6 +302,50 @@ export default function SLAPolicies() {
     inactive: policies.filter((p) => !p.isActive).length,
     global: policies.filter((p) => !p.categoryId).length,
     categorySpecific: policies.filter((p) => !!p.categoryId).length,
+  };
+
+  // Active target category (null for Global)
+  const currentTargetCat = form.categoryId ? form.categoryId : null;
+  const currentCategoryName = currentTargetCat
+    ? (categories.find((c) => c.id === currentTargetCat)?.name || 'Selected Category')
+    : 'Global (All Categories)';
+
+  // Find if currently selected priority is already taken for currentTargetCat
+  const selectedPriorityConflict = form.priority
+    ? allPolicies.find(
+        (p) =>
+          (!editing || p.id !== editing.id) &&
+          (p.categoryId || null) === currentTargetCat &&
+          p.priority.toLowerCase() === form.priority.toLowerCase()
+      )
+    : null;
+
+  // Check if all priorities for currentTargetCat are already taken
+  const configuredPrioritiesForCat = allPolicies.filter(
+    (p) => (!editing || p.id !== editing.id) && (p.categoryId || null) === currentTargetCat
+  );
+  const allPrioritiesTaken = PRIORITIES.every((p) =>
+    configuredPrioritiesForCat.some((pol) => pol.priority.toLowerCase() === p)
+  );
+
+  const handleCategoryChange = (newCatId: string) => {
+    const targetCat = newCatId || null;
+    setForm((prev) => {
+      const isTaken = prev.priority
+        ? allPolicies.some(
+            (pol) =>
+              (!editing || pol.id !== editing.id) &&
+              (pol.categoryId || null) === targetCat &&
+              pol.priority.toLowerCase() === prev.priority.toLowerCase()
+          )
+        : false;
+      return {
+        ...prev,
+        categoryId: newCatId,
+        priority: isTaken ? '' : prev.priority,
+      };
+    });
+    setError('');
   };
 
   return (
@@ -551,7 +645,21 @@ export default function SLAPolicies() {
               type="button"
               className={styles.submitBtn}
               onClick={handleSave}
-              disabled={!form.name.trim() || !form.priority || form.responseHours === '' || form.resolutionHours === ''}
+              disabled={
+                !form.name.trim() ||
+                !form.priority ||
+                form.responseHours === '' ||
+                form.resolutionHours === '' ||
+                !!selectedPriorityConflict ||
+                allPrioritiesTaken
+              }
+              title={
+                selectedPriorityConflict
+                  ? `Cannot create duplicate SLA policy: ${form.priority.toUpperCase()} priority already exists for ${currentCategoryName}`
+                  : allPrioritiesTaken
+                  ? `All priorities are already configured for ${currentCategoryName}`
+                  : undefined
+              }
             >
               {editing ? (
                 <>
@@ -588,7 +696,7 @@ export default function SLAPolicies() {
               <select
                 className={styles.formSelect}
                 value={form.categoryId}
-                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                onChange={(e) => handleCategoryChange(e.target.value)}
               >
                 <option value="">Global (All Categories)</option>
                 {categories.map((c) => (
@@ -602,13 +710,48 @@ export default function SLAPolicies() {
               <select
                 className={styles.formSelect}
                 value={form.priority}
-                onChange={(e) => setForm({ ...form, priority: e.target.value as any })}
+                onChange={(e) => {
+                  setForm({ ...form, priority: e.target.value as any });
+                  setError('');
+                }}
               >
                 <option value="">-- Select Priority --</option>
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PRIORITIES.map((p) => {
+                  const existingForCat = allPolicies.find(
+                    (pol) =>
+                      (!editing || pol.id !== editing.id) &&
+                      (pol.categoryId || null) === currentTargetCat &&
+                      pol.priority.toLowerCase() === p
+                  );
+                  const isDup = !!existingForCat;
+                  return (
+                    <option key={p} value={p} disabled={isDup}>
+                      {p.charAt(0).toUpperCase() + p.slice(1)} {isDup ? `(Already exists: "${existingForCat.name}")` : '(Available)'}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
+
+          {allPrioritiesTaken && (
+            <div className={styles.formWarning}>
+              <InformationCircleIcon style={{ width: 18, height: 18, flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <strong>All 4 priorities (Urgent, High, Medium, Low)</strong> are already configured for <strong>{currentCategoryName}</strong>.
+                An SLA policy cannot be created twice for the same category and priority. Please choose a different category or update an existing policy.
+              </div>
+            </div>
+          )}
+
+          {selectedPriorityConflict && (
+            <div className={styles.formError}>
+              <XCircleIcon style={{ width: 18, height: 18, flexShrink: 0, marginTop: 1 }} />
+              <div>
+                An SLA policy with <strong>{form.priority.toUpperCase()}</strong> priority already exists for <strong>{currentCategoryName}</strong> (Policy: &quot;{selectedPriorityConflict.name}&quot;). An SLA policy cannot be created twice for the same category and priority.
+              </div>
+            </div>
+          )}
 
           <div className={styles.formRow}>
             <div className={styles.formGroup}>

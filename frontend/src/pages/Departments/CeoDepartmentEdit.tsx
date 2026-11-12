@@ -1,6 +1,8 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAlert } from '../../context/AlertContext';
+import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import DepartmentForm from '../../components/Forms/DepartmentForm';
 import {
   fetchDepartment,
@@ -9,6 +11,7 @@ import {
   fetchDepartmentMembers,
 } from '../../api/departmentApi';
 import { fetchUsers as fetchAllUsers } from '../../api/userApi';
+import { toShortDepartmentId } from '../../utils/idUtils';
 import type {
   Department,
   DepartmentFormValues,
@@ -20,10 +23,12 @@ import styles from './CeoDepartments.module.css';
 export default function CeoDepartmentEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showError } = useAlert();
   const [department, setDepartment] = useState<Department | null>(null);
   const [heads, setHeads] = useState<DepartmentHeadOption[]>([]);
   const [users, setUsers] = useState<DepartmentMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -36,7 +41,12 @@ export default function CeoDepartmentEdit() {
     ])
       .then(([deptRes, headsRes, usersRes, membersRes]) => {
         const memberIds = (membersRes.data.data || []).map((m) => m.id);
-        setDepartment({ ...deptRes.data.data, memberIds });
+        const deptData = deptRes.data.data;
+        const shortId = toShortDepartmentId(deptData);
+        if (shortId && id !== shortId && id.length > 8) {
+          navigate(`/ceo/departments/${shortId}/edit`, { replace: true });
+        }
+        setDepartment({ ...deptData, memberIds });
         setHeads(headsRes.data.data);
         setUsers(
           usersRes.data.data.map((u) => ({
@@ -51,7 +61,7 @@ export default function CeoDepartmentEdit() {
         );
       })
       .catch((err) => {
-        setError(err?.response?.data?.message || 'Failed to load department');
+        setLoadError(err?.response?.data?.message || 'Failed to load department');
       });
   }, [id]);
 
@@ -68,18 +78,69 @@ export default function CeoDepartmentEdit() {
         status: values.status,
         memberIds: values.memberIds || [],
       });
-      navigate('/ceo/departments');
+
+      const oldMemberIds = department?.memberIds || [];
+      const newMemberIds = values.memberIds || [];
+      const removedIds = oldMemberIds.filter((mid) => !newMemberIds.includes(mid));
+      const addedIds = newMemberIds.filter((mid) => !oldMemberIds.includes(mid));
+
+      let alertMessage = `Department "${values.name}" updated successfully.`;
+      if (removedIds.length > 0 && addedIds.length === 0) {
+        const removedNames = users
+          .filter((u) => removedIds.includes(u.id))
+          .map((u) => `${u.firstName} ${u.lastName}`)
+          .join(', ');
+        alertMessage = `User ${removedNames || 'member'} removed from this department`;
+      } else if (addedIds.length > 0 && removedIds.length === 0) {
+        const addedNames = users
+          .filter((u) => addedIds.includes(u.id))
+          .map((u) => `${u.firstName} ${u.lastName}`)
+          .join(', ');
+        alertMessage = `User ${addedNames || 'member'} added to ${values.name}`;
+      } else if (addedIds.length > 0 || removedIds.length > 0) {
+        alertMessage = `Department "${values.name}" roster and settings updated`;
+      }
+
+      navigate('/ceo/departments', {
+        state: { alert: { type: 'success', message: alertMessage, title: 'Department Updated' } },
+      });
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to update department';
       setError(msg);
+      showError(msg, 'Department Assignment Notice');
     } finally {
       setLoading(false);
     }
   };
 
-  if (error) return <div className={styles.page}>Error: {error}</div>;
+  if (loadError) {
+    return (
+      <div className={styles.page}>
+        <PageHeader
+          title="Edit Department"
+          description="Update department details, head and member assignments"
+          backTo="/ceo/departments"
+        />
+        <div className={styles.professionalAlertBanner}>
+          <div className={`${styles.alertCardInner} ${styles.alertCardError}`} role="alert">
+            <div className={styles.alertIconCol}>
+              <ExclamationTriangleIcon className={styles.alertActionIcon} />
+            </div>
+            <div className={styles.alertBodyCol}>
+              <div className={styles.alertHeaderRow}>
+                <span className={styles.alertCategoryBadge}>Load Error</span>
+              </div>
+              <h5 className={styles.alertHeadline}>Department Loading Notice</h5>
+              <p className={styles.alertDescription}>{loadError}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!department) return <div className={styles.page}>Loading...</div>;
 
   return (
@@ -89,6 +150,34 @@ export default function CeoDepartmentEdit() {
         description="Update department details, head and member assignments"
         backTo="/ceo/departments"
       />
+
+      {/* ── Professional Action Alert Banner ── */}
+      {error && (
+        <div className={styles.professionalAlertBanner}>
+          <div className={`${styles.alertCardInner} ${styles.alertCardError}`} role="alert">
+            <div className={styles.alertIconCol}>
+              <ExclamationTriangleIcon className={styles.alertActionIcon} />
+            </div>
+            <div className={styles.alertBodyCol}>
+              <div className={styles.alertHeaderRow}>
+                <span className={styles.alertCategoryBadge}>Assignment Conflict</span>
+                <span className={styles.alertTimestamp}>Action Required</span>
+              </div>
+              <h5 className={styles.alertHeadline}>Department Assignment Notice</h5>
+              <p className={styles.alertDescription}>{error}</p>
+            </div>
+            <button
+              type="button"
+              className={styles.alertCloseBtn}
+              onClick={() => setError('')}
+              title="Dismiss alert"
+            >
+              <XMarkIcon style={{ width: 18, height: 18 }} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <DepartmentForm
         initialData={department}
         heads={heads}

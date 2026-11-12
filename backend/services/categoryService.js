@@ -24,11 +24,12 @@ export const getCategory = async (id) => {
 };
 
 // Admin/CEO creates an approved category immediately
-export const createCategory = async (user, { name, description, departmentId, slaPolicyId, routingType = 'general' }) => {
+export const createCategory = async (user, { name, description, departmentId, slaPolicyId, routingType }) => {
   if (!['admin', 'ceo'].includes(user.role)) {
     throw Object.assign(new Error('Only admin or executive can create approved categories directly'), { statusCode: 403 });
   }
-  if (routingType === 'direct' && !departmentId) {
+  const effectiveRouting = routingType || (departmentId ? 'direct' : 'general');
+  if (effectiveRouting === 'direct' && !departmentId) {
     throw Object.assign(new Error('Direct-routing categories must be linked to a department'), { statusCode: 400 });
   }
   const existing = await categoryRepo.findByName(name);
@@ -42,14 +43,14 @@ export const createCategory = async (user, { name, description, departmentId, sl
     createdBy: user.id,
     status: 'approved',
     slaPolicyId,
-    routingType,
+    routingType: effectiveRouting,
   });
   auditService.logAction(user.id, 'create', 'ticket_category', cat.id, { role: user.role, new: cat }).catch(() => { });
   return cat;
 };
 
 // Manager creates a category that becomes PENDING admin approval
-export const requestCategory = async (user, { name, description, slaPolicyId, routingType = 'general' }) => {
+export const requestCategory = async (user, { name, description, slaPolicyId, routingType }) => {
   if (user.role !== 'manager') {
     throw Object.assign(new Error('Only managers can request new categories'), { statusCode: 403 });
   }
@@ -58,6 +59,7 @@ export const requestCategory = async (user, { name, description, slaPolicyId, ro
     throw Object.assign(new Error('A category with this name already exists'), { statusCode: 409 });
   }
   const departmentId = await getManagerDepartmentId(user.id);
+  const effectiveRouting = routingType || (departmentId ? 'direct' : 'general');
 
   const cat = await categoryRepo.create({
     name: name.trim(),
@@ -67,7 +69,7 @@ export const requestCategory = async (user, { name, description, slaPolicyId, ro
     status: 'pending',
     requestedBy: user.id,
     slaPolicyId,
-    routingType: routingType === 'direct' ? 'direct' : 'general',
+    routingType: effectiveRouting,
   });
 
   await categoryRepo.createRequest({
@@ -97,13 +99,17 @@ export const updateCategory = async (user, id, payload) => {
     }
   }
 
+  const effectiveRouting = payload.routingType !== undefined
+    ? payload.routingType
+    : (payload.departmentId !== undefined ? (payload.departmentId ? 'direct' : 'general') : cat.routing_type);
+
   const updated = await categoryRepo.update(id, {
     name: payload.name?.trim(),
     description: payload.description,
     departmentId: payload.departmentId,
     isActive: payload.isActive,
     slaPolicyId: payload.slaPolicyId,
-    routingType: payload.routingType,
+    routingType: effectiveRouting,
   });
 
   auditService.logAction(user.id, 'update', 'ticket_category', id, { role: user.role, old: cat, new: updated }).catch(() => { });

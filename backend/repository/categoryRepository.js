@@ -1,6 +1,26 @@
 import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 
+export const getNextCategoryId = async () => {
+  const [rows] = await pool.query(
+    "SELECT id FROM ticket_categories WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+  );
+  let nextNum = 4001;
+  if (rows.length && rows[0].id) {
+    const val = parseInt(rows[0].id, 10);
+    if (!isNaN(val) && val >= 4000 && val < 4999) {
+      nextNum = val + 1;
+    }
+  }
+  while (nextNum <= 4999) {
+    const idStr = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM ticket_categories WHERE id = :idStr LIMIT 1', { idStr });
+    if (!exists.length) return idStr;
+    nextNum++;
+  }
+  return String(nextNum);
+};
+
 export const findAll = async ({ status = 'active', includeInactive = false, includePending = false } = {}) => {
   let where = 'WHERE 1=1';
   if (status === 'inactive' || status === '0') {

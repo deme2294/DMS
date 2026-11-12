@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { fetchNotice, updateNotice } from '../../api/noticeApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
+import { toShortNoticeId } from '../../utils/idUtils';
 import styles from './Notices.module.css';
 
 type NoticeFormValues = {
@@ -55,6 +56,10 @@ export default function NoticesEdit() {
     fetchNotice(id)
       .then((res) => {
         const n = res.data.data;
+        const shortId = toShortNoticeId(n);
+        if (shortId && id !== shortId && id.length > 4) {
+          navigate(`/admin/notices/${shortId}/edit`, { replace: true });
+        }
         const targetAudience = n.targetAudience ?? (n as any).target_audience ?? 'all';
         const departmentId = n.departmentId ?? (n as any).department_id ?? '';
         const expiresAt = n.expiresAt ?? (n as any).expires_at;
@@ -134,7 +139,15 @@ export default function NoticesEdit() {
       }
 
       await updateNotice(id, payload);
-      navigate('/admin/notices');
+      navigate('/admin/notices', {
+        state: {
+          alert: {
+            type: 'success',
+            message: `Notice "${values.title}" updated successfully`,
+            title: 'Notice Updated',
+          },
+        },
+      });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setServerError(e?.response?.data?.message || 'Failed to update notice');

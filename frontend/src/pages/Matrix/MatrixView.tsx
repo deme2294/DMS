@@ -12,6 +12,7 @@ import {
 } from '../../api/matrixApi';
 import type { MatrixAssignment, MatrixGridData } from '../../types/matrix';
 import { usePagination } from '../../hooks/usePagination';
+import { useAlert } from '../../context/AlertContext';
 import styles from './Matrix.module.css';
 
 import {
@@ -37,6 +38,7 @@ import {
 
 export default function MatrixView() {
   const { page, limit, setPage, resetPage } = usePagination(1, 15);
+  const { showSuccess, showError } = useAlert();
   const [grid, setGrid] = useState<MatrixGridData | null>(null);
   const [assignments, setAssignments] = useState<MatrixAssignment[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -119,15 +121,25 @@ export default function MatrixView() {
   const handleToggleCell = async (userId: string, departmentId: string, assigned: boolean) => {
     const key = `${userId}-${departmentId}`;
     setSavingCell(key);
+    const targetUser = grid?.users.find((u) => u.id === userId);
+    const targetDept = grid?.departments.find((d) => d.id === departmentId);
+    const userName = targetUser ? `${targetUser.firstName} ${targetUser.lastName}` : 'User';
+    const deptName = targetDept?.name || 'Department';
+
     try {
       await toggleAssignment({ userId, departmentId, assigned });
-      setMessage({ text: assigned ? 'Assignment added successfully.' : 'Assignment removed successfully.' });
+      const msg = assigned
+        ? `User ${userName} assigned to ${deptName}`
+        : `User ${userName} removed from ${deptName}`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Assignment Updated');
       await Promise.all([loadGrid(), loadAssignments()]);
     } catch (err) {
-      setMessage({
-        text: (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to toggle assignment',
-        isError: true,
-      });
+      const errMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to toggle assignment';
+      setMessage({ text: errMsg, isError: true });
+      showError(errMsg, 'Assignment Error');
     } finally {
       setSavingCell(null);
     }
@@ -135,41 +147,63 @@ export default function MatrixView() {
 
   const handleConfirmDelete = async () => {
     if (!deleteModal) return;
+    const userName = deleteModal.username ? `@${deleteModal.username}` : 'User';
+    const deptName = deleteModal.departmentName || 'Department';
     try {
       await deleteAssignment(deleteModal.id);
-      setMessage({ text: `Removed assignment for @${deleteModal.username}.` });
+      const msg = `User ${userName} removed from ${deptName}`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Assignment Removed');
       setDeleteModal(null);
       await Promise.all([loadGrid(), loadAssignments()]);
     } catch {
-      setMessage({ text: 'Failed to delete assignment.', isError: true });
+      const errMsg = 'Failed to delete assignment.';
+      setMessage({ text: errMsg, isError: true });
+      showError(errMsg, 'Error');
     }
   };
 
   const handleBulkUser = async ({ id, selectedId }: { id: string; selectedId: string | null }) => {
+    const targetUser = grid?.users.find((u) => u.id === id);
+    const userName = targetUser ? `${targetUser.firstName} ${targetUser.lastName}` : 'User';
     try {
       await assignUserToDepartment(id, selectedId);
       setBulkModal(null);
-      setMessage({ text: 'User department updated successfully.' });
+      const targetDept = selectedId ? grid?.departments.find((d) => d.id === selectedId) : null;
+      const msg = targetDept
+        ? `User ${userName} assigned to ${targetDept.name}`
+        : `User ${userName} removed from department`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'User Updated');
       await Promise.all([loadGrid(), loadAssignments()]);
     } catch (err) {
-      setMessage({
-        text: (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to assign user to department',
-        isError: true,
-      });
+      const errMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to assign user to department';
+      setMessage({ text: errMsg, isError: true });
+      showError(errMsg, 'Update Failed');
     }
   };
 
   const handleBulkDepartment = async ({ id, selectedId }: { id: string; selectedId: string | null }) => {
+    const targetDept = grid?.departments.find((d) => d.id === id);
+    const deptName = targetDept?.name || 'Department';
     try {
       await assignDepartmentToUser(id, selectedId);
       setBulkModal(null);
-      setMessage({ text: 'Department assignments updated successfully.' });
+      const targetUser = selectedId ? grid?.users.find((u) => u.id === selectedId) : null;
+      const msg = targetUser
+        ? `User ${targetUser.firstName} ${targetUser.lastName} assigned to ${deptName}`
+        : `Members removed from ${deptName}`;
+      setMessage({ text: msg });
+      showSuccess(msg, 'Department Updated');
       await Promise.all([loadGrid(), loadAssignments()]);
     } catch (err) {
-      setMessage({
-        text: (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to assign department to user',
-        isError: true,
-      });
+      const errMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to assign department to user';
+      setMessage({ text: errMsg, isError: true });
+      showError(errMsg, 'Update Failed');
     }
   };
 

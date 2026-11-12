@@ -1,5 +1,6 @@
 import api from './axios';
 import type { User, RoleOption, PaginationMeta } from '../types/user';
+import { toShortId } from '../utils/idUtils';
 
 export interface UserListParams {
   search?: string;
@@ -12,11 +13,16 @@ export interface UserListParams {
   sortOrder?: 'ASC' | 'DESC';
 }
 
-export const fetchUsers = (params: UserListParams) =>
-  api.get<{ success: boolean; data: User[]; pagination: PaginationMeta }>('/users', { params });
+export const fetchUsers = (params: UserListParams) => {
+  const cleanParams = { ...params };
+  if (cleanParams.departmentId) {
+    cleanParams.departmentId = toShortId(cleanParams.departmentId);
+  }
+  return api.get<{ success: boolean; data: User[]; pagination: PaginationMeta }>('/users', { params: cleanParams });
+};
 
 export const fetchUser = (id: string) =>
-  api.get<{ success: boolean; data: User }>(`/users/${id}`);
+  api.get<{ success: boolean; data: User }>(`/users/${toShortId(id)}`);
 
 export const fetchRoles = () =>
   api.get<{ success: boolean; data: RoleOption[] }>('/users/roles');
@@ -25,25 +31,26 @@ export const createUser = (formData: FormData) =>
   api.post('/users', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 export const updateUser = (id: string, formData: FormData) =>
-  api.put(`/users/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+  api.put(`/users/${toShortId(id)}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 export const deleteUser = (id: string) =>
-  api.delete(`/users/${id}`);
+  api.delete(`/users/${toShortId(id)}`);
 
 export const activateUser = (id: string) =>
-  api.patch(`/users/${id}/activate`);
+  api.patch(`/users/${toShortId(id)}/activate`);
 
 export const deactivateUser = (id: string) =>
-  api.patch(`/users/${id}/deactivate`);
+  api.patch(`/users/${toShortId(id)}/deactivate`);
 
 export const resetUserPassword = (id: string, newPassword: string) =>
-  api.patch(`/users/${id}/reset-password`, { newPassword });
+  api.patch(`/users/${toShortId(id)}/reset-password`, { newPassword });
 
 export interface SendEmailPayload {
   to: string;
   toName?: string;
   subject: string;
   message: string;
+  ticketId?: string;
 }
 
 export const sendDirectEmail = async (payload: SendEmailPayload) => {
@@ -55,4 +62,4 @@ export const sendDirectEmail = async (payload: SendEmailPayload) => {
     }
     throw err;
   }
-};
+};

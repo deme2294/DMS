@@ -1,3 +1,4 @@
+import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
 import * as officeRepo from '../repository/officeRepository.js';
 
@@ -15,9 +16,30 @@ export const getOffice = async (id) => {
   return office;
 };
 
+export const getNextOfficeId = async () => {
+  const [rows] = await pool.query(
+    "SELECT id FROM office_locations WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+  );
+  let nextNum = 6001;
+  if (rows.length && rows[0].id) {
+    const val = parseInt(rows[0].id, 10);
+    if (!isNaN(val) && val >= 6000 && val < 6999) {
+      nextNum = val + 1;
+    }
+  }
+  while (nextNum <= 6999) {
+    const idStr = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM office_locations WHERE id = :idStr LIMIT 1', { idStr });
+    if (!exists.length) return idStr;
+    nextNum++;
+  }
+  return String(nextNum);
+};
+
 export const createOffice = async (data, userId) => {
+  const nextId = await getNextOfficeId();
   const office = {
-    id: uuidv4(),
+    id: nextId,
     userId,
     employeeName: data.employeeName,
     employeeNumber: data.employeeNumber || null,

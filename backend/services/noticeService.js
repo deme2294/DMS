@@ -5,6 +5,26 @@ import * as notificationService from './notificationService.js';
 import * as departmentService from './departmentService.js';
 import pool from '../config/db.js';
 
+export const getNextNoticeId = async () => {
+  const [rows] = await pool.query(
+    "SELECT id FROM notices WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+  );
+  let nextNum = 7001;
+  if (rows.length && rows[0].id) {
+    const val = parseInt(rows[0].id, 10);
+    if (!isNaN(val) && val >= 7000 && val < 7999) {
+      nextNum = val + 1;
+    }
+  }
+  while (nextNum <= 7999) {
+    const idStr = String(nextNum);
+    const [exists] = await pool.query('SELECT id FROM notices WHERE id = :idStr LIMIT 1', { idStr });
+    if (!exists.length) return idStr;
+    nextNum++;
+  }
+  return String(nextNum);
+};
+
 const isPublished = (status) => status === 'published';
 
 /**
@@ -141,8 +161,9 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
   }
 
   const isPub = isPublished(data.status || 'draft');
+  const noticeId = await getNextNoticeId();
   const notice = {
-    id: uuidv4(),
+    id: noticeId,
     title: data.title,
     description: data.description,
     image: data.image || null,
@@ -462,8 +483,9 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
     }
   }
 
+  const nextId = await getNextNoticeId();
   const notice = {
-    id: uuidv4(),
+    id: nextId,
     title: data.title,
     description: data.description,
     image: data.image || null,

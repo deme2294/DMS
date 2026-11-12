@@ -8,6 +8,7 @@ import {
   formatTimeOnly,
   copyToClipboard,
   getMeetingEventStatus,
+  getEffectiveConferenceUrl,
 } from '../types';
 import styles from '../ChatPage.module.css';
 
@@ -20,6 +21,8 @@ interface ChatMessagesAreaProps {
   onJoinInAppVideo: (meetingUrl?: string, sessionInfo?: any) => void;
   onSelectScreenShare?: (sessionInfo: any) => void;
   onDeleteMessage?: (msg: ChatMessage) => void;
+  isUserOnline?: (userId?: string, email?: string) => boolean;
+  participants?: any[];
 }
 
 export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
@@ -31,6 +34,8 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
   onJoinInAppVideo,
   onSelectScreenShare,
   onDeleteMessage,
+  isUserOnline,
+  participants,
 }) => {
   return (
     <div className={styles.messagesArea}>
@@ -53,13 +58,14 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
             {group.items.map((msg) => {
               const isOwn = msg.sender_id === currentUser.id;
               const roleStyle = getRoleColor(msg.sender_role || msg.role_name || '');
+              const meetingInfo = parseMeetingMessage(msg.message);
 
               return (
                 <div
                   key={msg.id}
                   className={`${styles.messageRow} ${
                     isOwn ? styles.ownMessageRow : styles.otherMessageRow
-                  }`}
+                  } ${meetingInfo ? styles.meetMessageRow : ''}`}
                 >
                   {!isOwn && (
                     <div
@@ -94,17 +100,39 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                     )}
 
                     <div
-                      className={`${styles.messageBubble} ${
-                        isOwn ? styles.ownBubble : styles.otherBubble
-                      }`}
+                      className={
+                        meetingInfo
+                          ? styles.meetBubbleWrapper
+                          : `${styles.messageBubble} ${
+                              isOwn ? styles.ownBubble : styles.otherBubble
+                            }`
+                      }
                     >
                       {(() => {
-                        const meetingInfo = parseMeetingMessage(msg.message);
                         if (meetingInfo) {
                           const isDms = meetingInfo.meetingType === 'dms_conference';
+                          const confInfo = getEffectiveConferenceUrl(meetingInfo.meetingUrl);
+
+                          // Host and peer online status check
+                          const isHostOnline =
+                            isOwn || (isUserOnline ? isUserOnline(msg.sender_id) : false);
+                          const isPeerOnline =
+                            selectedRoom.room_type === 'direct'
+                              ? isUserOnline
+                                ? isUserOnline(selectedRoom.other_user_id || undefined)
+                                : Boolean(selectedRoom.other_user_online)
+                              : isHostOnline ||
+                                (participants
+                                  ? participants.some((p: any) => p.user_id !== currentUser.id && p.is_online)
+                                  : false);
+
+                          const canJoinPastSession = isHostOnline || isPeerOnline;
+
                           const eventStatus = getMeetingEventStatus(
                             meetingInfo.scheduledTime,
-                            meetingInfo.durationMinutes || 30
+                            meetingInfo.durationMinutes || 30,
+                            canJoinPastSession,
+                            meetingInfo.createdAt
                           );
 
                           return (
@@ -113,9 +141,12 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                               onClick={() => {
                                 onSelectScreenShare?.({
                                   ...meetingInfo,
+                                  roomId: confInfo.roomId,
                                   statusObj: eventStatus,
                                   senderName: `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
                                   messageId: msg.id,
+                                  canJoinPastSession,
+                                  isHostOnline,
                                 });
                               }}
                               style={{ cursor: 'pointer' }}
@@ -160,8 +191,19 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                               {meetingInfo.scheduledTime && (
                                 <div
                                   style={{
-                                    background: eventStatus.status === 'live' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-hover)',
-                                    border: `1px solid ${eventStatus.status === 'live' ? 'rgba(16, 185, 129, 0.35)' : 'var(--border-light)'}`,
+                                    background:
+                                      eventStatus.status === 'live'
+                                        ? 'rgba(16, 185, 129, 0.12)'
+                                        : eventStatus.status === 'ended'
+                                        ? 'rgba(225, 29, 72, 0.08)'
+                                        : 'var(--bg-hover)',
+                                    border: `1px solid ${
+                                      eventStatus.status === 'live'
+                                        ? 'rgba(16, 185, 129, 0.35)'
+                                        : eventStatus.status === 'ended'
+                                        ? 'rgba(225, 29, 72, 0.28)'
+                                        : 'var(--border-light)'
+                                    }`,
                                     borderLeft: `4px solid ${eventStatus.badgeColor}`,
                                     borderRadius: '8px',
                                     padding: '8px 12px',
@@ -174,6 +216,9 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                       gap: '6px',
+                                      flexWrap: 'wrap',
+                                      minWidth: 0,
+                                      width: '100%',
                                     }}
                                   >
                                     <span
@@ -184,51 +229,71 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '4px',
+                                        flexWrap: 'wrap',
+                                        minWidth: 0,
+                                        wordBreak: 'break-word',
                                       }}
                                     >
                                       <span>🗓️</span> Event Time:
-                                      <span style={{ color: 'var(--text-main)' }}>
-                                        {new Date(meetingInfo.scheduledTime).toLocaleString([], {
-                                          weekday: 'short',
-                                          month: 'short',
-                                          day: 'numeric',
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })}
+                                      <span style={{ color: 'var(--text-main)', wordBreak: 'break-word' }}>
+                                        {eventStatus.formattedDateStr ||
+                                          new Date(meetingInfo.scheduledTime).toLocaleString([], {
+                                            weekday: 'short',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
                                       </span>
                                     </span>
                                     <span
                                       style={{
                                         fontSize: '0.68rem',
                                         fontWeight: 700,
-                                        padding: '2px 8px',
+                                        padding: '3px 9px',
                                         borderRadius: '12px',
                                         background:
                                           eventStatus.status === 'live'
                                             ? '#dcfce7'
                                             : eventStatus.status === 'upcoming'
                                             ? '#dbeafe'
-                                            : '#f1f5f9',
+                                            : '#ffe4e6',
                                         color: eventStatus.badgeColor,
                                         border: `1px solid ${eventStatus.badgeColor}40`,
-                                        whiteSpace: 'nowrap',
+                                        whiteSpace: 'normal',
+                                        wordBreak: 'break-word',
+                                        textAlign: 'center',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
                                       }}
                                     >
+                                      {eventStatus.status === 'ended' ? '⏱️ ' : ''}
                                       {eventStatus.label}
                                     </span>
                                   </div>
+
                                   <div
                                     style={{
                                       fontSize: '0.7rem',
                                       color: 'var(--text-muted)',
-                                      marginTop: '3px',
+                                      marginTop: '4px',
                                       display: 'flex',
                                       justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      flexWrap: 'wrap',
+                                      gap: '4px',
+                                      minWidth: 0,
+                                      wordBreak: 'break-word',
+                                      width: '100%',
                                     }}
                                   >
-                                    <span>Duration: {meetingInfo.durationMinutes || 30} mins</span>
+                                    <span style={{ wordBreak: 'break-word' }}>
+                                      Window: {eventStatus.formattedWindow || `${meetingInfo.durationMinutes || 30} mins`}{' '}
+                                      ({meetingInfo.durationMinutes || 30} mins)
+                                    </span>
                                     {meetingInfo.createdAt && (
-                                      <span>
+                                      <span style={{ wordBreak: 'break-word' }}>
                                         Created:{' '}
                                         {new Date(meetingInfo.createdAt).toLocaleDateString([], {
                                           month: 'short',
@@ -239,6 +304,75 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                       </span>
                                     )}
                                   </div>
+
+                                  {/* Passed Over schedule indicator and online status */}
+                                  {eventStatus.status === 'ended' && (
+                                    <div
+                                      style={{
+                                        marginTop: '6px',
+                                        padding: '6px 8px',
+                                        borderRadius: '6px',
+                                        background: canJoinPastSession
+                                          ? 'rgba(16, 185, 129, 0.08)'
+                                          : 'rgba(239, 68, 68, 0.08)',
+                                        border: `1px solid ${
+                                          canJoinPastSession
+                                            ? 'rgba(16, 185, 129, 0.25)'
+                                            : 'rgba(239, 68, 68, 0.25)'
+                                        }`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        flexWrap: 'wrap',
+                                        gap: '6px',
+                                        fontSize: '0.72rem',
+                                        minWidth: 0,
+                                        width: '100%',
+                                        boxSizing: 'border-box',
+                                      }}
+                                    >
+                                      <span style={{ color: 'var(--text-main)', fontWeight: 600, wordBreak: 'break-word', minWidth: 0, flex: '1 1 180px' }}>
+                                        ⏱️ Schedule Passed Over: Ended at{' '}
+                                        {eventStatus.endTime
+                                          ? eventStatus.endTime.toLocaleTimeString([], {
+                                              hour: 'numeric',
+                                              minute: '2-digit',
+                                            })
+                                          : 'scheduled end'}{' '}
+                                        ({eventStatus.timePassedStr})
+                                      </span>
+                                      <span
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          fontWeight: 700,
+                                          color: canJoinPastSession ? '#059669' : '#dc2626',
+                                          wordBreak: 'break-word',
+                                          minWidth: 0,
+                                          flexWrap: 'wrap',
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            width: '7px',
+                                            height: '7px',
+                                            borderRadius: '50%',
+                                            backgroundColor: canJoinPastSession ? '#10b981' : '#dc2626',
+                                            display: 'inline-block',
+                                            flexShrink: 0,
+                                          }}
+                                        />
+                                        {isOwn
+                                          ? 'You are the Host (Online)'
+                                          : isHostOnline
+                                          ? 'Host is Online (Rejoin permitted)'
+                                          : isPeerOnline
+                                          ? 'Participant is Online (Rejoin permitted)'
+                                          : 'Host Offline (Session ended)'}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
@@ -296,55 +430,124 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                   className={styles.meetUrlCopyBtn}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    copyToClipboard(meetingInfo.meetingUrl, 'Copied Conference URL to clipboard!');
+                                    copyToClipboard(
+                                      confInfo.url,
+                                      'Copied authenticated conference link to clipboard!'
+                                    );
                                   }}
-                                  title="Copy Link"
+                                  title="Copy Direct Video Link"
                                 >
                                   📋
                                 </button>
                               </div>
                               <div className={styles.meetCardActions}>
-                                <button
-                                  type="button"
-                                  className={styles.meetJoinBtn}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onJoinInAppVideo(meetingInfo.meetingUrl, {
-                                      ...meetingInfo,
-                                      statusObj: eventStatus,
-                                      senderName: `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
-                                      messageId: msg.id,
-                                    });
-                                  }}
-                                  style={
-                                    eventStatus.status === 'live'
-                                      ? {
-                                          background: 'linear-gradient(135deg, #16a34a 0%, #059669 100%)',
-                                          boxShadow: '0 0 12px rgba(22, 163, 74, 0.4)',
-                                        }
-                                      : undefined
+                                {(() => {
+                                  const isPast = eventStatus.status === 'ended';
+                                  const isLive = eventStatus.status === 'live';
+                                  const isUpcoming = eventStatus.status === 'upcoming';
+
+                                  if (isPast) {
+                                    if (canJoinPastSession) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          className={`${styles.meetJoinBtn} ${styles.meetJoinBtnPastOnline}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onJoinInAppVideo(meetingInfo.meetingUrl, {
+                                              ...meetingInfo,
+                                              roomId: confInfo.roomId,
+                                              statusObj: eventStatus,
+                                              senderName:
+                                                `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
+                                              messageId: msg.id,
+                                            });
+                                          }}
+                                          title="Scheduled invitation time has passed, but host is currently online. Click to rejoin live conference."
+                                        >
+                                          {isOwn
+                                            ? meetingInfo.screenShareEnabled
+                                              ? '▶️ Reopen Screen Share & Video'
+                                              : '▶️ Reopen Video Conference'
+                                            : meetingInfo.screenShareEnabled
+                                            ? '🔄 Rejoin Screen Share & Video (Host Online)'
+                                            : '🔄 Rejoin In-App Video (Host Online)'}
+                                        </button>
+                                      );
+                                    } else {
+                                      return (
+                                        <button
+                                          type="button"
+                                          className={`${styles.meetJoinBtn} ${styles.meetJoinBtnPastOffline}`}
+                                          disabled
+                                          onClick={(e) => e.stopPropagation()}
+                                          title={`The scheduled session has ended (${eventStatus.timePassedStr}) and the host is currently offline. You can only join when the host is online.`}
+                                        >
+                                          {meetingInfo.screenShareEnabled
+                                            ? '⏹️ Screen Share Ended (Host Offline)'
+                                            : '⏹️ Video Call Ended (Host Offline)'}
+                                        </button>
+                                      );
+                                    }
                                   }
-                                  title="Join directly inside this web application based on the event time"
-                                >
-                                  {meetingInfo.screenShareEnabled
-                                    ? eventStatus.status === 'live'
-                                      ? '🚀 Join Screen Share & Video (Live)'
-                                      : '🖥️ Join Screen Share & Video'
-                                    : eventStatus.status === 'live'
-                                    ? '🚀 Join In-App Video (Live)'
-                                    : '📹 Join In-App Video'}
-                                </button>
+
+                                  if (isUpcoming && !eventStatus.canJoinNow) {
+                                    return (
+                                      <button
+                                        type="button"
+                                        className={`${styles.meetJoinBtn} ${styles.meetJoinBtnUpcoming}`}
+                                        disabled
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`Scheduled for the future (${eventStatus.label}). Early joining opens 15 minutes before event.`}
+                                      >
+                                        {meetingInfo.screenShareEnabled
+                                          ? `🗓️ Screen Share (${eventStatus.label})`
+                                          : `🗓️ Video Call (${eventStatus.label})`}
+                                      </button>
+                                    );
+                                  }
+
+                                  // Live or ready immediate session
+                                  return (
+                                    <button
+                                      type="button"
+                                      className={`${styles.meetJoinBtn} ${isLive ? styles.meetJoinBtnLive : ''}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onJoinInAppVideo(meetingInfo.meetingUrl, {
+                                          ...meetingInfo,
+                                          roomId: confInfo.roomId,
+                                          statusObj: eventStatus,
+                                          senderName:
+                                            `${msg.first_name || ''} ${msg.last_name || ''}`.trim() || 'Team Member',
+                                          messageId: msg.id,
+                                        });
+                                      }}
+                                      title="Join directly inside this web application"
+                                    >
+                                      {meetingInfo.screenShareEnabled
+                                        ? isLive
+                                          ? '🚀 Join Screen Share & Video (Live)'
+                                          : '🖥️ Join Screen Share & Video'
+                                        : isLive
+                                        ? '🚀 Join In-App Video (Live)'
+                                        : '📹 Join In-App Video'}
+                                    </button>
+                                  );
+                                })()}
+
                                 <button
                                   type="button"
                                   className={styles.meetPreviewBtn}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    window.open(meetingInfo.meetingUrl, '_blank');
+                                    window.open(confInfo.url, '_blank');
                                   }}
-                                  title="Open in new browser tab"
+                                  title="Open in new browser tab (Logged in session)"
                                 >
                                   ↗ Open Tab
                                 </button>
+
                                 {isOwn && onDeleteMessage && (
                                   <button
                                     type="button"
@@ -403,7 +606,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                       })()}
 
                       {/* Only render outer messageMeta if message is NOT a video conference card */}
-                      {!parseMeetingMessage(msg.message) && (
+                      {!meetingInfo && (
                         <div className={styles.messageMeta}>
                           <span className={styles.messageTimestamp}>
                             {formatTimeOnly(msg.created_at)}

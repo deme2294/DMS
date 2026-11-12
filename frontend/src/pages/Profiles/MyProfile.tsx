@@ -1,3 +1,4 @@
+import { toShortUserId } from '../../utils/idUtils';
 import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import {
@@ -608,14 +609,14 @@ export default function MyProfile() {
                 </div>
               </div>
 
-              {user.userCode && (
+              {(user.userCode || user.id) && (
                 <div className={styles.deptDisplayItem}>
                   <span className={styles.deptItemLabel}>Registered User ID</span>
                   <div className={styles.deptItemValue}>
                     <div className={styles.deptIconBadgeAmber}>
                       <IdentificationIcon className={styles.deptMiniIcon} />
                     </div>
-                    <span className={styles.userCodeText}>{user.userCode}</span>
+                    <span className={styles.userCodeText}>{user.userCode || toShortUserId(user.id)}</span>
                   </div>
                 </div>
               )}

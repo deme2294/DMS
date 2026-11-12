@@ -20,6 +20,7 @@ import {
     ArrowTrendingUpIcon,
     TagIcon,
     InformationCircleIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
 import {
     fetchCategories,
@@ -33,8 +34,9 @@ import {
     type CategoryRequest,
 } from '../../api/categoryApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
-import { createSLAPolicy, fetchSLAPolicies, type SLAPolicy } from '../../api/slaApi';
+import { createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, fetchSLAPolicies, type SLAPolicy } from '../../api/slaApi';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import styles from './TicketCategories.module.css';
 
 type Department = { id: string; name: string };
@@ -54,10 +56,17 @@ const emptySlaForm = {
     resolutionHours: 24,
     escalationHours: 12,
     description: '',
+    isActive: true,
+    setAsDefault: false,
+    useWorkingHours: false,
+    workDays: [1, 2, 3, 4, 5] as number[],
+    workStart: '09:00',
+    workEnd: '17:00',
 };
 
 export default function TicketCategories() {
     const { user } = useAuth();
+    const { showSuccess, showError } = useAlert();
     const [categories, setCategories] = useState<TicketCategory[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [requests, setRequests] = useState<CategoryRequest[]>([]);
@@ -82,6 +91,7 @@ export default function TicketCategories() {
     const [slaSaving, setSlaSaving] = useState(false);
     const [slaError, setSlaError] = useState('');
     const [slaForCategory, setSlaForCategory] = useState<TicketCategory | null>(null);
+    const [editingSla, setEditingSla] = useState<SLAPolicy | null>(null);
     const [catPage, setCatPage] = useState(1);
     const [catPageSize, setCatPageSize] = useState(12);
     const CAT_PAGE_OPTIONS = [12, 24, 48];
@@ -139,12 +149,13 @@ export default function TicketCategories() {
 
     const openEdit = (cat: TicketCategory) => {
         setEditing(cat);
+        const resolvedRouting = (cat as any).routing_type || cat.routingType || (cat.departmentId ? 'direct' : 'general');
         setForm({
             name: cat.name,
             description: cat.description || '',
             departmentId: cat.departmentId || '',
             slaPolicyId: cat.slaPolicyId || '',
-            routingType: (cat as any).routing_type || cat.routingType || 'general',
+            routingType: resolvedRouting as 'general' | 'direct',
         });
         setError('');
         setModalOpen(true);
@@ -172,15 +183,21 @@ export default function TicketCategories() {
             };
             if (editing) {
                 await updateCategory(editing.id, payload);
-                setMessage('Category updated successfully');
+                const msg = `Category "${payload.name}" updated successfully`;
+                setMessage(msg);
+                showSuccess(msg, 'Category Updated');
             } else {
                 await createCategory(payload);
-                setMessage('Category created successfully');
+                const msg = `Category "${payload.name}" created successfully`;
+                setMessage(msg);
+                showSuccess(msg, 'Category Created');
             }
             setModalOpen(false);
             load();
         } catch (err: any) {
-            setError(err?.response?.data?.message || 'Failed to save category');
+            const errMsg = err?.response?.data?.message || 'Failed to save category';
+            setError(errMsg);
+            showError(errMsg, 'Save Error');
         } finally {
             setSaving(false);
         }
@@ -192,12 +209,16 @@ export default function TicketCategories() {
         setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, isActive: next } : c)));
         try {
             await updateCategory(cat.id, { isActive: next });
-            setMessage(`Category ${next ? 'activated' : 'deactivated'}`);
+            const msg = `Category "${cat.name}" ${next ? 'activated' : 'deactivated'}`;
+            setMessage(msg);
+            showSuccess(msg, 'Status Updated');
             load();
         } catch {
             // Rollback on failure
             setCategories((prev) => prev.map((c) => (c.id === cat.id ? { ...c, isActive: cat.isActive } : c)));
-            setMessage('Failed to update category status');
+            const errMsg = 'Failed to update category status';
+            setMessage(errMsg);
+            showError(errMsg, 'Status Error');
         }
     };
 
@@ -205,43 +226,104 @@ export default function TicketCategories() {
         if (!window.confirm(`Delete category "${cat.name}"? This cannot be undone.`)) return;
         try {
             await deleteCategory(cat.id);
-            setMessage('Category deleted');
+            const msg = `Category "${cat.name}" deleted successfully`;
+            setMessage(msg);
+            showSuccess(msg, 'Category Deleted');
             load();
         } catch (err: any) {
-            setMessage(err?.response?.data?.message || 'Failed to delete');
+            const errMsg = err?.response?.data?.message || 'Failed to delete category';
+            setMessage(errMsg);
+            showError(errMsg, 'Delete Error');
         }
     };
 
     const handleApprove = async (cat: TicketCategory) => {
         try {
             await approveCategory(cat.id, reviewNotes || undefined);
-            setMessage('Category approved');
+            const msg = `Category "${cat.name}" approved`;
+            setMessage(msg);
+            showSuccess(msg, 'Category Approved');
             setReviewNotes('');
             load();
         } catch (err: any) {
-            setMessage(err?.response?.data?.message || 'Failed to approve');
+            const errMsg = err?.response?.data?.message || 'Failed to approve category';
+            setMessage(errMsg);
+            showError(errMsg, 'Approval Error');
         }
     };
 
     const handleReject = async (cat: TicketCategory) => {
         try {
             await rejectCategory(cat.id, reviewNotes || undefined);
-            setMessage('Category rejected');
+            const msg = `Category "${cat.name}" rejected`;
+            setMessage(msg);
+            showSuccess(msg, 'Category Rejected');
             setReviewNotes('');
             load();
         } catch (err: any) {
-            setMessage(err?.response?.data?.message || 'Failed to reject');
+            const errMsg = err?.response?.data?.message || 'Failed to reject category';
+            setMessage(errMsg);
+            showError(errMsg, 'Reject Error');
         }
     };
 
     const openSlaModal = (cat: TicketCategory) => {
+        setEditingSla(null);
         setSlaForCategory(cat);
-        setSlaForm(emptySlaForm);
+        const existingPriorities = new Set(
+            slaPolicies
+                .filter(p => p.categoryId === cat.id)
+                .map(p => p.priority.toLowerCase())
+        );
+        const priorityOrder: ('low' | 'medium' | 'high' | 'urgent')[] = ['medium', 'high', 'urgent', 'low'];
+        const availablePriority = priorityOrder.find(p => !existingPriorities.has(p)) || 'medium';
+        const defaultHours: Record<'low' | 'medium' | 'high' | 'urgent', { response: number; resolution: number; escalation: number }> = {
+            low: { response: 8, resolution: 48, escalation: 24 },
+            medium: { response: 4, resolution: 24, escalation: 12 },
+            high: { response: 2, resolution: 8, escalation: 4 },
+            urgent: { response: 1, resolution: 4, escalation: 2 },
+        };
+        const cfg = defaultHours[availablePriority];
+        setSlaForm({
+            ...emptySlaForm,
+            name: `${cat.name} ${availablePriority.charAt(0).toUpperCase() + availablePriority.slice(1)} SLA`,
+            priority: availablePriority,
+            responseHours: cfg.response,
+            resolutionHours: cfg.resolution,
+            escalationHours: cfg.escalation,
+            setAsDefault: !cat.slaPolicyId,
+        });
+        if (existingPriorities.has(availablePriority)) {
+            setSlaError(`All priority levels already have an SLA policy configured for "${cat.name}".`);
+        } else {
+            setSlaError('');
+        }
+        setSlaModalOpen(true);
+    };
+
+    const openEditSlaModal = (cat: TicketCategory, policy: SLAPolicy) => {
+        setEditingSla(policy);
+        setSlaForCategory(cat);
+        const wh = policy.workingHours && typeof policy.workingHours === 'object' ? policy.workingHours : null;
+        setSlaForm({
+            name: policy.name,
+            priority: policy.priority,
+            responseHours: Number(policy.responseHours ?? 4),
+            resolutionHours: Number(policy.resolutionHours ?? 24),
+            escalationHours: policy.escalationHours !== null && policy.escalationHours !== undefined ? Number(policy.escalationHours) : 0,
+            description: policy.description || '',
+            isActive: policy.isActive !== false,
+            setAsDefault: cat.slaPolicyId === policy.id,
+            useWorkingHours: Boolean(wh && Array.isArray(wh.workDays) && wh.workDays.length > 0),
+            workDays: Array.isArray(wh?.workDays) && wh.workDays.length > 0 ? wh.workDays : [1, 2, 3, 4, 5],
+            workStart: wh?.start || '09:00',
+            workEnd: wh?.end || '17:00',
+        });
         setSlaError('');
         setSlaModalOpen(true);
     };
 
-    const handleCreateSla = async () => {
+    const handleSaveSla = async () => {
         if (!slaForm.name.trim()) { setSlaError('Policy name is required'); return; }
         if (isNaN(Number(slaForm.responseHours)) || Number(slaForm.responseHours) < 0) {
             setSlaError('First Response Time must be a valid number (>= 0)');
@@ -272,34 +354,113 @@ export default function TicketCategories() {
             }
         }
 
+        const workingHoursPayload = slaForm.useWorkingHours
+            ? {
+                workDays: slaForm.workDays.length > 0 ? slaForm.workDays : [1, 2, 3, 4, 5],
+                start: slaForm.workStart || '09:00',
+                end: slaForm.workEnd || '17:00',
+            }
+            : null;
+
         setSlaSaving(true);
         setSlaError('');
         try {
             const categoryId = slaForCategory?.id;
-            const duplicateName = slaPolicies.find(p => p.categoryId === categoryId && p.name.toLowerCase() === slaForm.name.trim().toLowerCase());
+            const duplicatePriority = slaPolicies.find(
+                p => p.id !== editingSla?.id && p.categoryId === categoryId && p.priority.toLowerCase() === slaForm.priority.toLowerCase()
+            );
+            if (duplicatePriority) {
+                setSlaError(`An SLA policy with "${slaForm.priority.toUpperCase()}" priority already exists for this category ("${duplicatePriority.name}"). An SLA policy cannot be created twice for the same category and priority.`);
+                return;
+            }
+            const duplicateName = slaPolicies.find(
+                p => p.id !== editingSla?.id && p.categoryId === categoryId && p.name.toLowerCase() === slaForm.name.trim().toLowerCase()
+            );
             if (duplicateName) {
                 setSlaError(`An SLA policy named "${slaForm.name.trim()}" already exists for this category.`);
                 return;
             }
-            const resData = await createSLAPolicy({
-                name: slaForm.name.trim(),
-                priority: slaForm.priority,
-                categoryId: categoryId || undefined,
-                responseHours: slaForm.responseHours,
-                resolutionHours: slaForm.resolutionHours,
-                escalationHours: slaForm.escalationHours,
-                description: slaForm.description.trim() || undefined,
-            });
-            if (slaForCategory && !slaForCategory.slaPolicyId && resData?.data?.data?.id) {
-                await updateCategory(slaForCategory.id, { slaPolicyId: resData.data.data.id }).catch(() => {});
+
+            if (editingSla) {
+                const resData = await updateSLAPolicy(editingSla.id, {
+                    name: slaForm.name.trim(),
+                    priority: slaForm.priority,
+                    categoryId: categoryId || null,
+                    responseHours: resp,
+                    resolutionHours: res,
+                    escalationHours: esc,
+                    workingHours: workingHoursPayload,
+                    description: slaForm.description.trim() || null,
+                    isActive: slaForm.isActive,
+                });
+                const updatedPolicyId = resData?.data?.data?.id || editingSla.id;
+                if (slaForCategory) {
+                    if (slaForm.setAsDefault && slaForCategory.slaPolicyId !== updatedPolicyId) {
+                        await updateCategory(slaForCategory.id, { slaPolicyId: updatedPolicyId }).catch(() => { });
+                    } else if (!slaForm.setAsDefault && slaForCategory.slaPolicyId === updatedPolicyId) {
+                        await updateCategory(slaForCategory.id, { slaPolicyId: null }).catch(() => { });
+                    }
+                }
+                const msg = `SLA policy "${slaForm.name.trim()}" updated successfully`;
+                setMessage(msg);
+                showSuccess(msg, 'SLA Updated');
+            } else {
+                const resData = await createSLAPolicy({
+                    name: slaForm.name.trim(),
+                    priority: slaForm.priority,
+                    categoryId: categoryId || undefined,
+                    responseHours: resp,
+                    resolutionHours: res,
+                    escalationHours: esc,
+                    workingHours: workingHoursPayload,
+                    description: slaForm.description.trim() || undefined,
+                });
+                const createdId = resData?.data?.data?.id;
+                if (slaForCategory && createdId && (slaForm.setAsDefault || !slaForCategory.slaPolicyId)) {
+                    await updateCategory(slaForCategory.id, { slaPolicyId: createdId }).catch(() => { });
+                }
+                const msg = `SLA policy "${slaForm.name.trim()}" created and linked to category`;
+                setMessage(msg);
+                showSuccess(msg, 'SLA Created');
             }
-            setMessage('SLA policy created and linked to category');
+
             setSlaModalOpen(false);
-            load();
+            setEditingSla(null);
+            await load();
         } catch (err: any) {
-            setSlaError(err?.response?.data?.message || 'Failed to create SLA policy');
+            const errMsg = err?.response?.data?.message || `Failed to ${editingSla ? 'update' : 'create'} SLA policy`;
+            setSlaError(errMsg);
+            showError(errMsg, 'SLA Error');
         } finally {
             setSlaSaving(false);
+        }
+    };
+
+    const handleDeleteSla = async (cat: TicketCategory, policy: SLAPolicy) => {
+        if (!window.confirm(`Delete SLA policy "${policy.name}" (${policy.priority.toUpperCase()}) from "${cat.name}"?`)) return;
+        try {
+            await deleteSLAPolicy(policy.id);
+            const msg = `SLA policy "${policy.name}" deleted`;
+            setMessage(msg);
+            showSuccess(msg, 'SLA Deleted');
+            await load();
+        } catch (err: any) {
+            const errMsg = err?.response?.data?.message || 'Failed to delete SLA policy';
+            setMessage(errMsg);
+            showError(errMsg, 'SLA Delete Error');
+        }
+    };
+
+    const handleSetDefaultSla = async (cat: TicketCategory, policy: SLAPolicy) => {
+        try {
+            await updateCategory(cat.id, { slaPolicyId: policy.id });
+            const msg = `"${policy.name}" set as default SLA for "${cat.name}"`;
+            setMessage(msg);
+            showSuccess(msg, 'Default SLA Updated');
+            await load();
+        } catch (err: any) {
+            const errMsg = err?.response?.data?.message || 'Failed to set default SLA';
+            showError(errMsg, 'SLA Error');
         }
     };
 
@@ -419,10 +580,10 @@ export default function TicketCategories() {
                     {searchQuery
                         ? `No categories matching "${searchQuery}".`
                         : statusFilter === 'inactive'
-                        ? 'No inactive categories found. All categories are currently active.'
-                        : statusFilter === 'active'
-                        ? 'No active categories found.'
-                        : 'No categories found. Create one to get started.'}
+                            ? 'No inactive categories found. All categories are currently active.'
+                            : statusFilter === 'active'
+                                ? 'No active categories found.'
+                                : 'No categories found. Create one to get started.'}
                 </div>
             ) : (
                 <div className={styles.grid}>
@@ -444,11 +605,24 @@ export default function TicketCategories() {
                                 {cat.description && (
                                     <p className={styles.catDesc}>{cat.description}</p>
                                 )}
-                                {cat.slaPolicyName && (
-                                    <div className={styles.defaultSlaBox}>
-                                        <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
-                                    </div>
-                                )}
+                                {cat.slaPolicyName && (() => {
+                                    const defaultSlaObj = slaPolicies.find((p) => p.id === cat.slaPolicyId);
+                                    return (
+                                        <div className={styles.defaultSlaBox} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                            <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
+                                            {defaultSlaObj && (
+                                                <button
+                                                    type="button"
+                                                    className={styles.slaMiniBtn}
+                                                    onClick={() => openEditSlaModal(cat, defaultSlaObj)}
+                                                    title={`Edit Default SLA "${defaultSlaObj.name}"`}
+                                                >
+                                                    <PencilSquareIcon style={{ width: 13, height: 13 }} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                                 <div className={styles.cardMeta}>
                                     <span>Created by {cat.createdByName || '—'}</span>
                                 </div>
@@ -457,7 +631,31 @@ export default function TicketCategories() {
                                         <strong>Category SLA Policies:</strong>
                                         <ul>
                                             {catSl.map((p) => (
-                                                <li key={p.id}>{p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve)</li>
+                                                <li key={p.id} className={styles.slaItemRow}>
+                                                    <span className={styles.slaItemText}>
+                                                        {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve)
+                                                        {cat.slaPolicyId === p.id && <span className={styles.slaDefaultTag}>Default</span>}
+                                                        {!p.isActive && <span className={styles.slaInactiveTag}>Inactive</span>}
+                                                    </span>
+                                                    <span className={styles.slaItemActions}>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.slaMiniBtn}
+                                                            onClick={() => openEditSlaModal(cat, p)}
+                                                            title={`Edit SLA "${p.name}"`}
+                                                        >
+                                                            <PencilSquareIcon style={{ width: 13, height: 13 }} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.slaMiniBtnDanger}
+                                                            onClick={() => handleDeleteSla(cat, p)}
+                                                            title={`Delete SLA "${p.name}"`}
+                                                        >
+                                                            <TrashIcon style={{ width: 13, height: 13 }} />
+                                                        </button>
+                                                    </span>
+                                                </li>
                                             ))}
                                         </ul>
                                     </div>
@@ -512,56 +710,75 @@ export default function TicketCategories() {
                         placeholder="Brief description of this category"
                     />
 
-                     <label>Department (optional)</label>
-                     <select
-                         value={form.departmentId}
-                         onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}
-                     >
-                         <option value="">All Departments</option>
-                         {departments.map((d) => (
-                             <option key={d.id} value={d.id}>{d.name}</option>
-                         ))}
-                     </select>
+                    <label>Department (optional)</label>
+                    <select
+                        value={form.departmentId}
+                        onChange={(e) => {
+                            const deptId = e.target.value;
+                            setForm((f) => ({
+                                ...f,
+                                departmentId: deptId,
+                                routingType: deptId ? 'direct' : 'general',
+                            }));
+                        }}
+                    >
+                        <option value="">All Departments</option>
+                        {departments.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                    </select>
 
-                     <label>Default SLA Policy (optional)</label>
-                     <select
-                         value={form.slaPolicyId}
-                         onChange={(e) => setForm((f) => ({ ...f, slaPolicyId: e.target.value }))}
-                     >
-                         <option value="">No Default SLA Policy (System Priority Defaults)</option>
-                         {slaPolicies.map((p) => (
-                             <option key={p.id} value={p.id}>
-                                 {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve{p.categoryName ? ` [${p.categoryName}]` : ''})
-                             </option>
-                         ))}
-                     </select>
+                    <label>Default SLA Policy (optional)</label>
+                    <select
+                        value={form.slaPolicyId}
+                        onChange={(e) => setForm((f) => ({ ...f, slaPolicyId: e.target.value }))}
+                    >
+                        <option value="">No Default SLA Policy (System Priority Defaults)</option>
+                        {slaPolicies.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve{p.categoryName ? ` [${p.categoryName}]` : ''})
+                            </option>
+                        ))}
+                    </select>
 
-                     <label>Ticket Routing *</label>
-                     <div className={styles.routingOptions}>
-                         <label className={styles.routingOption}>
-                             <input
-                                 type="radio"
-                                 name="routingType"
-                                 value="general"
-                                 checked={form.routingType === 'general'}
-                                 onChange={() => setForm((f) => ({ ...f, routingType: 'general' }))}
-                             />
-                             <span>General &mdash; tickets go to Admin, who assigns the department manager.</span>
-                         </label>
-                         <label className={styles.routingOption}>
-                             <input
-                                 type="radio"
-                                 name="routingType"
-                                 value="direct"
-                                 checked={form.routingType === 'direct'}
-                                 onChange={() => setForm((f) => ({ ...f, routingType: 'direct' }))}
-                             />
-                             <span>Direct &mdash; tickets route straight to this category&rsquo;s department manager.</span>
-                         </label>
-                     </div>
-                     {form.routingType === 'direct' && !form.departmentId && (
-                         <p className={styles.routingHint}>Select a department above for direct routing.</p>
-                     )}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.4rem' }}>
+                        <label style={{ margin: 0 }}>Ticket Routing *</label>
+                        {form.departmentId && form.routingType === 'direct' && (
+                            <span style={{ fontSize: '0.74rem', color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                                ✓ Auto-set to Direct
+                            </span>
+                        )}
+                    </div>
+                    <div className={styles.routingOptions}>
+                        <label className={styles.routingOption}>
+                            <input
+                                type="radio"
+                                name="routingType"
+                                value="general"
+                                checked={form.routingType === 'general'}
+                                onChange={() => setForm((f) => ({ ...f, routingType: 'general' }))}
+                            />
+                            <span>General &mdash; tickets go to Admin, who assigns the department manager.</span>
+                        </label>
+                        <label className={styles.routingOption}>
+                            <input
+                                type="radio"
+                                name="routingType"
+                                value="direct"
+                                checked={form.routingType === 'direct'}
+                                onChange={() => setForm((f) => ({ ...f, routingType: 'direct' }))}
+                            />
+                            <span>Direct &mdash; tickets route straight to this category&rsquo;s department manager.</span>
+                        </label>
+                    </div>
+                    {form.routingType === 'direct' && !form.departmentId && (
+                        <p className={styles.routingHint}>Select a department above for direct routing.</p>
+                    )}
+                    {form.departmentId && form.routingType === 'direct' && (
+                        <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#15803d' }}>
+                            ⚡ Tickets created under this category will route directly to <strong>{departments.find(d => d.id === form.departmentId)?.name || 'this department'}</strong> manager.
+                        </p>
+                    )}
 
                     <div className={styles.modalActions}>
                         <button onClick={() => setModalOpen(false)} className={styles.cancelBtn}>Cancel</button>
@@ -574,8 +791,8 @@ export default function TicketCategories() {
 
             <Modal
                 open={slaModalOpen}
-                title={`Create SLA Policy${slaForCategory ? ` for ${slaForCategory.name}` : ''}`}
-                onClose={() => setSlaModalOpen(false)}
+                title={`${editingSla ? 'Edit' : 'Create'} SLA Policy${slaForCategory ? ` — ${slaForCategory.name}` : ''}`}
+                onClose={() => { setSlaModalOpen(false); setEditingSla(null); }}
             >
                 <div className={styles.modalForm}>
                     {slaError && <div className={styles.formError}>{slaError}</div>}
@@ -587,16 +804,53 @@ export default function TicketCategories() {
                         placeholder="e.g. High Priority SLA"
                     />
 
-                    <label>Priority</label>
+                    <label>Priority *</label>
                     <select
                         value={slaForm.priority}
-                        onChange={(e) => setSlaForm((f) => ({ ...f, priority: e.target.value as any }))}
+                        onChange={(e) => {
+                            const newPri = e.target.value as 'low' | 'medium' | 'high' | 'urgent';
+                            const exists = slaPolicies.find(
+                                p => p.id !== editingSla?.id && p.categoryId === slaForCategory?.id && p.priority.toLowerCase() === newPri.toLowerCase()
+                            );
+                            const defaultHours: Record<'low' | 'medium' | 'high' | 'urgent', { response: number; resolution: number; escalation: number }> = {
+                                low: { response: 8, resolution: 48, escalation: 24 },
+                                medium: { response: 4, resolution: 24, escalation: 12 },
+                                high: { response: 2, resolution: 8, escalation: 4 },
+                                urgent: { response: 1, resolution: 4, escalation: 2 },
+                            };
+                            const cfg = defaultHours[newPri] || { response: 4, resolution: 24, escalation: 12 };
+                            setSlaForm((f) => ({
+                                ...f,
+                                priority: newPri,
+                                ...(editingSla ? {} : {
+                                    responseHours: cfg.response,
+                                    resolutionHours: cfg.resolution,
+                                    escalationHours: cfg.escalation,
+                                }),
+                            }));
+                            if (exists) {
+                                setSlaError(`An SLA policy with "${newPri.toUpperCase()}" priority already exists for this category ("${exists.name}").`);
+                            } else {
+                                setSlaError('');
+                            }
+                        }}
                     >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="urgent">Urgent</option>
+                        {(['low', 'medium', 'high', 'urgent'] as const).map((p) => {
+                            const alreadyConfigured = slaPolicies.some(
+                                sp => sp.id !== editingSla?.id && sp.categoryId === slaForCategory?.id && sp.priority.toLowerCase() === p
+                            );
+                            return (
+                                <option key={p} value={p} disabled={alreadyConfigured}>
+                                    {p.charAt(0).toUpperCase() + p.slice(1)} {alreadyConfigured ? '— Already configured for this category (Cannot duplicate)' : ''}
+                                </option>
+                            );
+                        })}
                     </select>
+                    {slaPolicies.some(sp => sp.id !== editingSla?.id && sp.categoryId === slaForCategory?.id && sp.priority.toLowerCase() === slaForm.priority.toLowerCase()) && (
+                        <div className={styles.formError} style={{ marginTop: '0.4rem', marginBottom: '0.6rem', padding: '0.6rem 0.8rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#b91c1c' }}>
+                            ⚠️ <strong>Duplicate Priority Notice:</strong> An SLA policy with <strong>{slaForm.priority.toUpperCase()}</strong> priority already exists for <strong>{slaForCategory?.name}</strong>. Please select another priority.
+                        </div>
+                    )}
 
                     <label>First Response Time (hours)</label>
                     <input
@@ -630,6 +884,71 @@ export default function TicketCategories() {
                         </span>
                     </div>
 
+                    {/* Working Hours Schedule */}
+                    <div className={styles.workHoursBox}>
+                        <label className={styles.workHoursToggle}>
+                            <input
+                                type="checkbox"
+                                checked={slaForm.useWorkingHours}
+                                onChange={(e) => setSlaForm((f) => ({ ...f, useWorkingHours: e.target.checked }))}
+                            />
+                            <span>Use Custom Working Hours Schedule (instead of 24/7 calendar)</span>
+                        </label>
+                        {slaForm.useWorkingHours && (
+                            <div className={styles.workHoursBody}>
+                                <div className={styles.workHoursTimeRow}>
+                                    <div>
+                                        <label>Start Time</label>
+                                        <input
+                                            type="time"
+                                            value={slaForm.workStart}
+                                            onChange={(e) => setSlaForm((f) => ({ ...f, workStart: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label>End Time</label>
+                                        <input
+                                            type="time"
+                                            value={slaForm.workEnd}
+                                            onChange={(e) => setSlaForm((f) => ({ ...f, workEnd: e.target.value }))}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={styles.workDaysRow}>
+                                    <span className={styles.workDaysLabel}>Working Days:</span>
+                                    <div className={styles.workDaysGrid}>
+                                        {[
+                                            { d: 0, label: 'Sun' },
+                                            { d: 1, label: 'Mon' },
+                                            { d: 2, label: 'Tue' },
+                                            { d: 3, label: 'Wed' },
+                                            { d: 4, label: 'Thu' },
+                                            { d: 5, label: 'Fri' },
+                                            { d: 6, label: 'Sat' },
+                                        ].map(({ d, label }) => {
+                                            const checked = slaForm.workDays.includes(d);
+                                            return (
+                                                <button
+                                                    key={d}
+                                                    type="button"
+                                                    className={`${styles.workDayChip} ${checked ? styles.workDayChipActive : ''}`}
+                                                    onClick={() => setSlaForm((f) => ({
+                                                        ...f,
+                                                        workDays: checked
+                                                            ? f.workDays.filter((x) => x !== d)
+                                                            : [...f.workDays, d].sort((a, b) => a - b),
+                                                    }))}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <label>Description (optional)</label>
                     <textarea
                         rows={2}
@@ -638,10 +957,35 @@ export default function TicketCategories() {
                         placeholder="Brief description of this SLA policy"
                     />
 
+                    <div className={styles.slaCheckOptions}>
+                        <label className={styles.slaCheckLabel}>
+                            <input
+                                type="checkbox"
+                                checked={slaForm.setAsDefault}
+                                onChange={(e) => setSlaForm((f) => ({ ...f, setAsDefault: e.target.checked }))}
+                            />
+                            <span>Set as Default SLA Policy for {slaForCategory?.name || 'this category'}</span>
+                        </label>
+                        {editingSla && (
+                            <label className={styles.slaCheckLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={slaForm.isActive}
+                                    onChange={(e) => setSlaForm((f) => ({ ...f, isActive: e.target.checked }))}
+                                />
+                                <span>Policy is Active</span>
+                            </label>
+                        )}
+                    </div>
+
                     <div className={styles.modalActions}>
-                        <button onClick={() => setSlaModalOpen(false)} className={styles.cancelBtn}>Cancel</button>
-                        <button onClick={handleCreateSla} disabled={slaSaving} className={styles.saveBtn}>
-                            {slaSaving ? 'Saving…' : 'Create SLA Policy'}
+                        <button onClick={() => { setSlaModalOpen(false); setEditingSla(null); }} className={styles.cancelBtn}>Cancel</button>
+                        <button
+                            onClick={handleSaveSla}
+                            disabled={slaSaving || slaPolicies.some(sp => sp.id !== editingSla?.id && sp.categoryId === slaForCategory?.id && sp.priority.toLowerCase() === slaForm.priority.toLowerCase())}
+                            className={styles.saveBtn}
+                        >
+                            {slaSaving ? 'Saving…' : editingSla ? 'Save SLA Changes' : 'Create SLA Policy'}
                         </button>
                     </div>
                 </div>
@@ -668,8 +1012,8 @@ export default function TicketCategories() {
                                     {viewingCategory.status && (
                                         <span className={
                                             viewingCategory.status === 'approved' ? styles.statusApproved :
-                                            viewingCategory.status === 'pending' ? styles.statusPending :
-                                            styles.statusRejected
+                                                viewingCategory.status === 'pending' ? styles.statusPending :
+                                                    styles.statusRejected
                                         }>
                                             {viewingCategory.status.toUpperCase()}
                                         </span>
@@ -739,9 +1083,27 @@ export default function TicketCategories() {
 
                         {/* ── Default SLA Policy ── */}
                         <div className={styles.viewSection}>
-                            <div className={styles.viewSectionHeader}>
-                                <ShieldCheckIcon className={styles.viewSectionIcon} />
-                                <h4 className={styles.viewSectionTitle}>Default SLA Policy</h4>
+                            <div className={styles.viewSectionHeader} style={{ justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ShieldCheckIcon className={styles.viewSectionIcon} />
+                                    <h4 className={styles.viewSectionTitle}>Default SLA Policy</h4>
+                                </div>
+                                {viewingCategory.slaPolicyId && (() => {
+                                    const defPol = slaPolicies.find((p) => p.id === viewingCategory.slaPolicyId);
+                                    return defPol ? (
+                                        <button
+                                            type="button"
+                                            className={styles.viewAssignSlaBtn}
+                                            onClick={() => {
+                                                setViewModalOpen(false);
+                                                openEditSlaModal(viewingCategory, defPol);
+                                            }}
+                                        >
+                                            <PencilSquareIcon className={styles.inlineActionIcon} />
+                                            <span>Edit Default SLA</span>
+                                        </button>
+                                    ) : null;
+                                })()}
                             </div>
                             {viewingCategory.slaPolicyName ? (
                                 <div className={styles.viewSlaHighlight}>
@@ -815,14 +1177,28 @@ export default function TicketCategories() {
 
                         {/* ── Category SLA Policies ── */}
                         <div className={styles.viewSection}>
-                            <div className={styles.viewSectionHeader}>
-                                <ClockIcon className={styles.viewSectionIcon} />
-                                <h4 className={styles.viewSectionTitle}>
-                                    Category SLA Policies
-                                    <span className={styles.viewCountPill}>
-                                        {getCategorySlaPolicies(viewingCategory.id).length}
-                                    </span>
-                                </h4>
+                            <div className={styles.viewSectionHeader} style={{ justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <ClockIcon className={styles.viewSectionIcon} />
+                                    <h4 className={styles.viewSectionTitle}>
+                                        Category SLA Policies
+                                        <span className={styles.viewCountPill}>
+                                            {getCategorySlaPolicies(viewingCategory.id).length}
+                                        </span>
+                                    </h4>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const cat = viewingCategory;
+                                        setViewModalOpen(false);
+                                        openSlaModal(cat);
+                                    }}
+                                    className={styles.viewAssignSlaBtn}
+                                >
+                                    <PlusIcon className={styles.inlineActionIcon} />
+                                    <span>Add SLA Policy</span>
+                                </button>
                             </div>
                             {getCategorySlaPolicies(viewingCategory.id).length > 0 ? (
                                 <div className={styles.viewSlaList}>
@@ -832,10 +1208,43 @@ export default function TicketCategories() {
                                                 <div className={styles.viewSlaNameBox}>
                                                     <TagIcon className={styles.slaCardTagIcon} />
                                                     <strong>{p.name}</strong>
+                                                    {viewingCategory.slaPolicyId === p.id && <span className={styles.slaDefaultTag}>Default</span>}
+                                                    {!p.isActive && <span className={styles.slaInactiveTag}>Inactive</span>}
                                                 </div>
-                                                <span className={`${styles.priorityPill} ${styles[p.priority?.toLowerCase() || 'medium'] || ''}`}>
-                                                    {p.priority.toUpperCase()}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span className={`${styles.priorityPill} ${styles[p.priority?.toLowerCase() || 'medium'] || ''}`}>
+                                                        {p.priority.toUpperCase()}
+                                                    </span>
+                                                    {viewingCategory.slaPolicyId !== p.id && (
+                                                        <button
+                                                            type="button"
+                                                            className={styles.slaMiniBtn}
+                                                            onClick={() => handleSetDefaultSla(viewingCategory, p)}
+                                                            title="Set as Default SLA"
+                                                        >
+                                                            Default
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        className={styles.slaMiniBtn}
+                                                        onClick={() => {
+                                                            setViewModalOpen(false);
+                                                            openEditSlaModal(viewingCategory, p);
+                                                        }}
+                                                        title={`Edit "${p.name}"`}
+                                                    >
+                                                        <PencilSquareIcon style={{ width: 14, height: 14 }} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.slaMiniBtnDanger}
+                                                        onClick={() => handleDeleteSla(viewingCategory, p)}
+                                                        title={`Delete "${p.name}"`}
+                                                    >
+                                                        <TrashIcon style={{ width: 14, height: 14 }} />
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className={styles.viewSlaCardMeta}>
                                                 <span className={styles.metaStat}>
@@ -847,6 +1256,11 @@ export default function TicketCategories() {
                                                 {p.escalationHours ? (
                                                     <span className={styles.metaStat}>
                                                         <ArrowTrendingUpIcon className={styles.metaStatIcon} /> Escalation: <strong>{p.escalationHours}h</strong>
+                                                    </span>
+                                                ) : null}
+                                                {p.workingHours && typeof p.workingHours === 'object' && p.workingHours.start ? (
+                                                    <span className={styles.metaStat}>
+                                                        <CalendarIcon className={styles.metaStatIcon} /> Hours: <strong>{p.workingHours.start}–{p.workingHours.end}</strong>
                                                     </span>
                                                 ) : null}
                                             </div>

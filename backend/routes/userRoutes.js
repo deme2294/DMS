@@ -34,6 +34,7 @@ router.post(
     body('subject').trim().notEmpty().withMessage('Subject is required'),
     body('message').trim().notEmpty().withMessage('Message body is required'),
     body('toName').optional().trim(),
+    body('ticketId').optional().trim(),
     validate,
   ],
   userController.sendDirectEmail

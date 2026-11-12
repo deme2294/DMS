@@ -23,6 +23,7 @@ export default function UserDropdown() {
   const handleLogout = async () => {
     setOpen(false);
     await logout();
+    navigate('/login');
   };
 
   const getProfilePath = () => {

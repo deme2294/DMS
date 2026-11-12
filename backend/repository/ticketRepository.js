@@ -1,5 +1,7 @@
 import pool from '../config/db.js';
 import { v4 as uuidv4 } from 'uuid';
+import { resolveUserId } from './userRepository.js';
+import { resolveDepartmentId } from './departmentRepository.js';
 
 const baseSelect = `
   t.*,
@@ -12,7 +14,8 @@ const baseSelect = `
   cu.phone AS created_by_phone,
   d.name AS department_name,
   CONCAT(au.first_name, ' ', au.last_name) AS assigned_to_name,
-  CONCAT(ru.first_name, ' ', ru.last_name) AS reopened_by_name
+  CONCAT(ru.first_name, ' ', ru.last_name) AS reopened_by_name,
+  CONCAT(rr_u.first_name, ' ', rr_u.last_name) AS reopen_requested_by_name
 `;
 
 const attachmentSelect = `'' AS attachments_placeholder`;
@@ -118,7 +121,21 @@ export const findAll = async ({
     where += ` AND (t.title LIKE :keyword OR t.description LIKE :keyword OR t.category LIKE :keyword)`;
     params.keyword = `%${keyword}%`;
   }
-  if (status) { where += ' AND t.status = :status'; params.status = status; }
+  if (status) {
+    if (status === 'escalated') {
+      where += " AND (t.status = 'escalated' OR t.status LIKE 'escalated.%' OR t.is_escalated = 1)";
+    } else if (status === 'resolved') {
+      where += " AND (t.status = 'resolved' OR t.status = 'escalated.resolved' OR (t.status = 'resolved' AND t.is_escalated = 1))";
+    } else if (status.startsWith('escalated.')) {
+      const sub = status.replace('escalated.', '');
+      where += " AND (t.status = :status OR (t.status = :subStatus AND t.is_escalated = 1))";
+      params.status = status;
+      params.subStatus = sub;
+    } else {
+      where += " AND (t.status = :status OR t.status = CONCAT('escalated.', :status))";
+      params.status = status;
+    }
+  }
   if (priority) { where += ' AND t.priority = :priority'; params.priority = priority; }
   if (category) { where += ' AND t.category = :category'; params.category = category; }
   if (departmentId) { where += ' AND t.department_id = :departmentId'; params.departmentId = departmentId; }
@@ -141,6 +158,7 @@ export const findAll = async ({
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
      LEFT JOIN users ru ON ru.id = t.reopened_by
+     LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
      ${where}
      ORDER BY t.${orderCol} ${orderDir}
      LIMIT :limit OFFSET :offset`,
@@ -193,6 +211,7 @@ export const findById = async (idOrShort) => {
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
      LEFT JOIN users ru ON ru.id = t.reopened_by
+     LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
      WHERE t.id = :str
         OR t.id LIKE CONCAT(:str, '%')
         OR t.reference_number = :str
@@ -222,6 +241,7 @@ export const findByTrackNumber = async (trackNumber) => {
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
      LEFT JOIN users ru ON ru.id = t.reopened_by
+     LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
      WHERE t.track_number = :trackNumber
      LIMIT 1`,
     { trackNumber }
@@ -256,6 +276,7 @@ export const update = async (id, fields) => {
     'completed_at', 'approved_at',
     'escalated_at', 'reopened_at', 'cancelled_at',     'merged_into',
     'tenant_confirmation_status', 'is_escalated', 'approved_by', 'reopened_by', 'reopen_reason',
+    'reopen_requested_at', 'reopen_requested_by', 'reopen_request_reason', 'reopen_status',
     'first_response_at',
     'routing_type', 'sla_agreement_accepted', 'sla_agreement_accepted_at',
   ];
@@ -309,6 +330,59 @@ export const addAttachment = async (attachment) => {
   );
 };
 
+export const findAttachmentById = async (attachmentId) => {
+  const cleanId = String(attachmentId).trim();
+  const [rows] = await pool.query(
+    `SELECT a.*,
+            CONCAT(u.first_name, ' ', u.last_name) AS uploaded_by_name,
+            r.name AS uploaded_by_role
+     FROM ticket_attachments a
+     LEFT JOIN users u ON u.id = a.uploaded_by
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE a.id = ? LIMIT 1`,
+    [cleanId]
+  );
+  return rows[0] || null;
+};
+
+export const updateAttachmentComment = async (attachmentId, comment) => {
+  const cleanId = String(attachmentId).trim();
+  await pool.query(
+    `UPDATE ticket_attachments SET comment = ? WHERE id = ?`,
+    [comment, cleanId]
+  );
+  return findAttachmentById(cleanId);
+};
+
+export const deleteAttachment = async (attachmentId, ticketId = null) => {
+  const cleanId = String(attachmentId).trim();
+
+  // 1. Remove references from ticket_replies where this attachment is linked
+  await pool.query(
+    `UPDATE ticket_replies SET attachment_id = NULL WHERE attachment_id = ?`,
+    [cleanId]
+  ).catch(() => {});
+
+  // 2. Permanently delete from ticket_attachments table in database
+  const [result] = await pool.query(
+    `DELETE FROM ticket_attachments WHERE id = ?`,
+    [cleanId]
+  );
+
+  // 3. Update the ticket's attachment_count column in tickets table
+  if (ticketId) {
+    const actualTicketId = await resolveTicketId(ticketId);
+    await pool.query(
+      `UPDATE tickets 
+       SET attachment_count = (SELECT COUNT(*) FROM ticket_attachments WHERE ticket_id = ?) 
+       WHERE id = ?`,
+      [actualTicketId, actualTicketId]
+    ).catch(() => {});
+  }
+
+  return result;
+};
+
 export const logStatusHistory = async ({ id, ticketId, fromStatus, toStatus, changedBy, notes, role, browser }) => {
   await pool.query(
     `INSERT INTO ticket_status_history (id, ticket_id, from_status, to_status, changed_by, notes, role, browser)
@@ -340,34 +414,40 @@ export const getStatusHistory = async (ticketId) => {
 };
 
 export const getManagerDepartmentIds = async (userId) => {
+  const actualUserId = (await resolveUserId(userId)) || userId;
   const [rows] = await pool.query(
-    `SELECT department_id FROM user_departments WHERE user_id = :userId`,
-    { userId }
+    `SELECT DISTINCT d.id
+     FROM departments d
+     LEFT JOIN user_departments ud ON ud.department_id = d.id AND ud.user_id = :userId
+     WHERE d.head_user_id = :userId OR ud.user_id = :userId`,
+    { userId: actualUserId }
   );
-  return rows.map((r) => r.department_id);
+  return rows.map((r) => r.id);
 };
 
 export const getUserDepartmentIds = async (userId) => {
+  const actualUserId = (await resolveUserId(userId)) || userId;
   const [rows] = await pool.query(
-    `SELECT department_id FROM user_departments WHERE user_id = :userId`,
-    { userId }
+    `SELECT DISTINCT d.id
+     FROM departments d
+     LEFT JOIN user_departments ud ON ud.department_id = d.id AND ud.user_id = :userId
+     WHERE d.head_user_id = :userId OR ud.user_id = :userId`,
+    { userId: actualUserId }
   );
-  return rows.map((r) => r.department_id);
+  return rows.map((r) => r.id);
 };
 
 /**
  * Fetch tickets visible to a manager.
  *
- * Visibility rule (OR):
- *   1. ticket.department_id is one of the manager's departments, OR
- *   2. ticket.assigned_to = managerId  AND  (ticket.department_id IN manager's depts OR ticket.department_id IS NULL)
- *
- * Cross-department tickets that happen to be directly assigned to this manager
- * are intentionally excluded (they belong to another manager's scope).
+ * Visibility rule:
+ *   1. Any ticket assigned to this manager (t.assigned_to = :managerId)
+ *   2. Any ticket with an active assignment to this manager in assignments table
+ *   3. Any ticket in one of the manager's assigned or headed departments
  */
 export const findAllForManager = async ({
   managerId,
-  departmentIds,
+  departmentIds = [],
   search,
   status,
   priority,
@@ -382,24 +462,43 @@ export const findAllForManager = async ({
   sortBy = 'created_at',
   sortOrder = 'DESC',
 }) => {
+  const actualManagerId = (await resolveUserId(managerId)) || managerId;
+  const actualDeptFilter = departmentId ? ((await resolveDepartmentId(departmentId)) || departmentId) : null;
+  const actualAssignedTo = assignedTo ? ((await resolveUserId(assignedTo)) || assignedTo) : null;
   const offset = (page - 1) * limit;
   const allowedSort = ['created_at', 'updated_at', 'priority', 'status', 'title', 'reference_number', 'due_date'];
   const orderCol = allowedSort.includes(sortBy) ? sortBy : 'created_at';
   const orderDir = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  // If there are no departments, only show directly-assigned (dept IS NULL) tickets.
-  const hasDepts = departmentIds && departmentIds.length > 0;
-
-  let scopeClause;
-  if (hasDepts) {
-    const placeholders = departmentIds.map(() => '?').join(',');
-    // Visibility: in dept  OR  (directly assigned AND dept is mine or null)
-    scopeClause = `(t.department_id IN (${placeholders})
-                   OR (t.assigned_to = ? AND (t.department_id IN (${placeholders}) OR t.department_id IS NULL)))`;
-  } else {
-    // Manager has no departments yet — only see directly-assigned with no dept
-    scopeClause = `(t.assigned_to = ? AND t.department_id IS NULL)`;
+  // Resolve departmentIds array if any
+  const resolvedDeptIds = [];
+  if (Array.isArray(departmentIds)) {
+    for (const d of departmentIds) {
+      if (d) {
+        const rd = (await resolveDepartmentId(d)) || d;
+        if (rd && !resolvedDeptIds.includes(rd)) resolvedDeptIds.push(rd);
+      }
+    }
   }
+
+  // Manager visibility:
+  // 1. Directly assigned to manager (t.assigned_to = :managerId)
+  // 2. Active assignment in assignments table for this manager
+  // 3. Any ticket in the manager's assigned or headed departments
+  const scopeClauses = [
+    't.assigned_to = ?',
+    'EXISTS (SELECT 1 FROM assignments a WHERE a.ticket_id = t.id AND a.assigned_to = ? AND a.status IN (\'pending\', \'accepted\'))'
+  ];
+  const scopeParams = [actualManagerId, actualManagerId];
+
+  if (resolvedDeptIds.length > 0) {
+    const placeholders = resolvedDeptIds.map(() => '?').join(',');
+    scopeClauses.push(`t.department_id IN (${placeholders})`);
+    scopeClauses.push(`t.auto_department_id IN (${placeholders})`);
+    scopeParams.push(...resolvedDeptIds, ...resolvedDeptIds);
+  }
+
+  const scopeClause = `(${scopeClauses.join(' OR ')})`;
 
   // Extra filters
   const extraClauses = [];
@@ -415,28 +514,33 @@ export const findAllForManager = async ({
     const k = `%${keyword}%`;
     extraParams.push(k, k, k);
   }
-  if (status) { extraClauses.push('t.status = ?'); extraParams.push(status); }
+  if (status) {
+    if (status === 'escalated') {
+      extraClauses.push("(t.status = 'escalated' OR t.status LIKE 'escalated.%' OR t.is_escalated = 1)");
+    } else if (status === 'resolved') {
+      extraClauses.push("(t.status = 'resolved' OR t.status = 'escalated.resolved' OR (t.status = 'resolved' AND t.is_escalated = 1))");
+    } else if (status.startsWith('escalated.')) {
+      const sub = status.replace('escalated.', '');
+      extraClauses.push("(t.status = ? OR (t.status = ? AND t.is_escalated = 1))");
+      extraParams.push(status, sub);
+    } else {
+      extraClauses.push("(t.status = ? OR t.status = CONCAT('escalated.', ?))");
+      extraParams.push(status, status);
+    }
+  }
   if (priority) { extraClauses.push('t.priority = ?'); extraParams.push(priority); }
   if (category) { extraClauses.push('t.category = ?'); extraParams.push(category); }
-  if (assignedTo) { extraClauses.push('t.assigned_to = ?'); extraParams.push(assignedTo); }
+  if (actualAssignedTo) { extraClauses.push('t.assigned_to = ?'); extraParams.push(actualAssignedTo); }
   if (fromDate) { extraClauses.push('DATE(t.created_at) >= ?'); extraParams.push(fromDate); }
   if (toDate) { extraClauses.push('DATE(t.created_at) <= ?'); extraParams.push(toDate); }
 
-  // Optional: manager filters down to one of their own departments via the UI dropdown
-  if (departmentId && hasDepts && departmentIds.includes(departmentId)) {
-    extraClauses.push('t.department_id = ?');
-    extraParams.push(departmentId);
+  // Optional: manager filters down to a department via the UI dropdown
+  if (actualDeptFilter) {
+    extraClauses.push('(t.department_id = ? OR t.auto_department_id = ?)');
+    extraParams.push(actualDeptFilter, actualDeptFilter);
   }
 
   const extraWhere = extraClauses.length ? ` AND ${extraClauses.join(' AND ')}` : '';
-
-  // Build positional param arrays for count and data queries
-  let scopeParams;
-  if (hasDepts) {
-    scopeParams = [...departmentIds, managerId, ...departmentIds];
-  } else {
-    scopeParams = [managerId];
-  }
 
   const countSql = `
     SELECT COUNT(*) AS total
@@ -452,6 +556,8 @@ export const findAllForManager = async ({
     LEFT JOIN users cu ON cu.id = t.created_by
     LEFT JOIN departments d ON d.id = t.department_id
     LEFT JOIN users au ON au.id = t.assigned_to
+    LEFT JOIN users ru ON ru.id = t.reopened_by
+    LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
     WHERE ${scopeClause}${extraWhere}
     ORDER BY t.${orderCol} ${orderDir}
     LIMIT ? OFFSET ?
@@ -495,18 +601,18 @@ export const findAllForManager = async ({
 
 
 export const getCategories = async () => {
-  // Prefer the managed ticket_categories table; fall back to distinct values in tickets.
-  // Only APPROVED + active categories are exposed to the tenant ticket form.
+  // Strictly return active, approved categories from ticket_categories (empty if none exist).
   try {
     const [rows] = await pool.query(
-      `SELECT name FROM ticket_categories WHERE is_active = 1 AND status = 'approved' ORDER BY name ASC`
+      `SELECT name FROM ticket_categories
+       WHERE is_active = 1 AND status = 'approved'
+         AND NOT EXISTS (SELECT 1 FROM departments d WHERE LOWER(TRIM(d.name)) = LOWER(TRIM(ticket_categories.name)))
+       ORDER BY name ASC`
     );
-    if (rows.length) return rows.map((r) => r.name);
-  } catch (_) { /* table may not exist yet */ }
-  const [rows] = await pool.query(
-    `SELECT DISTINCT category FROM tickets ORDER BY category ASC`
-  );
-  return rows.map((r) => r.category);
+    return rows.map((r) => r.name);
+  } catch (_) {
+    return [];
+  }
 };
 
 export const addReply = async (reply) => {
@@ -657,6 +763,7 @@ export const findByIdOrRef = async (idOrRef) => {
      LEFT JOIN departments d ON d.id = t.department_id
      LEFT JOIN users au ON au.id = t.assigned_to
      LEFT JOIN users ru ON ru.id = t.reopened_by
+     LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
      WHERE t.id = :idOrRef OR t.reference_number = :idOrRef OR t.track_number = :idOrRef
      LIMIT 1`,
     { idOrRef }
@@ -676,6 +783,7 @@ export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
     LEFT JOIN departments d ON d.id = t.department_id
     LEFT JOIN users au ON au.id = t.assigned_to
     LEFT JOIN users ru ON ru.id = t.reopened_by
+    LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
     WHERE t.id != :targetTicketId
       AND t.merged_into IS NULL
       AND t.status NOT IN ('cancelled', 'closed')
@@ -754,19 +862,19 @@ export const getTimeline = async (ticketId) => {
  */
 export const findDepartmentManager = async (departmentId) => {
   if (!departmentId) return null;
+  const actualDeptId = (await resolveDepartmentId(departmentId)) || departmentId;
 
-  // 1. Check if department head is an active user with role 'manager' in this department
+  // 1. Check if department head is an active user with role 'manager'
   const [headRows] = await pool.query(
     `SELECT u.id, u.first_name, u.last_name, u.email, r.name AS role, 1 AS is_head
      FROM departments d
      JOIN users u ON u.id = d.head_user_id
      JOIN roles r ON r.id = u.role_id
-     JOIN user_departments ud ON ud.user_id = u.id AND ud.department_id = d.id
-     WHERE d.id = :departmentId
+     WHERE d.id = :actualDeptId
        AND r.name = 'manager'
        AND u.status = 'active'
      LIMIT 1`,
-    { departmentId }
+    { actualDeptId }
   );
   if (headRows.length > 0) {
     return headRows[0];
@@ -778,34 +886,35 @@ export const findDepartmentManager = async (departmentId) => {
      FROM users u
      JOIN roles r ON r.id = u.role_id
      JOIN user_departments ud ON ud.user_id = u.id
-     WHERE ud.department_id = :departmentId
+     WHERE ud.department_id = :actualDeptId
        AND r.name = 'manager'
        AND u.status = 'active'
      ORDER BY u.created_at ASC
      LIMIT 1`,
-    { departmentId }
+    { actualDeptId }
   );
 
   return mgrRows[0] || null;
 };
 
 /**
- * List all active managers assigned to a department (matching role = 'manager' and user_departments).
+ * List all active managers assigned to a department (matching role = 'manager' and user_departments or head).
  */
 export const findDepartmentManagers = async (departmentId) => {
   if (!departmentId) return [];
+  const actualDeptId = (await resolveDepartmentId(departmentId)) || departmentId;
   const [rows] = await pool.query(
-    `SELECT u.id, u.first_name, u.last_name, u.email, r.name AS role,
+    `SELECT DISTINCT u.id, u.first_name, u.last_name, u.email, r.name AS role,
             (CASE WHEN d.head_user_id = u.id THEN 1 ELSE 0 END) AS is_head
      FROM users u
      JOIN roles r ON r.id = u.role_id
-     JOIN user_departments ud ON ud.user_id = u.id
-     LEFT JOIN departments d ON d.id = ud.department_id
-     WHERE ud.department_id = :departmentId
+     LEFT JOIN user_departments ud ON ud.user_id = u.id
+     LEFT JOIN departments d ON d.id = :actualDeptId
+     WHERE (ud.department_id = :actualDeptId OR d.head_user_id = u.id)
        AND r.name = 'manager'
        AND u.status = 'active'
      ORDER BY is_head DESC, u.first_name ASC, u.last_name ASC`,
-    { departmentId }
+    { actualDeptId }
   );
   return rows;
 };
@@ -815,17 +924,20 @@ export const findDepartmentManagers = async (departmentId) => {
  */
 export const validateDepartmentManager = async (userId, departmentId) => {
   if (!userId || !departmentId) return false;
+  const actualUserId = (await resolveUserId(userId)) || userId;
+  const actualDeptId = (await resolveDepartmentId(departmentId)) || departmentId;
   const [rows] = await pool.query(
     `SELECT u.id
      FROM users u
      JOIN roles r ON r.id = u.role_id
-     JOIN user_departments ud ON ud.user_id = u.id
-     WHERE u.id = :userId
-       AND ud.department_id = :departmentId
+     LEFT JOIN user_departments ud ON ud.user_id = u.id
+     LEFT JOIN departments d ON d.id = :actualDeptId
+     WHERE u.id = :actualUserId
+       AND (ud.department_id = :actualDeptId OR d.head_user_id = u.id)
        AND r.name = 'manager'
        AND u.status = 'active'
      LIMIT 1`,
-    { userId, departmentId }
+    { actualUserId, actualDeptId }
   );
   return rows.length > 0;
 };

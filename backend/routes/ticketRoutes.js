@@ -48,10 +48,32 @@ router.get(
   '/departments/:departmentId/managers',
   authorize('tickets.read', 'tickets.assign'),
   [
-    param('departmentId').custom((v) => /^[0-9a-zA-Z_-]{2,36}$/i.test(v)).withMessage('Valid departmentId required'),
+    param('departmentId').custom((v) => /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('Valid departmentId required'),
     validate,
   ],
   ticketController.getDepartmentManagers
+);
+
+// Standalone attachment endpoints (accessible directly by attachment ID) — declared before '/:id'
+router.patch(
+  '/attachments/:attachmentId',
+  authorize('tickets.read', 'tickets.create'),
+  [
+    param('attachmentId').matches(/^[0-9a-zA-Z_-]{1,64}$/).withMessage('Invalid attachment ID'),
+    body('comment').optional({ nullable: true }).trim(),
+    validate,
+  ],
+  ticketController.updateAttachment
+);
+
+router.delete(
+  '/attachments/:attachmentId',
+  authorize('tickets.read', 'tickets.create'),
+  [
+    param('attachmentId').matches(/^[0-9a-zA-Z_-]{1,64}$/).withMessage('Invalid attachment ID'),
+    validate,
+  ],
+  ticketController.deleteAttachment
 );
 
 router.get('/:id', authorize('tickets.read', 'tickets.create'), [idParam(), validate], ticketController.getTicketById);
@@ -83,7 +105,7 @@ router.put(
     body('category').optional().trim().notEmpty(),
     body('priority').optional().isIn(TICKET_PRIORITIES),
     body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
-    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     validate,
   ],
   ticketController.updateTicket
@@ -92,12 +114,12 @@ router.put(
 // Admin assigns a department manager (validating department + role)
 router.post(
   '/:id/assign-department',
-  requireRole('admin'),
+  requireRole('admin', 'ceo'),
   [
     idParam(),
-    body('departmentId').custom((v) => /^[0-9a-zA-Z_-]{2,36}$/i.test(v)).withMessage('departmentId required'),
-    body('managerId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
-    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('departmentId').custom((v) => /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('departmentId required'),
+    body('managerId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
+    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     body('notes').optional({ nullable: true }).trim(),
     validate,
   ],
@@ -110,7 +132,7 @@ router.post(
   authorize('tickets.assign'),
   [
     idParam(),
-    body('staffId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('staffId required'),
+    body('staffId').custom((v) => /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('staffId required'),
     body('notes').optional({ nullable: true }).trim(),
     validate,
   ],
@@ -123,21 +145,33 @@ router.post(
   authorize('tickets.reassign'),
   [
     idParam(),
-    body('staffId').custom((v) => /^[0-9a-f-]{36}$/i.test(v)).withMessage('staffId required'),
+    body('staffId').custom((v) => /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('staffId required'),
     body('notes').optional({ nullable: true }).trim(),
     validate,
   ],
   ticketController.reassignStaff
 );
 
+// Send reminder to assigned staff
+router.post(
+  '/:id/remind-staff',
+  authorize('tickets.assign', 'tickets.read'),
+  [
+    idParam(),
+    body('notes').optional({ nullable: true }).trim(),
+    validate,
+  ],
+  ticketController.remindStaff
+);
+
 // Admin overrides assignment attribution (assigned_to / assigned_by)
 router.patch(
   '/:id/assignment',
-  requireRole('admin'),
+  requireRole('admin', 'ceo'),
   [
     idParam(),
-    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)).withMessage('assignedTo must be a valid user id'),
-    body('assignedBy').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)).withMessage('assignedBy must be a valid user id'),
+    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('assignedTo must be a valid user id'),
+    body('assignedBy').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('assignedBy must be a valid user id'),
     body('notes').optional({ nullable: true }).trim(),
     validate,
   ],
@@ -180,10 +214,10 @@ router.post(
   ticketController.mergeTickets
 );
 
-// Close / Reopen
+// Close / Reopen Workflow
 router.post(
   '/:id/close',
-  authorize('tickets.close', 'tickets.assign'),
+  authorize('tickets.close', 'tickets.assign', 'tickets.create'),
   [idParam(), body('notes').optional({ nullable: true }).trim(), validate],
   ticketController.closeTicket
 );
@@ -197,6 +231,38 @@ router.post(
     validate,
   ],
   ticketController.reopenTicket
+);
+router.post(
+  '/:id/request-reopen',
+  requireRole('tenant'),
+  [
+    idParam(),
+    body('reason').trim().notEmpty().withMessage('Reason is required to request reopening ticket'),
+    body('notes').optional({ nullable: true }).trim(),
+    validate,
+  ],
+  ticketController.requestReopenTicket
+);
+router.post(
+  '/:id/approve-reopen',
+  requireRole('admin', 'manager', 'ceo'),
+  [
+    idParam(),
+    body('notes').optional({ nullable: true }).trim(),
+    body('reason').optional({ nullable: true }).trim(),
+    validate,
+  ],
+  ticketController.approveReopenTicket
+);
+router.post(
+  '/:id/reject-reopen',
+  requireRole('admin', 'manager', 'ceo'),
+  [
+    idParam(),
+    body('notes').trim().notEmpty().withMessage('Reason notes required to decline reopening request'),
+    validate,
+  ],
+  ticketController.rejectReopenTicket
 );
 
 // Admin/Manager approves resolution, and tenant confirms own resolution
@@ -262,7 +328,7 @@ router.patch(
     body('status').isIn(TICKET_STATUS),
     body('notes').optional().trim(),
     body('departmentId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{2,36}$/i.test(v)),
-    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     validate,
   ],
   ticketController.changeStatus
@@ -271,10 +337,33 @@ router.patch(
 router.post(
   '/:id/attachments',
   authorize('tickets.read', 'tickets.create'),
-  uploadTicketAttachment.array('attachments', 5),
+  uploadTicketAttachment.array('attachments', 10),
   handleUploadError,
   [idParam(), validate],
   ticketController.uploadAttachments
+);
+
+router.patch(
+  '/:id/attachments/:attachmentId',
+  authorize('tickets.read', 'tickets.create'),
+  [
+    idParam(),
+    param('attachmentId').matches(/^[0-9a-zA-Z_-]{1,64}$/).withMessage('Invalid attachment ID'),
+    body('comment').optional({ nullable: true }).trim(),
+    validate,
+  ],
+  ticketController.updateAttachment
+);
+
+router.delete(
+  '/:id/attachments/:attachmentId',
+  authorize('tickets.read', 'tickets.create'),
+  [
+    idParam(),
+    param('attachmentId').matches(/^[0-9a-zA-Z_-]{1,64}$/).withMessage('Invalid attachment ID'),
+    validate,
+  ],
+  ticketController.deleteAttachment
 );
 
 router.post(
@@ -284,9 +373,9 @@ router.post(
     idParam(),
     body('message').trim().notEmpty().withMessage('Message is required'),
     body('visibility').optional().isIn(['all', 'internal', 'tenant', 'department', 'both', 'admin']),
-    body('attachmentId').optional({ nullable: true, checkFalsy: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('attachmentId').optional({ nullable: true, checkFalsy: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     body('departmentIds').optional({ nullable: true }),
-    body('targetUserId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-f-]{36}$/i.test(v)),
+    body('targetUserId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     validate,
   ],
   ticketController.addReply

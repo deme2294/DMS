@@ -249,6 +249,33 @@
   background: rgba(37, 99, 235, 0.15);
 }
 
+.dismissBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.dismissBtn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+:global([data-theme='dark']) .dismissBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
 @media (max-width: 480px) {
   .bell {
     width: 36px;

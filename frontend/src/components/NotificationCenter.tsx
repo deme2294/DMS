@@ -98,8 +98,10 @@ export default function NotificationCenter() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const res = await fetchNotifications({ limit: 10 });
-      setNotifications(res.data.data);
+      const res = await fetchNotifications({ limit: 20, unreadOnly: true });
+      const unreadList = (res.data.data || []).filter((item: NotificationItem) => !item.readAt);
+      setNotifications(unreadList);
+
     } finally {
       setLoading(false);
     }
@@ -122,19 +124,38 @@ export default function NotificationCenter() {
     return () => window.removeEventListener('notifications-updated', handler);
   }, [user]);
 
-  
   useEffect(() => {
     if (open) loadNotifications();
   }, [open]);
 
-  // Realtime: keep the unread badge in sync when any notification (incl. notices) arrives.
+  // Realtime: keep the unread badge and open alerts in sync when any notification arrives.
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('accessToken');
     const socketOrigin = window.location.origin;
     const socket = io(socketOrigin, { withCredentials: true, auth: { token }, path: '/socket.io' });
-    socket.on('notification', () => {
+    socket.on('notification', (payload) => {
       loadUnreadCount();
+      window.dispatchEvent(new CustomEvent('notifications-updated'));
+      if (payload && payload.title) {
+        setNotifications((prev) => [
+          {
+            id: payload.id || ('notif_' + Date.now()),
+            title: payload.title,
+            message: payload.message || '',
+            type: payload.type || 'ticket',
+            ticketId: payload.ticketId,
+            noticeId: payload.noticeId,
+            roomId: payload.roomId,
+            articleId: payload.articleId,
+            createdAt: payload.createdAt || new Date().toISOString(),
+            readAt: null,
+          },
+          ...prev.filter((item) => !payload.id || item.id !== payload.id),
+        ]);
+      } else {
+        loadNotifications();
+      }
     });
     return () => {
       socket.disconnect();
@@ -152,7 +173,8 @@ export default function NotificationCenter() {
   const handleMarkRead = async (id: string) => {
     try {
       await markNotificationRead(id);
-      setNotifications(notifications.filter((n) => n.id !== id));
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      window.dispatchEvent(new CustomEvent('notifications-updated'));
       setUnreadCount((c) => Math.max(0, c - 1));
     } catch {
       // ignore
@@ -164,6 +186,7 @@ export default function NotificationCenter() {
       await markAllNotificationsRead();
       setNotifications([]);
       setUnreadCount(0);
+      window.dispatchEvent(new CustomEvent('notifications-updated'));
     } catch {
       // ignore
     }
@@ -201,8 +224,13 @@ export default function NotificationCenter() {
 
     if (isChat) {
       const chatBase = chatPaths[role] || '/admin/chat';
+      const isVideoInvite = Boolean(
+        (n.title && /video|conference|meeting|call|screen share/i.test(n.title)) ||
+        (n.message && /video|conference|meeting|call|screen share/i.test(n.message))
+      );
       if (n.roomId) {
-        navigate(chatBase, { state: { selectedRoomId: n.roomId } });
+        const query = `?room=${encodeURIComponent(n.roomId)}${isVideoInvite ? '&video=true' : ''}`;
+        navigate(`${chatBase}${query}`, { state: { selectedRoomId: n.roomId, autoJoinVideo: isVideoInvite } });
       } else {
         navigate(chatBase);
       }
@@ -240,7 +268,7 @@ export default function NotificationCenter() {
     // 6. Ticket (default)
     const ticketBase = basePaths[role] || '/admin/tickets';
     if (n.ticketId) {
-      navigate(`${ticketBase}/${n.ticketId}`);
+      navigate(`${ticketBase}/${(n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId}`);
     } else {
       navigate(ticketBase);
     }
@@ -255,8 +283,8 @@ export default function NotificationCenter() {
         aria-expanded={open}
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22Z" fill="currentColor"/>
-          <path d="M18 16V11C18 7.9 16.36 5.36 13.5 4.69V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.69C7.64 5.36 6 7.9 6 11V16L4 18V19H20V18L18 16Z" fill="currentColor"/>
+          <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22Z" fill="currentColor" />
+          <path d="M18 16V11C18 7.9 16.36 5.36 13.5 4.69V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.69C7.64 5.36 6 7.9 6 11V16L4 18V19H20V18L18 16Z" fill="currentColor" />
         </svg>
         {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
       </button>
@@ -284,7 +312,21 @@ export default function NotificationCenter() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                       <strong style={{ margin: 0 }}>{n.title}</strong>
-                      {getModuleBadge(n)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        {getModuleBadge(n)}
+                        <button
+                          type="button"
+                          className={styles.dismissBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkRead(n.id);
+                          }}
+                          title="Mark as read and remove from alerts"
+                          aria-label="Dismiss notification"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                     <p>{n.message}</p>
                     <time>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</time>

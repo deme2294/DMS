@@ -11,6 +11,7 @@ router.get('/admin', authorize('dashboard.read'), dashboardController.getAdminDa
 router.get('/admin/analytics', authorize('dashboard.read', 'executive.analytics'), dashboardController.getAdminAnalytics);
 router.get('/admin/sla', authorize('dashboard.read'), dashboardController.getAdminSlaDashboard);
 router.get('/manager', requireRole('manager'), dashboardController.getManagerDashboard);
+router.get('/manager/analytics', requireRole('manager', 'admin'), authorize('dashboard.read'), dashboardController.getAdminAnalytics);
 router.get('/manager/sla', requireRole('manager'), dashboardController.getManagerSlaDashboard);
 router.get('/staff', requireRole('staff'), dashboardController.getStaffDashboard);
 router.get('/staff/sla', requireRole('staff'), dashboardController.getStaffSlaDashboard);

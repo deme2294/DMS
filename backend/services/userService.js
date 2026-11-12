@@ -5,6 +5,7 @@ import * as tenantRepo from '../repository/tenantRepository.js';
 import { sanitizeUser } from '../models/User.js';
 import * as auditService from './auditService.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from './emailService.js';
+import pool from '../config/db.js';
 
 const SALT_ROUNDS = 10;
 
@@ -40,7 +41,8 @@ export const createUser = async (payload) => {
 
   const userCode = await generateUserCode(role.name);
   const passwordHash = await bcrypt.hash(payload.password, SALT_ROUNDS);
-  const id = uuidv4();
+  // Auto-generate 4-digit numeric User ID
+  const id = userCode;
 
   await userRepo.create({
     id,
@@ -57,17 +59,31 @@ export const createUser = async (payload) => {
     userCode,
   });
 
+  let departmentName = null;
   if (payload.departmentId) {
     await userRepo.setDepartment(id, payload.departmentId);
+    try {
+      const [deptRows] = await pool.query('SELECT name FROM departments WHERE id = ? LIMIT 1', [payload.departmentId]);
+      if (deptRows.length) {
+        departmentName = deptRows[0].name;
+      }
+    } catch (deptErr) {
+      console.warn('[createUser] Could not fetch department name:', deptErr.message);
+    }
   }
 
-  // Send welcome email (fire-and-forget)
+  // Send welcome credentials email automatically with login link & role routing
   sendWelcomeEmail({
     email: payload.email,
     firstName: payload.firstName,
+    lastName: payload.lastName,
     username: payload.username,
     tempPassword: payload.password,
-  }).catch(() => { });
+    role: role.name,
+    departmentName,
+  }).catch((err) => {
+    console.error(`[createUser] Failed to dispatch welcome email to ${payload.email}:`, err.message);
+  });
 
   // Audit log
   auditService.logAction(payload.createdBy || null, 'create', 'user', id, null, { username: payload.username }).catch(() => { });
@@ -76,20 +92,22 @@ export const createUser = async (payload) => {
 };
 
 export const updateUser = async (id, payload, currentUserId) => {
-  if (currentUserId && id === currentUserId && payload.status && payload.status !== 'active') {
-    throw Object.assign(new Error('You cannot deactivate your own account'), { statusCode: 400 });
-  }
   const existing = await userRepo.findById(id);
   if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  const actualId = existing.id;
+
+  if (currentUserId && (actualId === currentUserId || String(id) === String(currentUserId)) && payload.status && payload.status !== 'active') {
+    throw Object.assign(new Error('You cannot deactivate your own account'), { statusCode: 400 });
+  }
 
   if (payload.username) {
-    const dup = await userRepo.findByUsername(payload.username, id);
-    if (dup) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
+    const dup = await userRepo.findByUsername(payload.username, actualId);
+    if (dup && String(dup.id) !== String(actualId)) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
   }
 
   if (payload.email) {
-    const dup = await userRepo.findByEmail(payload.email, id);
-    if (dup) throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
+    const dup = await userRepo.findByEmail(payload.email, actualId);
+    if (dup && String(dup.id) !== String(actualId)) throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
   }
 
   if (payload.roleId && existing.role_id !== payload.roleId) {
@@ -99,7 +117,7 @@ export const updateUser = async (id, payload, currentUserId) => {
     }
   }
 
-  await userRepo.update(id, {
+  await userRepo.update(actualId, {
     tenant_id: payload.tenantId,
     role_id: payload.roleId,
     username: payload.username,
@@ -112,57 +130,67 @@ export const updateUser = async (id, payload, currentUserId) => {
   });
 
   if (payload.departmentId !== undefined) {
-    await userRepo.setDepartment(id, payload.departmentId);
+    await userRepo.setDepartment(actualId, payload.departmentId);
   }
 
-  return getUser(id);
+  return getUser(actualId);
 };
 
 export const deleteUser = async (id, currentUserId) => {
-  if (id === currentUserId) {
-    throw Object.assign(new Error('You cannot delete your own account'), { statusCode: 400 });
-  }
   const existing = await userRepo.findById(id);
   if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
-  await userRepo.remove(id);
+  const actualId = existing.id;
+  if (currentUserId && (actualId === currentUserId || String(id) === String(currentUserId))) {
+    throw Object.assign(new Error('You cannot delete your own account'), { statusCode: 400 });
+  }
+  await userRepo.remove(actualId);
 };
 
 export const activateUser = async (id) => updateUser(id, { status: 'active' });
 export const deactivateUser = async (id, currentUserId) => {
-  if (currentUserId && id === currentUserId) {
+  const existing = await userRepo.findById(id);
+  if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  const actualId = existing.id;
+  if (currentUserId && (actualId === currentUserId || String(id) === String(currentUserId))) {
     throw Object.assign(new Error('You cannot deactivate your own account'), { statusCode: 400 });
   }
-  return updateUser(id, { status: 'inactive' }, currentUserId);
+  return updateUser(actualId, { status: 'inactive' }, currentUserId);
 };
 
 export const resetUserPassword = async (id, newPassword, actorId) => {
   const existing = await userRepo.findById(id);
   if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  const actualId = existing.id;
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await userRepo.updatePassword(id, passwordHash);
+  await userRepo.updatePassword(actualId, passwordHash);
 
   sendPasswordResetEmail({
     email: existing.email,
     firstName: existing.first_name,
+    username: existing.username,
+    role: existing.role,
     newPassword,
-  }).catch(() => { });
+  }).catch((err) => {
+    console.error(`[resetUserPassword] Password reset email failed for ${existing.email}:`, err.message);
+  });
 
-  auditService.logAction(actorId || null, 'password_reset', 'user', id, null, { targetUser: existing.username }).catch(() => { });
+  auditService.logAction(actorId || null, 'password_reset', 'user', actualId, null, { targetUser: existing.username }).catch(() => { });
 };
 
 export const updateMyProfile = async (userId, payload) => {
   const existing = await userRepo.findById(userId);
   if (!existing) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  const actualId = existing.id;
 
   if (payload.username) {
-    const dup = await userRepo.findByUsername(payload.username, userId);
-    if (dup) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
+    const dup = await userRepo.findByUsername(payload.username, actualId);
+    if (dup && String(dup.id) !== String(actualId)) throw Object.assign(new Error('Username already exists'), { statusCode: 409 });
   }
 
   if (payload.email) {
-    const dup = await userRepo.findByEmail(payload.email, userId);
-    if (dup) throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
+    const dup = await userRepo.findByEmail(payload.email, actualId);
+    if (dup && String(dup.id) !== String(actualId)) throw Object.assign(new Error('Email already exists'), { statusCode: 409 });
   }
 
   if (payload.newPassword) {
@@ -170,10 +198,10 @@ export const updateMyProfile = async (userId, payload) => {
     if (!valid) throw Object.assign(new Error('Current password is incorrect'), { statusCode: 401 });
 
     const passwordHash = await bcrypt.hash(payload.newPassword, SALT_ROUNDS);
-    await userRepo.updatePassword(userId, passwordHash);
+    await userRepo.updatePassword(actualId, passwordHash);
   }
 
-  await userRepo.update(userId, {
+  await userRepo.update(actualId, {
     username: payload.username,
     email: payload.email,
     first_name: payload.firstName,
@@ -195,7 +223,7 @@ export const updateMyProfile = async (userId, payload) => {
     }
   }
 
-  return getUser(userId);
+  return getUser(actualId);
 };
 
 export const updateMyTheme = async (userId, themePreference) => {

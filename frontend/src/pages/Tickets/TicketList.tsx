@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
+import { canNotifyTenant } from '../../utils/permissionUtils';
 import {
   fetchTickets, deleteTicket, assignDepartment, assignStaff,
 } from '../../api/ticketApi';
@@ -11,10 +12,12 @@ import { fetchTicketStats, type TicketStatistics } from '../../api/dashboardApi'
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
 import { fetchCategories } from '../../api/categoryApi';
+import { toShortTicketId } from '../../utils/idUtils';
 import type { Ticket, TicketStatus } from '../../types/ticket';
-import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES } from '../../types/ticket';
+import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { usePagination } from '../../hooks/usePagination';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import { io, Socket } from 'socket.io-client';
 import {
   EyeIcon,
@@ -66,6 +69,7 @@ const STAT_CARDS: { key: keyof TicketStatistics; label: string; cls?: string }[]
 export default function TicketList() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useAlert();
   const [searchParams, setSearchParams] = useSearchParams();
   const tenantIdFilter = searchParams.get('tenantId') || '';
   const base = user ? basePaths[user.role] : '/tenant/tickets';
@@ -80,6 +84,7 @@ export default function TicketList() {
   const [departmentId, setDepartmentId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [deptModal, setDeptModal] = useState(false);
   const [staffModal, setStaffModal] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -121,7 +126,7 @@ export default function TicketList() {
               return parts.length > 0 ? parts.join(' | ') : '—';
             },
           },
-          { header: 'Status', key: 'status', formatter: (val) => STATUS_LABELS[val as TicketStatus] || val },
+          { header: 'Status', key: 'status', formatter: (val) => getStatusLabel(val) },
           { header: 'Priority', key: 'priority', formatter: (val) => val ? String(val).toUpperCase() : 'NORMAL' },
           { header: 'Category', key: 'category', formatter: (val) => val || '—' },
           { header: 'Department', key: 'departmentName', formatter: (val) => val || 'Unassigned' },
@@ -186,25 +191,62 @@ export default function TicketList() {
 
   const handleDelete = async (ticket: Ticket) => {
     if (!window.confirm(`Delete ticket ${ticket.referenceNumber}?`)) return;
-    await deleteTicket(ticket.id);
-    setMessage('Ticket deleted');
-    loadTickets();
+    try {
+      await deleteTicket(ticket.id);
+      const msg = `Ticket ${ticket.referenceNumber} deleted successfully`;
+      setMessage(msg);
+      showSuccess(msg, 'Ticket Deleted');
+      loadTickets();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Failed to delete ticket';
+      setError(errMsg);
+      showError(errMsg, 'Delete Failed');
+    }
   };
 
   const handleAssignDepartment = async () => {
     if (!assignTicket || !selectedDept) return;
-    await assignDepartment(assignTicket.id, { departmentId: selectedDept, notes: assignNotes });
-    setDeptModal(false); setAssignTicket(null); setSelectedDept(''); setAssignNotes('');
-    setMessage('Department assigned successfully');
-    loadTickets();
+    try {
+      await assignDepartment(assignTicket.id, { departmentId: selectedDept, notes: assignNotes });
+      const deptObj = departments.find((d) => d.id === selectedDept);
+      const deptName = deptObj?.name || 'Department';
+      setDeptModal(false); setAssignTicket(null); setSelectedDept(''); setAssignNotes('');
+      const msg = `Ticket ${assignTicket.referenceNumber || ''} assigned to ${deptName}`;
+      setMessage(msg);
+      showSuccess(msg, 'Department Assigned');
+      loadTickets();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Failed to assign department';
+      setError(errMsg);
+      showError(errMsg, 'Assignment Failed');
+    }
   };
 
   const handleAssignStaff = async () => {
     if (!assignTicket || !selectedStaff) return;
-    await assignStaff(assignTicket.id, { staffId: selectedStaff, notes: assignNotes });
-    setStaffModal(false); setAssignTicket(null); setSelectedStaff(''); setAssignNotes('');
-    setMessage('Staff assigned successfully');
-    loadTickets();
+    if (selectedStaff === assignTicket.assignedTo) {
+      const warnMsg = 'This staff member is already assigned to this ticket. Duplicate assignment is restricted.';
+      setError(warnMsg);
+      showError(warnMsg, 'Assignment Notice');
+      return;
+    }
+    const staffObj = staffUsers.find((s) => s.id === selectedStaff);
+    const staffName = staffObj ? `${staffObj.firstName} ${staffObj.lastName}` : 'Staff';
+    try {
+      await assignStaff(assignTicket.id, { staffId: selectedStaff, notes: assignNotes });
+      setStaffModal(false);
+      setAssignTicket(null);
+      setSelectedStaff('');
+      setAssignNotes('');
+      const msg = `Ticket ${assignTicket.referenceNumber || (assignTicket as any).reference_number || ''} was successfully assigned to ${staffName}.`;
+      setMessage(msg);
+      showSuccess(msg, 'Staff Assigned');
+      loadTickets();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Failed to assign staff';
+      setError(errMsg);
+      showError(errMsg, 'Assignment Failed');
+    }
   };
 
   const setStatFilter = (key: keyof TicketStatistics) => {
@@ -254,6 +296,7 @@ export default function TicketList() {
       )}
 
       {message && <div className={styles.toast}>{message}</div>}
+      {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
 
       {user?.role === 'admin' && stats && (
         <div className={styles.statGrid}>
@@ -348,10 +391,10 @@ export default function TicketList() {
             key: 'reference',
             label: 'Reference',
             render: (row) => {
-              const shortId = row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id);
+              const targetRef = toShortTicketId(row);
               return (
-                <Link to={`${base}/${shortId}`} className={styles.ticketRefLink} title={`View ticket #${row.ticketNum || row.referenceNumber}`}>
-                  #{row.ticketNum ?? row.referenceNumber}
+                <Link to={`${base}/${targetRef}`} className={styles.ticketRefLink} title={`View ticket ${row.referenceNumber || targetRef}`}>
+                  {row.referenceNumber || (row.ticketNum ? `#${row.ticketNum}` : `#${targetRef}`)}
                 </Link>
               );
             },
@@ -388,37 +431,59 @@ export default function TicketList() {
               const email = row.tenantEmail || row.createdByEmail;
               const phone = row.tenantPhone || row.createdByPhone;
               if (!email && !phone) return <span className={styles.textMuted}>—</span>;
+              const isAllowed = canNotifyTenant(user, row);
               return (
                 <div className={styles.tenantContactCell}>
                   {email && (
-                    <button
-                      type="button"
-                      className={styles.tenantEmailLink}
-                      title={`Send direct email to ${email}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setContactSubject(`Regarding Ticket #${row.referenceNumber}: ${row.title}`);
-                        setContactTarget({
-                          email,
-                          name: row.tenantName || row.createdByName || row.tenantContactPerson || 'Ticket Submitter',
-                          roleOrType: 'Ticket Submitter',
-                        });
-                      }}
-                    >
-                      <EnvelopeIcon className={styles.contactIconSmall} />
-                      <span className={styles.emailText}>{email}</span>
-                    </button>
+                    isAllowed ? (
+                      <button
+                        type="button"
+                        className={styles.tenantEmailLink}
+                        title={`Send official notification to ${email}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContactSubject(`Regarding Ticket #${row.referenceNumber}: ${row.title}`);
+                          setContactTarget({
+                            email,
+                            name: row.tenantName || row.createdByName || row.tenantContactPerson || 'Ticket Submitter',
+                            roleOrType: 'Ticket Submitter',
+                            ticketId: row.id,
+                          });
+                        }}
+                      >
+                        <EnvelopeIcon className={styles.contactIconSmall} />
+                        <span className={styles.emailText}>{email}</span>
+                      </button>
+                    ) : (
+                      <span
+                        className={styles.tenantEmailReadOnly}
+                        title="Official email notifications to tenants are restricted to Administrators and the assigned Department Manager"
+                      >
+                        <EnvelopeIcon className={styles.contactIconSmall} />
+                        <span className={styles.emailText}>{email}</span>
+                      </span>
+                    )
                   )}
                   {phone && (
-                    <a
-                      href={`tel:${phone}`}
-                      className={styles.tenantPhoneLink}
-                      title={`Call ${phone}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <PhoneIcon className={styles.contactIconSmall} />
-                      <span>{phone}</span>
-                    </a>
+                    isAllowed ? (
+                      <a
+                        href={`tel:${phone}`}
+                        className={styles.tenantPhoneLink}
+                        title={`Call ${phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <PhoneIcon className={styles.contactIconSmall} />
+                        <span>{phone}</span>
+                      </a>
+                    ) : (
+                      <span
+                        className={styles.tenantPhoneReadOnly}
+                        title="Direct calls to tenants are restricted to Administrators and the assigned Department Manager"
+                      >
+                        <PhoneIcon className={styles.contactIconSmall} />
+                        <span>{phone}</span>
+                      </span>
+                    )
                   )}
                 </div>
               );
@@ -433,7 +498,7 @@ export default function TicketList() {
           {
             key: 'status',
             label: 'Status',
-            render: (row) => <span className={`${styles.badge} ${styles[row.status]}`}>{STATUS_LABELS[row.status]}</span>,
+            render: (row) => <span className={`${styles.badge} ${styles[getStatusClassName(row.status)] || styles[row.status]}`}>{getStatusLabel(row.status)}</span>,
           },
           { key: 'departmentName', label: 'Department', render: (row) => row.departmentName || '—' },
           {
@@ -466,7 +531,7 @@ export default function TicketList() {
             label: 'Actions',
             render: (row) => (
               <div className={styles.actions}>
-                <Link to={`${base}/${row.ticketNum ? String(row.ticketNum) : (row.referenceNumber || row.id)}`} className={styles.actionBtnView} title="View Details">
+                <Link to={`${base}/${toShortTicketId(row)}`} className={styles.actionBtnView} title="View Details">
                   <EyeIcon className={styles.actionIcon} />
                   <span>View</span>
                 </Link>
@@ -474,8 +539,16 @@ export default function TicketList() {
                   <button
                     type="button"
                     className={styles.actionBtnDept}
-                    onClick={() => { setAssignTicket(row); setDeptModal(true); }}
-                    title="Assign to Department"
+                    onClick={() => {
+                      if (row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant') {
+                        setError('Cannot assign department: Ticket is waiting for tenant response/confirmation.');
+                        return;
+                      }
+                      setAssignTicket(row);
+                      setDeptModal(true);
+                    }}
+                    disabled={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant'}
+                    title={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant' ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation' : 'Assign to Department'}
                   >
                     <BuildingOffice2Icon className={styles.actionIcon} />
                     <span>Dept</span>
@@ -485,8 +558,16 @@ export default function TicketList() {
                   <button
                     type="button"
                     className={styles.actionBtnStaff}
-                    onClick={() => { setAssignTicket(row); setStaffModal(true); }}
-                    title="Assign to Staff Member"
+                    onClick={() => {
+                      if (row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant') {
+                        setError('Cannot assign staff: Ticket is waiting for tenant response/confirmation.');
+                        return;
+                      }
+                      setAssignTicket(row);
+                      setStaffModal(true);
+                    }}
+                    disabled={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant'}
+                    title={row.status === 'waiting_tenant' || (row as any).status === 'escalated.waiting_tenant' ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation' : 'Assign to Staff Member'}
                   >
                     <UserPlusIcon className={styles.actionIcon} />
                     <span>Staff</span>
@@ -593,15 +674,15 @@ export default function TicketList() {
 
       <Modal
         open={staffModal}
-        title="Assign Staff"
-        onClose={() => setStaffModal(false)}
+        title={assignTicket?.assignedTo ? "Reassign Staff" : "Assign Staff"}
+        onClose={() => { setStaffModal(false); setAssignTicket(null); setSelectedStaff(''); setAssignNotes(''); }}
         maxWidth="500px"
         footer={
           <div className={styles.modalFooter}>
             <button
               type="button"
               className={styles.modalCancelBtn}
-              onClick={() => setStaffModal(false)}
+              onClick={() => { setStaffModal(false); setAssignTicket(null); setSelectedStaff(''); setAssignNotes(''); }}
             >
               <XMarkIcon className={styles.inlineIcon} />
               <span>Cancel</span>
@@ -610,15 +691,20 @@ export default function TicketList() {
               type="button"
               className={styles.modalSubmitBtn}
               onClick={handleAssignStaff}
-              disabled={!selectedStaff}
+              disabled={!selectedStaff || selectedStaff === assignTicket?.assignedTo}
             >
               <UserPlusIcon className={styles.inlineIcon} />
-              <span>Assign Staff</span>
+              <span>{assignTicket?.assignedTo ? 'Reassign Staff' : 'Assign Staff'}</span>
             </button>
           </div>
         }
       >
         <div className={styles.modalForm}>
+          {assignTicket?.assignedTo && (
+            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.86rem' }}>
+              <strong>Currently Assigned:</strong> {assignTicket.assignedToName || 'Assigned Staff'}
+            </div>
+          )}
           <div className={styles.modalField}>
             <label className={styles.modalLabel}>
               <UserPlusIcon className={styles.inlineIcon} />
@@ -630,9 +716,21 @@ export default function TicketList() {
               className={styles.modalSelect}
             >
               <option value="">Select Staff</option>
-              {staffUsers.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+              {staffUsers.map((s) => {
+                const isCur = s.id === assignTicket?.assignedTo;
+                return (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName} {isCur ? '— (Currently Assigned)' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
+          {selectedStaff && selectedStaff === assignTicket?.assignedTo && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.84rem', color: '#92400e' }}>
+              ⚠️ <strong>{assignTicket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+            </div>
+          )}
           <div className={styles.modalField}>
             <label className={styles.modalLabel}>
               <DocumentTextIcon className={styles.inlineIcon} />

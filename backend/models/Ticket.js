@@ -1,4 +1,7 @@
-const ACTIVE = ['open', 'assigned', 'in_progress', 'pending', 'waiting_tenant', 'escalated', 'reopened'];
+const ACTIVE = [
+  'open', 'assigned', 'in_progress', 'escalated', 'reopened',
+  'escalated.open', 'escalated.assigned', 'escalated.in_progress', 'escalated.reopened'
+];
 
 export const sanitizeTicket = (row) => {
   if (!row) return null;
@@ -10,6 +13,26 @@ export const sanitizeTicket = (row) => {
     remainingMs = dueDate.getTime() - now.getTime();
     isOverdue = remainingMs < 0;
   }
+
+  // Determine effective status:
+  // If the ticket has been escalated (or breached escalation/due deadline),
+  // ensure "escalated." precedes the current status!
+  let status = row.status || 'open';
+  const isEscalated = Boolean(
+    row.is_escalated ||
+    row.escalation_sla_breached ||
+    row.escalated_at ||
+    (row.status && String(row.status).startsWith('escalated'))
+  );
+
+  if (isEscalated) {
+    if (status === 'escalated') {
+      status = 'escalated';
+    } else if (!status.startsWith('escalated.')) {
+      status = `escalated.${status}`;
+    }
+  }
+
   return {
     id: row.id,
     ticketNum: row.ticket_num != null ? row.ticket_num : null,
@@ -32,9 +55,9 @@ export const sanitizeTicket = (row) => {
     description: row.description,
     priority: row.priority,
     category: row.category,
-    status: row.status,
+    status,
     tenantConfirmationStatus: row.tenant_confirmation_status || 'not_required',
-    isEscalated: row.is_escalated ? true : false,
+    isEscalated: isEscalated,
     slaPolicyId: row.sla_policy_id || null,
     dueDate: row.due_date || null,
     responseDueDate: row.response_due_date || null,
@@ -49,9 +72,23 @@ export const sanitizeTicket = (row) => {
     approvedAt: row.approved_at || null,
     escalatedAt: row.escalated_at || null,
     reopenedAt: row.reopened_at || null,
+    reopened_at: row.reopened_at || null,
     reopenedBy: row.reopened_by || null,
+    reopened_by: row.reopened_by || null,
     reopenedByName: row.reopened_by_name || null,
+    reopened_by_name: row.reopened_by_name || null,
     reopenReason: row.reopen_reason || null,
+    reopen_reason: row.reopen_reason || null,
+    reopenRequestedAt: row.reopen_requested_at || null,
+    reopen_requested_at: row.reopen_requested_at || null,
+    reopenRequestedBy: row.reopen_requested_by || null,
+    reopen_requested_by: row.reopen_requested_by || null,
+    reopenRequestedByName: row.reopen_requested_by_name || null,
+    reopen_requested_by_name: row.reopen_requested_by_name || null,
+    reopenRequestReason: row.reopen_request_reason || null,
+    reopen_request_reason: row.reopen_request_reason || null,
+    reopenStatus: row.reopen_status || 'none',
+    reopen_status: row.reopen_status || 'none',
     firstResponseAt: row.first_response_at || null,
     cancelledAt: row.cancelled_at || null,
     mergedInto: row.merged_into || null,

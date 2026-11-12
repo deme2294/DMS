@@ -41,7 +41,6 @@ export interface ChatMember {
   ticket_role?: string;
 }
 
-
 export interface ChatMessage {
   id: string;
   room_id: string;
@@ -171,6 +170,14 @@ export const uploadChatFile = async (file: File) => {
       mimetype: string;
     };
   }>('/chat/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const uploadChatAttachment = async (formData: FormData) => {
+  return api.post<{ success: boolean; data: ChatMessage }>('/chat/attachment', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },

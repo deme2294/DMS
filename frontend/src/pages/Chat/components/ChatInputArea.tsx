@@ -34,7 +34,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         type="file"
         style={{ display: 'none' }}
         onChange={onFileSelect}
-        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
       />
 
       <button

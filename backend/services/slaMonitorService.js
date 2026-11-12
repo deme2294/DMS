@@ -57,7 +57,8 @@ const processNearDeadlineWarnings = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, response_due_date
       FROM tickets
       WHERE response_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled')
+        AND status = 'open'
+        AND first_response_at IS NULL
         AND (response_sla_breached IS NULL OR response_sla_breached = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
   );
@@ -66,7 +67,7 @@ const processNearDeadlineWarnings = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, escalation_due_date
       FROM tickets
       WHERE escalation_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled','escalated')
+        AND status IN ('open', 'assigned')
         AND (escalation_sla_breached IS NULL OR escalation_sla_breached = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
   );
@@ -75,7 +76,7 @@ const processNearDeadlineWarnings = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, due_date
       FROM tickets
       WHERE due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled')
+        AND status IN ('open', 'assigned', 'in_progress', 'reopened')
         AND (is_overdue IS NULL OR is_overdue = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
   );
@@ -152,7 +153,8 @@ const processResponseBreaches = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, response_due_date
       FROM tickets
       WHERE response_due_date < NOW()
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled')
+        AND status = 'open'
+        AND first_response_at IS NULL
         AND (response_sla_breached IS NULL OR response_sla_breached = 0)`
   );
 
@@ -176,7 +178,7 @@ const processEscalationBreaches = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, escalation_due_date
       FROM tickets
       WHERE escalation_due_date < NOW()
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled','escalated')
+        AND status IN ('open', 'assigned')
         AND (escalation_sla_breached IS NULL OR escalation_sla_breached = 0)`
   );
 
@@ -212,7 +214,7 @@ const processOverdueTickets = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, due_date
       FROM tickets
       WHERE due_date < NOW()
-        AND status NOT IN ('resolved','closed','completed','rejected','cancelled','escalated')
+        AND status IN ('open', 'assigned', 'in_progress', 'reopened')
         AND (is_overdue IS NULL OR is_overdue = 0)`
   );
 

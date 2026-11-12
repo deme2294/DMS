@@ -6,13 +6,16 @@ import {
   changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
   assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
   escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
-  markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments,
+  approveReopenTicket, rejectReopenTicket,
+  markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments, updateTicketAttachment, deleteTicketAttachment,
 } from '../../api/ticketApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
+import { toShortId } from '../../utils/idUtils';
 import type { Ticket, TicketStatus, TicketReply, TimelineEvent } from '../../types/ticket';
-import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES } from '../../types/ticket';
+import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import styles from './CeoTickets.module.css';
 import {
   ArrowPathIcon,
@@ -70,7 +73,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
@@ -92,7 +95,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     pending: ['in_progress', 'escalated', 'rejected'],
     under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
     pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: ['in_progress', 'resolved', 'closed', 'escalated'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress', 'escalated'],
     resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
     completed: ['reopened', 'closed', 'resolved'],
@@ -113,7 +116,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     pending: ['in_progress', 'escalated'],
     under_review: ['pending_approval', 'in_progress', 'rejected'],
     pending_approval: ['in_progress'],
-    waiting_tenant: ['in_progress', 'resolved', 'escalated'],
+    waiting_tenant: [],
     waiting_vendor: ['in_progress'],
     resolved: ['waiting_tenant', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
@@ -164,6 +167,7 @@ export default function CeoTicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const base = user ? basePaths[user.role] : '/tenant/tickets';
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [replies, setReplies] = useState<TicketReply[]>([]);
@@ -191,6 +195,15 @@ export default function CeoTicketDetail() {
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedDept, setSelectedDept] = useState('');
+  const [assigningDept, setAssigningDept] = useState(false);
+  const [assignmentAlert, setAssignmentAlert] = useState<{
+    type: 'department' | 'staff';
+    title: string;
+    message: string;
+    departmentName?: string;
+    managerName?: string;
+    timestamp: Date;
+  } | null>(null);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('medium');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -205,6 +218,13 @@ export default function CeoTicketDetail() {
   const [selectedNoteDepts, setSelectedNoteDepts] = useState<string[]>([]);
   const [attachFiles, setAttachFiles] = useState<FileList | null>(null);
   const [attachComment, setAttachComment] = useState('');
+  const [declineModal, setDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [editAttachmentModal, setEditAttachmentModal] = useState(false);
+  const [editAttachment, setEditAttachment] = useState<any | null>(null);
+  const [editAttachmentComment, setEditAttachmentComment] = useState('');
+  const [editAttachmentSaving, setEditAttachmentSaving] = useState(false);
+  const [assignPrefill, setAssignPrefill] = useState<{ text: string } | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
   const loadTicket = async () => {
@@ -255,8 +275,10 @@ export default function CeoTicketDetail() {
   useEffect(() => {
     if (deptModal || noteModal) fetchActiveDepartments().then((r) => setDepartments(r.data.data));
     if (staffModal || mergeModal) {
-      fetchUsers({ role: 'staff', limit: 200 }).then((r) => {
-        const list = r.data.data.filter((u) => !ticket?.departmentId || u.departments?.some((d) => d.id === ticket?.departmentId));
+      const tid = ticket?.departmentId;
+      const tidShort = toShortId(tid);
+      fetchUsers({ role: 'staff', limit: 200, departmentId: toShortId(tid) || undefined }).then((r) => {
+        const list = r.data.data.filter((u) => !tid || u.departments?.some((d) => d.id === tid || d.code === tid || toShortId(d.id) === tidShort));
         setStaffUsers(list.map((u) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName })));
       });
     }
@@ -364,13 +386,47 @@ export default function CeoTicketDetail() {
   };
 
   const flash = (msg: string, isErr = false) => {
-    if (isErr) setError(msg); else setMessage(msg);
-    setTimeout(() => { setMessage(''); setError(''); }, 3500);
+    if (isErr) {
+      setError(msg);
+      showError(msg, 'Ticket Alert');
+    } else {
+      setMessage(msg);
+      showSuccess(msg, 'Ticket Updated');
+    }
+    setTimeout(() => { setMessage(''); setError(''); }, 4000);
   };
 
   const getTransitions = (): TicketStatus[] => {
     if (!ticket || !user) return [];
     return TRANSITIONS[user.role]?.[ticket.status] || [];
+  };
+
+  const handleAssignDepartmentSubmit = async () => {
+    if (!selectedDept || !ticket) return;
+    const targetDeptObj = departments.find((d) => d.id === selectedDept);
+    const targetDeptName = targetDeptObj?.name || 'Department';
+
+    try {
+      setAssigningDept(true);
+      await assignDepartment(ticket.id, { departmentId: selectedDept, notes });
+      setDeptModal(false);
+      setNotes('');
+
+      setAssignmentAlert({
+        type: 'department',
+        title: 'Department Assignment Confirmed',
+        message: `Ticket ${ticket.referenceNumber || ticket.id} was successfully assigned to the ${targetDeptName} department. In-app alert notification and registered email have been dispatched.`,
+        departmentName: targetDeptName,
+        timestamp: new Date(),
+      });
+
+      flash(`✓ Ticket ${ticket.referenceNumber || ticket.id} was successfully assigned to ${targetDeptName}. In-app alert and registered email dispatched.`);
+      await Promise.all([loadTicket(), loadReplies(), loadTimeline()]);
+    } catch (e: any) {
+      flash(e?.response?.data?.message || 'Failed to assign department', true);
+    } finally {
+      setAssigningDept(false);
+    }
   };
 
   const call = async (fn: () => Promise<unknown>, okMsg: string) => {
@@ -413,6 +469,53 @@ export default function CeoTicketDetail() {
       {message && <div className={styles.toast}>{message}</div>}
       {error && <div className={`${styles.toast} ${styles.error}`}>{error}</div>}
 
+      {assignmentAlert && (
+        <div className={styles.assignmentSuccessAlert}>
+          <div className={styles.assignmentSuccessAlertContent}>
+            <div className={styles.assignmentSuccessAlertIcon}>
+              🔔
+            </div>
+            <div className={styles.assignmentSuccessAlertBody}>
+              <div className={styles.assignmentSuccessAlertTitleRow}>
+                <span className={styles.assignmentSuccessAlertBadge}>ASSIGNMENT DISPATCHED</span>
+                <strong className={styles.assignmentSuccessAlertTitle}>{assignmentAlert.title}</strong>
+              </div>
+              <p className={styles.assignmentSuccessAlertMsg}>{assignmentAlert.message}</p>
+              <div className={styles.assignmentSuccessAlertMeta}>
+                {assignmentAlert.departmentName && (
+                  <span className={styles.assignmentSuccessAlertPill}>
+                    🏢 Department: <strong>{assignmentAlert.departmentName}</strong>
+                  </span>
+                )}
+                {assignmentAlert.managerName && (
+                  <span className={styles.assignmentSuccessAlertPill}>
+                    👤 Assigned {assignmentAlert.type === 'department' ? 'Manager' : 'Staff'}: <strong>{assignmentAlert.managerName}</strong>
+                  </span>
+                )}
+                <span
+                  className={styles.assignmentSuccessAlertPill}
+                  style={{ background: '#ecfdf5', color: '#065f46', borderColor: '#a7f3d0' }}
+                >
+                  ✓ In-App Alert & Registered Email Notification Dispatched
+                </span>
+                <span className={styles.assignmentSuccessAlertTime}>
+                  {assignmentAlert.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.assignmentSuccessAlertClose}
+            onClick={() => setAssignmentAlert(null)}
+            title="Dismiss notification alert"
+            aria-label="Dismiss alert"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className={styles.detailGrid}>
         <div className={styles.card}>
           <div className={styles.detailsCardHeader}>
@@ -431,7 +534,7 @@ export default function CeoTicketDetail() {
                 Status
               </span>
               <span className={styles.detailValue}>
-                <span className={`${styles.badge} ${styles[ticket.status]}`}>{STATUS_LABELS[ticket.status] || ticket.status}</span>
+                <span className={`${styles.badge} ${styles[getStatusClassName(ticket.status)] || styles[ticket.status]}`}>{getStatusLabel(ticket.status)}</span>
               </span>
             </div>
             <div className={styles.detailItem}>
@@ -749,16 +852,37 @@ export default function CeoTicketDetail() {
         </div>
 
       {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && (() => {
+        const isClosed = ticket.status === 'closed' || (ticket as any).status === 'escalated.closed';
+        if (isClosed) {
+          return (
+            <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
+                <span>🔒</span> Ticket Actions Locked
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '14px', margin: '8px 0 0' }}>
+                This ticket is <strong>Closed (Inactive)</strong>. Normal ticket processing, assignment, and status modifications are disabled.
+                {(ticket.reopenStatus === 'requested' || ticket.reopen_status === 'requested') ? ' A tenant reopening request is currently pending review below.' : ''}
+              </p>
+            </div>
+          );
+        }
+
+        const isWaitingTenant = ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant';
+        const canReopen =
+          (role === 'admin' || role === 'ceo' || role === 'manager') &&
+          !isWaitingTenant &&
+          ['resolved', 'closed', 'completed'].includes(ticket.status);
+
         const hasWorkflowActions =
           transitions.length > 0 ||
-          (role === 'admin' && (ticket.routingType ?? 'general') !== 'direct') ||
+          ((role === 'admin' || role === 'ceo') && (ticket.routingType ?? 'general') !== 'direct') ||
           (role === 'manager' && !!ticket.departmentId) ||
           ((role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open')) ||
           (role === 'staff' && ticket.status === 'in_progress') ||
           (role === 'manager' && (ticket.status === 'under_review' || ticket.status === 'in_progress')) ||
           ((role === 'admin' || role === 'ceo') && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
           transitions.includes('closed') ||
-          transitions.includes('reopened');
+          (transitions.includes('reopened') && canReopen);
 
         const hasManagementActions = role === 'admin' || role === 'ceo' || role === 'manager';
 
@@ -810,9 +934,15 @@ export default function CeoTicketDetail() {
                       {role === 'admin' && (
                         <button
                           className={styles.btnInfo}
-                          onClick={() => setDeptModal(true)}
-                          disabled={ticket.isOverdue}
-                          title={ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department'}
+                          onClick={() => {
+                            if (isWaitingTenant) {
+                              flash('Cannot assign department: Ticket is waiting for tenant response/confirmation.', true);
+                              return;
+                            }
+                            setDeptModal(true);
+                          }}
+                          disabled={ticket.isOverdue || isWaitingTenant}
+                          title={isWaitingTenant ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation' : (ticket.isOverdue ? 'Cannot assign department: SLA overdue' : 'Assign Department')}
                         >
                           <BuildingOffice2Icon className={styles.btnIcon} />
                           Assign Dept
@@ -821,9 +951,15 @@ export default function CeoTicketDetail() {
                       {role === 'manager' && ticket.departmentId && (
                         <button
                           className={styles.btnInfo}
-                          onClick={() => setStaffModal(true)}
-                          disabled={ticket.isOverdue}
-                          title={ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff'}
+                          onClick={() => {
+                            if (isWaitingTenant) {
+                              flash('Cannot assign staff: Ticket is waiting for tenant response/confirmation.', true);
+                              return;
+                            }
+                            setStaffModal(true);
+                          }}
+                          disabled={ticket.isOverdue || isWaitingTenant}
+                          title={isWaitingTenant ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation' : (ticket.isOverdue ? 'Cannot assign staff: SLA overdue' : 'Assign Staff')}
                         >
                           <UserPlusIcon className={styles.btnIcon} />
                           Assign Staff
@@ -936,7 +1072,7 @@ export default function CeoTicketDetail() {
                           Close
                         </button>
                       )}
-                      {transitions.includes('reopened') && (
+                      {transitions.includes('reopened') && canReopen && (
                         <button
                           className={styles.btnAmber}
                           onClick={() => { setReopenReason(''); setReopenModal(true); }}
@@ -1113,20 +1249,94 @@ export default function CeoTicketDetail() {
       )}
 
       {/* Waiting for Tenant Banner */}
-      {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && ticket.status === 'waiting_tenant' && (
+      {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && (ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant') && (
         <div className={`${styles.card} ${styles.slaWarningCard}`}>
           <h3><span>⏳</span> Waiting for Tenant Confirmation</h3>
           <p>
             The ticket has been resolved by our team and verified by Admin. Waiting for the tenant to inspect the resolution, rate satisfaction, and confirm if the issue is solved.
           </p>
+          <div style={{ marginTop: '8px', fontSize: '13px', color: '#b45309', fontWeight: 600 }}>
+            🔒 Department assignment and status modifications are locked until the tenant responds or confirms the resolution.
+          </div>
         </div>
       )}
 
-      {/* Completed Banner */}
-      {ticket.status === 'completed' && (
-        <div className={`${styles.card} ${styles.completedCard}`}>
-          <h3><span>🎉</span> Ticket Completed</h3>
-          <p>The tenant has verified and confirmed this ticket is solved. The request is officially completed.</p>
+      {/* Closed & Inactive Status Card */}
+      {(ticket.status === 'closed' || ticket.status === 'completed') && (
+        <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
+              <span>🔒</span> Ticket Closed (Inactive)
+            </h3>
+            <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', textTransform: 'uppercase' }}>
+              Read-Only
+            </span>
+          </div>
+          <p style={{ color: '#475569', fontSize: '14px', margin: '6px 0 14px' }}>
+            All work has been completed and verified. This ticket is closed and inactive. Normal processing, assignments, and status modifications are disabled.
+          </p>
+
+          {(ticket.reopenStatus === 'requested' || ticket.reopen_status === 'requested') && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#92400e', fontSize: '15px' }}>
+                  <span>⏳</span> Reopening Request from Tenant (Pending Approval)
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px', background: '#fef3c7', color: '#b45309' }}>
+                  Awaiting Review
+                </span>
+              </div>
+              <div style={{ background: '#ffffff', border: '1px solid #fed7aa', borderRadius: '6px', padding: '12px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#9a3412', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Reason for Reopening:
+                </div>
+                <div style={{ fontSize: '14px', color: '#1c1917', lineHeight: 1.5 }}>
+                  {(ticket.reopenRequestReason || ticket.reopen_request_reason || 'No details provided')}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '12px', color: '#78350f', marginBottom: '12px' }}>
+                {(ticket.reopenRequestedAt || ticket.reopen_requested_at) && (
+                  <div>
+                    <strong>Requested:</strong> {new Date(ticket.reopenRequestedAt || ticket.reopen_requested_at || '').toLocaleString()}
+                  </div>
+                )}
+                {(ticket.reopenRequestedByName || ticket.reopen_requested_by_name) && (
+                  <div>
+                    <strong>Requester:</strong> {ticket.reopenRequestedByName || ticket.reopen_requested_by_name}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  className={styles.btnApprove}
+                  onClick={() => call(() => approveReopenTicket(ticket.id), 'Ticket Reopening Approved! Active processing resumed.')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: 600 }}
+                >
+                  <CheckCircleIcon style={{ width: 18, height: 18 }} />
+                  Approve Reopening
+                </button>
+                <button
+                  type="button"
+                  className={styles.btnReject}
+                  onClick={() => {
+                    setDeclineReason('');
+                    setDeclineModal(true);
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontWeight: 600 }}
+                >
+                  <XMarkIcon style={{ width: 18, height: 18 }} />
+                  Decline Request
+                </button>
+              </div>
+            </div>
+          )}
+
+          {(ticket.reopenStatus === 'rejected' || ticket.reopen_status === 'rejected') && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginTop: '10px', fontSize: '13px', color: '#991b1b' }}>
+              ℹ️ Previous reopening request was reviewed and declined. The ticket remains closed.
+            </div>
+          )}
         </div>
       )}
 
@@ -1144,23 +1354,23 @@ export default function CeoTicketDetail() {
           <p className={styles.reopenedDescription}>
             This ticket has been reopened for additional work because the issue was unresolved, recurred, or the proposed solution was rejected.
           </p>
-          {ticket.reopenReason && (
+          {(ticket.reopenReason || ticket.reopen_reason) && (
             <div className={styles.reopenedReasonBox}>
               <span className={styles.reopenedReasonLabel}>Reason for Reopening:</span>
-              <p className={styles.reopenedReasonText}>{ticket.reopenReason}</p>
+              <p className={styles.reopenedReasonText}>{ticket.reopenReason || ticket.reopen_reason}</p>
             </div>
           )}
           <div className={styles.reopenedMetaGrid}>
-            {ticket.reopenedAt && (
+            {(ticket.reopenedAt || ticket.reopened_at) && (
               <div className={styles.reopenedMetaItem}>
                 <span className={styles.reopenedMetaLabel}>Reopened:</span>
-                <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt).toLocaleString()}</span>
+                <span className={styles.reopenedMetaValue}>{new Date(ticket.reopenedAt || ticket.reopened_at || "").toLocaleString()}</span>
               </div>
             )}
-            {ticket.reopenedByName && (
+            {(ticket.reopenedByName || ticket.reopened_by_name) && (
               <div className={styles.reopenedMetaItem}>
                 <span className={styles.reopenedMetaLabel}>Reopened By:</span>
-                <span className={styles.reopenedMetaValue}>{ticket.reopenedByName}</span>
+                <span className={styles.reopenedMetaValue}>{ticket.reopenedByName || ticket.reopened_by_name}</span>
               </div>
             )}
             {ticket.dueDate && (
@@ -1483,7 +1693,13 @@ export default function CeoTicketDetail() {
             );
           })}
         </ul>
-        {role !== 'ceo' && <ReplyForm ticketId={ticket.id} canInternal={role !== 'tenant'} />}
+        <ReplyForm
+          ticketId={ticket.id}
+          ticket={ticket}
+          onReplyAdded={loadReplies}
+          assignPrefill={assignPrefill}
+          onClearPrefill={() => setAssignPrefill(null)}
+        />
       </div>
 
       <div className={styles.card}>
@@ -1548,7 +1764,7 @@ export default function CeoTicketDetail() {
                         </div>
                         {ev.kind === 'status' && (
                           <div className={styles.timelineMessage}>
-                            {ev.fromStatus ? STATUS_LABELS[ev.fromStatus as TicketStatus] || ev.fromStatus : 'Created'} → {STATUS_LABELS[ev.toStatus as TicketStatus] || ev.toStatus}
+                            {ev.fromStatus ? getStatusLabel(ev.fromStatus) : 'Created'} → {getStatusLabel(ev.toStatus)}
                           </div>
                         )}
                         {ev.kind === 'comment' && (
@@ -1634,7 +1850,7 @@ export default function CeoTicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={deptModal} title="Assign Department" onClose={() => setDeptModal(false)}>
+      <Modal open={deptModal} title="Assign Department" onClose={() => { setDeptModal(false); setNotes(''); }}>
         <div className={styles.modalForm}>
           <label>Department</label>
           <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
@@ -1642,21 +1858,118 @@ export default function CeoTicketDetail() {
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <label>Notes</label>
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <button disabled={!selectedDept} onClick={() => call(() => assignDepartment(ticket.id, { departmentId: selectedDept, notes }), 'Department assigned')}>Assign</button>
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional directives, instructions, or notes for the assigned department..." />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+            <button
+              type="button"
+              onClick={() => { setDeptModal(false); setNotes(''); }}
+              style={{
+                background: 'var(--ceo-surface, #ffffff)',
+                color: 'var(--ceo-text-secondary, #475569)',
+                border: '1px solid var(--ceo-border, #cbd5e1)',
+                borderRadius: '8px',
+                padding: '9px 18px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selectedDept || assigningDept}
+              onClick={handleAssignDepartmentSubmit}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '9px 24px',
+                cursor: (!selectedDept || assigningDept) ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                opacity: (!selectedDept || assigningDept) ? 0.6 : 1,
+                boxShadow: '0 2px 8px rgba(37, 99, 235, 0.35)',
+              }}
+            >
+              {assigningDept ? 'Assigning...' : 'Assign'}
+            </button>
+          </div>
         </div>
       </Modal>
 
-      <Modal open={staffModal} title="Assign Staff" onClose={() => setStaffModal(false)}>
+      <Modal
+        open={staffModal}
+        title={ticket?.assignedTo ? "Reassign Staff" : "Assign Staff"}
+        onClose={() => { setStaffModal(false); setSelectedStaff(''); setNotes(''); }}
+        maxWidth="500px"
+      >
         <div className={styles.modalForm}>
-          <label>Staff</label>
-          <select value={selectedStaff} onChange={(e) => setSelectedStaff(e.target.value)}>
+          {ticket?.assignedTo && (
+            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.86rem' }}>
+              <strong>Currently Assigned:</strong> {ticket.assignedToName || 'Assigned Staff'}
+            </div>
+          )}
+          <label>Staff Member</label>
+          <select
+            value={selectedStaff}
+            onChange={(e) => setSelectedStaff(e.target.value)}
+            className={styles.modalSelect}
+          >
             <option value="">Select Staff</option>
-            {staffUsers.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+            {staffUsers.map((s) => {
+              const isCur = s.id === ticket?.assignedTo;
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.firstName} {s.lastName} {isCur ? '— (Currently Assigned)' : ''}
+                </option>
+              );
+            })}
           </select>
+
+          {selectedStaff && selectedStaff === ticket?.assignedTo && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 6, padding: '8px 12px', margin: '8px 0', fontSize: '0.84rem', color: '#92400e' }}>
+              ⚠️ <strong>{ticket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+            </div>
+          )}
+
           <label>Notes</label>
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          <button disabled={!selectedStaff} onClick={() => call(() => assignStaff(ticket.id, { staffId: selectedStaff, notes }), 'Staff assigned')}>Assign</button>
+          <textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add optional assignment notes..."
+            className={styles.modalTextarea}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+            <button
+              type="button"
+              className={styles.modalCancelBtn}
+              onClick={() => { setStaffModal(false); setSelectedStaff(''); setNotes(''); }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selectedStaff || selectedStaff === ticket?.assignedTo}
+              onClick={async () => {
+                if (!selectedStaff || selectedStaff === ticket?.assignedTo) return;
+                const staffObj = staffUsers.find((s) => s.id === selectedStaff);
+                const staffName = staffObj ? `${staffObj.firstName} ${staffObj.lastName}` : 'Staff';
+                await call(
+                  () => assignStaff(ticket.id, { staffId: selectedStaff, notes }),
+                  `✓ Ticket successfully assigned to ${staffName}. In-app alert and registered email notification have been sent.`
+                );
+                setStaffModal(false);
+                setSelectedStaff('');
+                setNotes('');
+              }}
+              className={styles.modalSubmitBtn}
+            >
+              {ticket?.assignedTo ? 'Reassign Staff' : 'Assign Staff'}
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -1798,7 +2111,7 @@ export default function CeoTicketDetail() {
                       <div className={styles.mergeCandidateMeta}>
                         <span>Tenant: {cand.tenantName || 'N/A'}</span>
                         <span>•</span>
-                        <span>Status: {STATUS_LABELS[cand.status] || cand.status}</span>
+                        <span>Status: {getStatusLabel(cand.status)}</span>
                         <span>•</span>
                         <span>{cand.createdAt ? new Date(cand.createdAt).toLocaleDateString() : 'N/A'}</span>
                       </div>
@@ -1943,6 +2256,84 @@ export default function CeoTicketDetail() {
         </div>
       </Modal>
 
+      {/* Decline Reopening Request Modal */}
+      <Modal open={declineModal} title="Decline Reopening Request" onClose={() => setDeclineModal(false)}>
+        <p style={{ color: '#475569', fontSize: '14px', lineHeight: 1.5, margin: '0 0 16px' }}>
+          ⚠️ <strong>Declining Reopening Request:</strong> The ticket will remain Closed and Inactive. A notification will be sent to the tenant.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+            Reason for Declining <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <textarea
+            rows={4}
+            value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="Provide an executive explanation for declining the reopening request..."
+            style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={() => setDeclineModal(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.btnReject}
+            disabled={!declineReason.trim()}
+            onClick={async () => {
+              if (!declineReason.trim() || !ticket) return;
+              await call(() => rejectReopenTicket(ticket.id, declineReason.trim()), 'Reopening request declined');
+              setDeclineModal(false);
+              setDeclineReason('');
+            }}
+          >
+            Decline Request
+          </button>
+        </div>
+      </Modal>
+
+      {/* Edit Attachment Note Modal */}
+      <Modal open={editAttachmentModal} title="Edit Attachment Comment / Note" onClose={() => setEditAttachmentModal(false)}>
+        <p style={{ color: '#475569', fontSize: '14px', margin: '0 0 12px' }}>
+          Update the reason or explanatory notes for: <strong>{editAttachment?.fileName || 'Attachment'}</strong>
+        </p>
+        <textarea
+          rows={3}
+          value={editAttachmentComment}
+          onChange={(e) => setEditAttachmentComment(e.target.value)}
+          placeholder="Why was this file attached? (e.g. Resolution proof, diagnostics)..."
+          style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+          <button type="button" className={styles.btnSecondary} onClick={() => setEditAttachmentModal(false)}>Cancel</button>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            disabled={editAttachmentSaving}
+            onClick={async () => {
+              if (!ticket || !editAttachment) return;
+              setEditAttachmentSaving(true);
+              try {
+                await call(
+                  () => updateTicketAttachment(ticket.id, editAttachment.id, editAttachmentComment),
+                  'Attachment comment updated successfully'
+                );
+                setEditAttachmentModal(false);
+              } finally {
+                setEditAttachmentSaving(false);
+              }
+            }}
+          >
+            {editAttachmentSaving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </Modal>
+
       {/* Reopen Ticket Modal */}
       <Modal open={reopenModal} title="Reopen Ticket" onClose={() => setReopenModal(false)}>
         <form
@@ -2002,37 +2393,170 @@ export default function CeoTicketDetail() {
   );
 }
 
-function ReplyForm({ ticketId, canInternal }: { ticketId: string; canInternal: boolean }) {
+function ReplyForm({
+  ticketId,
+  ticket,
+  onReplyAdded,
+  assignPrefill,
+  onClearPrefill,
+}: {
+  ticketId: string;
+  ticket?: Ticket;
+  onReplyAdded?: () => void;
+  assignPrefill?: { text: string } | null;
+  onClearPrefill?: () => void;
+}) {
+  const { user } = useAuth();
   const [text, setText] = useState('');
-  const [visibility, setVisibility] = useState<'all' | 'internal'>('all');
+  const [visibility, setVisibility] = useState<'tenant' | 'department' | 'both' | 'admin' | 'staff'>('both');
+  const [targetStaffId, setTargetStaffId] = useState<string>('');
+  const [deptStaffUsers, setDeptStaffUsers] = useState<StaffUser[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [departmentId, setDepartmentId] = useState<string>('');
   const [msg, setMsg] = useState('');
+
+  // Handle assign comment pre-fill from a tenant reply
+  useEffect(() => {
+    if (assignPrefill) {
+      setVisibility('staff');
+      setText(assignPrefill.text);
+      onClearPrefill?.();
+    }
+  }, [assignPrefill, onClearPrefill]);
+
+  // Load staff members for assignment if ticket has a department
+  useEffect(() => {
+    if (ticket?.departmentId) {
+      const targetDeptId = toShortId(ticket.departmentId);
+      fetchUsers({ role: 'staff', limit: 200, departmentId: targetDeptId })
+        .then((r) => {
+          const tid = ticket.departmentId;
+          const tidShort = toShortId(tid);
+          const list = (r.data.data || []).filter(
+            (u: any) => !tid || u.departments?.some((d: any) => d.id === tid || d.code === tid || toShortId(d.id) === tidShort)
+          );
+          setDeptStaffUsers(list.map((u: any) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName })));
+        })
+        .catch(() => setDeptStaffUsers([]));
+    }
+  }, [ticket?.departmentId]);
+
+  useEffect(() => {
+    fetchActiveDepartments()
+      .then((res) => setDepartments(res.data.data || []))
+      .catch(() => setDepartments([]));
+  }, []);
+
+  useEffect(() => {
+    if (ticket?.departmentId) setDepartmentId(ticket.departmentId);
+  }, [ticket?.departmentId]);
+
+  const needsDept = visibility === 'department' || visibility === 'both';
+  const isTargetStaff = visibility === 'staff';
+
   const submit = async () => {
     if (!text.trim()) return;
+
+    if (isTargetStaff && !targetStaffId) {
+      setMsg('Please select a staff member to assign the comment to');
+      return;
+    }
+
+    const resolvedDeptId = departmentId || ticket?.departmentId || null;
+
     try {
-      await addTicketReply(ticketId, { message: text, visibility: canInternal ? visibility : 'all' });
-      setText(''); setMsg('Reply added');
+      await addTicketReply(ticketId, {
+        message: text,
+        visibility: isTargetStaff ? 'department' : visibility,
+        departmentIds: needsDept ? resolvedDeptId : (ticket?.departmentId || null),
+        targetUserId: isTargetStaff ? targetStaffId : null,
+      });
+      setText('');
+      setTargetStaffId('');
+      setMsg('Reply sent');
+      onReplyAdded?.();
     } catch (e: any) {
       setMsg(e?.response?.data?.message || 'Failed');
     }
   };
+
+  const getPlaceholder = () => {
+    if (isTargetStaff) return 'Write an executive directive or instruction to the selected staff member…';
+    if (visibility === 'admin') return 'Write an executive note visible to Admins…';
+    if (visibility === 'department') return 'Executive instruction visible only to the department…';
+    if (visibility === 'tenant') return 'Executive response visible directly to the tenant…';
+    return 'Executive reply visible to tenant and department…';
+  };
+
   return (
-    <div className={styles.replyForm}>
-      {canInternal && (
-        <div>
-          <label>Visibility:
+    <div className={styles.replyForm} id="ticket-reply-form">
+      <div className={styles.replyFormControls}>
+        <label className={styles.replyFormLabel}>
+          Visibility:
+          <select
+            value={visibility}
+            onChange={(e) => setVisibility(e.target.value as any)}
+            className={styles.replyFormSelect}
+          >
+            <option value="both">👤🏢 Tenant & Department — both can see</option>
+            <option value="tenant">👤 Tenant Only — visible directly to tenant</option>
+            <option value="department">🏢 Department Only — internal note to department</option>
+            <option value="staff">🎯 Assign to Staff User — executive instruction to staff</option>
+            <option value="admin">🛡️ Executive & Admin Only — administrative note</option>
+          </select>
+        </label>
+
+        {isTargetStaff && (
+          <label className={styles.replyFormLabel}>
+            Assign to Staff:
             <select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as 'all' | 'internal')}
+              value={targetStaffId}
+              onChange={(e) => setTargetStaffId(e.target.value)}
+              className={styles.replyFormSelect}
             >
-              <option value="all">📢 Visible to All</option>
-              <option value="internal">🔒 Internal Only (Staff & Managers)</option>
+              <option value="">Select staff member…</option>
+              {deptStaffUsers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.firstName} {s.lastName}
+                </option>
+              ))}
             </select>
           </label>
-        </div>
-      )}
-      <textarea rows={3} placeholder="Add a reply..." value={text} onChange={(e) => setText(e.target.value)} />
-      <button onClick={submit} disabled={!text.trim()}>Submit Reply</button>
-      {msg && <span style={{ color: '#166534', fontWeight: 600 }}>{msg}</span>}
+        )}
+
+        {needsDept && (
+          <label className={styles.replyFormLabel}>
+            Department:
+            <select
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              className={styles.replyFormSelect}
+            >
+              <option value="">Select department (optional if unassigned)…</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+
+      <textarea
+        rows={3}
+        placeholder={getPlaceholder()}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button
+        onClick={submit}
+        disabled={
+          !text.trim() ||
+          (isTargetStaff && !targetStaffId)
+        }
+      >
+        {isTargetStaff ? 'Assign Instruction to Staff' : 'Submit Reply'}
+      </button>
+      {msg && <span className={styles.replySuccessMsg}>{msg}</span>}
     </div>
   );
 }

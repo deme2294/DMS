@@ -1,47 +1,100 @@
-import { useEffect, useState, useMemo } from 'react';
-import { fetchAdminAnalytics } from '../../api/dashboardApi';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { fetchAdminAnalytics, fetchManagerAnalytics } from '../../api/dashboardApi';
 import type { AdminAnalyticsData } from '../../api/dashboardApi';
 import { STATUS_LABELS, type TicketStatus } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
 import { exportAnalyticsToExcel } from '../../utils/excelExportUtils';
+import {
+  exportMasterAnalyticsCSV,
+  exportDepartmentPerformanceCSV,
+  exportMonthlyTrendsCSV,
+  exportCategoryAndStatusCSV,
+} from '../../utils/csvExportUtils';
 import styles from './AdminAnalytics.module.css';
+import {
+  ArrowPathIcon,
+  PrinterIcon,
+  TableCellsIcon,
+  ArrowDownTrayIcon,
+  TicketIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ShieldCheckIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
+  BuildingOffice2Icon,
+  TrophyIcon,
+  SparklesIcon,
+  ExclamationTriangleIcon,
+  CheckBadgeIcon,
+  TagIcon,
+  ChartBarIcon,
+  ChartPieIcon,
+  InboxArrowDownIcon,
+  ArrowUpTrayIcon,
+  XMarkIcon,
+  BoltIcon,
+  ChevronDownIcon,
+} from '@heroicons/react/24/outline';
 
-// ── Color Palettes ────────────────────────────────────────────────────────────
+// ---- Color Palettes ------------------------------------------------------------------------------------------------------------------------
 const STATUS_COLORS: Record<string, string> = {
-  submitted: '#3b82f6',
-  open: '#2563eb',
-  assigned: '#6366f1',
-  assigned_department: '#818cf8',
-  assigned_staff: '#06b6d4',
-  under_review: '#a855f7',
-  in_progress: '#f59e0b',
-  pending: '#d97706',
-  pending_approval: '#ea580c',
-  waiting_tenant: '#ec4899',
-  waiting_vendor: '#8b5cf6',
-  resolved: '#10b981',
-  completed: '#059669',
-  accepted: '#0d9488',
-  approved: '#10b981',
-  closed: '#64748b',
-  reopened: '#f97316',
-  escalated: '#ef4444',
-  rejected: '#dc2626',
-  cancelled: '#94a3b8',
+  submitted: '#0284c7', // Sky Blue
+  open: '#2563eb', // Royal Blue
+  assigned: '#06b6d4', // Cyan
+  assigned_department: '#818cf8', // Soft Indigo
+  assigned_staff: '#0ea5e9', // Vivid Sky
+  under_review: '#a855f7', // Violet
+  in_progress: '#f59e0b', // Amber
+  pending: '#d97706', // Deep Amber
+  pending_approval: '#ea580c', // Bright Orange
+  waiting_tenant: '#ec4899', // Hot Pink
+  waiting_vendor: '#8b5cf6', // Purple
+  resolved: '#10b981', // Emerald Green
+  completed: '#059669', // Deep Emerald
+  accepted: '#0d9488', // Teal
+  approved: '#10b981', // Green
+  closed: '#475569', // Cool Slate Navy
+  reopened: '#f97316', // Orange
+  escalated: '#ef4444', // Vibrant Red
+  'escalated.open': '#f43f5e', // Rose
+  'escalated.assigned': '#8b5cf6', // Violet
+  'escalated.in_progress': '#f97316', // Vivid Orange
+  'escalated.pending': '#ea580c', // Deep Orange
+  'escalated.waiting_tenant': '#ec4899', // Hot Pink
+  'escalated.waiting_vendor': '#6366f1', // Indigo
+  'escalated.under_review': '#a855f7', // Purple
+  rejected: '#dc2626', // Crimson
+  cancelled: '#94a3b8', // Muted Slate
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: '#ef4444',
-  high: '#f97316',
-  medium: '#eab308',
-  low: '#3b82f6',
+  urgent: '#ef4444', // Red
+  high: '#f97316', // Orange
+  medium: '#eab308', // Amber / Gold
+  low: '#3b82f6', // Blue
 };
 
-const PALETTE = [
-  '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899',
-  '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#e11d48',
-  '#84cc16', '#0284c7', '#d946ef', '#f43f5e', '#64748b'
+// Rich, high-contrast distinct palette ensuring every slice in pie/donut charts has a unique color
+const DISTINCT_PIE_COLORS = [
+  '#ef4444', // Vibrant Red (Escalated)
+  '#2563eb', // Royal Blue (Open / Closed)
+  '#10b981', // Emerald Green (Resolved)
+  '#f59e0b', // Amber / Gold (In Progress)
+  '#8b5cf6', // Purple / Violet (Assigned)
+  '#ec4899', // Hot Pink (Waiting Tenant)
+  '#06b6d4', // Cyan (Assigned Staff)
+  '#f97316', // Bright Orange (Reopened / Escalated In Progress)
+  '#6366f1', // Indigo (Under Review)
+  '#14b8a6', // Teal (Accepted)
+  '#d946ef', // Fuchsia / Orchid
+  '#84cc16', // Lime Green
+  '#0284c7', // Sky Blue
+  '#e11d48', // Rose Red
+  '#475569', // Cool Slate
 ];
+
+const PALETTE = DISTINCT_PIE_COLORS;
 
 const GRADIENTS = [
   ['#3b82f6', '#1d4ed8'],
@@ -54,7 +107,7 @@ const GRADIENTS = [
   ['#6366f1', '#4338ca'],
 ];
 
-// ── Pie & Donut Chart Component ───────────────────────────────────────────────
+// ---- Pie & Donut Chart Component ----------------------------------------------------------------------------------------------
 export interface ChartSliceItem {
   id: string;
   label: string;
@@ -146,7 +199,7 @@ function InteractivePieChart({
       <div className={styles.cardHeader}>
         <div>
           <h3 className={styles.cardTitle}>
-            <span>{chartMode === 'pie' ? '🥧' : '🍩'}</span> {title}
+            <ChartPieIcon style={{ width: 18, height: 18, color: '#3b82f6', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {title}
           </h3>
           {subtitle && <div className={styles.cardSubtitle}>{subtitle}</div>}
         </div>
@@ -161,7 +214,7 @@ function InteractivePieChart({
               onClick={() => setChartMode('donut')}
               title="Switch to Donut Ring view"
             >
-              🍩 Donut
+              <ChartPieIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 4 }} /> Donut
             </button>
             <button
               type="button"
@@ -169,7 +222,7 @@ function InteractivePieChart({
               onClick={() => setChartMode('pie')}
               title="Switch to Solid Pie view"
             >
-              🥧 Pie
+              <ChartPieIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 4 }} /> Pie
             </button>
           </div>
         </div>
@@ -194,13 +247,19 @@ function InteractivePieChart({
             className={styles.focusClearBtn}
             onClick={() => setFocusedIndex(null)}
           >
-            ✕ Reset Focus
+            <XMarkIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 4 }} /> Reset Focus
           </button>
         </div>
       )}
 
 
       <div className={styles.pieChartCardBody}>
+        {!items.length || total === 0 ? (
+          <div style={{ width: '100%', padding: '32px 16px', textAlign: 'center' }}>
+            <p className={styles.emptyState}>No distribution records found</p>
+          </div>
+        ) : (
+        <>
         {/* SVG Pie / Donut Circle */}
         <div className={styles.pieSvgWrapper}>
           <svg viewBox="0 0 200 200" className={styles.pieSvg}>
@@ -267,10 +326,7 @@ function InteractivePieChart({
 
         {/* Legend List */}
         <div className={styles.donutLegendList}>
-          {!items.length || total === 0 ? (
-            <p className={styles.emptyState}>No distribution records found</p>
-          ) : (
-            items.map((item, idx) => {
+          {items.map((item, idx) => {
               const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0';
               const isFocused = focusedIndex === idx;
               const isDimmed = focusedIndex !== null && !isFocused;
@@ -291,7 +347,12 @@ function InteractivePieChart({
                 >
                   <div className={styles.legendLeft}>
                     <span className={styles.legendDot} style={{ background: item.color }} />
-                    <span className="truncate max-w-[130px]">{item.label}</span>
+                    <span
+                      style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}
+                      title={item.label}
+                    >
+                      {item.label}
+                    </span>
                   </div>
                   <div className={styles.legendRight}>
                     <span className={styles.legendCount}>{item.value.toLocaleString()}</span>
@@ -299,15 +360,16 @@ function InteractivePieChart({
                   </div>
                 </div>
               );
-            })
-          )}
+            })}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Professional Monthly & Weekly Trends Graph Component (Curve + Bar Chart) ─
+// ---- Professional Monthly & Weekly Trends Graph Component (Curve + Bar Chart) --
 function MonthlyTrendGraph({
   monthlyData,
   weeklyData,
@@ -369,18 +431,55 @@ function MonthlyTrendGraph({
 
   // SVG dimensions
   const svgWidth = 720;
-  const svgHeight = 280;
-  const padLeft = 45;
-  const padRight = 25;
-  const padTop = 30;
+  const svgHeight = 285;
+  const padLeft = 48;
+  const padRight = 44;
+  const padTop = 34;
   const padBottom = 40;
   const graphW = svgWidth - padLeft - padRight;
   const graphH = svgHeight - padTop - padBottom;
 
-  const maxVal = useMemo(() => {
-    const vals = activeDataset.map((d) => Math.max(d.created, d.resolved));
-    return Math.max(...vals, 5);
-  }, [activeDataset]);
+  const { maxVal, yTicks } = useMemo(() => {
+    const activeVals: number[] = [];
+    activeDataset.forEach((d) => {
+      if (showCreated) activeVals.push(d.created);
+      if (showResolved) activeVals.push(d.resolved);
+    });
+
+    const rawMax = activeVals.length ? Math.max(...activeVals) : 0;
+    const scaleMax = rawMax > 0 ? rawMax : 5;
+
+    // Collect exact counted values from both active series so dotted gridlines & Y-axis numbers touch every plotted point
+    const tickSet = new Set<number>([0, scaleMax]);
+    activeVals.forEach((v) => {
+      if (v >= 0 && v <= scaleMax) tickSet.add(v);
+    });
+
+    // Add clean intermediate scale ticks only where there is comfortable vertical room
+    const step = scaleMax <= 5 ? 1 : Math.ceil(scaleMax / 5);
+    const minLabelGapPx = 14;
+    for (let n = step; n < scaleMax; n += step) {
+      const yCand = padTop + graphH * (1 - n / scaleMax);
+      const tooClose = Array.from(tickSet).some((existing) => {
+        const yEx = padTop + graphH * (1 - existing / scaleMax);
+        return Math.abs(yCand - yEx) < minLabelGapPx;
+      });
+      if (!tooClose) tickSet.add(n);
+    }
+
+    const sortedTicks = Array.from(tickSet).sort((a, b) => a - b);
+    // Track which ticks should render text labels without overlapping when values are very dense
+    let lastLabelY = Infinity;
+    const ticksWithMeta = sortedTicks.map((val) => {
+      const y = padTop + graphH * (1 - val / scaleMax);
+      const isExactDataVal = activeVals.includes(val) || val === 0 || val === scaleMax;
+      const showLabel = val === 0 || val === scaleMax || Math.abs(lastLabelY - y) >= 12;
+      if (showLabel) lastLabelY = y;
+      return { val, y, showLabel, isExactDataVal };
+    });
+
+    return { maxVal: scaleMax, yTicks: ticksWithMeta };
+  }, [activeDataset, showCreated, showResolved, padTop, graphH]);
 
   // Compute points
   const points = useMemo(() => {
@@ -442,7 +541,7 @@ function MonthlyTrendGraph({
       <div className={styles.cardHeader}>
         <div>
           <h3 className={styles.cardTitle}>
-            <span>{graphType === 'bar' ? '📊' : '📈'}</span> Monthly & Weekly Ticket Trends
+            <ChartBarIcon style={{ width: 18, height: 18, color: '#2563eb', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Monthly & Weekly Ticket Trends
           </h3>
           <div className={styles.cardSubtitle}>
             Continuous submission velocity vs resolution throughput with multi-color bars and curves
@@ -458,7 +557,7 @@ function MonthlyTrendGraph({
               onClick={() => setGraphType('bar')}
               title="Grouped Multi-Color Bar Chart"
             >
-              📊 Bar Chart
+              <ChartBarIcon style={{ width: 14, height: 14, display: 'inline', marginRight: 4 }} /> Bar Chart
             </button>
             <button
               type="button"
@@ -466,7 +565,7 @@ function MonthlyTrendGraph({
               onClick={() => setGraphType('curve')}
               title="Smooth Curve Area Graph"
             >
-              📈 Curve Graph
+              <ArrowTrendingUpIcon style={{ width: 14, height: 14, display: 'inline', marginRight: 4 }} /> Curve Graph
             </button>
           </div>
 
@@ -514,13 +613,13 @@ function MonthlyTrendGraph({
           </div>
           <div className={styles.trendStatItem}>
             <span className={styles.trendStatLabel}>Throughput Rate</span>
-            <span className={styles.trendStatVal} style={{ color: '#0f172a' }}>
+            <span className={styles.trendStatVal} style={{ color: 'var(--text-primary, #0f172a)' }}>
               {totalCreated > 0 ? ((totalResolved / totalCreated) * 100).toFixed(1) : '100'}%
             </span>
           </div>
           <div className={styles.trendStatItem}>
             <span className={styles.trendStatLabel}>Data Points</span>
-            <span className={styles.trendStatVal} style={{ color: '#64748b' }}>
+            <span className={styles.trendStatVal} style={{ color: 'var(--text-secondary, #64748b)' }}>
               {activeDataset.length} {activeTab === 'monthly' ? 'Months' : activeTab === 'weekly' ? 'Weeks' : 'Days'}
             </span>
           </div>
@@ -538,7 +637,7 @@ function MonthlyTrendGraph({
               onClick={() => setShowCreated((prev) => !prev || !showResolved)}
             >
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
-              <span>Tickets Created {showCreated ? '✓' : ''}</span>
+              <span>Tickets Created {showCreated ? '(Active)' : ''}</span>
             </button>
 
             <button
@@ -547,7 +646,7 @@ function MonthlyTrendGraph({
               onClick={() => setShowResolved((prev) => !prev || !showCreated)}
             >
               <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              <span>Tickets Resolved {showResolved ? '✓' : ''}</span>
+              <span>Tickets Resolved {showResolved ? '(Active)' : ''}</span>
             </button>
           </div>
         </div>
@@ -562,13 +661,13 @@ function MonthlyTrendGraph({
               {showCreated && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', color: '#93c5fd' }}>
                   <span>Created:</span>
-                  <strong>{hoveredPoint.created.toLocaleString()}</strong>
+                  <strong>{hoveredPoint.created.toLocaleString()} / {totalCreated.toLocaleString()}</strong>
                 </div>
               )}
               {showResolved && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', color: '#6ee7b7' }}>
                   <span>Resolved:</span>
-                  <strong>{hoveredPoint.resolved.toLocaleString()}</strong>
+                  <strong>{hoveredPoint.resolved.toLocaleString()} / {totalResolved.toLocaleString()}</strong>
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', color: '#94a3b8', fontSize: '0.75rem', paddingTop: '4px', borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: '4px' }}>
@@ -600,29 +699,29 @@ function MonthlyTrendGraph({
             </defs>
 
             {/* Grid Horizontal Reference Lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-              const y = padTop + graphH * (1 - ratio);
-              const val = Math.round(maxVal * ratio);
-              return (
-                <g key={ratio}>
-                  <line
-                    x1={padLeft}
-                    y1={y}
-                    x2={svgWidth - padRight}
-                    y2={y}
-                    className={styles.gridLine}
-                  />
+            {yTicks.map(({ val, y, showLabel, isExactDataVal }) => (
+              <g key={val}>
+                <line
+                  x1={padLeft}
+                  y1={y}
+                  x2={svgWidth - padRight}
+                  y2={y}
+                  className={styles.gridLine}
+                  style={isExactDataVal && val > 0 ? { strokeOpacity: 0.9 } : undefined}
+                />
+                {showLabel && (
                   <text
                     x={padLeft - 8}
                     y={y + 4}
                     textAnchor="end"
                     className={styles.axisText}
+                    style={isExactDataVal && val > 0 ? { fontWeight: 700, fill: 'var(--text-primary, #334155)' } : undefined}
                   >
                     {val}
                   </text>
-                </g>
-              );
-            })}
+                )}
+              </g>
+            ))}
 
             {/* X Axis Base Line */}
             <line
@@ -633,7 +732,7 @@ function MonthlyTrendGraph({
               className={styles.axisLine}
             />
 
-            {/* ── BAR CHART MODE ── */}
+            {/* ---- BAR CHART MODE ---- */}
             {graphType === 'bar' &&
               activeDataset.map((d, i) => {
                 const slotCenterX = padLeft + i * slotWidth + slotWidth / 2;
@@ -667,14 +766,14 @@ function MonthlyTrendGraph({
                     />
 
                     {/* Created Bar */}
-                    {showCreated && (
+                    {showCreated && d.created > 0 && (
                       <rect
                         x={
                           showResolved
                             ? slotCenterX - singleBarWidth - 2
                             : slotCenterX - singleBarWidth / 2
                         }
-                        y={baseY - hCreated}
+                        y={baseY - Math.max(hCreated, 2)}
                         width={singleBarWidth}
                         height={Math.max(hCreated, 2)}
                         rx="4"
@@ -687,14 +786,14 @@ function MonthlyTrendGraph({
                     )}
 
                     {/* Resolved Bar */}
-                    {showResolved && (
+                    {showResolved && d.resolved > 0 && (
                       <rect
                         x={
                           showCreated
                             ? slotCenterX + 2
                             : slotCenterX - singleBarWidth / 2
                         }
-                        y={baseY - hResolved}
+                        y={baseY - Math.max(hResolved, 2)}
                         width={singleBarWidth}
                         height={Math.max(hResolved, 2)}
                         rx="4"
@@ -706,15 +805,27 @@ function MonthlyTrendGraph({
                       />
                     )}
 
-                    {/* Value Labels on top of bars when hovered or active */}
-                    {isHovered && showCreated && d.created > 0 && (
+                    {/* Value Labels on top of bars for both Created and Solved counts */}
+                    {showCreated && (d.created > 0 || isHovered) && (
                       <text
                         x={showResolved ? slotCenterX - singleBarWidth / 2 - 2 : slotCenterX}
-                        y={baseY - hCreated - 5}
+                        y={Math.max(12, baseY - hCreated - 6)}
                         textAnchor="middle"
                         className={styles.barValueText}
+                        style={{ fill: '#2563eb' }}
                       >
-                        {d.created}
+                        {slotWidth >= 85 ? `${d.created}/${totalCreated}` : d.created}
+                      </text>
+                    )}
+                    {showResolved && (d.resolved > 0 || isHovered) && (
+                      <text
+                        x={showCreated ? slotCenterX + singleBarWidth / 2 + 2 : slotCenterX}
+                        y={Math.max(12, baseY - hResolved - 6)}
+                        textAnchor="middle"
+                        className={styles.barValueText}
+                        style={{ fill: '#059669' }}
+                      >
+                        {slotWidth >= 85 ? `${d.resolved}/${totalResolved}` : d.resolved}
                       </text>
                     )}
 
@@ -735,7 +846,7 @@ function MonthlyTrendGraph({
                 );
               })}
 
-            {/* ── CURVE GRAPH MODE ── */}
+            {/* ---- CURVE GRAPH MODE ---- */}
             {graphType === 'curve' && (
               <>
                 {/* Vertical crosshair guide on hovered point */}
@@ -800,30 +911,62 @@ function MonthlyTrendGraph({
                       onMouseLeave={() => setHoveredPoint(null)}
                     />
 
-                    {/* Created Dot */}
+                    {/* Created Dot & Count Label */}
                     {showCreated && (
-                      <circle
-                        cx={p.x}
-                        cy={p.yCreated}
-                        r={hoveredPoint?.label === p.label ? '6' : '4.5'}
-                        fill="#ffffff"
-                        stroke="#2563eb"
-                        strokeWidth={hoveredPoint?.label === p.label ? '3.5' : '2.5'}
-                        className={styles.chartDot}
-                      />
+                      <>
+                        <circle
+                          cx={p.x}
+                          cy={p.yCreated}
+                          r={hoveredPoint?.label === p.label ? '6' : '4.5'}
+                          fill="#ffffff"
+                          stroke="#2563eb"
+                          strokeWidth={hoveredPoint?.label === p.label ? '3.5' : '2.5'}
+                          className={styles.chartDot}
+                        />
+                        {(p.created > 0 || points.length <= 6 || hoveredPoint?.label === p.label) && (
+                          <text
+                            x={p.x}
+                            y={Math.max(12, p.yCreated - 10)}
+                            textAnchor="middle"
+                            className={styles.barValueText}
+                            style={{ fill: '#2563eb' }}
+                          >
+                            {`${p.created}/${totalCreated}`}
+                          </text>
+                        )}
+                      </>
                     )}
 
-                    {/* Resolved Dot */}
+                    {/* Resolved Dot & Count Label */}
                     {showResolved && (
-                      <circle
-                        cx={p.x}
-                        cy={p.yResolved}
-                        r={hoveredPoint?.label === p.label ? '6' : '4'}
-                        fill="#ffffff"
-                        stroke="#10b981"
-                        strokeWidth={hoveredPoint?.label === p.label ? '3.5' : '2.5'}
-                        className={styles.chartDot}
-                      />
+                      <>
+                        <circle
+                          cx={p.x}
+                          cy={p.yResolved}
+                          r={hoveredPoint?.label === p.label ? '6' : '4'}
+                          fill="#ffffff"
+                          stroke="#10b981"
+                          strokeWidth={hoveredPoint?.label === p.label ? '3.5' : '2.5'}
+                          className={styles.chartDot}
+                        />
+                        {(p.resolved > 0 || points.length <= 6 || hoveredPoint?.label === p.label) && (
+                          <text
+                            x={p.x}
+                            y={
+                              showCreated && Math.abs(p.yResolved - p.yCreated) < 22
+                                ? Math.min(padTop + graphH - 4, p.yResolved + 16)
+                                : p.resolved === 0
+                                  ? padTop + graphH - 8
+                                  : Math.min(padTop + graphH - 4, p.yResolved + 16)
+                            }
+                            textAnchor="middle"
+                            className={styles.barValueText}
+                            style={{ fill: '#059669' }}
+                          >
+                            {`${p.resolved}/${totalResolved}`}
+                          </text>
+                        )}
+                      </>
                     )}
 
                     {/* X Axis Label */}
@@ -846,11 +989,11 @@ function MonthlyTrendGraph({
         <div className="analytics-legend-strip" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', paddingTop: '8px', borderTop: '1px solid var(--border-color, #f1f5f9)' }}>
           <div className="analytics-legend-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600 }}>
             <span style={{ width: '12px', height: '12px', borderRadius: '4px', background: '#2563eb', display: 'inline-block' }} />
-            <span>Tickets Created ({graphType === 'bar' ? 'Blue Gradient Bar' : 'Velocity Curve'})</span>
+            <span>Tickets Created ({graphType === 'bar' ? 'Blue Gradient Bar' : 'Velocity Curve'} — {totalCreated.toLocaleString()} Total)</span>
           </div>
           <div className="analytics-legend-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', fontWeight: 600 }}>
             <span style={{ width: '12px', height: '12px', borderRadius: '4px', background: '#10b981', display: 'inline-block' }} />
-            <span>Tickets Resolved ({graphType === 'bar' ? 'Emerald Gradient Bar' : 'Output Throughput'})</span>
+            <span>Tickets Resolved ({graphType === 'bar' ? 'Emerald Gradient Bar' : 'Output Throughput'} — {totalResolved.toLocaleString()} Total)</span>
           </div>
         </div>
       </div>
@@ -858,216 +1001,866 @@ function MonthlyTrendGraph({
   );
 }
 
-// ── Multi-Colored Department Workload Bar Chart Component ─────────────────────
-function DepartmentVolumeBarChart({
+// -- Professional Department Problem Solving & Resolution Performance Component --------------
+// ---- Department Performance Leaderboard & Which Department is Performing Well ----
+function DepartmentPerformanceLeaderboard({
   departments,
+  isManager = false,
 }: {
   departments: AdminAnalyticsData['departmentAnalytics'];
+  isManager?: boolean;
 }) {
-  const [hoveredDept, setHoveredDept] = useState<string | null>(null);
-
-  const maxTickets = useMemo(() => {
-    if (!departments.length) return 10;
-    const max = Math.max(...departments.map((d) => d.totalTickets));
-    return Math.max(max, 5);
+  const rankedDepts = useMemo(() => {
+    return [...departments]
+      .filter((d) => d.totalTickets > 0)
+      .sort((a, b) => {
+        const scoreA = a.performanceScore ?? a.resolutionRate;
+        const scoreB = b.performanceScore ?? b.resolutionRate;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return b.resolvedTickets - a.resolvedTickets;
+      });
   }, [departments]);
 
-  const svgWidth = 720;
-  const svgHeight = 260;
-  const padLeft = 45;
-  const padRight = 20;
-  const padTop = 30;
-  const padBottom = 45;
-  const graphW = svgWidth - padLeft - padRight;
-  const graphH = svgHeight - padTop - padBottom;
+  const topPerformer = (isManager && departments[0]) ? departments[0] : (rankedDepts[0] || null);
+  const runnerUps = isManager ? [] : rankedDepts.slice(1, 4);
 
-  const slotW = departments.length > 0 ? graphW / departments.length : graphW;
-  const barW = Math.min(Math.max(slotW * 0.45, 14), 42);
+  if (!topPerformer && !rankedDepts.length) return null;
 
   return (
-    <div className={styles.chartCard}>
-      <div className={styles.cardHeader}>
+    <div className={styles.deptSectionCard}>
+      <div className={styles.deptSectionHeader}>
         <div>
-          <h3 className={styles.cardTitle}>
-            <span>📊</span> Department Workload & Resolution Bar Chart
+          <h3 className={styles.deptSectionTitle}>
+            {isManager ? (
+              <>
+                <ShieldCheckIcon style={{ width: 22, height: 22, color: '#2563eb', display: 'inline', verticalAlign: 'middle', marginRight: 8 }} />
+                Department Performance & SLA Health Overview
+              </>
+            ) : (
+              <>
+                <TrophyIcon className="w-6 h-6 text-amber-500 inline mr-2" />
+                Department Performance Ranking & Leaderboard
+              </>
+            )}
           </h3>
-          <div className={styles.cardSubtitle}>
-            Comparative ticket volume and output per department with vibrant color branding
+          <div className={styles.deptSectionSubtitle}>
+            {isManager
+              ? `Strict performance evaluation of tickets routed to ${topPerformer.departmentName}, measuring Early, On-Time, and Late SLA resolutions`
+              : 'Identifies which departments are performing best based on strict composite metrics (Resolution Rate, SLA Compliance, Overdue Backlog)'}
           </div>
         </div>
-        <span className={styles.badgePill}>{departments.length} Departments</span>
+        <span className={styles.badgePill}>
+          {isManager ? 'Department Scope' : `${rankedDepts.length} Active Teams`}
+        </span>
       </div>
 
-      <div className={styles.svgGraphContainer}>
-        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className={styles.svgGraph}>
-          <defs>
-            {departments.map((_, i) => {
-              const grad = GRADIENTS[i % GRADIENTS.length];
-              return (
-                <linearGradient key={i} id={`deptGrad_${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={grad[0]} />
-                  <stop offset="100%" stopColor={grad[1]} />
-                </linearGradient>
-              );
-            })}
-          </defs>
-
-          {/* Reference Grid */}
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-            const y = padTop + graphH * (1 - ratio);
-            const val = Math.round(maxTickets * ratio);
-            return (
-              <g key={ratio}>
-                <line
-                  x1={padLeft}
-                  y1={y}
-                  x2={svgWidth - padRight}
-                  y2={y}
-                  className={styles.gridLine}
-                />
-                <text x={padLeft - 8} y={y + 4} textAnchor="end" className={styles.axisText}>
-                  {val}
-                </text>
-              </g>
-            );
-          })}
-
-          <line
-            x1={padLeft}
-            y1={padTop + graphH}
-            x2={svgWidth - padRight}
-            y2={padTop + graphH}
-            className={styles.axisLine}
-          />
-
-          {!departments.length ? (
-            <text
-              x={svgWidth / 2}
-              y={svgHeight / 2}
-              textAnchor="middle"
-              className={styles.axisText}
-            >
-              No department data available
-            </text>
-          ) : (
-            departments.map((dept, i) => {
-              const centerX = padLeft + i * slotW + slotW / 2;
-              const hTotal = maxTickets > 0 ? (dept.totalTickets / maxTickets) * graphH : 0;
-              const hResolved = maxTickets > 0 ? (dept.resolvedTickets / maxTickets) * graphH : 0;
-              const baseY = padTop + graphH;
-
-              const isHovered = hoveredDept === dept.departmentId;
-              const isDimmed = hoveredDept !== null && !isHovered;
-
-              return (
-                <g
-                  key={dept.departmentId}
-                  onMouseEnter={() => setHoveredDept(dept.departmentId)}
-                  onMouseLeave={() => setHoveredDept(null)}
-                >
-                  {/* Slot hover bg */}
-                  <rect
-                    x={padLeft + i * slotW + 2}
-                    y={padTop}
-                    width={slotW - 4}
-                    height={graphH}
-                    fill={isHovered ? 'rgba(0,0,0,0.03)' : 'transparent'}
-                    rx="8"
-                  />
-
-                  {/* Total Tickets Multi-Color Bar */}
-                  <rect
-                    x={centerX - barW / 2}
-                    y={baseY - hTotal}
-                    width={barW}
-                    height={Math.max(hTotal, 2)}
-                    rx="6"
-                    fill={`url(#deptGrad_${i})`}
-                    className={styles.barRect}
-                    style={{
-                      opacity: isDimmed ? 0.35 : 1,
-                      transform: isHovered ? 'scaleY(1.02)' : 'none',
-                    }}
-                  />
-
-                  {/* Resolved Portion overlay strip */}
-                  {hResolved > 0 && (
-                    <rect
-                      x={centerX - barW / 2 + 2}
-                      y={baseY - hResolved}
-                      width={barW - 4}
-                      height={Math.max(hResolved - 2, 2)}
-                      rx="4"
-                      fill="rgba(255, 255, 255, 0.3)"
-                      pointerEvents="none"
-                    />
-                  )}
-
-                  {/* Top Value Tag */}
-                  <text
-                    x={centerX}
-                    y={baseY - hTotal - 6}
-                    textAnchor="middle"
-                    className={styles.barValueText}
-                    style={{
-                      fill: isHovered ? PALETTE[i % PALETTE.length] : 'var(--text-primary, #0f172a)',
-                    }}
-                  >
-                    {dept.totalTickets}
-                  </text>
-
-                  {/* X Axis Department Code/Name */}
-                  <text
-                    x={centerX}
-                    y={padTop + graphH + 20}
-                    textAnchor="middle"
-                    className={styles.axisText}
-                    style={{
-                      fontWeight: isHovered ? 800 : 600,
-                      fill: isHovered ? PALETTE[i % PALETTE.length] : 'var(--text-secondary, #64748b)',
-                    }}
-                  >
-                    {dept.departmentCode || dept.departmentName.slice(0, 10)}
-                  </text>
-                </g>
-              );
-            })
-          )}
-        </svg>
-      </div>
-
-      {/* Interactive Legend Strip */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color, #f1f5f9)' }}>
-        {departments.map((dept, i) => (
-          <div
-            key={dept.departmentId}
-            className="analytics-legend-label"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600,
-              padding: '4px 10px', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s',
-              background: hoveredDept === dept.departmentId ? 'var(--bg-surface, #f1f5f9)' : 'transparent',
-              transform: hoveredDept === dept.departmentId ? 'scale(1.05)' : 'none',
-            }}
-            onMouseEnter={() => setHoveredDept(dept.departmentId)}
-            onMouseLeave={() => setHoveredDept(null)}
-          >
-            <span
-              style={{ width: '12px', height: '12px', borderRadius: '50%', background: PALETTE[i % PALETTE.length], display: 'inline-block' }}
-            />
-            <span>{dept.departmentName}</span>
-            <span style={{ color: 'var(--text-muted, #94a3b8)', fontWeight: 400 }}>({dept.totalTickets})</span>
+      {/* Strict SLA & Performance Governance Banner */}
+      <div className={styles.strictRuleNotice}>
+        <div className={styles.strictRuleLeft}>
+          <ShieldCheckIcon className={styles.strictRuleIcon} />
+          <div>
+            <strong className={styles.strictRuleStrong}>Strict Performance Rule:</strong> A department performance score cannot reach <strong className={styles.strictRuleTarget}>100%</strong> unless 100% of tickets are resolved, zero tickets are overdue, and all SLA deadlines are honored.
           </div>
-        ))}
+        </div>
+        <a
+          href="/Department_Performance_And_SLA_Qualification_Formula.pdf"
+          download="Department_Performance_And_SLA_Qualification_Formula.pdf"
+          className={styles.downloadFormulaBtn}
+          title="Download the official mathematical formula and SLA qualification specification PDF"
+        >
+          <ArrowDownTrayIcon style={{ width: 14, height: 14 }} /> Download Formula PDF
+        </a>
+      </div>
+
+      {/* Spotlight Cards Grid */}
+      <div className={styles.topSpotlightGrid} style={{ marginTop: '16px' }}>
+        {topPerformer && (
+          <div className={`${styles.spotlightCard} ${topPerformer.is100PercentQualified ? styles.spotlightCardWinner : ''}`}>
+            <div className={styles.spotlightHeader}>
+              <span className={isManager ? styles.deptManagerBadge : `${styles.rankBadgeSpotlight} ${styles.rank1}`}>
+                {isManager ? (
+                  <><BuildingOffice2Icon style={{ width: 16, height: 16, color: '#2563eb', display: 'inline', marginRight: 4 }} /> {topPerformer.departmentName} ({topPerformer.departmentCode || 'DEPT'})</>
+                ) : (
+                  <><TrophyIcon className="w-4 h-4 text-amber-600" /> #1 Top Performing Department</>
+                )}
+              </span>
+              {topPerformer.is100PercentQualified ? (
+                <span className={`${styles.complianceCheckPill} ${styles.pillFlawless}`}>
+                  <TrophyIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3 }} /> 100% SLA Qualified
+                </span>
+              ) : (
+                <span className={`${styles.complianceCheckPill} ${styles.pillCapped}`}>
+                  <ExclamationTriangleIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3 }} /> Capped: {topPerformer.performanceReasons?.[0] || 'Pending backlog'}
+                </span>
+              )}
+            </div>
+
+            <div className={styles.spotlightNameRow}>
+              <div>
+                <h4 className={styles.spotlightTitle}>
+                  {topPerformer.departmentName}
+                </h4>
+                <div className={styles.spotlightMeta}>
+                  Head: <strong>{topPerformer.headName}</strong> - {isManager ? 'Department Scope' : (topPerformer.departmentCode || 'DEPT')}
+                </div>
+              </div>
+              <div className={`${styles.spotlightScore} ${topPerformer.is100PercentQualified ? styles.scoreQualified : styles.scoreStandard}`}>
+                {topPerformer.performanceScore ?? topPerformer.resolutionRate}<span className={styles.scoreUnit}>%</span>
+              </div>
+            </div>
+
+            <div className={styles.spotlightMetricsGrid}>
+              <div className={styles.spotlightMetricItem}>
+                <span className={styles.spotlightMetricVal}>{topPerformer.resolvedTickets}/{topPerformer.totalTickets}</span>
+                <span className={styles.spotlightMetricLbl}>Routed Solved ({topPerformer.resolutionRate}%)</span>
+              </div>
+              <div className={styles.spotlightMetricItem}>
+                <span className={`${styles.spotlightMetricVal} ${styles.metricValSuccess}`}>
+                  {topPerformer.earlyResolvedTickets ?? 0} Early <span className={styles.metricValSub}>- {topPerformer.onTimeResolvedTickets ?? 0} On-Time</span>
+                </span>
+                <span className={styles.spotlightMetricLbl}>SLA Delivery</span>
+              </div>
+              <div className={styles.spotlightMetricItem}>
+                <span className={`${styles.spotlightMetricVal} ${topPerformer.slaComplianceRate >= 80 ? styles.metricValSuccess : styles.metricValDanger}`}>
+                  {topPerformer.slaComplianceRate}%
+                </span>
+                <span className={styles.spotlightMetricLbl}>
+                  {topPerformer.lateResolvedTickets ? `${topPerformer.lateResolvedTickets} Late Breached` : 'Zero Late'}
+                </span>
+              </div>
+              <div className={styles.spotlightMetricItem}>
+                <span className={`${styles.spotlightMetricVal} ${topPerformer.overdueTickets > 0 ? styles.metricValDanger : styles.metricValSuccess}`}>
+                  {topPerformer.overdueTickets > 0 ? `${topPerformer.overdueTickets} Overdue` : 'Zero Overdue'}
+                </span>
+                <span className={styles.spotlightMetricLbl}>Active Backlog: {topPerformer.openTickets + topPerformer.inProgressTickets}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {runnerUps.map((dept, idx) => {
+          const rankNum = idx + 2;
+          const rankClass = rankNum === 2 ? styles.rank2 : styles.rank3;
+          return (
+            <div key={dept.departmentId} className={styles.spotlightCard}>
+              <div className={styles.spotlightHeader}>
+                <span className={`${styles.rankBadgeSpotlight} ${rankClass}`}>
+                  #{rankNum} Department
+                </span>
+                {dept.is100PercentQualified ? (
+                  <span className={`${styles.complianceCheckPill} ${styles.pillFlawless}`}>
+                    <TrophyIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3, verticalAlign: 'middle' }} /> 100% SLA Qualified
+                  </span>
+                ) : (
+                  <span className={`${styles.complianceCheckPill} ${styles.pillCapped}`}>
+                    Score: {dept.performanceScore ?? dept.resolutionRate}%
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.spotlightNameRow}>
+                <div>
+                  <h4 className={styles.spotlightTitle} style={{ fontSize: '1.1rem' }}>
+                    {dept.departmentName}
+                  </h4>
+                  <div className={styles.spotlightMeta} style={{ fontSize: '0.78rem' }}>
+                    Head: <strong>{dept.headName}</strong>
+                  </div>
+                </div>
+                <div className={`${styles.spotlightScore} ${styles.scoreRunnerUp}`} style={{ fontSize: '1.6rem' }}>
+                  {dept.performanceScore ?? dept.resolutionRate}<span className={styles.scoreUnit}>%</span>
+                </div>
+              </div>
+
+              <div className={styles.spotlightMetricsGrid}>
+                <div className={styles.spotlightMetricItem}>
+                  <span className={styles.spotlightMetricVal}>{dept.resolvedTickets}/{dept.totalTickets}</span>
+                  <span className={styles.spotlightMetricLbl}>Routed ({dept.resolutionRate}%)</span>
+                </div>
+                <div className={styles.spotlightMetricItem}>
+                  <span className={`${styles.spotlightMetricVal} ${styles.metricValSuccess}`}>
+                    {dept.earlyResolvedTickets ?? 0} Early
+                  </span>
+                  <span className={styles.spotlightMetricLbl}>
+                    {dept.lateResolvedTickets ? `${dept.lateResolvedTickets} Late` : `${dept.onTimeResolvedTickets ?? 0} On-Time`}
+                  </span>
+                </div>
+                <div className={styles.spotlightMetricItem}>
+                  <span className={`${styles.spotlightMetricVal} ${dept.slaComplianceRate >= 80 ? styles.metricValSuccess : styles.metricValWarning}`}>
+                    {dept.slaComplianceRate}%
+                  </span>
+                  <span className={styles.spotlightMetricLbl}>SLA Met</span>
+                </div>
+                <div className={styles.spotlightMetricItem}>
+                  <span className={`${styles.spotlightMetricVal} ${dept.overdueTickets > 0 ? styles.metricValDanger : styles.metricValSuccess}`}>
+                    {dept.overdueTickets > 0 ? `${dept.overdueTickets} Overdue` : '0 Overdue'}
+                  </span>
+                  <span className={styles.spotlightMetricLbl}>Backlog: {dept.openTickets + dept.inProgressTickets}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ── Horizontal Ranked Category Bar Chart Component ───────────────────────────
+// -- 1. Department Problem-Solving Efficiency Component ----------------------------------
+function DepartmentEfficiencyChart({
+  departments,
+  isManager = false,
+}: {
+  departments: AdminAnalyticsData['departmentAnalytics'];
+  isManager?: boolean;
+}) {
+  const [sortBy, setSortBy] = useState<'score' | 'early' | 'rate_desc' | 'rate_asc' | 'time' | 'name'>('score');
+
+  // Key KPI summary
+  const totalRelated = useMemo(() => departments.reduce((acc, d) => acc + d.totalTickets, 0), [departments]);
+  const totalResolved = useMemo(() => departments.reduce((acc, d) => acc + d.resolvedTickets, 0), [departments]);
+  const overallRate = totalRelated > 0 ? Number(((totalResolved / totalRelated) * 100).toFixed(1)) : 0;
+
+  const activeDepts = useMemo(() => departments.filter((d) => d.totalTickets > 0), [departments]);
+
+  const topPerformer = useMemo(() => {
+    if (!activeDepts.length) return null;
+    return [...activeDepts].sort((a, b) => (b.performanceScore ?? b.resolutionRate) - (a.performanceScore ?? a.resolutionRate) || b.resolvedTickets - a.resolvedTickets)[0];
+  }, [activeDepts]);
+
+  const fastestDept = useMemo(() => {
+    const list = departments.filter((d) => d.totalTickets > 0 && d.avgResolutionHours > 0);
+    if (!list.length) return null;
+    return [...list].sort((a, b) => a.avgResolutionHours - b.avgResolutionHours)[0];
+  }, [departments]);
+
+  const eliteCount = useMemo(() => departments.filter((d) => d.totalTickets > 0 && d.resolutionRate >= 80).length, [departments]);
+
+  // Sorted department list
+  const sortedDepts = useMemo(() => {
+    const list = [...departments];
+    if (sortBy === 'score') return list.sort((a, b) => (b.performanceScore ?? b.resolutionRate) - (a.performanceScore ?? a.resolutionRate) || b.resolvedTickets - a.resolvedTickets);
+    if (sortBy === 'early') return list.sort((a, b) => (b.earlyResolvedTickets ?? 0) - (a.earlyResolvedTickets ?? 0) || b.resolvedTickets - a.resolvedTickets);
+    if (sortBy === 'rate_desc') return list.sort((a, b) => b.resolutionRate - a.resolutionRate || b.resolvedTickets - a.resolvedTickets);
+    if (sortBy === 'rate_asc') return list.sort((a, b) => a.resolutionRate - b.resolutionRate || a.resolvedTickets - b.resolvedTickets);
+    if (sortBy === 'time') return list.sort((a, b) => a.avgResolutionHours - b.avgResolutionHours);
+    if (sortBy === 'name') return list.sort((a, b) => a.departmentName.localeCompare(b.departmentName));
+    return list;
+  }, [departments, sortBy]);
+
+  return (
+    <div className={styles.deptSectionCard}>
+      {/* Header */}
+      <div className={styles.deptSectionHeader}>
+        <div>
+          <h3 className={styles.deptSectionTitle}>
+            <TrophyIcon style={{ width: 22, height: 22, color: '#f59e0b', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Department Problem-Solving & SLA Delivery Performance
+          </h3>
+          <div className={styles.deptSectionSubtitle}>
+            {isManager && departments[0]
+              ? `Strict performance evaluation of tickets routed to ${departments[0].departmentName}, measuring Early, On-Time, and Late SLA resolutions`
+              : 'Strict performance evaluation of tickets routed to each department, measuring Early, On-Time, and Late SLA resolutions'}
+          </div>
+        </div>
+
+        {/* Sort Controls (hidden for single department manager) */}
+        {(!isManager || departments.length > 1) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color, #cbd5e1)',
+                background: 'var(--bg-surface, #f8fafc)',
+                color: 'var(--text-primary, #0f172a)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="score">Highest Performance Score (Strict SLA)</option>
+              <option value="early">Most Early Resolutions (Ahead of SLA)</option>
+              <option value="rate_desc">Highest Solving Efficiency (%)</option>
+              <option value="rate_asc">Lowest Solving Efficiency (%)</option>
+              <option value="time">Fastest Turnaround Speed</option>
+              <option value="name">Department Name (A-Z)</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* KPI Highlight Strip */}
+      <div className={styles.deptKpiGrid}>
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <TrophyIcon style={{ width: 16, height: 16, color: '#f59e0b', display: 'inline', marginRight: 4 }} /> {isManager ? 'Department Score' : 'Top-Performing Team'}
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#15803d' }}>
+            {isManager && departments[0]
+              ? (departments[0].is100PercentQualified ? '100%' : `${departments[0].performanceScore ?? departments[0].resolutionRate}%`)
+              : (topPerformer ? `${topPerformer.performanceScore ?? topPerformer.resolutionRate}%` : 'N/A')}
+          </div>
+          <div className={styles.deptKpiSub}>
+            {isManager && departments[0]
+              ? (departments[0].is100PercentQualified ? '100% SLA Qualified' : (departments[0].performanceReasons?.[0] || 'Strict SLA evaluation'))
+              : (topPerformer ? `${topPerformer.departmentName} (${topPerformer.resolvedTickets}/${topPerformer.totalTickets} solved)` : 'No active records')}
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <ChartBarIcon style={{ width: 16, height: 16, color: '#10b981', display: 'inline', marginRight: 4 }} /> {isManager ? 'Solving Efficiency' : 'Overall Solving Rate'}
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#2563eb' }}>
+            {overallRate}%
+          </div>
+          <div className={styles.deptKpiSub}>
+            {totalResolved} of {totalRelated} total routed problems solved
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <BoltIcon style={{ width: 16, height: 16, color: '#3b82f6', display: 'inline', marginRight: 4 }} /> {isManager ? 'Average Turnaround' : 'Fastest Turnaround'}
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#0284c7' }}>
+            {isManager && departments[0]
+              ? `${departments[0].avgResolutionHours}h`
+              : (fastestDept ? `${fastestDept.avgResolutionHours}h` : '0h')}
+          </div>
+          <div className={styles.deptKpiSub}>
+            {isManager && departments[0]
+              ? `${departments[0].departmentName} resolution speed`
+              : (fastestDept ? `${fastestDept.departmentName} avg turnaround` : 'No data')}
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            {isManager ? (
+              <><ShieldCheckIcon style={{ width: 16, height: 16, color: '#10b981', display: 'inline', marginRight: 4 }} /> SLA Compliance</>
+            ) : (
+              <><CheckCircleIcon style={{ width: 16, height: 16, color: '#10b981', display: 'inline', marginRight: 4 }} /> Elite Departments</>
+            )}
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#7c3aed' }}>
+            {isManager && departments[0] ? (
+              `${departments[0].slaComplianceRate}%`
+            ) : (
+              <>{eliteCount} <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>/ {activeDepts.length} active</span></>
+            )}
+          </div>
+          <div className={styles.deptKpiSub}>
+            {isManager ? 'Tickets met before deadline target' : 'Teams achieving 80% or higher resolution efficiency'}
+          </div>
+        </div>
+      </div>
+
+      {/* Structured Department Cards with Dedicated Zones (Zero Overflow) */}
+      <div className={styles.deptRowList}>
+        {!sortedDepts.length ? (
+          <p className={styles.emptyState}>No department problem resolution records found</p>
+        ) : (
+          sortedDepts.map((dept) => {
+            const isNoActivity = dept.totalTickets === 0;
+            const isElite = !isNoActivity && dept.resolutionRate >= 80;
+            const isHigh = !isNoActivity && dept.resolutionRate >= 65 && dept.resolutionRate < 80;
+            const isModerate = !isNoActivity && dept.resolutionRate >= 50 && dept.resolutionRate < 65;
+
+            const badgeColor =
+              isNoActivity ? '#64748b' :
+              isElite ? '#15803d' :
+              isHigh ? '#1d4ed8' :
+              isModerate ? '#b45309' :
+              '#b91c1c';
+
+            const barGradient =
+              isNoActivity ? '#e2e8f0' :
+              isElite ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)' :
+              isHigh ? 'linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%)' :
+              isModerate ? 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)' :
+              'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+
+            return (
+              <div key={dept.departmentId} className={styles.deptCardContainer}>
+                {/* -- Zone 1: Card Header (Identity on left, clean badges on right) -- */}
+                <div className={styles.deptCardHeader}>
+                  <div className={styles.deptCardIdentity}>
+                    <div className={styles.deptCardIconBox}>
+                      <BuildingOffice2Icon style={{ width: 20, height: 20, color: isNoActivity ? '#94a3b8' : '#2563eb' }} />
+                    </div>
+                    <div>
+                      <h4 className={styles.deptCardName}>{dept.departmentName}</h4>
+                      <div className={styles.deptCardSub}>
+                        {dept.departmentCode ? <span className={styles.deptCodeTag}>{dept.departmentCode}</span> : null}
+                        <span>Head: <strong>{dept.headName}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.deptCardHeaderBadges}>
+                    {isNoActivity ? (
+                      <span className={`${styles.tierBadge} ${styles.tierIdle}`}><span className={styles.tierDot} style={{ background: '#94a3b8' }} /> Inactive</span>
+                    ) : dept.is100PercentQualified ? (
+                      <span className={`${styles.tierBadge} ${styles.tierElite}`}><TrophyIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3 }} /> 100% SLA Qualified</span>
+                    ) : isElite ? (
+                      <span className={`${styles.tierBadge} ${styles.tierElite}`}><span className={styles.tierDot} style={{ background: '#10b981' }} /> Elite</span>
+                    ) : isHigh ? (
+                      <span className={`${styles.tierBadge} ${styles.tierGood}`}><span className={styles.tierDot} style={{ background: '#3b82f6' }} /> High</span>
+                    ) : isModerate ? (
+                      <span className={`${styles.tierBadge} ${styles.tierModerate}`}><span className={styles.tierDot} style={{ background: '#f59e0b' }} /> Moderate</span>
+                    ) : (
+                      <span className={`${styles.tierBadge} ${styles.tierWarn}`}><span className={styles.tierDot} style={{ background: '#ef4444' }} /> Needs Attention</span>
+                    )}
+
+                    {!isNoActivity ? (
+                      <span className={styles.deptScorePill}>
+                        <BoltIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3 }} /> Score: <strong>{dept.performanceScore ?? dept.resolutionRate}%</strong>
+                      </span>
+                    ) : (
+                      <span className={styles.deptScorePillMuted}>Score: N/A</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* -- Zone 2: Progress & Solving Rate (Dedicated Full-Width Strip) -- */}
+                <div className={styles.deptProgressSection}>
+                  <div className={styles.deptProgressMeta}>
+                    <div className={styles.deptProgressStats}>
+                      <span className={styles.deptSolvedCount}>
+                        <strong>{dept.resolvedTickets}</strong> of <strong>{dept.totalTickets}</strong> routed tickets resolved
+                      </span>
+                      {dept.openTickets + dept.inProgressTickets > 0 ? (
+                        <span className={styles.deptBacklogTag}>
+                          <ClockIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3, verticalAlign: 'text-bottom' }} /> {dept.openTickets + dept.inProgressTickets} in backlog ({dept.overdueTickets > 0 ? `${dept.overdueTickets} overdue` : '0 overdue'})
+                        </span>
+                      ) : dept.totalTickets > 0 ? (
+                        <span className={styles.deptBacklogClean}><CheckCircleIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3, verticalAlign: 'text-bottom' }} /> Backlog fully cleared</span>
+                      ) : null}
+                      {dept.totalTickets > 0 && (
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: dept.slaComplianceRate >= 80 ? '#15803d' : '#b45309' }}>
+                          <ShieldCheckIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3, verticalAlign: 'text-bottom' }} /> SLA: {dept.slaComplianceRate}% - {dept.avgResolutionHours}h turnaround
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.deptRateDisplay} style={{ color: badgeColor }}>
+                      {dept.totalTickets > 0 ? `${dept.resolutionRate}%` : '0%'}
+                      <span className={styles.deptRateUnit}>Resolution Rate</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.deptProgressBarTrack}>
+                    <div
+                      className={styles.deptProgressBarFill}
+                      style={{
+                        width: `${Math.min(Math.max(dept.resolutionRate, 0), 100)}%`,
+                        background: barGradient,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* -- Zone 3: Detailed SLA Timing Grid (4 Equal-width clean boxes) -- */}
+                <div className={styles.deptBreakdownGrid}>
+                  {/* Box 1: Routed Workload */}
+                  <div className={styles.breakdownBox}>
+                    <div className={styles.breakdownBoxHeader}>
+                      <span className={styles.breakdownIcon}><InboxArrowDownIcon style={{ width: 15, height: 15, color: '#2563eb' }} /></span>
+                      <span className={styles.breakdownBoxTitle}>Routed Workload</span>
+                    </div>
+                    <div className={styles.breakdownBoxValue}>
+                      {dept.resolvedTickets} / {dept.totalTickets}
+                    </div>
+                    <div className={styles.breakdownBoxSub}>
+                      {dept.totalTickets > 0 ? `${dept.resolutionRate}% solved (${dept.openTickets + dept.inProgressTickets} in backlog)` : '0 tickets routed'}
+                    </div>
+                  </div>
+
+                  {/* Box 2: Solved Early */}
+                  <div className={styles.breakdownBox}>
+                    <div className={styles.breakdownBoxHeader}>
+                      <span className={styles.breakdownIcon}><ArrowUpTrayIcon style={{ width: 15, height: 15, color: '#6366f1' }} /></span>
+                      <span className={styles.breakdownBoxTitle}>Solved Early</span>
+                    </div>
+                    <div className={styles.breakdownBoxValue} style={{ color: (dept.earlyResolvedTickets ?? 0) > 0 ? '#15803d' : 'inherit' }}>
+                      {dept.earlyResolvedTickets ?? 0}
+                    </div>
+                    <div className={styles.breakdownBoxSub}>
+                      {(dept.earlyResolvedTickets ?? 0) > 0 ? `${dept.earlyResolutionRate}% ahead of SLA schedule` : '0 early resolutions'}
+                    </div>
+                  </div>
+
+                  {/* Box 3: Solved On-Time */}
+                  <div className={styles.breakdownBox}>
+                    <div className={styles.breakdownBoxHeader}>
+                      <span className={styles.breakdownIcon}><ClockIcon style={{ width: 15, height: 15, color: '#f59e0b' }} /></span>
+                      <span className={styles.breakdownBoxTitle}>Solved On-Time</span>
+                    </div>
+                    <div className={styles.breakdownBoxValue} style={{ color: (dept.onTimeResolvedTickets ?? 0) > 0 ? '#2563eb' : 'inherit' }}>
+                      {dept.onTimeResolvedTickets ?? 0}
+                    </div>
+                    <div className={styles.breakdownBoxSub}>
+                      {(dept.onTimeResolvedTickets ?? 0) > 0 ? `${dept.onTimeResolutionRate}% met deadline window` : '0 standard on-time'}
+                    </div>
+                  </div>
+
+                  {/* Box 4: Solved Late / Overdue */}
+                  <div className={styles.breakdownBox}>
+                    <div className={styles.breakdownBoxHeader}>
+                      <span className={styles.breakdownIcon}><ShieldCheckIcon style={{ width: 15, height: 15, color: dept.overdueTickets > 0 ? '#ef4444' : '#10b981' }} /></span>
+                      <span className={styles.breakdownBoxTitle}>Solved Late / Overdue</span>
+                    </div>
+                    <div
+                      className={styles.breakdownBoxValue}
+                      style={{ color: ((dept.lateResolvedTickets ?? 0) > 0 || dept.overdueTickets > 0) ? '#dc2626' : '#15803d' }}
+                    >
+                      {(dept.lateResolvedTickets ?? 0) + dept.overdueTickets}
+                    </div>
+                    <div className={styles.breakdownBoxSub}>
+                      {dept.lateResolvedTickets ? `${dept.lateResolvedTickets} solved late` : '0 late'} - {dept.overdueTickets > 0 ? `${dept.overdueTickets} overdue` : '0 overdue'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* -- Zone 4: Contextual Performance Note & SLA Governance -- */}
+                {isNoActivity ? (
+                  <div className={styles.deptNoticeNeutral}>
+                    <span className={styles.tierDot} style={{ background: '#94a3b8' }} /> No tickets routed to this department in the selected period.
+                  </div>
+                ) : dept.is100PercentQualified ? (
+                  <div className={styles.deptNoticeSuccess}>
+                    <CheckCircleIcon style={{ width: 16, height: 16, color: '#10b981', flexShrink: 0 }} /> 100% SLA Qualified: All {dept.totalTickets} routed tickets solved on-time/early with zero overdue, zero late resolutions, and backlog fully cleared.
+                  </div>
+                ) : dept.performanceReasons?.length ? (
+                  <div className={styles.deptNoticeWarning}>
+                    <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#d97706', flexShrink: 0 }} /> Performance Limitations: {dept.performanceReasons.join(' - ')}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -- 2. Department Solved Tickets vs Total Workload Volume Component ----------------------
+function DepartmentSolvedVolumeChart({
+  departments,
+  isManager = false,
+}: {
+  departments: AdminAnalyticsData['departmentAnalytics'];
+  isManager?: boolean;
+}) {
+  const [sortBy, setSortBy] = useState<'solved' | 'total' | 'backlog'>('solved');
+
+  // Summary Metrics
+  const totalSolved = useMemo(() => departments.reduce((acc, d) => acc + d.resolvedTickets, 0), [departments]);
+  const totalWorkload = useMemo(() => departments.reduce((acc, d) => acc + d.totalTickets, 0), [departments]);
+  const totalActiveBacklog = useMemo(() => departments.reduce((acc, d) => acc + (d.openTickets + d.inProgressTickets), 0), [departments]);
+  const totalOverdue = useMemo(() => departments.reduce((acc, d) => acc + d.overdueTickets, 0), [departments]);
+
+  // Max workload across all departments for proportional meter scaling
+  const maxVolume = useMemo(() => {
+    if (!departments.length) return 10;
+    const maxVal = Math.max(...departments.map((d) => d.totalTickets));
+    return Math.max(maxVal, 5);
+  }, [departments]);
+
+  // Sorted list
+  const sortedDepts = useMemo(() => {
+    const list = [...departments];
+    if (sortBy === 'solved') return list.sort((a, b) => b.resolvedTickets - a.resolvedTickets || b.totalTickets - a.totalTickets);
+    if (sortBy === 'total') return list.sort((a, b) => b.totalTickets - a.totalTickets);
+    if (sortBy === 'backlog') return list.sort((a, b) => (b.openTickets + b.inProgressTickets) - (a.openTickets + a.inProgressTickets));
+    return list;
+  }, [departments, sortBy]);
+
+  return (
+    <div className={styles.deptSectionCard}>
+      {/* Header */}
+      <div className={styles.deptSectionHeader}>
+        <div>
+          <h3 className={styles.deptSectionTitle}>
+            <ChartBarIcon style={{ width: 20, height: 20, color: '#2563eb', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> Department Solved Tickets vs. Total Workload
+          </h3>
+          <div className={styles.deptSectionSubtitle}>
+            {isManager && departments[0]
+              ? `Volume of tickets routed to ${departments[0].departmentName}, categorized by Early, On-Time, and Late SLA delivery`
+              : 'Volume of tickets routed to each department, categorized by Early, On-Time, and Late SLA delivery'}
+          </div>
+        </div>
+
+        {/* Sort Controls (hidden for single department manager) */}
+        {(!isManager || departments.length > 1) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>Sort by:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '5px 10px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color, #cbd5e1)',
+                background: 'var(--bg-surface, #f8fafc)',
+                color: 'var(--text-primary, #0f172a)',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="solved">Most Solved Tickets</option>
+              <option value="total">Highest Routed Workload</option>
+              <option value="backlog">Largest Active Backlog</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* KPI Ribbon */}
+      <div className={styles.deptKpiGrid}>
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <CheckCircleIcon style={{ width: 16, height: 16, color: '#16a34a', display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Total Solved Tickets
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#16a34a' }}>
+            {totalSolved}
+          </div>
+          <div className={styles.deptKpiSub}>
+            Tickets fully resolved or closed by departments
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <InboxArrowDownIcon style={{ width: 16, height: 16, color: '#4338ca', display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Total Routed Workload
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#4338ca' }}>
+            {totalWorkload}
+          </div>
+          <div className={styles.deptKpiSub}>
+            All tickets routed directly to departments
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <ClockIcon style={{ width: 16, height: 16, color: '#ea580c', display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Active Workload Backlog
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: '#ea580c' }}>
+            {totalActiveBacklog}
+          </div>
+          <div className={styles.deptKpiSub}>
+            Tickets currently open, pending, or in progress
+          </div>
+        </div>
+
+        <div className={styles.deptKpiCard}>
+          <div className={styles.deptKpiLabel}>
+            <ExclamationTriangleIcon style={{ width: 16, height: 16, color: '#dc2626', display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> Overdue Issues
+          </div>
+          <div className={styles.deptKpiValue} style={{ color: totalOverdue > 0 ? '#dc2626' : '#64748b' }}>
+            {totalOverdue}
+          </div>
+          <div className={styles.deptKpiSub}>
+            Tickets exceeding SLA due dates
+          </div>
+        </div>
+      </div>
+
+      {/* SLA Delivery Legend */}
+      <div className={styles.volumeLegendStrip}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--analytics-trend-pos-color, #15803d)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#10b981' }} /> Solved Early (Ahead of SLA)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--analytics-badge-color, #1d4ed8)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#3b82f6' }} /> Solved On-Time
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#b45309' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#f59e0b' }} /> Solved Late (SLA Breached)
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--analytics-trend-neg-color, #b91c1c)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '2px', background: '#ef4444' }} /> Overdue Backlog
+        </span>
+      </div>
+
+      {/* Comparative Dual Volume Rows (Never Overlaps) */}
+      <div className={styles.deptRowList}>
+        {!sortedDepts.length ? (
+          <p className={styles.emptyState}>No workload records recorded</p>
+        ) : (
+          sortedDepts.map((dept) => {
+            const activeBacklog = dept.openTickets + dept.inProgressTickets;
+            const earlyWidth = maxVolume > 0 ? ((dept.earlyResolvedTickets ?? 0) / maxVolume) * 100 : 0;
+            const onTimeWidth = maxVolume > 0 ? ((dept.onTimeResolvedTickets ?? 0) / maxVolume) * 100 : 0;
+            const lateWidth = maxVolume > 0 ? ((dept.lateResolvedTickets ?? 0) / maxVolume) * 100 : 0;
+            const totalPctOfMax = maxVolume > 0 ? (dept.totalTickets / maxVolume) * 100 : 0;
+
+            return (
+              <div key={dept.departmentId} className={styles.deptEfficiencyRow}>
+                {/* Row Header */}
+                <div className={styles.deptRowHeader}>
+                  <div className={styles.deptRowNameGroup}>
+                    <BuildingOffice2Icon style={{ width: 22, height: 22, color: '#2563eb', flexShrink: 0 }} />
+                    <div>
+                      <div className={styles.deptRowName}>{dept.departmentName}</div>
+                      <div className={styles.deptRowMeta}>
+                        Head: {dept.headName} - Code: {dept.departmentCode || 'DEPT'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.deptRowMetrics}>
+                    {dept.totalTickets === 0 ? (
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          border: '1px solid #cbd5e1',
+                        }}
+                      >
+                        <span className={styles.tierDot} style={{ background: '#94a3b8' }} /> Inactive (No Workload)
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: activeBacklog > 0 ? '#fff7ed' : '#f1f5f9',
+                          color: activeBacklog > 0 ? '#c2410c' : '#64748b',
+                          border: '1px solid',
+                          borderColor: activeBacklog > 0 ? '#ffedd5' : '#e2e8f0',
+                        }}
+                      >
+                        {activeBacklog} Active Backlog ({dept.openTickets} open, {dept.inProgressTickets} in progress)
+                      </span>
+                    )}
+
+                    {dept.overdueTickets > 0 && (
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: '#fee2e2',
+                          color: '#b91c1c',
+                          border: '1px solid #fca5a5',
+                        }}
+                      >
+                        <ExclamationTriangleIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3, verticalAlign: 'middle' }} /> {dept.overdueTickets} Overdue
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dual Horizontal Volume Comparison Bars */}
+                <div className={styles.volumeBarsContainer}>
+                  {/* Bar 1: Stacked SLA Resolved Problems */}
+                  <div className={styles.volumeBarRow}>
+                    <span className={styles.volumeBarLabel} style={{ color: '#16a34a' }}>
+                      Solved Delivery
+                    </span>
+                    <div className={styles.volumeBarMeter} style={{ display: 'flex', overflow: 'hidden', background: '#f1f5f9' }}>
+                      {earlyWidth > 0 && (
+                        <div
+                          style={{
+                            width: `${earlyWidth}%`,
+                            height: '100%',
+                            background: '#10b981',
+                            transition: 'width 0.4s ease',
+                          }}
+                          title={`${dept.earlyResolvedTickets} Solved Early (Ahead of SLA)`}
+                        />
+                      )}
+                      {onTimeWidth > 0 && (
+                        <div
+                          style={{
+                            width: `${onTimeWidth}%`,
+                            height: '100%',
+                            background: '#3b82f6',
+                            transition: 'width 0.4s ease',
+                          }}
+                          title={`${dept.onTimeResolvedTickets} Solved On-Time`}
+                        />
+                      )}
+                      {lateWidth > 0 && (
+                        <div
+                          style={{
+                            width: `${lateWidth}%`,
+                            height: '100%',
+                            background: '#f59e0b',
+                            transition: 'width 0.4s ease',
+                          }}
+                          title={`${dept.lateResolvedTickets} Solved Late (SLA Breached)`}
+                        />
+                      )}
+                    </div>
+                    <span className={styles.volumeBarCount} style={{ color: '#15803d' }}>
+                      {dept.resolvedTickets} Solved ({dept.earlyResolvedTickets ?? 0} early, {dept.onTimeResolvedTickets ?? 0} on-time, {dept.lateResolvedTickets ?? 0} late)
+                    </span>
+                  </div>
+
+                  {/* Bar 2: Total Workload */}
+                  <div className={styles.volumeBarRow}>
+                    <span className={styles.volumeBarLabel} style={{ color: '#4338ca' }}>
+                      Routed Workload
+                    </span>
+                    <div className={styles.volumeBarMeter}>
+                      <div
+                        style={{
+                          width: `${Math.min(Math.max(totalPctOfMax, 0), 100)}%`,
+                          height: '100%',
+                          borderRadius: '999px',
+                          background: 'linear-gradient(90deg, #6366f1 0%, #4338ca 100%)',
+                          transition: 'width 0.4s ease',
+                        }}
+                      />
+                    </div>
+                    <span className={styles.volumeBarCount} style={{ color: '#3730a3' }}>
+                      {dept.totalTickets} Routed ({activeBacklog} pending)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Source volume breakdown */}
+                <div className={styles.deptSubBreakdown}>
+                  <span className={styles.deptSubPill}>
+                    <strong>Routed to Department:</strong> {dept.assignedTickets ?? dept.totalTickets} tickets
+                  </span>
+                  <span className={styles.deptSubPill}>
+                    <strong>Created by Department Staff:</strong> {dept.createdByTickets ?? 0} tickets
+                  </span>
+                  <span className={styles.deptSubPill}>
+                    <strong>Overall Resolution Rate:</strong> {dept.resolutionRate}%
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CategoryRankedBarChart({
   categories,
+  deptName,
 }: {
   categories: AdminAnalyticsData['categoryBreakdown'];
+  deptName?: string;
 }) {
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
 
@@ -1081,10 +1874,10 @@ function CategoryRankedBarChart({
       <div className={styles.cardHeader}>
         <div>
           <h3 className={styles.cardTitle}>
-            <span>🏷️</span> Category Issue Volume (Ranked Multi-Color Bars)
+            <TagIcon style={{ width: 18, height: 18, color: '#3b82f6', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} /> {deptName ? `Category Issue Volume (${deptName})` : 'Category Issue Volume (Ranked Multi-Color Bars)'}
           </h3>
           <div className={styles.cardSubtitle}>
-            Top issue categories ranked with progressive rainbow gradient fills
+            {deptName ? `Tickets routed to ${deptName} completed within each category` : 'Top issue categories ranked with progressive rainbow gradient fills'}
           </div>
         </div>
         <span className={styles.badgePill}>{categories.length} Categories</span>
@@ -1112,11 +1905,11 @@ function CategoryRankedBarChart({
                       className={styles.hBarDot}
                       style={{ background: PALETTE[i % PALETTE.length] }}
                     />
-                    <span>{cat.categoryName}</span>
+                    <span style={{ fontWeight: 700 }}>{cat.categoryName}</span>
                   </div>
                   <div className={styles.hBarStats}>
                     <span className={styles.hBarCount}>{cat.count} tickets</span>
-                    <span className={styles.hBarPct}>({cat.resolved} resolved)</span>
+                    <span className={styles.hBarPct}>({cat.resolved} solved - {cat.resolutionRate ?? (cat.count > 0 ? Math.round((cat.resolved / cat.count) * 100) : 0)}%)</span>
                   </div>
                 </div>
 
@@ -1129,6 +1922,34 @@ function CategoryRankedBarChart({
                       filter: isHovered ? 'brightness(1.15)' : 'none',
                     }}
                   />
+                </div>
+
+                <div className={styles.categoryMetricsRow}>
+                  <span className={styles.catMetricTag}>
+                    <ShieldCheckIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} /> SLA: {cat.slaComplianceRate ?? 100}%
+                  </span>
+                  {cat.overdue !== undefined && cat.overdue > 0 && (
+                    <span className={styles.catMetricTag} style={{ background: '#fee2e2', color: '#b91c1c' }}>
+                      <ExclamationTriangleIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} /> {cat.overdue} Overdue
+                    </span>
+                  )}
+                  {cat.avgHours !== undefined && cat.avgHours > 0 && (
+                    <span className={styles.catMetricTag}>
+                      <ClockIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} /> {cat.avgHours}h Turnaround
+                    </span>
+                  )}
+                  {cat.performanceScore !== undefined && (
+                    <span
+                      className={styles.catMetricTag}
+                      style={{
+                        background: cat.is100PercentQualified ? '#dcfce7' : '#eff6ff',
+                        color: cat.is100PercentQualified ? '#15803d' : '#1d4ed8',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {cat.is100PercentQualified ? '100% SLA Qualified' : `Perf: ${cat.performanceScore}%`}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -1144,16 +1965,19 @@ export interface ProfessionalAnalyticsProps {
   description?: string;
   badgeText?: string;
   isCeoView?: boolean;
+  isManagerView?: boolean;
 }
 
-// ── Main Admin / Executive Analytics Page ───────────────────────────────────
+// ---- Main Admin / Executive Analytics Page ----------------------------------------------------------------------
 export default function AdminAnalytics({
-  title = 'Ticket Analytics & Intelligence',
-  description = 'Interactive multi-color bar charts, pie/donut charts, monthly trends, and department workloads.',
+  title,
+  description,
   badgeText,
   isCeoView = false,
+  isManagerView = false,
 }: ProfessionalAnalyticsProps = {}) {
   const { user } = useAuth();
+  const isManager = isManagerView || user?.role === 'manager';
   const [timeframe, setTimeframe] = useState<string>('6m');
   const [departmentId, setDepartmentId] = useState<string>('all');
   const [data, setData] = useState<AdminAnalyticsData | null>(null);
@@ -1161,12 +1985,38 @@ export default function AdminAnalytics({
   const [error, setError] = useState<string>('');
   const [trendTab, setTrendTab] = useState<'monthly' | 'weekly' | 'daily'>('monthly');
   const [distributionTab, setDistributionTab] = useState<'priority' | 'department' | 'category'>('priority');
+  const [deptTableSort, setDeptTableSort] = useState<'score' | 'name' | 'assigned' | 'created' | 'total' | 'resolved' | 'rate' | 'sla' | 'time'>('score');
+  const [deptTableSortAsc, setDeptTableSortAsc] = useState<boolean>(false);
+
+  const managerDept = data?.departmentAnalytics?.[0];
+  const pageTitle = title || (isManager && managerDept ? `${managerDept.departmentName} Performance Analytics` : isManager ? 'Department Performance Analytics' : 'Ticket Analytics & Intelligence');
+  const pageDescription = description || (isManager ? 'Department-scoped ticket solving performance, SLA compliance, turnaround speed, and category breakdown.' : 'Interactive multi-color bar charts, pie/donut charts, monthly trends, and department workloads.');
+  const pageBadge = badgeText || (isManager ? (managerDept?.departmentCode ? `${managerDept.departmentCode} Department` : 'Department Head Scope') : undefined);
+
+  const sortedTableDepts = useMemo(() => {
+    if (!data?.departmentAnalytics) return [];
+    const list = [...data.departmentAnalytics];
+    return list.sort((a, b) => {
+      let diff = 0;
+      if (deptTableSort === 'score') diff = (a.performanceScore ?? a.resolutionRate) - (b.performanceScore ?? b.resolutionRate);
+      else if (deptTableSort === 'name') diff = a.departmentName.localeCompare(b.departmentName);
+      else if (deptTableSort === 'assigned') diff = (a.assignedTickets ?? a.totalTickets) - (b.assignedTickets ?? b.totalTickets);
+      else if (deptTableSort === 'created') diff = (a.createdByTickets ?? 0) - (b.createdByTickets ?? 0);
+      else if (deptTableSort === 'total') diff = a.totalTickets - b.totalTickets;
+      else if (deptTableSort === 'resolved') diff = a.resolvedTickets - b.resolvedTickets;
+      else if (deptTableSort === 'rate') diff = a.resolutionRate - b.resolutionRate;
+      else if (deptTableSort === 'sla') diff = a.slaComplianceRate - b.slaComplianceRate;
+      else if (deptTableSort === 'time') diff = a.avgResolutionHours - b.avgResolutionHours;
+      return deptTableSortAsc ? diff : -diff;
+    });
+  }, [data?.departmentAnalytics, deptTableSort, deptTableSortAsc]);
 
   const loadAnalytics = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetchAdminAnalytics({
+      const fetchFn = isManager ? fetchManagerAnalytics : fetchAdminAnalytics;
+      const res = await fetchFn({
         timeframe,
         departmentId: departmentId === 'all' ? undefined : departmentId,
       });
@@ -1190,12 +2040,42 @@ export default function AdminAnalytics({
   // Formatted data items for Pie & Donut Charts
   const statusChartItems = useMemo<ChartSliceItem[]>(() => {
     if (!data?.statusBreakdown) return [];
-    return data.statusBreakdown.map((sb) => ({
-      id: sb.status,
-      label: STATUS_LABELS[sb.status as TicketStatus] || sb.status.replace(/_/g, ' '),
-      value: sb.count,
-      color: STATUS_COLORS[sb.status] || '#64748b',
-    }));
+    const usedColors = new Set<string>();
+
+    return data.statusBreakdown.map((sb, idx) => {
+      // 1. Direct status color lookup
+      let color = STATUS_COLORS[sb.status];
+
+      // 2. Dotted sub-status lookup
+      if (!color && sb.status.startsWith('escalated.')) {
+        const sub = sb.status.replace('escalated.', '');
+        const SUB_COLORS: Record<string, string> = {
+          waiting_tenant: '#ec4899', // Hot Pink
+          assigned: '#8b5cf6',       // Purple / Violet
+          in_progress: '#f97316',    // Bright Orange
+          open: '#f43f5e',           // Rose Red
+          pending: '#ea580c',        // Deep Amber
+          under_review: '#a855f7',   // Deep Purple
+          waiting_vendor: '#6366f1', // Indigo
+        };
+        color = SUB_COLORS[sub];
+      }
+
+      // 3. Fallback or conflict resolution: ensure every slice receives a UNIQUE vibrant color!
+      if (!color || usedColors.has(color)) {
+        const nextAvailable = DISTINCT_PIE_COLORS.find((c) => !usedColors.has(c));
+        color = nextAvailable || DISTINCT_PIE_COLORS[idx % DISTINCT_PIE_COLORS.length];
+      }
+
+      usedColors.add(color);
+
+      return {
+        id: sb.status,
+        label: STATUS_LABELS[sb.status as TicketStatus] || sb.status.replace(/_/g, ' '),
+        value: sb.count,
+        color,
+      };
+    });
   }, [data?.statusBreakdown]);
 
   const priorityChartItems = useMemo<ChartSliceItem[]>(() => {
@@ -1220,12 +2100,14 @@ export default function AdminAnalytics({
 
   const categoryChartItems = useMemo<ChartSliceItem[]>(() => {
     if (!data?.categoryBreakdown) return [];
-    return data.categoryBreakdown.map((c, i) => ({
-      id: c.categoryName,
-      label: c.categoryName,
-      value: c.count,
-      color: PALETTE[(i + 3) % PALETTE.length],
-    }));
+    return data.categoryBreakdown
+      .filter((c) => Number(c.count || 0) > 0)
+      .map((c, i) => ({
+        id: c.categoryName,
+        label: c.categoryName,
+        value: c.count,
+        color: PALETTE[(i + 3) % PALETTE.length],
+      }));
   }, [data?.categoryBreakdown]);
 
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -1235,7 +2117,9 @@ export default function AdminAnalytics({
     setIsExportingExcel(true);
     try {
       const selectedDeptObj = data.departmentAnalytics?.find((d) => d.departmentId === departmentId);
-      const deptName = selectedDeptObj ? selectedDeptObj.departmentName : 'All Departments';
+      const deptName = isManager
+        ? (managerDept?.departmentName || 'Department')
+        : (selectedDeptObj ? selectedDeptObj.departmentName : 'All Departments');
       await exportAnalyticsToExcel(data, timeframe, deptName);
     } catch (err) {
       console.error('[AdminAnalytics] Professional Excel export error:', err);
@@ -1248,85 +2132,70 @@ export default function AdminAnalytics({
     window.print();
   };
 
-  const exportCSV = () => {
-    if (!data) return;
-    const rows = [
-      ['Help Desk Management System - Analytics Export'],
-      ['Generated On', new Date().toLocaleString()],
-      ['Timeframe', timeframe],
-      ['Department Filter', departmentId],
-      [],
-      ['=== KEY PERFORMANCE INDICATORS ==='],
-      ['Metric', 'Value'],
-      ['Total Tickets', data.kpis.totalTickets],
-      ['Resolved Tickets', data.kpis.resolvedTickets],
-      ['Open Tickets', data.kpis.openTickets],
-      ['In Progress Tickets', data.kpis.inProgressTickets],
-      ['Overdue Tickets', data.kpis.overdueTickets],
-      ['Resolution Rate (%)', `${data.kpis.resolutionRate}%`],
-      ['SLA Compliance Rate (%)', `${data.kpis.slaComplianceRate}%`],
-      ['Avg Resolution Time (hrs)', `${data.kpis.avgResolutionHours}h`],
-      ['Month Growth (%)', `${data.kpis.monthGrowthPercent}%`],
-      [],
-      ['=== MONTHLY TICKET TRENDS ==='],
-      ['Month', 'Created', 'Resolved', 'Active Backlog', 'Overdue Count', 'Avg Resolution (h)'],
-      ...data.monthlyTrends.map((m) => [
-        m.monthLabel,
-        m.totalCreated,
-        m.totalResolved,
-        m.activeBacklog,
-        m.overdueCount,
-        m.avgResolutionHours,
-      ]),
-      [],
-      ['=== DEPARTMENT PERFORMANCE MATRIX ==='],
-      ['Department Name', 'Head Manager', 'Total Tickets', 'Open', 'In Progress', 'Resolved', 'Overdue', 'Resolution Rate (%)', 'SLA Compliance (%)'],
-      ...data.departmentAnalytics.map((d) => [
-        d.departmentName,
-        d.headName,
-        d.totalTickets,
-        d.openTickets,
-        d.inProgressTickets,
-        d.resolvedTickets,
-        d.overdueTickets,
-        `${d.resolutionRate}%`,
-        `${d.slaComplianceRate}%`,
-      ]),
-      [],
-      ['=== STATUS BREAKDOWN ==='],
-      ['Status', 'Count', 'Percentage'],
-      ...data.statusBreakdown.map((s) => [STATUS_LABELS[s.status as TicketStatus] || s.status, s.count, `${s.percentage}%`]),
-    ];
+  const [isCsvMenuOpen, setIsCsvMenuOpen] = useState(false);
+  const csvMenuRef = useRef<HTMLDivElement>(null);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `HDMS_Analytics_Report_${timeframe}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (csvMenuRef.current && !csvMenuRef.current.contains(event.target as Node)) {
+        setIsCsvMenuOpen(false);
+      }
+    };
+    if (isCsvMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCsvMenuOpen]);
+
+  const exportCSV = (type: 'master' | 'department' | 'trends' | 'categories' = 'master') => {
+    if (!data) return;
+    const selectedDeptObj = data.departmentAnalytics?.find((d) => d.departmentId === departmentId);
+    const deptName = isManager
+      ? (managerDept?.departmentName || 'Department')
+      : (departmentId === 'all' ? 'All Departments' : selectedDeptObj?.departmentName || departmentId);
+
+    switch (type) {
+      case 'department':
+        exportDepartmentPerformanceCSV(data.departmentAnalytics, timeframe);
+        break;
+      case 'trends':
+        exportMonthlyTrendsCSV(data.monthlyTrends, timeframe);
+        break;
+      case 'categories':
+        exportCategoryAndStatusCSV(data.categoryBreakdown, data.statusBreakdown, timeframe);
+        break;
+      case 'master':
+      default:
+        exportMasterAnalyticsCSV(data, timeframe, deptName);
+        break;
+    }
   };
 
   return (
     <div className={styles.page}>
-      {/* ── Printable Header (Only rendered when printing / saving as PDF) ── */}
+      {/* ---- Printable Header (Only rendered when printing / saving as PDF) ---- */}
       <div className={styles.printOnlyHeader}>
         <div className={styles.printHeaderTop}>
           <div>
-            <h1 className={styles.printTitle}>Help Desk Management System — Executive Analytics</h1>
+            <h1 className={styles.printTitle}>
+              {isManager && managerDept
+                ? `${managerDept.departmentName} - Department Performance Analytics`
+                : 'Help Desk Management System - Executive Analytics'}
+            </h1>
             <p className={styles.printSubtitle}>
-              Generated On: <strong>{new Date().toLocaleString()}</strong> | Scope: <strong>{isCeoView ? 'Executive CEO Suite' : 'Enterprise Administration'}</strong>
+              Generated On: <strong>{new Date().toLocaleString()}</strong> | Scope: <strong>{isManager ? `${managerDept?.departmentName || 'Department'} Performance Scope` : isCeoView ? 'Executive CEO Suite' : 'Enterprise Administration'}</strong>
             </p>
           </div>
           <div className={styles.printBadge}>
-            CONFIDENTIAL & EXECUTIVE METRICS
+            {isManager ? 'CONFIDENTIAL DEPARTMENT METRICS' : 'CONFIDENTIAL & EXECUTIVE METRICS'}
           </div>
         </div>
         {data && (
           <div className={styles.printFilterBar}>
             <span>Period: <strong>{timeframe.toUpperCase()}</strong></span>
-            <span>Department Scope: <strong>{departmentId === 'all' ? 'All Departments' : data.departmentAnalytics.find(d => d.departmentId === departmentId)?.departmentName || departmentId}</strong></span>
+            <span>Department Scope: <strong>{isManager && managerDept ? managerDept.departmentName : (departmentId === 'all' ? 'All Departments' : data.departmentAnalytics.find(d => d.departmentId === departmentId)?.departmentName || departmentId)}</strong></span>
             <span>Total Tickets: <strong>{data.kpis.totalTickets}</strong></span>
             <span>Resolution Rate: <strong>{data.kpis.resolutionRate}%</strong></span>
             <span>SLA Compliance: <strong>{data.kpis.slaComplianceRate}%</strong></span>
@@ -1334,14 +2203,14 @@ export default function AdminAnalytics({
         )}
       </div>
 
-      {/* ── Top Header & Controls ─────────────────────────────────────────── */}
+      {/* ---- Top Header & Controls -------------------------------------------------------------------------------------- */}
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1>
-              <span>{isCeoView ? '👑' : '📈'}</span> {title}
+              <ChartBarIcon style={{ width: 28, height: 28, color: '#2563eb', display: 'inline', verticalAlign: 'middle', marginRight: 8 }} /> {pageTitle}
             </h1>
-            {badgeText && (
+            {pageBadge && (
               <span
                 style={{
                   display: 'inline-flex',
@@ -1355,11 +2224,11 @@ export default function AdminAnalytics({
                   boxShadow: '0 2px 6px rgba(180, 83, 9, 0.25)',
                 }}
               >
-                {badgeText}
+                {pageBadge}
               </span>
             )}
           </div>
-          <p>{description}</p>
+          <p>{pageDescription}</p>
         </div>
 
         <div className={styles.controlsGroup}>
@@ -1384,22 +2253,30 @@ export default function AdminAnalytics({
             ))}
           </div>
 
-          {/* Department Filter */}
-          {data?.departmentAnalytics && (
+          {/* Department Filter / Manager Locked Scope */}
+          {isManager && data?.departmentAnalytics && data.departmentAnalytics.length <= 1 ? (
+            <div className={styles.deptScopeBadge} title="Your analytics are scoped strictly to your managed department">
+              <BuildingOffice2Icon className={styles.deptScopeIcon} />
+              <span>Department: <strong>{data.departmentAnalytics[0]?.departmentName || 'My Department'}</strong></span>
+              {data.departmentAnalytics[0]?.departmentCode && (
+                <span className={styles.deptCodeTag} style={{ marginLeft: 6 }}>{data.departmentAnalytics[0].departmentCode}</span>
+              )}
+            </div>
+          ) : data?.departmentAnalytics && data.departmentAnalytics.length > 0 ? (
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}
               className={styles.selectInput}
               aria-label="Filter by department"
             >
-              <option value="all">🏛️ All Departments</option>
+              {!isManager && <option value="all">All Departments</option>}
               {data.departmentAnalytics.map((dept) => (
                 <option key={dept.departmentId} value={dept.departmentId}>
                   {dept.departmentName}
                 </option>
               ))}
             </select>
-          )}
+          ) : null}
 
           {/* Refresh Action */}
           <button
@@ -1408,7 +2285,7 @@ export default function AdminAnalytics({
             className={styles.actionBtn}
             title="Refresh analytics data"
           >
-            🔄 Refresh
+            <ArrowPathIcon className={styles.btnIcon} /> Refresh
           </button>
 
           {/* Print / PDF Visual Report Action */}
@@ -1419,7 +2296,7 @@ export default function AdminAnalytics({
             title="Print interactive report or save as PDF"
             disabled={!data}
           >
-            🖨️ Print / PDF
+            <PrinterIcon className={styles.btnIcon} /> Print / PDF
           </button>
 
           {/* Professional Excel (.xlsx) Export Action */}
@@ -1430,25 +2307,107 @@ export default function AdminAnalytics({
             title="Export executive Excel spreadsheet (.xlsx) with auto-enlarged columns and formatted sheets"
             disabled={!data || isExportingExcel}
           >
-            {isExportingExcel ? '⏳ Generating...' : '📊 Export Excel (.xlsx)'}
+            <TableCellsIcon className={styles.btnIcon} /> {isExportingExcel ? 'Generating...' : 'Export Excel (.xlsx)'}
           </button>
 
-          {/* Export CSV Action (secondary) */}
-          <button
-            type="button"
-            onClick={exportCSV}
-            className={styles.actionBtn}
-            title="Export raw CSV data file"
-            disabled={!data}
-          >
-            📄 CSV
-          </button>
+          {/* Professional CSV Export Action (Split Button with Menu) */}
+          <div className={styles.csvDropdownContainer} ref={csvMenuRef}>
+            <div className={styles.csvSplitBtn}>
+              <button
+                type="button"
+                onClick={() => exportCSV('master')}
+                className={styles.csvMainBtn}
+                title="Export complete unified master CSV ledger with auto-aligned columns"
+                disabled={!data}
+              >
+                <ArrowDownTrayIcon className={styles.btnIcon} /> CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsCsvMenuOpen((prev) => !prev)}
+                className={styles.csvChevronBtn}
+                title="Choose specific CSV dataset to export"
+                disabled={!data}
+                aria-label="CSV export options"
+              >
+                <ChevronDownIcon style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+
+            {isCsvMenuOpen && data && (
+              <div className={styles.csvDropdownMenu}>
+                <div className={styles.csvDropdownHeader}>Executive Excel (.xlsx)</div>
+                <button
+                  type="button"
+                  className={styles.csvDropdownItem}
+                  onClick={() => {
+                    handleExportExcel();
+                    setIsCsvMenuOpen(false);
+                  }}
+                  disabled={isExportingExcel}
+                >
+                  <div style={{ fontWeight: 600, color: '#1e40af' }}><TableCellsIcon style={{ width: 16, height: 16, color: '#1e40af', display: 'inline', marginRight: 6, verticalAlign: 'middle' }} /> Executive Master Ledger (.xlsx)</div>
+                  <div className={styles.csvDropdownSub}>Professional 5-tab workbook with auto-enlarged columns & styled headers</div>
+                </button>
+
+                <div className={styles.csvDropdownHeader} style={{ marginTop: 6 }}>Raw CSV Data Exports (.csv)</div>
+
+                <button
+                  type="button"
+                  className={styles.csvDropdownItem}
+                  onClick={() => {
+                    exportCSV('master');
+                    setIsCsvMenuOpen(false);
+                  }}
+                >
+                  <div><ArrowDownTrayIcon style={{ width: 16, height: 16, color: '#2563eb', display: 'inline', marginRight: 6, verticalAlign: 'middle' }} /> Complete Master Analytics Ledger (.csv)</div>
+                  <div className={styles.csvDropdownSub}>All 18 columns unified with single-cell title banner</div>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.csvDropdownItem}
+                  onClick={() => {
+                    exportCSV('department');
+                    setIsCsvMenuOpen(false);
+                  }}
+                >
+                  <div><BuildingOffice2Icon style={{ width: 16, height: 16, color: '#16a34a', display: 'inline', marginRight: 6, verticalAlign: 'middle' }} /> Department Performance Matrix (.csv)</div>
+                  <div className={styles.csvDropdownSub}>Detailed workload, solving rates & SLA stats</div>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.csvDropdownItem}
+                  onClick={() => {
+                    exportCSV('trends');
+                    setIsCsvMenuOpen(false);
+                  }}
+                >
+                  <div><ChartBarIcon style={{ width: 16, height: 16, color: '#ea580c', display: 'inline', marginRight: 6, verticalAlign: 'middle' }} /> Monthly Ticket Inflow & Trends (.csv)</div>
+                  <div className={styles.csvDropdownSub}>Historical velocity, created vs. resolved</div>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.csvDropdownItem}
+                  onClick={() => {
+                    exportCSV('categories');
+                    setIsCsvMenuOpen(false);
+                  }}
+                >
+                  <div><TagIcon style={{ width: 16, height: 16, color: '#8b5cf6', display: 'inline', marginRight: 6, verticalAlign: 'middle' }} /> Category & Status Lifecycle (.csv)</div>
+                  <div className={styles.csvDropdownSub}>Problem category share and status workflow</div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {error && (
         <div style={{ padding: '16px', background: 'var(--analytics-trend-neg-bg, #fee2e2)', color: 'var(--analytics-trend-neg-color, #991b1b)', border: '1px solid', borderColor: 'var(--analytics-trend-neg-bg, #fecaca)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>⚠️</span> {error}
+          <ExclamationTriangleIcon style={{ width: 18, height: 18, color: '#dc2626', flexShrink: 0 }} /> {error}
         </div>
       )}
 
@@ -1459,13 +2418,13 @@ export default function AdminAnalytics({
         </div>
       ) : data ? (
         <>
-          {/* ── KPI Metric Scorecards ──────────────────────────────────────── */}
+          {/* ---- KPI Metric Scorecards -------------------------------------------------------------------------------- */}
           <div className={styles.kpiGrid}>
-            {/* Total Tickets */}
+            {/* Total Tickets Created */}
             <div className={styles.kpiCard}>
               <div className={styles.kpiTop}>
-                <div className={styles.kpiIconBox} style={{ background: '#eff6ff', color: '#2563eb' }}>
-                  🎫
+                <div className={`${styles.kpiIconBox} ${styles.kpiIconBlue}`}>
+                  <TicketIcon style={{ width: 22, height: 22 }} />
                 </div>
                 <div
                   className={`${styles.kpiTrendBadge} ${
@@ -1476,7 +2435,12 @@ export default function AdminAnalytics({
                       : styles.trendNeutral
                   }`}
                 >
-                  {data.kpis.monthGrowthPercent >= 0 ? '▲' : '▼'} {Math.abs(data.kpis.monthGrowthPercent)}% MoM
+                  {data.kpis.monthGrowthPercent >= 0 ? (
+                    <ArrowTrendingUpIcon style={{ width: 14, height: 14, display: 'inline', marginRight: 4 }} />
+                  ) : (
+                    <ArrowTrendingDownIcon style={{ width: 14, height: 14, display: 'inline', marginRight: 4 }} />
+                  )}
+                  {Math.abs(data.kpis.monthGrowthPercent)}% MoM
                 </div>
               </div>
               <div>
@@ -1491,8 +2455,8 @@ export default function AdminAnalytics({
             {/* Resolution Rate */}
             <div className={styles.kpiCard}>
               <div className={styles.kpiTop}>
-                <div className={styles.kpiIconBox} style={{ background: '#dcfce7', color: '#15803d' }}>
-                  ✅
+                <div className={`${styles.kpiIconBox} ${styles.kpiIconGreen}`}>
+                  <CheckCircleIcon style={{ width: 22, height: 22 }} />
                 </div>
                 <div className={`${styles.kpiTrendBadge} ${styles.trendPositive}`}>
                   {data.kpis.resolvedTickets} Resolved
@@ -1510,8 +2474,8 @@ export default function AdminAnalytics({
             {/* Active Backlog */}
             <div className={styles.kpiCard}>
               <div className={styles.kpiTop}>
-                <div className={styles.kpiIconBox} style={{ background: '#fef3c7', color: '#b45309' }}>
-                  ⏳
+                <div className={`${styles.kpiIconBox} ${styles.kpiIconAmber}`}>
+                  <ClockIcon style={{ width: 22, height: 22 }} />
                 </div>
                 <div className={`${styles.kpiTrendBadge} ${styles.trendNeutral}`}>
                   {data.kpis.inProgressTickets} In Progress
@@ -1531,8 +2495,8 @@ export default function AdminAnalytics({
             {/* SLA Compliance */}
             <div className={styles.kpiCard}>
               <div className={styles.kpiTop}>
-                <div className={styles.kpiIconBox} style={{ background: '#ede9fe', color: '#6d28d9' }}>
-                  ⏱️
+                <div className={`${styles.kpiIconBox} ${styles.kpiIconPurple}`}>
+                  <ShieldCheckIcon style={{ width: 22, height: 22 }} />
                 </div>
                 <div
                   className={`${styles.kpiTrendBadge} ${
@@ -1554,8 +2518,8 @@ export default function AdminAnalytics({
             {/* Average Resolution Time */}
             <div className={styles.kpiCard}>
               <div className={styles.kpiTop}>
-                <div className={styles.kpiIconBox} style={{ background: '#fce7f3', color: '#be185d' }}>
-                  ⚡
+                <div className={`${styles.kpiIconBox} ${styles.kpiIconRose}`}>
+                  <BoltIcon style={{ width: 22, height: 22 }} />
                 </div>
                 <div className={`${styles.kpiTrendBadge} ${styles.trendNeutral}`}>
                   Avg Response: {data.kpis.avgFirstResponseHours}h
@@ -1569,7 +2533,7 @@ export default function AdminAnalytics({
             </div>
           </div>
 
-          {/* ── Monthly & Weekly Trends Graph (With Bar Chart + Curve Toggle) ── */}
+          {/* ---- Monthly & Weekly Trends Graph (With Bar Chart + Curve Toggle) ---- */}
           <MonthlyTrendGraph
             monthlyData={data.monthlyTrends}
             weeklyData={data.weeklyTrends}
@@ -1578,27 +2542,35 @@ export default function AdminAnalytics({
             onTabChange={setTrendTab}
           />
 
-          {/* ── Multi-Color Department Bar Chart & Ranked Category Bar Chart ─── */}
-          <div className={styles.twoColGrid}>
-            <DepartmentVolumeBarChart departments={data.departmentAnalytics} />
-            <CategoryRankedBarChart categories={data.categoryBreakdown} />
-          </div>
+          {/* -- Professional Department Problem Solving & Resolution Performance Suite --─ */}
+          {/* -- Top Performing Departments Leaderboard & Which Department is Performing Well --─ */}
+          <DepartmentPerformanceLeaderboard departments={data.departmentAnalytics} isManager={isManager} />
 
-          {/* ── Interactive Pie / Donut Charts Section ───────────────────────── */}
+          {/* -- 1. Department Problem-Solving Efficiency (Percentage) --─ */}
+          <DepartmentEfficiencyChart departments={data.departmentAnalytics} isManager={isManager} />
+
+          {/* -- 2. Department Solved Tickets vs Total Workload (Volume) --─ */}
+          <DepartmentSolvedVolumeChart departments={data.departmentAnalytics} isManager={isManager} />
+
+          {/* -- Ranked Category Bar Chart & Status Lifecycle Breakdown --─ */}
           <div className={styles.twoColGrid}>
-            {/* Status Lifecycle Pie/Donut Chart */}
+            <CategoryRankedBarChart
+              categories={data.categoryBreakdown}
+              deptName={isManager && managerDept ? managerDept.departmentName : undefined}
+            />
             <InteractivePieChart
-              title="Ticket Status Breakdown"
-              subtitle="Distribution of tickets across all lifecycle stages"
+              title={isManager && managerDept ? `Ticket Status Breakdown (${managerDept.departmentName})` : "Ticket Status Breakdown"}
+              subtitle={isManager && managerDept ? `Lifecycle distribution of tickets routed to ${managerDept.departmentName}` : "Distribution of tickets across all lifecycle stages"}
               items={statusChartItems}
               totalLabel="Total Statuses"
               defaultMode="donut"
             />
+          </div>
 
             {/* Priority & Department Distribution Chart */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', padding: '0 4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
                     type="button"
                     className={distributionTab === 'priority' ? 'analytics-dist-tab-active' : 'analytics-dist-tab-inactive'}
@@ -1612,23 +2584,25 @@ export default function AdminAnalytics({
                     }}
                     onClick={() => setDistributionTab('priority')}
                   >
-                    ⚡ By Priority
+                    <BoltIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> By Priority
                   </button>
-                  <button
-                    type="button"
-                    className={distributionTab === 'department' ? 'analytics-dist-tab-active' : 'analytics-dist-tab-inactive'}
-                    style={{
-                      padding: '6px 14px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700,
-                      transition: 'all 0.15s', cursor: 'pointer',
-                      border: distributionTab === 'department' ? 'none' : '1px solid',
-                      background: distributionTab === 'department' ? '#2563eb' : undefined,
-                      color: distributionTab === 'department' ? '#ffffff' : undefined,
-                      boxShadow: distributionTab === 'department' ? '0 2px 8px rgba(37,99,235,0.3)' : undefined,
-                    }}
-                    onClick={() => setDistributionTab('department')}
-                  >
-                    🏛️ By Department Share
-                  </button>
+                  {!isManager && (
+                    <button
+                      type="button"
+                      className={distributionTab === 'department' ? 'analytics-dist-tab-active' : 'analytics-dist-tab-inactive'}
+                      style={{
+                        padding: '6px 14px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700,
+                        transition: 'all 0.15s', cursor: 'pointer',
+                        border: distributionTab === 'department' ? 'none' : '1px solid',
+                        background: distributionTab === 'department' ? '#2563eb' : undefined,
+                        color: distributionTab === 'department' ? '#ffffff' : undefined,
+                        boxShadow: distributionTab === 'department' ? '0 2px 8px rgba(37,99,235,0.3)' : undefined,
+                      }}
+                      onClick={() => setDistributionTab('department')}
+                    >
+                      <BuildingOffice2Icon style={{ width: 13, height: 13, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> By Department Share
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={distributionTab === 'category' ? 'analytics-dist-tab-active' : 'analytics-dist-tab-inactive'}
@@ -1642,7 +2616,7 @@ export default function AdminAnalytics({
                     }}
                     onClick={() => setDistributionTab('category')}
                   >
-                    🏷️ By Category
+                    <TagIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 4, verticalAlign: 'middle' }} /> By Category
                   </button>
                 </div>
               </div>
@@ -1655,7 +2629,7 @@ export default function AdminAnalytics({
                   totalLabel="Priority Total"
                   defaultMode="pie"
                 />
-              ) : distributionTab === 'department' ? (
+              ) : distributionTab === 'department' && !isManager ? (
                 <InteractivePieChart
                   title="Department Ticket Share"
                   subtitle="Proportion of tickets submitted per department"
@@ -1666,138 +2640,246 @@ export default function AdminAnalytics({
               ) : (
                 <InteractivePieChart
                   title="Category Distribution"
-                  subtitle="Ticket volume categorized by issue domain"
+                  subtitle="Ticket volume across created ticket categories"
                   items={categoryChartItems}
                   totalLabel="Category Total"
                   defaultMode="pie"
                 />
               )}
             </div>
-          </div>
 
-          {/* ── Department Performance Matrix ──────────────────────────────── */}
+          {/* ---- Department Performance Matrix ---------------------------------------------------------------- */}
           <div className={styles.chartCard}>
-            <div className={styles.cardHeader}>
+            <div className={styles.cardHeader} style={{ flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <h3 className={styles.cardTitle}>
-                  <span>🏛️</span> Department Performance & Resolution Matrix
+                  <BuildingOffice2Icon style={{ width: 20, height: 20, color: '#2563eb', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                  {isManager ? 'Department Performance Audit Ledger' : 'Department Performance & Problem Solving Matrix'}
                 </h3>
                 <div className={styles.cardSubtitle}>
-                  Detailed workload, turnaround time, and SLA fulfillment per department
+                  {isManager && managerDept
+                    ? `Audit records and strict SLA compliance metrics for ${managerDept.departmentName} (${managerDept.departmentCode || 'DEPT'})`
+                    : 'Detailed breakdown of tickets routed/assigned to each department vs created by their team, with resolution percentage rankings'}
                 </div>
               </div>
               <span className={styles.badgePill}>
-                {data.departmentAnalytics.length} Departments
+                {isManager ? '1 Department Scoped' : `${data.departmentAnalytics.length} Departments`}
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className={styles.tableScrollContainer}>
               <table className={styles.deptTable}>
                 <thead>
                   <tr>
-                    <th>Department</th>
-                    <th>Total Tickets</th>
-                    <th>Open / Pending</th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('name'); setDeptTableSortAsc(deptTableSort === 'name' ? !deptTableSortAsc : true); }}>
+                      Department <span className={styles.sortIcon}>{deptTableSort === 'name' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('score'); setDeptTableSortAsc(deptTableSort === 'score' ? !deptTableSortAsc : false); }}>
+                      Performance Score <span className={styles.sortIcon}>{deptTableSort === 'score' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('assigned'); setDeptTableSortAsc(deptTableSort === 'assigned' ? !deptTableSortAsc : false); }}>
+                      Routed / Assigned <span className={styles.sortIcon}>{deptTableSort === 'assigned' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('created'); setDeptTableSortAsc(deptTableSort === 'created' ? !deptTableSortAsc : false); }}>
+                      Created by Team <span className={styles.sortIcon}>{deptTableSort === 'created' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('total'); setDeptTableSortAsc(deptTableSort === 'total' ? !deptTableSortAsc : false); }}>
+                      Total Problems <span className={styles.sortIcon}>{deptTableSort === 'total' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('resolved'); setDeptTableSortAsc(deptTableSort === 'resolved' ? !deptTableSortAsc : false); }}>
+                      Solved <span className={styles.sortIcon}>{deptTableSort === 'resolved' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('rate'); setDeptTableSortAsc(deptTableSort === 'rate' ? !deptTableSortAsc : false); }}>
+                      Solving Rate (%) <span className={styles.sortIcon}>{deptTableSort === 'rate' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th>Open</th>
                     <th>In Progress</th>
-                    <th>Resolved</th>
                     <th>Overdue</th>
-                    <th>Resolution Rate</th>
-                    <th>SLA Compliance</th>
-                    <th>Avg Resolution</th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('sla'); setDeptTableSortAsc(deptTableSort === 'sla' ? !deptTableSortAsc : false); }}>
+                      SLA % <span className={styles.sortIcon}>{deptTableSort === 'sla' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
+                    <th className={styles.thSortable} onClick={() => { setDeptTableSort('time'); setDeptTableSortAsc(deptTableSort === 'time' ? !deptTableSortAsc : true); }}>
+                      Turnaround <span className={styles.sortIcon}>{deptTableSort === 'time' ? (deptTableSortAsc ? '▲' : '▼') : '↕'}</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!data.departmentAnalytics.length ? (
+                  {!sortedTableDepts.length ? (
                     <tr>
-                      <td colSpan={9} className={styles.emptyState}>
-                        No department activity recorded
+                      <td colSpan={11} className={styles.emptyState}>
+                        No department problem resolution records found
                       </td>
                     </tr>
                   ) : (
-                    data.departmentAnalytics.map((dept) => (
-                      <tr key={dept.departmentId}>
-                        <td>
-                          <div className={styles.deptNameCell}>{dept.departmentName}</div>
-                          <div className={styles.deptHead}>Head: {dept.headName}</div>
-                        </td>
-                        <td>
-                          <strong className="analytics-table-strong" style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 700 }}>{dept.totalTickets}</strong>
-                        </td>
-                        <td>
-                          <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', background: 'var(--analytics-trend-neutral-bg, #fef3c7)', color: '#b45309', fontWeight: 500 }}>
-                            {dept.openTickets}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', background: 'var(--analytics-badge-bg, #eff6ff)', color: '#1d4ed8', fontWeight: 500 }}>
-                            {dept.inProgressTickets}
-                          </span>
-                        </td>
-                        <td>
-                          <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', background: 'var(--analytics-trend-pos-bg, #dcfce7)', color: 'var(--analytics-trend-pos-color, #166534)', fontWeight: 700 }}>
-                            {dept.resolvedTickets}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            style={{
-                              padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: dept.overdueTickets > 0 ? 700 : 500,
-                              background: dept.overdueTickets > 0 ? 'var(--analytics-trend-neg-bg, #fee2e2)' : 'var(--bg-surface, #f1f5f9)',
-                              color: dept.overdueTickets > 0 ? 'var(--analytics-trend-neg-color, #991b1b)' : 'var(--text-muted, #64748b)',
-                            }}
-                          >
-                            {dept.overdueTickets}
-                          </span>
-                        </td>
-                        <td>
-                          <div className={styles.progressBarBox}>
-                            <div className={styles.progressTrack}>
-                              <div
-                                className={styles.progressFill}
-                                style={{
-                                  width: `${dept.resolutionRate}%`,
-                                  background:
-                                    dept.resolutionRate >= 80
-                                      ? '#10b981'
-                                      : dept.resolutionRate >= 50
-                                      ? '#3b82f6'
-                                      : '#f59e0b',
-                                }}
-                              />
+                    sortedTableDepts.map((dept) => {
+                      const assignedTot = dept.assignedTickets ?? dept.totalTickets;
+                      const assignedRes = dept.assignedResolvedTickets ?? dept.resolvedTickets;
+                      const assignedPct = dept.assignedResolutionRate ?? dept.resolutionRate;
+
+                      const createdTot = dept.createdByTickets ?? 0;
+                      const createdRes = dept.createdByResolvedTickets ?? 0;
+                      const createdPct = dept.createdByResolutionRate ?? 0;
+
+                      return (
+                        <tr key={dept.departmentId}>
+                          {/* Department Name & Head */}
+                          <td>
+                            <div className={styles.deptNameCell}>{dept.departmentName}</div>
+                            <div className={styles.deptHead}>
+                              {dept.departmentCode ? `${dept.departmentCode} - ` : ''}Head: {dept.headName}
                             </div>
-                            <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '42px', textAlign: 'right', color: 'var(--text-primary, #0f172a)' }}>
-                              {dept.resolutionRate}%
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className={styles.progressBarBox}>
-                            <div className={styles.progressTrack}>
-                              <div
-                                className={styles.progressFill}
-                                style={{
-                                  width: `${dept.slaComplianceRate}%`,
-                                  background:
-                                    dept.slaComplianceRate >= 90
-                                      ? '#10b981'
-                                      : dept.slaComplianceRate >= 75
-                                      ? '#f59e0b'
-                                      : '#ef4444',
-                                }}
-                              />
+                          </td>
+
+                          {/* Composite Performance Score (Strict SLA) */}
+                          <td>
+                            {dept.is100PercentQualified ? (
+                              <span className={`${styles.complianceCheckPill} ${styles.pillFlawless}`}>
+                                <TrophyIcon style={{ width: 13, height: 13, display: 'inline', marginRight: 3, verticalAlign: 'middle' }} /> 100% SLA Qualified
+                              </span>
+                            ) : (
+                              <span
+                                className={`${styles.complianceCheckPill} ${styles.pillCapped}`}
+                                title={dept.performanceReasons?.join(', ')}
+                              >
+                                {dept.performanceScore ?? dept.resolutionRate}%
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Routed / Assigned */}
+                          <td>
+                            <div className={styles.deptTableDetailCell}>
+                              <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{assignedTot}</strong>
+                              <span className={styles.deptTableSubText}>
+                                {assignedRes} solved ({assignedPct}%)
+                              </span>
                             </div>
-                            <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '42px', textAlign: 'right', color: 'var(--text-primary, #0f172a)' }}>
-                              {dept.slaComplianceRate}%
+                          </td>
+
+                          {/* Created by Team */}
+                          <td>
+                            <div className={styles.deptTableDetailCell}>
+                              <strong style={{ color: 'var(--text-primary, #0f172a)' }}>{createdTot}</strong>
+                              <span className={styles.deptTableSubText}>
+                                {createdRes} solved ({createdPct}%)
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Total Problems */}
+                          <td>
+                            <strong className="analytics-table-strong" style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 700, fontSize: '0.9rem' }}>
+                              {dept.totalTickets}
+                            </strong>
+                          </td>
+
+                          {/* Solved Problems */}
+                          <td>
+                            <span style={{ padding: '3px 10px', borderRadius: '999px', fontSize: '0.78rem', background: 'var(--analytics-trend-pos-bg, #dcfce7)', color: 'var(--analytics-trend-pos-color, #166534)', fontWeight: 700 }}>
+                              {dept.resolvedTickets}
                             </span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
-                            {dept.avgResolutionHours}h
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+
+                          {/* Solving Percentage Progress Bar + Tier Badge */}
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '130px' }}>
+                              <div className={styles.progressBarBox}>
+                                <div className={styles.progressTrack}>
+                                  <div
+                                    className={styles.progressFill}
+                                    style={{
+                                      width: `${dept.resolutionRate}%`,
+                                      background:
+                                        dept.resolutionRate >= 80
+                                          ? 'linear-gradient(90deg, #10b981, #059669)'
+                                          : dept.resolutionRate >= 65
+                                          ? 'linear-gradient(90deg, #3b82f6, #1d4ed8)'
+                                          : dept.resolutionRate >= 50
+                                          ? 'linear-gradient(90deg, #f59e0b, #d97706)'
+                                          : 'linear-gradient(90deg, #ef4444, #dc2626)',
+                                    }}
+                                  />
+                                </div>
+                                <span className="analytics-table-strong" style={{ fontSize: '0.78rem', fontWeight: 800, minWidth: '42px', textAlign: 'right', color: 'var(--text-primary, #0f172a)' }}>
+                                  {dept.resolutionRate}%
+                                </span>
+                              </div>
+                              <span
+                                className={`${styles.tierBadge} ${
+                                  dept.resolutionRate >= 80
+                                    ? styles.tierElite
+                                    : dept.resolutionRate >= 65
+                                    ? styles.tierGood
+                                    : dept.resolutionRate >= 50
+                                    ? styles.tierModerate
+                                    : styles.tierWarn
+                                }`}
+                                style={{ alignSelf: 'flex-start', fontSize: '0.65rem', padding: '1px 6px' }}
+                              >
+                                {dept.resolutionRate >= 80 ? 'Elite' : dept.resolutionRate >= 65 ? 'High' : dept.resolutionRate >= 50 ? 'Moderate' : 'Attention'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Open / Pending */}
+                          <td>
+                            <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', background: 'var(--analytics-trend-neutral-bg, #fef3c7)', color: '#b45309', fontWeight: 600 }}>
+                              {dept.openTickets}
+                            </span>
+                          </td>
+
+                          {/* In Progress */}
+                          <td>
+                            <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', background: 'var(--analytics-badge-bg, #eff6ff)', color: '#1d4ed8', fontWeight: 600 }}>
+                              {dept.inProgressTickets}
+                            </span>
+                          </td>
+
+                          {/* Overdue */}
+                          <td>
+                            <span
+                              style={{
+                                padding: '2px 8px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: dept.overdueTickets > 0 ? 700 : 500,
+                                background: dept.overdueTickets > 0 ? 'var(--analytics-trend-neg-bg, #fee2e2)' : 'var(--bg-surface, #f1f5f9)',
+                                color: dept.overdueTickets > 0 ? 'var(--analytics-trend-neg-color, #991b1b)' : 'var(--text-muted, #64748b)',
+                              }}
+                            >
+                              {dept.overdueTickets}
+                            </span>
+                          </td>
+
+                          {/* SLA Compliance */}
+                          <td>
+                            <div className={styles.progressBarBox} style={{ minWidth: '90px' }}>
+                              <div className={styles.progressTrack} style={{ minWidth: '40px' }}>
+                                <div
+                                  className={styles.progressFill}
+                                  style={{
+                                    width: `${dept.slaComplianceRate}%`,
+                                    background:
+                                      dept.slaComplianceRate >= 90
+                                        ? '#10b981'
+                                        : dept.slaComplianceRate >= 75
+                                        ? '#f59e0b'
+                                        : '#ef4444',
+                                  }}
+                                />
+                              </div>
+                              <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '38px', textAlign: 'right', color: 'var(--text-primary, #0f172a)' }}>
+                                {dept.slaComplianceRate}%
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Avg Resolution Hours */}
+                          <td>
+                            <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)' }}>
+                              {dept.avgResolutionHours}h
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

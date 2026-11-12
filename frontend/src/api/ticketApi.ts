@@ -1,5 +1,6 @@
 import api from './axios';
 import type { Ticket, TicketTrackInfo, TicketReply, NotificationItem, PaginationMeta, TimelineEvent } from '../types/ticket';
+import { toShortId } from '../utils/idUtils';
 
 export interface TicketListParams {
   search?: string;
@@ -19,8 +20,14 @@ export interface TicketListParams {
   sortOrder?: 'ASC' | 'DESC';
 }
 
-export const fetchTickets = (params: TicketListParams) =>
-  api.get<{ success: boolean; data: Ticket[]; pagination: PaginationMeta }>('/tickets', { params });
+export const fetchTickets = (params: TicketListParams) => {
+  const cleanParams = { ...params };
+  if (cleanParams.departmentId) cleanParams.departmentId = toShortId(cleanParams.departmentId);
+  if (cleanParams.assignedTo) cleanParams.assignedTo = toShortId(cleanParams.assignedTo);
+  if (cleanParams.createdBy) cleanParams.createdBy = toShortId(cleanParams.createdBy);
+  if (cleanParams.tenantId) cleanParams.tenantId = toShortId(cleanParams.tenantId);
+  return api.get<{ success: boolean; data: Ticket[]; pagination: PaginationMeta }>('/tickets', { params: cleanParams });
+};
 
 export const fetchTicket = (id: string) =>
   api.get<{ success: boolean; data: Ticket }>(`/tickets/${id}`);
@@ -69,6 +76,9 @@ export const assignStaff = (id: string, payload: { staffId: string; notes?: stri
 export const reassignStaff = (id: string, payload: { staffId: string; notes?: string }) =>
   api.post(`/tickets/${id}/reassign`, payload);
 
+export const remindStaff = (id: string, payload?: { notes?: string }) =>
+  api.post<{ success: boolean; message: string; data?: any }>(`/tickets/${id}/remind-staff`, payload || {});
+
 export const overrideAssignment = (
   id: string,
   payload: { assignedTo?: string | null; assignedBy?: string | null; notes?: string }
@@ -91,6 +101,15 @@ export const mergeTickets = (id: string, sourceIds: string[], notes?: string) =>
   api.post(`/tickets/${id}/merge`, { sourceIds, notes });
 
 export const closeTicket = (id: string, notes?: string) => api.post(`/tickets/${id}/close`, { notes });
+
+export const requestReopenTicket = (id: string, reason: string) =>
+  api.post<{ success: boolean; message: string; data: Ticket }>(`/tickets/${id}/request-reopen`, { reason });
+
+export const approveReopenTicket = (id: string, notes?: string) =>
+  api.post<{ success: boolean; message: string; data: Ticket }>(`/tickets/${id}/approve-reopen`, { notes });
+
+export const rejectReopenTicket = (id: string, notes: string) =>
+  api.post<{ success: boolean; message: string; data: Ticket }>(`/tickets/${id}/reject-reopen`, { notes });
 
 export const reopenTicket = (id: string, notes?: string, reason?: string) =>
   api.post(`/tickets/${id}/reopen`, { notes: notes || reason, reason: reason || notes });
@@ -123,7 +142,7 @@ export const addTicketReply = (id: string, payload: { message: string; visibilit
 export const fetchTicketTimeline = (id: string) =>
   api.get<{ success: boolean; data: TimelineEvent[] }>(`/tickets/${id}/timeline`);
 
-export const fetchNotifications = (params?: { limit?: number; offset?: number }) =>
+export const fetchNotifications = (params?: { limit?: number; offset?: number; unreadOnly?: boolean; unread?: boolean }) =>
   api.get<{ success: boolean; data: NotificationItem[] }>('/tickets/notifications', { params });
 
 export const fetchUnreadCount = () =>
@@ -137,3 +156,33 @@ export const markAllNotificationsRead = () =>
 
 export const deleteNotification = (id: string) =>
   api.delete(`/tickets/notifications/${id}`);
+
+export const updateTicketAttachment = (
+  ticketId: string,
+  attachmentId: string,
+  payload: { comment: string } | string
+) => {
+  const tid = encodeURIComponent(ticketId);
+  const aid = encodeURIComponent(attachmentId);
+  const body = typeof payload === 'string' ? { comment: payload } : payload;
+  return api.patch<{ success: boolean; data: Ticket }>(`/tickets/${tid}/attachments/${aid}`, body).catch((err) => {
+    if (err?.response?.status === 404) {
+      return api.patch<{ success: boolean; data: Ticket }>(`/tickets/attachments/${aid}`, body);
+    }
+    throw err;
+  });
+};
+
+export const deleteTicketAttachment = (
+  ticketId: string,
+  attachmentId: string
+) => {
+  const tid = encodeURIComponent(ticketId);
+  const aid = encodeURIComponent(attachmentId);
+  return api.delete<{ success: boolean; data: Ticket }>(`/tickets/${tid}/attachments/${aid}`).catch((err) => {
+    if (err?.response?.status === 404) {
+      return api.delete<{ success: boolean; data: Ticket }>(`/tickets/attachments/${aid}`);
+    }
+    throw err;
+  });
+};

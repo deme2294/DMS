@@ -172,20 +172,45 @@ export const searchMessages = async (req, res, next) => {
 
 export const uploadAttachment = async (req, res, next) => {
   try {
-    if (!req.file) {
-      throw Object.assign(new Error('No file uploaded'), { statusCode: 400 });
+    const file = req.file || (req.files && (req.files.attachment?.[0] || req.files.file?.[0] || (Array.isArray(req.files) ? req.files[0] : null)));
+    if (!file) {
+      throw Object.assign(new Error('No file uploaded. Please select a valid file to attach.'), { statusCode: 400 });
     }
 
-    const relativePath = path.relative(process.cwd(), req.file.path).replace(/\\/g, '/');
-
-    const file = {
+    const relativePath = `/uploads/chat/${file.filename}`;
+    const fileData = {
       path: relativePath,
-      name: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
+      name: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
     };
 
-    res.status(HTTP.OK).json({ success: true, data: file });
+    // If roomId is present, create and broadcast the chat message immediately
+    const roomId = req.body?.roomId;
+    if (roomId) {
+      const messageText = req.body?.message || `Shared file: ${file.originalname}`;
+      const isImg = (file.mimetype || '').startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(file.originalname);
+      const messageType = req.body?.messageType || (isImg ? 'image' : 'file');
+
+      const message = await chatService.sendMessage({
+        roomId,
+        message: messageText,
+        messageType,
+        attachmentPath: relativePath,
+        attachmentName: file.originalname,
+        attachmentSize: file.size,
+      }, req.user.id);
+
+      // Broadcast to room participants via Socket.IO
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`room:${roomId}`).emit('new-message', message);
+      }
+
+      return res.status(HTTP.CREATED).json({ success: true, data: message });
+    }
+
+    res.status(HTTP.OK).json({ success: true, data: fileData });
   } catch (err) {
     next(err);
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { trackTicket } from '../../api/ticketApi';
 import type { TicketTrackInfo } from '../../types/ticket';
-import { STATUS_LABELS } from '../../types/ticket';
+import { STATUS_LABELS, getStatusLabel } from '../../types/ticket';
 import styles from './Tickets.module.css';
 
 export default function TrackTicket() {
@@ -49,7 +49,7 @@ export default function TrackTicket() {
           <h3>{result.title}</h3>
           <p><strong>Reference:</strong> {result.referenceNumber}</p>
           <p><strong>Track Number:</strong> {result.trackNumber}</p>
-          <p><strong>Status:</strong> {STATUS_LABELS[result.status]}</p>
+          <p><strong>Status:</strong> {getStatusLabel(result.status)}</p>
           <p><strong>Priority:</strong> {result.priority}</p>
           <p><strong>Category:</strong> {result.category}</p>
           <p><strong>Department:</strong> {result.departmentName || '—'}</p>

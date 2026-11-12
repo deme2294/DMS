@@ -14,6 +14,7 @@ export const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, jwtConfig.accessSecret);
 
+    // Resolve user ID with backwards-compatibility for legacy UUIDs, 4-digit IDs, and usernames
     const [rows] = await pool.query(
       `SELECT u.id, u.tenant_id, u.role_id, u.username, u.email, u.first_name, u.last_name,
               u.phone, u.profile_image, u.status, u.theme_preference, u.user_code,
@@ -23,20 +24,26 @@ export const authenticate = async (req, res, next) => {
        FROM users u
        JOIN roles r ON r.id = u.role_id
        LEFT JOIN tenants t ON t.id = u.tenant_id
-       WHERE u.id = :id LIMIT 1`,
-      { id: decoded.sub }
+       WHERE u.id = :id
+          OR (u.username = :username AND :username IS NOT NULL)
+          OR (u.email = :username AND :username IS NOT NULL)
+          OR (u.user_code = :id)
+       ORDER BY (u.id = :id) DESC
+       LIMIT 1`,
+      { id: decoded.sub, username: decoded.username || null }
     );
 
     if (!rows.length || rows[0].status !== 'active') {
       return res.status(HTTP.UNAUTHORIZED).json({ success: false, message: 'Invalid or inactive user' });
     }
 
+    const currentUserId = rows[0].id;
     const [deptRows] = await pool.query(
       `SELECT d.id, d.name, d.code
        FROM user_departments ud
        JOIN departments d ON d.id = ud.department_id
        WHERE ud.user_id = :id`,
-      { id: decoded.sub }
+      { id: currentUserId }
     );
 
     req.user = {
@@ -69,17 +76,23 @@ export const optionalAuthenticate = async (req, res, next) => {
        FROM users u
        JOIN roles r ON r.id = u.role_id
        LEFT JOIN tenants t ON t.id = u.tenant_id
-       WHERE u.id = :id LIMIT 1`,
-      { id: decoded.sub }
+       WHERE u.id = :id
+          OR (u.username = :username AND :username IS NOT NULL)
+          OR (u.email = :username AND :username IS NOT NULL)
+          OR (u.user_code = :id)
+       ORDER BY (u.id = :id) DESC
+       LIMIT 1`,
+      { id: decoded.sub, username: decoded.username || null }
     );
 
     if (rows.length && rows[0].status === 'active') {
+      const currentUserId = rows[0].id;
       const [deptRows] = await pool.query(
         `SELECT d.id, d.name, d.code
          FROM user_departments ud
          JOIN departments d ON d.id = ud.department_id
          WHERE ud.user_id = :id`,
-        { id: decoded.sub }
+        { id: currentUserId }
       );
 
       req.user = {

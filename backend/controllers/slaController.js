@@ -15,13 +15,21 @@ const normalizePolicy = (policy) => {
     updated_at,
     ...rest
   } = policy;
+  let parsedWorkingHours = working_hours || null;
+  if (typeof working_hours === 'string') {
+    try {
+      parsedWorkingHours = JSON.parse(working_hours);
+    } catch {
+      parsedWorkingHours = null;
+    }
+  }
   return {
     ...rest,
     categoryId: category_id || null,
     responseHours: Number(response_hours ?? 0),
     resolutionHours: Number(resolution_hours ?? 0),
     escalationHours: escalation_hours !== null && escalation_hours !== undefined ? Number(escalation_hours) : null,
-    workingHours: working_hours || null,
+    workingHours: parsedWorkingHours,
     createdAt: created_at || null,
     updatedAt: updated_at || null,
     isActive: Boolean(is_active),

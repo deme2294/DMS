@@ -120,27 +120,29 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-card, #ffffff);
-  color: var(--text-main, #334155);
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .hamburgerBtn:hover {
-  background: var(--bg-surface, #f8fafc);
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
 }
 
 .hamburgerBtn:active {
-  background: #f1f5f9;
+  background: #e2e8f0;
   transform: scale(0.97);
 }
 
 .hamburgerIcon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
 }
 
 .backBtn {
@@ -150,22 +152,38 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-card, #ffffff);
-  color: var(--text-main, #334155);
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .backBtn:hover {
-  background: var(--bg-surface, #f8fafc);
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
 }
 
 .backBtn:active {
-  background: #f1f5f9;
+  background: #e2e8f0;
   transform: scale(0.97);
+}
+
+:global([data-theme="dark"]) .hamburgerBtn,
+:global([data-theme="dark"]) .backBtn {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f8fafc;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+:global([data-theme="dark"]) .hamburgerBtn:hover,
+:global([data-theme="dark"]) .backBtn:hover {
+  background: #26334a;
+  border-color: #60a5fa;
+  color: #ffffff;
 }
 
 .userInfo {
@@ -197,6 +215,15 @@
   overflow-y: auto;
   box-sizing: border-box;
   min-width: 0;
+}
+
+.contentChat {
+  padding: 12px 18px !important;
+  overflow: hidden !important;
+  height: calc(100vh - 64px) !important;
+  max-height: calc(100vh - 64px) !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
 @media (max-width: 1280px) {

@@ -10,6 +10,7 @@ import {
   approveTenant,
 } from '../../api/tenantApi';
 import type { Tenant } from '../../types/tenant';
+import { toShortTenantId } from '../../utils/idUtils';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import styles from './CeoTenants.module.css';
@@ -129,10 +130,10 @@ export default function CeoTenantList() {
             label: 'Actions',
             render: (row: Tenant) => (
               <div className={styles.actions}>
-                <button onClick={() => navigate(`/ceo/tenants/${row.tenantId || (row as any).tenant_id || row.id}`)}>View</button>
+                <button onClick={() => navigate(`/ceo/tenants/${toShortTenantId(row)}`)}>View</button>
                 {can('tenants.manage') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/tenants/${row.tenantId || (row as any).tenant_id || row.id}/edit`)}>Edit</button>
+                    <button onClick={() => navigate(`/ceo/tenants/${toShortTenantId(row)}/edit`)}>Edit</button>
                     {row.status === 'pending' && (
                       <button onClick={() => handleApprove(row)}>Approve</button>
                     )}

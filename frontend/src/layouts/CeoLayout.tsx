@@ -44,6 +44,8 @@ export default function CeoLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [mobileSidebarOpen]);
 
+  const isChatPage = location.pathname.endsWith('/chat');
+
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -109,7 +111,7 @@ export default function CeoLayout() {
             <UserDropdown />
           </div>
         </header>
-        <main className={styles.content}>
+        <main className={`${styles.content} ${isChatPage ? styles.contentChat : ''}`}>
           <Outlet />
         </main>
       </div>

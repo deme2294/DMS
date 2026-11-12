@@ -4,7 +4,6 @@ import {
   ChatBubbleLeftRightIcon,
   VideoCameraIcon,
   ArrowsRightLeftIcon,
-  PhoneIcon,
   EnvelopeIcon,
   UserGroupIcon,
   ArrowsPointingOutIcon,
@@ -89,7 +88,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         <div className={styles.chatHeaderInfo}>
           <div className={styles.chatHeaderTitleRow}>
-            <h3 className={styles.chatHeaderTitle}>
+            <h3 className={styles.chatHeaderTitle} title={isDirect ? partnerName : selectedRoom.name}>
               {isDirect ? partnerName : selectedRoom.name}
             </h3>
             <span
@@ -116,12 +115,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   className={styles.onlineDotIndicator}
                   style={{ background: isDirectPartnerOnline ? '#22c55e' : '#94a3b8' }}
                 />
-                {isDirectPartnerOnline ? 'Active now on Chat Page' : 'Offline'}
+                {isDirectPartnerOnline ? 'Active now' : 'Offline'}
               </span>
               {directPartner?.email && (
                 <>
                   <span className={styles.metaDivider}>•</span>
-                  <span>{directPartner.email}</span>
+                  <span className={styles.partnerEmail} title={directPartner.email}>{directPartner.email}</span>
                 </>
               )}
             </div>
@@ -133,7 +132,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <span className={styles.metaDivider}>•</span>
               <span className={styles.onlineBadge}>
                 <span className={styles.onlineDotIndicator} />
-                {onlineParticipants.length} online now
+                {onlineParticipants.length} online
               </span>
             </div>
           )}
@@ -141,12 +140,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       <div className={styles.chatHeaderRight}>
-        {/* ===================== MODE SWITCHER BUTTONS ===================== */}
+        {/* ===================== MODE SWITCHER SEGMENTED PILL ===================== */}
         <div className={styles.modeSwitcherContainer}>
           <button
             type="button"
             className={`${styles.modeSwitchBtn} ${
-              activeViewMode === 'chat' ? styles.modeSwitchBtnChatActive : ''
+              activeViewMode === 'chat' && !isVideoActive ? styles.modeSwitchBtnActive : ''
             }`}
             onClick={() => {
               if (onDirectStartChat) {
@@ -155,16 +154,16 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onSetViewMode('chat');
               }
             }}
-            title="Switch to pure Text Chat mode"
+            title="Pure Text Chat mode"
           >
             <ChatBubbleLeftRightIcon className={styles.modeHeaderIcon} />
-            <span className={styles.modeText}>Text Chat</span>
+            <span className={styles.modeText}>Chat</span>
           </button>
 
           <button
             type="button"
             className={`${styles.modeSwitchBtn} ${
-              activeViewMode === 'video' ? styles.modeSwitchBtnVideoActive : ''
+              activeViewMode === 'video' || isVideoActive ? styles.modeSwitchBtnActive : ''
             }`}
             onClick={() => {
               if (onDirectStartVideo) {
@@ -173,53 +172,34 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 onSetViewMode('video');
               }
             }}
-            title="Directly start or switch to 100% In-App Video Conference"
+            title="In-App Video Conference & Screen Share"
           >
             <VideoCameraIcon className={styles.modeHeaderIcon} />
-            <span className={styles.modeText}>Video Call</span>
+            <span className={styles.modeText}>Video</span>
             {isVideoActive && <span className={styles.liveTag}>LIVE</span>}
           </button>
 
           <button
             type="button"
             className={`${styles.modeSwitchBtn} ${
-              activeViewMode === 'split' ? styles.modeSwitchBtnSplitActive : ''
+              activeViewMode === 'split' ? styles.modeSwitchBtnActive : ''
             }`}
             onClick={() => onSetViewMode('split')}
-            title="Split Screen: View Text Chat and Video Conference together"
+            title="Split Screen: View Chat and Video side-by-side"
           >
             <ArrowsRightLeftIcon className={styles.modeHeaderIcon} />
-            <span className={styles.modeText}>Split View</span>
+            <span className={styles.modeText}>Split</span>
           </button>
         </div>
-
-        {/* Quick Video Call Action for Active Room (Direct, Department, or Ticket) */}
-        {!isVideoActive && (
-          <button
-            type="button"
-            className={styles.headerQuickCallBtn}
-            onClick={() => {
-              if (onDirectStartVideo) {
-                onDirectStartVideo(selectedRoom);
-              } else {
-                onSetViewMode('video');
-              }
-            }}
-            title={`Start instant video conference today in ${isDirect ? partnerName : selectedRoom.name}`}
-          >
-            <VideoCameraIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
-            <span className={styles.headerActionBtnLabel}>{isDirect ? 'Call' : 'Video Call'}</span>
-          </button>
-        )}
 
         {/* Invite Registered Users / Schedule Event Time */}
         <button
           type="button"
-          className={styles.headerActionBtn}
+          className={`${styles.headerActionBtn} ${styles.inviteMeetBtn}`}
           onClick={onOpenMeetModal}
           title="Schedule conference date and invite registered users"
         >
-          <EnvelopeIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+          <EnvelopeIcon className={styles.headerBtnIcon} />
           <span className={styles.headerActionBtnLabel}>Invite</span>
         </button>
 
@@ -228,9 +208,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           type="button"
           className={`${styles.headerActionBtn} ${showMembersPanel ? styles.headerActionBtnActive : ''}`}
           onClick={onToggleMembersPanel}
-          title="Toggle members and online status roster"
+          title="Toggle participants and online status roster"
         >
-          <UserGroupIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+          <UserGroupIcon className={styles.headerBtnIcon} />
           <span className={styles.headerActionBtnLabel}>Members</span>
           <span className={styles.headerMembersBadge}>{onlineParticipants.length}</span>
         </button>
@@ -248,9 +228,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }
           >
             {isWholePageMode ? (
-              <ArrowsPointingInIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+              <ArrowsPointingInIcon className={styles.headerBtnIcon} />
             ) : (
-              <ArrowsPointingOutIcon style={{ width: '15px', height: '15px', flexShrink: 0 }} />
+              <ArrowsPointingOutIcon className={styles.headerBtnIcon} />
             )}
             <span className={styles.headerActionBtnLabel}>{isWholePageMode ? 'Standard' : 'Whole Page'}</span>
           </button>
@@ -271,7 +251,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           title={connected ? 'Real-time WebSocket connected' : 'WebSocket connecting...'}
         >
           <span className={styles.statusDot} />
-          <span>{connected ? 'Live' : 'Offline'}</span>
+          <span className={styles.socketStatusText}>{connected ? 'Live' : 'Offline'}</span>
         </div>
       </div>
     </header>

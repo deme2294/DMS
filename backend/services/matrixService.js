@@ -134,11 +134,6 @@ export const assignUserToDepartment = async (userId, departmentId, managerDepart
     if (!dept) {
       throw Object.assign(new Error(`Invalid or inactive department: ${departmentId}`), { statusCode: 400 });
     }
-
-    const existing = await matrixRepo.findAssignmentByUser(userId);
-    if (existing && existing.department_id !== departmentId) {
-      throw Object.assign(new Error('User already assigned to another department'), { statusCode: 409 });
-    }
   }
 
   await matrixRepo.replaceUserDepartment(userId, departmentId || null);
@@ -159,13 +154,6 @@ export const assignDepartmentToUser = async (departmentId, userId, managerDepart
     const user = await matrixRepo.validateUser(userId);
     if (!user) {
       throw Object.assign(new Error(`Invalid user for matrix assignment: ${userId}`), { statusCode: 400 });
-    }
-  }
-
-  if (userId && departmentId) {
-    const existing = await matrixRepo.findAssignmentByUser(userId);
-    if (existing && existing.department_id !== departmentId) {
-      throw Object.assign(new Error('User already assigned to another department'), { statusCode: 409 });
     }
   }
 
@@ -191,7 +179,8 @@ export const createAssignment = async ({ userId, departmentId }, managerDepartme
 
   const existingAssignment = await matrixRepo.findAssignmentByUser(userId);
   if (existingAssignment && existingAssignment.department_id !== departmentId) {
-    throw Object.assign(new Error('User already assigned to another department'), { statusCode: 409 });
+    const deptInfo = existingAssignment.department_name ? `"${existingAssignment.department_name}"` : 'another department';
+    throw Object.assign(new Error(`User already assigned to another department (${deptInfo}). Please remove their current assignment first.`), { statusCode: 409 });
   }
 
   const id = uuidv4();
@@ -248,7 +237,8 @@ export const updateAssignment = async (id, { userId, departmentId }, managerDepa
 
   const existingAssignment = await matrixRepo.findAssignmentByUser(nextUserId);
   if (existingAssignment && existingAssignment.department_id !== nextDepartmentId) {
-    throw Object.assign(new Error('User already assigned to another department'), { statusCode: 409 });
+    const deptInfo = existingAssignment.department_name ? `"${existingAssignment.department_name}"` : 'another department';
+    throw Object.assign(new Error(`User already assigned to another department (${deptInfo}). Please remove their current assignment first.`), { statusCode: 409 });
   }
 
   // Atomic replace inside a transaction

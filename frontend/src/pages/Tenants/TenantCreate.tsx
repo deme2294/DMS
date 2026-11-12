@@ -26,8 +26,13 @@ export default function TenantCreate() {
     try {
       const response = await createTenant(values as unknown as Record<string, unknown>);
       if (response.data?.success) {
-        setToast({ type: 'success', message: response.data.message || 'Tenant created successfully' });
-        setTimeout(() => navigate('/admin/tenants'), 800);
+        const msg = response.data.message || `Tenant "${values.organizationName}" created successfully`;
+        setToast({ type: 'success', message: msg });
+        setTimeout(() => {
+          navigate('/admin/tenants', {
+            state: { alert: { type: 'success', message: msg, title: 'Tenant Created' } },
+          });
+        }, 500);
       } else {
         setToast({ type: 'error', message: response.data?.message || 'Failed to create tenant' });
       }

@@ -24,13 +24,28 @@ export const findRefreshToken = async (tokenHash) => {
   const [rows] = await pool.query(
     `SELECT rt.*, u.id AS user_id, r.name AS role, u.username
      FROM refresh_tokens rt
-     JOIN users u ON u.id = rt.user_id
-     JOIN roles r ON r.id = u.role_id
+     LEFT JOIN users u ON u.id = rt.user_id
+     LEFT JOIN roles r ON r.id = u.role_id
      WHERE rt.token_hash = :tokenHash AND rt.revoked = 0 AND rt.expires_at > NOW()
      LIMIT 1`,
     { tokenHash }
   );
-  return rows[0] || null;
+  if (!rows.length) return null;
+  const row = rows[0];
+  if (!row.username) {
+    const [uRows] = await pool.query(
+      `SELECT u.id, r.name AS role, u.username
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       WHERE u.id = :uid OR u.user_code = :uid
+       LIMIT 1`,
+      { uid: row.user_id }
+    );
+    if (uRows.length) {
+      return { ...row, user_id: uRows[0].id, role: uRows[0].role, username: uRows[0].username };
+    }
+  }
+  return row;
 };
 
 export const revokeRefreshToken = async (tokenHash) => {

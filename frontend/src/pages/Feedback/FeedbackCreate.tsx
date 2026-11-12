@@ -4,12 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { createFeedback } from '../../api/feedbackApi';
 import { fetchTickets } from '../../api/ticketApi';
+import { fetchCategories, type TicketCategory } from '../../api/categoryApi';
 import type { FeedbackFormValues } from '../../types/feedback';
 import type { Ticket } from '../../types/ticket';
 import styles from './FeedbackCreate.module.css';
 
 type FormValues = {
   ticketId: string;
+  categoryId: string;
+  serviceName: string;
   subject: string;
   message: string;
   feedbackType: 'suggestion' | 'complaint' | 'improvement' | 'bug' | 'other';
@@ -40,6 +43,8 @@ export default function FeedbackCreate() {
   const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting, errors } } = useForm<FormValues>({
     defaultValues: {
       ticketId: '',
+      categoryId: '',
+      serviceName: '',
       subject: '',
       message: '',
       feedbackType: 'suggestion',
@@ -52,12 +57,15 @@ export default function FeedbackCreate() {
     },
   });
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [hoverRating, setHoverRating] = useState(0);
 
   const ticketId = watch('ticketId');
+  const categoryId = watch('categoryId');
   const selectedTicket = tickets.find(t => t.id === ticketId);
+  const selectedCategory = categories.find(c => c.id === categoryId);
   const feedbackFocus = watch('feedbackFocus');
   const rating = watch('rating');
 
@@ -65,7 +73,25 @@ export default function FeedbackCreate() {
     fetchTickets({ status: '', page: 1, limit: 100 })
       .then(res => setTickets(res.data.data))
       .catch(() => {});
+    fetchCategories({ includeInactive: false })
+      .then(res => setCategories(res.data.data || []))
+      .catch(() => {});
   }, []);
+
+  // Sync category & service when a ticket is selected
+  useEffect(() => {
+    if (selectedTicket) {
+      if (selectedTicket.category) {
+        const matched = categories.find(c => c.name.toLowerCase() === selectedTicket.category?.toLowerCase());
+        if (matched) {
+          setValue('categoryId', matched.id);
+          setValue('serviceName', matched.name);
+        } else {
+          setValue('serviceName', selectedTicket.category);
+        }
+      }
+    }
+  }, [selectedTicket, categories, setValue]);
 
   const onSubmit = async (values: FormValues) => {
     setMessage('');
@@ -73,6 +99,8 @@ export default function FeedbackCreate() {
     try {
       await createFeedback({
         ticketId: values.ticketId || undefined,
+        categoryId: values.categoryId || undefined,
+        serviceName: values.serviceName || undefined,
         subject: values.subject,
         message: values.message,
         feedbackType: values.feedbackType,
@@ -82,7 +110,15 @@ export default function FeedbackCreate() {
         whatIsWrong: values.feedbackFocus === 'correct' ? undefined : (values.whatIsWrong || undefined),
         howItShouldGo: values.howItShouldGo || undefined,
       });
-      navigate('/tenant/feedback');
+      navigate('/tenant/feedback', {
+        state: {
+          alert: {
+            type: 'success',
+            message: 'Feedback submitted successfully',
+            title: 'Feedback Submitted',
+          },
+        },
+      });
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to submit feedback');
     }
@@ -104,11 +140,48 @@ export default function FeedbackCreate() {
 
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Ticket Information</h2>
+          <h2 className={styles.cardTitle}>Category, Service & Ticket Context</h2>
+          
           <div className={styles.field}>
-            <label htmlFor="ticketId">Select Ticket</label>
-            <select id="ticketId" {...register('ticketId', { required: true })}>
-              <option value="">-- Select a ticket --</option>
+            <label htmlFor="categoryId">Ticket Category / Service Department</label>
+            <select
+              id="categoryId"
+              {...register('categoryId')}
+              onChange={(e) => {
+                const cat = categories.find(c => c.id === e.target.value);
+                setValue('categoryId', e.target.value);
+                if (cat) {
+                  setValue('serviceName', cat.name);
+                }
+              }}
+            >
+              <option value="">-- Choose Ticket Category / Service --</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.departmentName ? `(${c.departmentName})` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedCategory && (
+              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
+                ⚡ Linked Department: {selectedCategory.departmentName || 'Responsible Department'}
+              </p>
+            )}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="serviceName">Specific Service Detail (optional)</label>
+            <input
+              id="serviceName"
+              {...register('serviceName')}
+              placeholder="e.g. Inverter Backup, Water Supply, Network Connectivity..."
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="ticketId">Associated Ticket (optional)</label>
+            <select id="ticketId" {...register('ticketId')}>
+              <option value="">-- Select an associated ticket (optional) --</option>
               {tickets.map(t => (
                 <option key={t.id} value={t.id}>
                   [{t.referenceNumber}] {t.title} - {t.status}
@@ -120,6 +193,7 @@ export default function FeedbackCreate() {
                 <span><strong>Reference:</strong> {selectedTicket.referenceNumber}</span>
                 <span><strong>Status:</strong> {selectedTicket.status}</span>
                 <span><strong>Priority:</strong> {selectedTicket.priority}</span>
+                {selectedTicket.category && <span><strong>Category:</strong> {selectedTicket.category}</span>}
               </div>
             )}
           </div>

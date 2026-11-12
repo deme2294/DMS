@@ -244,6 +244,17 @@ export async function runAutoMigrations() {
     }
 
     // 3. Table tickets -> add tenant confirmation and escalation columns
+    try {
+      const [statusCol] = await pool.query(
+        "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tickets' AND COLUMN_NAME = 'status'"
+      );
+      if (statusCol.length > 0 && statusCol[0].DATA_TYPE !== 'varchar') {
+        await pool.query("ALTER TABLE tickets MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'open'");
+        console.log('[MIGRATION] Modified tickets.status to VARCHAR(50)');
+      }
+    } catch (err) {
+      console.warn('[MIGRATION] Notice checking tickets.status column:', err.message);
+    }
     if (!(await columnExists('tickets', 'tenant_confirmation_status'))) {
       await pool.query(`ALTER TABLE tickets ADD COLUMN tenant_confirmation_status ENUM('not_required','pending','approved','rejected') NOT NULL DEFAULT 'not_required'`);
       console.log('[MIGRATION] Added column tickets.tenant_confirmation_status');
@@ -267,6 +278,26 @@ export async function runAutoMigrations() {
     if (!(await columnExists('tickets', 'reopen_reason'))) {
       await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_reason TEXT NULL`);
       console.log('[MIGRATION] Added column tickets.reopen_reason');
+    }
+
+    if (!(await columnExists('tickets', 'reopen_requested_at'))) {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_requested_at DATETIME NULL`);
+      console.log('[MIGRATION] Added column tickets.reopen_requested_at');
+    }
+
+    if (!(await columnExists('tickets', 'reopen_requested_by'))) {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_requested_by CHAR(36) NULL`);
+      console.log('[MIGRATION] Added column tickets.reopen_requested_by');
+    }
+
+    if (!(await columnExists('tickets', 'reopen_request_reason'))) {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_request_reason TEXT NULL`);
+      console.log('[MIGRATION] Added column tickets.reopen_request_reason');
+    }
+
+    if (!(await columnExists('tickets', 'reopen_status'))) {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN reopen_status ENUM('none','requested','approved','rejected') NOT NULL DEFAULT 'none'`);
+      console.log('[MIGRATION] Added column tickets.reopen_status');
     }
 
     if (!(await columnExists('tickets', 'first_response_at'))) {
@@ -535,7 +566,35 @@ export async function runAutoMigrations() {
           ADD COLUMN response_by CHAR(36) NULL
       `);
       console.log('[MIGRATION] Added feedback ticket-based columns');
+    
     }
+
+    // 10a. Feedback assignment workflow columns
+    const feedbackWorkflowCols = [
+      { col: 'department_id', def: 'CHAR(36) NULL' },
+      { col: 'assigned_to_user_id', def: 'CHAR(36) NULL' },
+      { col: 'admin_directive', def: 'TEXT NULL' },
+      { col: 'department_notes', def: 'TEXT NULL' },
+      { col: 'feedback_num', def: 'INT NULL' },
+    ];
+    for (const { col, def } of feedbackWorkflowCols) {
+      if (!(await columnExists('feedback', col))) {
+        await pool.query(`ALTER TABLE feedback ADD COLUMN ${col} ${def}`);
+        console.log(`[MIGRATION] Added column feedback.${col}`);
+      }
+    }
+    try {
+      await pool.query("ALTER TABLE feedback MODIFY COLUMN status VARCHAR(40) NOT NULL DEFAULT 'pending'");
+    } catch (_) {}
+
+    // Ensure manager and staff have feedback permissions
+    try {
+      await pool.query(
+        `INSERT IGNORE INTO role_permissions (role_id, permission_id)
+         SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+         WHERE r.name IN ('manager', 'staff') AND p.code IN ('feedback.read', 'feedback.update')`
+      );
+    } catch (_) {}
 
     // 11. Add professional attributes to office_locations
     const officeCols = ['capacity', 'amenities', 'availability_status', 'price_per_month', 'latitude', 'longitude', 'address', 'contact_person', 'contact_phone', 'notes'];
@@ -871,7 +930,10 @@ export async function runAutoMigrations() {
       `INSERT IGNORE INTO role_permissions (role_id, permission_id)
        SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
        WHERE r.name = 'ceo' AND p.code IN (
-         'users.read', 'tickets.read', 'departments.read', 'dashboard.read',
+         'users.read', 'tickets.read', 'tickets.create', 'tickets.assign', 'tickets.approve',
+         'tickets.close', 'tickets.escalate', 'tickets.merge', 'tickets.reopen', 'tickets.complete',
+         'tickets.reassign', 'tickets.change_priority', 'tickets.change_category', 'tickets.internal_note',
+         'departments.read', 'dashboard.read',
          'notices.read', 'feedback.read', 'knowledge.read', 'office.read',
          'reports.read', 'audit.read', 'ceo.dashboard', 'executive.analytics',
          'executive.reports', 'executive.approvals', 'executive.remarks'
@@ -1088,6 +1150,9 @@ export async function runAutoMigrations() {
     // Run chat tables migration
     await createChatTables();
 
+    // Reduce entity IDs to 4-digit numbers and backfill existing entities
+    await migrateEntityIdsToFourDigits();
+
   } catch (err) {
     console.error('[MIGRATION] Error running auto-migrations:', err.message);
   }
@@ -1217,5 +1282,313 @@ export async function createChatTables() {
     console.log('[MIGRATION] ✅ Chat system tables created successfully');
   } catch (err) {
     console.error('[MIGRATION] ❌ Error creating chat tables:', err.message);
+  }
+}
+
+
+export async function migrateEntityIdsToFourDigits() {
+  console.log('[MIGRATION] Checking entity IDs format (reducing to 4 digits)...');
+  const columnExists = async (table, column) => {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS 
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [table, column]
+    );
+    return rows[0].cnt > 0;
+  };
+  try {
+    // 1. Users
+    const [longUsers] = await pool.query(
+      "SELECT id, user_code FROM users WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longUsers.length > 0) {
+      console.log(`[MIGRATION] Migrating ${longUsers.length} users to 4-digit numeric IDs...`);
+      const [maxUserRows] = await pool.query(
+        "SELECT user_code FROM users WHERE user_code REGEXP '^[0-9]{4}$' ORDER BY CAST(user_code AS UNSIGNED) DESC LIMIT 1"
+      );
+      let nextUserNum = 1001;
+      if (maxUserRows.length && maxUserRows[0].user_code) {
+        const val = parseInt(maxUserRows[0].user_code, 10);
+        if (!isNaN(val) && val >= 1000) nextUserNum = val + 1;
+      }
+
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const u of longUsers) {
+        let newId = (u.user_code && /^\d{4}$/.test(u.user_code)) ? u.user_code : String(nextUserNum++);
+        const [conflict] = await pool.query('SELECT id FROM users WHERE id = :newId', { newId });
+        if (conflict.length && conflict[0].id !== u.id) {
+          newId = String(nextUserNum++);
+        }
+        const oldId = u.id;
+
+        await pool.query('UPDATE users SET id = :newId, user_code = :newId WHERE id = :oldId', { newId, oldId });
+        
+        const userUpdates = [
+          ['departments', 'head_user_id'],
+          ['user_departments', 'user_id'],
+          ['tickets', 'created_by'],
+          ['tickets', 'assigned_to'],
+          ['tickets', 'approved_by'],
+          ['tickets', 'reopened_by'],
+          ['ticket_replies', 'user_id'],
+          ['ticket_replies', 'target_user_id'],
+          ['ticket_status_history', 'changed_by'],
+          ['audit_logs', 'user_id'],
+          ['chat_participants', 'user_id'],
+          ['chat_messages', 'sender_id'],
+          ['assignments', 'user_id'],
+          ['assignments', 'assigned_to'],
+          ['assignments', 'assigned_by'],
+          ['notice_recipients', 'user_id'],
+          ['notice_replies', 'user_id'],
+          ['notices', 'assigned_to'],
+          ['notices', 'assigned_by'],
+          ['feedback', 'user_id'],
+          ['feedback_replies', 'user_id'],
+          ['knowledge_base', 'author_id'],
+          ['knowledge_base', 'approved_by'],
+          ['knowledge_base', 'published_by'],
+          ['knowledge_base', 'archived_by'],
+          ['login_history', 'user_id'],
+          ['refresh_tokens', 'user_id'],
+          ['typing_indicators', 'user_id'],
+          ['user_online_status', 'user_id'],
+          ['office_bookings', 'booked_by_user_id'],
+          ['office_feedback', 'user_id'],
+          ['office_feedback_replies', 'replied_by'],
+        ];
+
+        for (const [table, col] of userUpdates) {
+          try {
+            await pool.query(`UPDATE \`${table}\` SET \`${col}\` = :newId WHERE \`${col}\` = :oldId`, { newId, oldId });
+          } catch (e) {}
+        }
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MIGRATION] Successfully converted ${longUsers.length} user IDs to 4-digit numbers.`);
+    }
+
+    // 2. Departments
+    const [longDepts] = await pool.query(
+      "SELECT id, code FROM departments WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longDepts.length > 0) {
+      console.log(`[MIGRATION] Migrating ${longDepts.length} departments to 4-digit numeric IDs...`);
+      const [maxDeptRows] = await pool.query(
+        "SELECT id FROM departments WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+      );
+      let nextDeptNum = 2001;
+      if (maxDeptRows.length && maxDeptRows[0].id) {
+        const val = parseInt(maxDeptRows[0].id, 10);
+        if (!isNaN(val) && val >= 2000) nextDeptNum = val + 1;
+      }
+
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const d of longDepts) {
+        const newId = String(nextDeptNum++);
+        const oldId = d.id;
+        await pool.query('UPDATE departments SET id = :newId WHERE id = :oldId', { newId, oldId });
+        const deptUpdates = [
+          ['user_departments', 'department_id'],
+          ['ticket_categories', 'department_id'],
+          ['tickets', 'department_id'],
+          ['notices', 'department_id'],
+        ];
+        for (const [table, col] of deptUpdates) {
+          try {
+            await pool.query(`UPDATE \`${table}\` SET \`${col}\` = :newId WHERE \`${col}\` = :oldId`, { newId, oldId });
+          } catch (e) {}
+        }
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MIGRATION] Successfully converted ${longDepts.length} department IDs to 4-digit numbers.`);
+    }
+
+    // 3. Tenants
+    const [longTenants] = await pool.query(
+      "SELECT id FROM tenants WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longTenants.length > 0) {
+      console.log(`[MIGRATION] Migrating ${longTenants.length} tenants to 4-digit numeric IDs...`);
+      const [maxTenantRows] = await pool.query(
+        "SELECT id FROM tenants WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+      );
+      let nextTenantNum = 3001;
+      if (maxTenantRows.length && maxTenantRows[0].id) {
+        const val = parseInt(maxTenantRows[0].id, 10);
+        if (!isNaN(val) && val >= 3000) nextTenantNum = val + 1;
+      }
+
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const t of longTenants) {
+        const newId = String(nextTenantNum++);
+        const oldId = t.id;
+        await pool.query('UPDATE tenants SET id = :newId WHERE id = :oldId', { newId, oldId });
+        const tenantUpdates = [
+          ['users', 'tenant_id'],
+          ['tickets', 'tenant_id'],
+        ];
+        for (const [table, col] of tenantUpdates) {
+          try {
+            await pool.query(`UPDATE \`${table}\` SET \`${col}\` = :newId WHERE \`${col}\` = :oldId`, { newId, oldId });
+          } catch (e) {}
+        }
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MIGRATION] Successfully converted ${longTenants.length} tenant IDs to 4-digit numbers.`);
+    }
+
+    // 4. Ticket Categories
+    const [longCats] = await pool.query(
+      "SELECT id FROM ticket_categories WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longCats.length > 0) {
+      console.log(`[MIGRATION] Migrating ${longCats.length} categories to 4-digit numeric IDs...`);
+      const [maxCatRows] = await pool.query(
+        "SELECT id FROM ticket_categories WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+      );
+      let nextCatNum = 4001;
+      if (maxCatRows.length && maxCatRows[0].id) {
+        const val = parseInt(maxCatRows[0].id, 10);
+        if (!isNaN(val) && val >= 4000) nextCatNum = val + 1;
+      }
+
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const c of longCats) {
+        const newId = String(nextCatNum++);
+        const oldId = c.id;
+        await pool.query('UPDATE ticket_categories SET id = :newId WHERE id = :oldId', { newId, oldId });
+        const catUpdates = [
+          ['tickets', 'category_id'],
+          ['sla_policies', 'category_id'],
+        ];
+        for (const [table, col] of catUpdates) {
+          try {
+            await pool.query(`UPDATE \`${table}\` SET \`${col}\` = :newId WHERE \`${col}\` = :oldId`, { newId, oldId });
+          } catch (e) {}
+        }
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MIGRATION] Successfully converted ${longCats.length} category IDs to 4-digit numbers.`);
+    }
+
+    // 5. SLA Policies
+    const [longSlas] = await pool.query(
+      "SELECT id FROM sla_policies WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longSlas.length > 0) {
+      console.log(`[MIGRATION] Migrating ${longSlas.length} SLA policies to 4-digit numeric IDs...`);
+      const [maxSlaRows] = await pool.query(
+        "SELECT id FROM sla_policies WHERE id REGEXP '^[0-9]{4}$' ORDER BY CAST(id AS UNSIGNED) DESC LIMIT 1"
+      );
+      let nextSlaNum = 5001;
+      if (maxSlaRows.length && maxSlaRows[0].id) {
+        const val = parseInt(maxSlaRows[0].id, 10);
+        if (!isNaN(val) && val >= 5000) nextSlaNum = val + 1;
+      }
+
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const s of longSlas) {
+        const newId = String(nextSlaNum++);
+        const oldId = s.id;
+        await pool.query('UPDATE sla_policies SET id = :newId WHERE id = :oldId', { newId, oldId });
+        const slaUpdates = [
+          ['ticket_categories', 'sla_policy_id'],
+          ['tickets', 'sla_policy_id'],
+        ];
+        for (const [table, col] of slaUpdates) {
+          try {
+            await pool.query(`UPDATE \`${table}\` SET \`${col}\` = :newId WHERE \`${col}\` = :oldId`, { newId, oldId });
+          } catch (e) {}
+        }
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MIGRATION] Successfully converted ${longSlas.length} SLA policy IDs to 4-digit numbers.`);
+    }
+
+    // 6. Office Locations
+    const [longOffices] = await pool.query(
+      "SELECT id FROM office_locations WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longOffices.length > 0) {
+      let nextOfficeNum = 6001;
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const o of longOffices) {
+        const newId = String(nextOfficeNum++);
+        const oldId = o.id;
+        await pool.query('UPDATE office_locations SET id = :newId WHERE id = :oldId', { newId, oldId });
+        try { await pool.query('UPDATE office_bookings SET location_id = :newId WHERE location_id = :oldId', { newId, oldId }); } catch (e) {}
+        try { await pool.query('UPDATE office_feedback SET location_id = :newId WHERE location_id = :oldId', { newId, oldId }); } catch (e) {}
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    // 7. Notices
+    if (!(await columnExists('notices', 'legacy_id'))) {
+      await pool.query('ALTER TABLE notices ADD COLUMN legacy_id VARCHAR(64) NULL AFTER id');
+    }
+    const [maxNotice] = await pool.query("SELECT MAX(CAST(id AS UNSIGNED)) AS max_id FROM notices WHERE id REGEXP '^[0-9]{4}$'");
+    let nextNoticeNum = Math.max(7000, Number(maxNotice[0]?.max_id || 0)) + 1;
+    const [longNotices] = await pool.query(
+      "SELECT id FROM notices WHERE id NOT REGEXP '^[0-9]{4}$'"
+    );
+    if (longNotices.length > 0) {
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const n of longNotices) {
+        while (true) {
+          const checkId = String(nextNoticeNum);
+          const [exists] = await pool.query('SELECT id FROM notices WHERE id = ? LIMIT 1', [checkId]);
+          if (!exists.length) break;
+          nextNoticeNum++;
+        }
+        const newId = String(nextNoticeNum);
+        const oldId = n.id;
+        await pool.query('UPDATE notices SET id = :newId, legacy_id = :oldId WHERE id = :oldId', { newId, oldId });
+        try { await pool.query('UPDATE notice_recipients SET notice_id = :newId WHERE notice_id = :oldId', { newId, oldId }); } catch (e) {}
+        try { await pool.query('UPDATE notice_replies SET notice_id = :newId WHERE notice_id = :oldId', { newId, oldId }); } catch (e) {}
+        try { await pool.query('UPDATE notifications SET notice_id = :newId WHERE notice_id = :oldId', { newId, oldId }); } catch (e) {}
+        nextNoticeNum++;
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+    // 8. Feedback
+    if (!(await columnExists('feedback', 'legacy_id'))) {
+      await pool.query('ALTER TABLE feedback ADD COLUMN legacy_id VARCHAR(64) NULL AFTER id');
+    }
+    // Populate feedback_num for any existing clean 4-digit ID rows
+    await pool.query("UPDATE feedback SET feedback_num = CAST(id AS UNSIGNED) WHERE feedback_num IS NULL AND id REGEXP '^[0-9]+$'");
+
+    const [maxFb] = await pool.query("SELECT MAX(CAST(id AS UNSIGNED)) AS max_id, MAX(feedback_num) AS max_num FROM feedback WHERE id REGEXP '^[0-9]{4}$' OR feedback_num IS NOT NULL");
+    let nextFeedbackNum = Math.max(8000, Number(maxFb[0]?.max_id || 0), Number(maxFb[0]?.max_num || 0)) + 1;
+
+    const [longFeedback] = await pool.query(
+      "SELECT id FROM feedback WHERE id NOT REGEXP '^[0-9]{4}$' ORDER BY created_at ASC"
+    );
+    if (longFeedback.length > 0) {
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      for (const f of longFeedback) {
+        while (true) {
+          const checkId = String(nextFeedbackNum);
+          const [exists] = await pool.query('SELECT id FROM feedback WHERE id = ? OR feedback_num = ? LIMIT 1', [checkId, nextFeedbackNum]);
+          if (!exists.length) break;
+          nextFeedbackNum++;
+        }
+        const newId = String(nextFeedbackNum);
+        const oldId = f.id;
+        await pool.query(
+          'UPDATE feedback SET id = :newId, feedback_num = :nextFeedbackNum, legacy_id = :oldId WHERE id = :oldId',
+          { newId, nextFeedbackNum, oldId }
+        );
+        try { await pool.query('UPDATE feedback_replies SET feedback_id = :newId WHERE feedback_id = :oldId', { newId, oldId }); } catch (e) {}
+        try { await pool.query('UPDATE notifications SET feedback_id = :newId WHERE feedback_id = :oldId', { newId, oldId }); } catch (e) {}
+        nextFeedbackNum++;
+      }
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    }
+
+  } catch (err) {
+    console.error('[MIGRATION] Warning in migrateEntityIdsToFourDigits:', err.message);
+    try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch (e) {}
   }
 }

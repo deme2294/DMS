@@ -47,19 +47,23 @@ export const getUnreadCount = async (userId) => {
   }
 };
 
-export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) => {
+export const getNotifications = async (userId, { limit = 20, offset = 0, unreadOnly = false } = {}) => {
   try {
+    const unreadClause = unreadOnly ? ' AND n.read_at IS NULL' : '';
     const [rows] = await pool.query(
       `SELECT n.id, n.title, n.message, n.type, 
               n.ticket_id AS ticketId, 
+              t.reference_number AS ticketReferenceNumber,
+              t.ticket_num AS ticketNum,
               n.notice_id AS noticeId, 
               n.room_id AS roomId, 
               CASE WHEN kb.id IS NOT NULL AND kb.deleted_at IS NULL THEN n.article_id ELSE NULL END AS articleId,
               n.read_at AS readAt, 
               n.created_at AS createdAt
        FROM notifications n
+       LEFT JOIN tickets t ON t.id = n.ticket_id
        LEFT JOIN knowledge_base kb ON kb.id = n.article_id
-       WHERE n.user_id = :userId
+       WHERE n.user_id = :userId ${unreadClause}
        ORDER BY n.created_at DESC
        LIMIT :limit OFFSET :offset`,
       { userId, limit: Number(limit), offset: Number(offset) }
@@ -69,6 +73,7 @@ export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) 
     if (err.code === 'ER_NO_SUCH_TABLE') return [];
     if (err.code === 'ER_BAD_FIELD_ERROR') {
       try {
+        const unreadClause = unreadOnly ? ' AND n.read_at IS NULL' : '';
         const [rows] = await pool.query(
           `SELECT n.id, n.title, n.message, n.type, 
                   n.ticket_id AS ticketId, 
@@ -78,7 +83,7 @@ export const getNotifications = async (userId, { limit = 20, offset = 0 } = {}) 
                   n.read_at AS readAt, 
                   n.created_at AS createdAt
            FROM notifications n
-           WHERE n.user_id = :userId
+           WHERE n.user_id = :userId ${unreadClause}
            ORDER BY n.created_at DESC
            LIMIT :limit OFFSET :offset`,
           { userId, limit: Number(limit), offset: Number(offset) }

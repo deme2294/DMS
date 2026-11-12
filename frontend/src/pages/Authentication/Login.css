@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   background: radial-gradient(ellipse 130% 90% at 50% 20%, #0b254a 0%, #071933 55%, #040e1e 100%);
   background-color: #071933;
@@ -37,13 +38,19 @@
   border-radius: 50%;
 }
 
-/* ── Two-column main body ── */
+/* ── Two-column fluid main body (auto-centered on large PC, stacks on tablet/mobile) ── */
 .login-body {
   display: flex;
   flex-direction: row;
   flex: 1;
   width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
   align-items: center;
+  justify-content: space-between;
+  gap: clamp(1.25rem, 3vw, 3rem);
+  padding: clamp(1rem, 2.5vw, 2.5rem) clamp(1rem, 3.5vw, 3.5rem) clamp(0.75rem, 2vw, 1.5rem);
+  box-sizing: border-box;
 }
 
 /* ════════════════════════════════════════════════
@@ -52,12 +59,13 @@
 .login-left {
   position: relative;
   z-index: 10;
-  width: 52%;
+  flex: 1 1 52%;
+  min-width: 0;
+  max-width: 660px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2.25rem 3.5rem 1.5rem 3.5rem;
-  flex-shrink: 0;
+  padding: 0;
 }
 
 /* ── Brand Header Row (Seamless, No Rectangle, Clear Transparent) ── */
@@ -167,17 +175,18 @@
 
 /* ── Heading ── */
 .login-heading-wrap {
-  margin-bottom: 1.25rem;
+  margin-bottom: clamp(0.85rem, 2vw, 1.25rem);
 }
 
 .login-heading {
-  font-size: 3.35rem;
+  font-size: clamp(1.85rem, 3.6vw, 3.35rem);
   font-weight: 900;
   color: white;
-  line-height: 1.02;
-  margin: 0 0 0.85rem 0;
+  line-height: 1.04;
+  margin: 0 0 0.75rem 0;
   letter-spacing: -0.025em;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  overflow-wrap: break-word;
 }
 
 .login-heading-gradient {
@@ -191,7 +200,7 @@
 
 .login-heading-sub {
   display: block;
-  font-size: 1.35rem;
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
   font-weight: 600;
   color: #cbd5e1;
   margin-top: 0.35rem;
@@ -210,25 +219,26 @@
 /* ── Description ── */
 .login-desc {
   color: #cbd5e1;
-  font-size: 0.885rem;
-  line-height: 1.75;
-  max-width: 460px;
-  margin: 0 0 1.75rem 0;
+  font-size: clamp(0.82rem, 1.1vw, 0.9rem);
+  line-height: 1.65;
+  max-width: 520px;
+  margin: 0 0 clamp(1rem, 2vw, 1.6rem) 0;
 }
 
 /* ── Feature cards ── */
 .login-features {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 1.75rem;
+  gap: 10px;
+  margin-bottom: clamp(1rem, 2vw, 1.6rem);
 }
 
 .login-feature-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 13px 18px;
+  gap: 14px;
+  padding: 12px 16px;
+  min-width: 0;
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.45) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -277,15 +287,15 @@
 
 /* ── System Status ── */
 .login-status-box {
-  padding: 15px 18px;
+  padding: 14px 18px;
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.5) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  max-width: 350px;
-  margin-bottom: auto;
+  width: 100%;
+  max-width: 380px;
 }
 
 .login-status-top,
@@ -342,24 +352,23 @@
 .login-right {
   position: relative;
   z-index: 10;
-  flex: 1;
+  flex: 1 1 46%;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem 1.5rem;
+  padding: 0;
 }
 
 .login-card-wrap {
   width: 100%;
   max-width: 460px;
+  min-width: 0;
 }
 
-/* Mobile-only brand — hidden on desktop */
+/* Redundant mobile-only header stays hidden because .login-left remains visible on all devices */
 .login-mobile-brand {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 1.5rem;
+  display: none !important;
 }
 
 /* ── Glass card ── */
@@ -508,6 +517,17 @@
   box-sizing: border-box;
 }
 
+/* Disable native Edge / IE password reveal and clear buttons on login inputs */
+.login-input::-ms-reveal,
+.login-input::-ms-clear,
+input[type="password"].login-input::-ms-reveal,
+input[type="password"].login-input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
 .login-input::placeholder { color: #475569; }
 .login-input:focus {
   border-color: rgba(56, 189, 248, 0.75);
@@ -523,19 +543,49 @@
 
 .login-eye-btn {
   position: absolute;
-  right: 11px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
+  width: 36px;
+  height: 36px;
+  min-height: 36px !important;
+  background: transparent;
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
   display: flex;
   align-items: center;
-  transition: color 0.2s;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
-.login-eye-btn:hover { color: #38bdf8; }
+
+.login-eye-btn:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+.login-eye-btn:active {
+  transform: translateY(-50%) scale(0.92);
+  background: rgba(56, 189, 248, 0.28);
+}
+
+.login-eye-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.login-eye-btn svg,
+.login-eye-btn * {
+  pointer-events: none !important;
+}
 
 .login-remember {
   display: flex;
@@ -741,11 +791,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 0.688rem;
   color: #94a3b8;
   margin-top: 8px;
   margin-bottom: 0;
+  text-align: center;
 }
 
 .login-demo-hint-key {
@@ -859,7 +911,7 @@
   font-weight: 500;
   color: #cbd5e1;
   letter-spacing: 0.01em;
-  white-space: nowrap;
+  text-align: center;
 }
 
 .login-footer-brand-name {
@@ -906,90 +958,213 @@
 }
 
 /* ══════════════════════════════════════════════════
-   RESPONSIVE — Stack on small screens
+   RESPONSIVE — Dynamic across PC, Tablets & Mobile
+   No hidden sections, no overlapping elements
 ══════════════════════════════════════════════════ */
-@media (max-width: 860px) {
+@media (max-height: 780px) and (min-width: 961px) {
   .login-body {
-    flex-direction: column;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    gap: 1.5rem;
   }
 
-  .login-left {
-    display: none; /* hide branding on small screens */
+  .login-brand-row {
+    margin-bottom: 1rem;
   }
 
-  .login-right {
-    padding: 2rem 1rem 1rem;
+  .login-heading {
+    font-size: clamp(2rem, 3.2vw, 2.75rem);
   }
 
-  .login-mobile-brand {
-    display: flex; /* show mobile brand header */
+  .login-desc {
+    margin-bottom: 1rem;
   }
 
-  .login-footer-pill {
-    padding: 7px 16px;
+  .login-features {
     gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  .login-feature-card {
+    padding: 10px 14px;
+  }
+
+  .login-card {
+    padding: 1.35rem 1.5rem;
+  }
+
+  .login-card-top {
+    margin-bottom: 0.9rem;
+  }
+
+  .login-form {
+    gap: 10px;
   }
 }
 
-@media (max-width: 560px) {
-  .login-footer-dot,
-  .login-footer-badge {
-    display: none;
+@media (max-width: 1120px) {
+  .login-body {
+    gap: 1.75rem;
+    padding: 1.5rem 1.75rem 1rem;
+  }
+}
+
+@media (max-width: 960px) {
+  .login-body {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 1.75rem;
+    padding: 1.5rem 1.25rem 1rem;
+  }
+
+  .login-left {
+    flex: none;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+  }
+
+  .login-brand-row {
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+
+  .login-desc {
+    max-width: 100%;
+  }
+
+  .login-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+  }
+
+  .login-status-box {
+    max-width: 100%;
+  }
+
+  .login-right {
+    flex: none;
+    width: 100%;
+    padding: 0;
+  }
+
+  .login-card-wrap {
+    max-width: 520px;
+    margin: 0 auto;
   }
 
   .login-footer-pill {
-    padding: 6px 14px;
+    padding: 8px 16px;
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-body {
+    padding: 1.25rem 0.9rem 0.75rem;
+    gap: 1.35rem;
+  }
+
+  .login-brand-row {
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+
+  .login-logo-img {
+    height: 42px;
+  }
+
+  .login-features {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .login-feature-card {
+    padding: 11px 14px;
+    gap: 12px;
+  }
+
+  .login-status-box {
+    padding: 12px 14px;
+  }
+
+  .login-card {
+    padding: 1.35rem 1.1rem;
+    border-radius: 18px;
+  }
+
+  .login-bottom-bar {
+    padding: 0.75rem 0.9rem 1rem;
+  }
+
+  .login-footer-pill {
+    border-radius: 16px;
+    padding: 8px 14px;
   }
 
   .login-footer-copyright {
-    font-size: 0.72rem;
+    font-size: 0.74rem;
+    line-height: 1.4;
   }
 }
 
 @media (max-width: 480px) {
-  .login-card {
-    padding: 1.35rem 1rem;
+  .login-body {
+    padding: 1rem 0.75rem 0.65rem;
   }
 
   .login-heading {
-    font-size: 2rem;
+    font-size: 1.85rem;
+  }
+
+  .login-heading-sub {
+    font-size: 1rem;
   }
 
   .login-demo-grid {
-    gap: 4px;
+    grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+    gap: 6px;
   }
 
   .login-demo-btn {
-    padding: 6px 2px 5px;
+    padding: 8px 4px 7px;
   }
 
   .login-demo-role {
-    font-size: 0.66rem;
+    font-size: 0.68rem;
   }
 
   .login-demo-username {
-    font-size: 0.58rem;
+    font-size: 0.6rem;
   }
 }
 
 @media (max-width: 360px) {
   .login-card {
-    padding: 1.15rem 0.75rem;
+    padding: 1.1rem 0.85rem;
   }
 
   .login-heading {
-    font-size: 1.65rem;
+    font-size: 1.6rem;
+  }
+
+  .login-status-grid {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .login-demo-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
 
   .login-footer-pill {
-    padding: 5px 10px;
+    padding: 7px 10px;
   }
 }

@@ -384,7 +384,7 @@ export default function AdminDashboard() {
                 {data.recentTickets.map((t) => (
                   <tr key={t.id} className={styles.recentTableRow}>
                     <td>
-                      <Link to={`/admin/tickets/${t.ticketNum ? String(t.ticketNum) : (t.referenceNumber || t.id)}`} className={styles.ticketTitleLink}>
+                      <Link to={`/admin/tickets/${t.referenceNumber || (t.ticketNum ? String(t.ticketNum) : t.id)}`} className={styles.ticketTitleLink}>
                         {t.title}
                       </Link>
                       <div className={styles.ticketRefTag}>{t.referenceNumber}</div>

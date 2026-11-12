@@ -1,3 +1,4 @@
+import { toShortUserId } from '../../utils/idUtils';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -134,12 +135,14 @@ export default function UserForm({
             </select>
           </div>
 
-          {initialData?.userCode && (
-            <div className={styles.field}>
-              <label>Registered User ID</label>
-              <input type="text" value={initialData.userCode} disabled />
-            </div>
-          )}
+          <div className={styles.field}>
+            <label>Registered User ID</label>
+            <input
+              type="text"
+              value={initialData?.userCode || (initialData?.id && /^\d{4}$/.test(initialData.id) ? initialData.id : (initialData ? toShortUserId(initialData) : 'Auto-generated (4-digit)'))}
+              disabled
+            />
+          </div>
         </div>
       </div>
 

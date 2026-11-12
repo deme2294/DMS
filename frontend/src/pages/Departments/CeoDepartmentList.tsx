@@ -1,4 +1,5 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
+import { toShortDepartmentId } from '../../utils/idUtils';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
@@ -11,11 +12,13 @@ import {
 import type { Department } from '../../types/department';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
+import { useAlert } from '../../context/AlertContext';
 import styles from './CeoDepartments.module.css';
 
 export default function CeoDepartmentList() {
   const navigate = useNavigate();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const { page, limit, setPage, resetPage } = usePagination();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -43,13 +46,16 @@ export default function CeoDepartmentList() {
     if (!window.confirm(`Delete department "${dept.name}"?`)) return;
     try {
       await deleteDepartment(dept.id);
-      setMessage('Department deleted successfully');
+      const msg = `Department "${dept.name}" deleted successfully`;
+      setMessage(msg);
+      showSuccess(msg, 'Department Deleted');
       loadDepartments();
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to delete department';
       setMessage(msg);
+      showError(msg, 'Delete Error');
     }
   };
 
@@ -57,10 +63,14 @@ export default function CeoDepartmentList() {
     try {
       if (dept.status === 'active') {
         await deactivateDepartment(dept.id);
-        setMessage('Department deactivated');
+        const msg = `Department "${dept.name}" deactivated`;
+        setMessage(msg);
+        showSuccess(msg, 'Department Deactivated');
       } else {
         await activateDepartment(dept.id);
-        setMessage('Department activated');
+        const msg = `Department "${dept.name}" activated`;
+        setMessage(msg);
+        showSuccess(msg, 'Department Activated');
       }
       loadDepartments();
     } catch (err: unknown) {
@@ -68,6 +78,7 @@ export default function CeoDepartmentList() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to update department status';
       setMessage(msg);
+      showError(msg, 'Status Update Failed');
     }
   };
 
@@ -137,7 +148,7 @@ export default function CeoDepartmentList() {
               <div className={styles.actions}>
                 {can('departments.manage') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/departments/${row.id}/edit`)}>
+                    <button onClick={() => navigate(`/ceo/departments/${toShortDepartmentId(row)}/edit`)}>
                       Edit
                     </button>
                     <button onClick={() => handleToggleStatus(row)}>

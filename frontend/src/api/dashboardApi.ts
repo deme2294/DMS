@@ -212,7 +212,7 @@ export const fetchManagerSlaDashboard = () =>
 export const fetchStaffSlaDashboard = () =>
   api.get<{ success: boolean; data: StaffSlaDashboard }>('/dashboard/staff/sla');
 
-// ── Ticket statistics + charts + overdue ──
+// â”€â”€ Ticket statistics + charts + overdue â”€â”€
 export interface TicketStatistics {
   total: number;
   open: number;
@@ -249,7 +249,7 @@ export const fetchTicketCharts = () =>
 export const fetchOverdueTickets = (limit = 50) =>
   api.get<{ success: boolean; data: any[] }>('/dashboard/tickets/overdue', { params: { limit } });
 
-// ── CEO Executive Dashboard ──
+// â”€â”€ CEO Executive Dashboard â”€â”€
 export interface CeoDashboardStats {
   totalTenants: number;
   totalUsers: number;
@@ -335,7 +335,7 @@ export const fetchCeoTenantStats = () =>
 export const fetchCeoSystemStats = () =>
   api.get<{ success: boolean; data: CeoSystemStats }>('/dashboard/ceo/system');
 
-// ── Admin Professional Analytics Types & API ──
+// â”€â”€ Admin Professional Analytics Types & API â”€â”€
 export interface AdminAnalyticsKpis {
   totalTickets: number;
   resolvedTickets: number;
@@ -395,12 +395,32 @@ export interface DepartmentAnalyticsItem {
   avgResolutionHours: number;
   slaComplianceRate: number;
   resolutionRate: number;
+  assignedTickets?: number;
+  assignedResolvedTickets?: number;
+  assignedResolutionRate?: number;
+  createdByTickets?: number;
+  createdByResolvedTickets?: number;
+  createdByResolutionRate?: number;
+  earlyResolvedTickets?: number;
+  onTimeResolvedTickets?: number;
+  lateResolvedTickets?: number;
+  activeOnTrackTickets?: number;
+  earlyResolutionRate?: number;
+  onTimeResolutionRate?: number;
+  lateResolutionRate?: number;
+  performanceScore?: number;
+  is100PercentQualified?: boolean;
+  performanceReasons?: string[];
+  performanceGrade?: 'A+' | 'A' | 'B' | 'C' | 'D' | 'N/A';
+  performanceTier?: 'flawless' | 'top' | 'good' | 'moderate' | 'critical' | 'inactive';
 }
 
 export interface StatusAnalyticsItem {
   status: string;
   count: number;
   percentage: number;
+  overdueCount?: number;
+  avgHours?: number;
 }
 
 export interface PriorityAnalyticsItem {
@@ -416,6 +436,14 @@ export interface CategoryAnalyticsItem {
   categoryName: string;
   count: number;
   resolved: number;
+  openTickets?: number;
+  inProgressTickets?: number;
+  overdue?: number;
+  avgHours?: number;
+  slaComplianceRate?: number;
+  resolutionRate?: number;
+  performanceScore?: number;
+  is100PercentQualified?: boolean;
 }
 
 export interface AdminAnalyticsData {
@@ -431,6 +459,9 @@ export interface AdminAnalyticsData {
 
 export const fetchAdminAnalytics = (params?: { timeframe?: string; departmentId?: string }) =>
   api.get<{ success: boolean; data: AdminAnalyticsData }>('/dashboard/admin/analytics', { params });
+
+export const fetchManagerAnalytics = (params?: { timeframe?: string; departmentId?: string }) =>
+  api.get<{ success: boolean; data: AdminAnalyticsData }>('/dashboard/manager/analytics', { params });
 
 
 

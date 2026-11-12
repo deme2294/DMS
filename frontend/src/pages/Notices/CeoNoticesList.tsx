@@ -16,6 +16,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
 import { buildAttachmentUrl } from '../../utils/attachmentUtils';
+import { toShortNoticeId } from '../../utils/idUtils';
 import styles from './CeoNotices.module.css';
 
 import {
@@ -460,7 +461,7 @@ export default function CeoNoticesList() {
                   type="button"
                   className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
                   title="Edit notice"
-                  onClick={() => navigate(`/ceo/notices/${row.id}/edit`)}
+                  onClick={() => navigate(`/ceo/notices/${toShortNoticeId(row)}/edit`)}
                 >
                   <PencilSquareIcon className={styles.actionIcon} />
                   <span>Edit</span>
@@ -593,7 +594,7 @@ export default function CeoNoticesList() {
                     type="button"
                     className={`${styles.actionBtn} ${styles.actionBtnEdit}`}
                     onClick={() => {
-                      navigate(`/ceo/notices/${viewingNotice.id}/edit`);
+                      navigate(`/ceo/notices/${toShortNoticeId(viewingNotice)}/edit`);
                     }}
                   >
                     <PencilSquareIcon className={styles.actionIcon} />

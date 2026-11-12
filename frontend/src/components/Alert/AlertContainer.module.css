@@ -1,0 +1,237 @@
+.container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 440px;
+  width: calc(100vw - 48px);
+  pointer-events: none;
+}
+
+.alertCard {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  overflow: hidden;
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.iconWrapper {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.iconWrapper svg {
+  width: 20px;
+  height: 20px;
+}
+
+.contentWrapper {
+  flex: 1;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px 0;
+  letter-spacing: -0.01em;
+}
+
+.message {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.closeButton {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #475569;
+}
+
+:global([data-theme="dark"]) .closeButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.closeButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Type Variations (Light Mode) ── */
+.success {
+  background: #ffffff;
+  border-color: #a7f3d0;
+  border-left-color: #10b981;
+}
+.success .iconWrapper {
+  background: #d1fae5;
+  color: #059669;
+}
+.success .title {
+  color: #065f46;
+}
+.success .message {
+  color: #1e293b;
+}
+
+.error {
+  background: #ffffff;
+  border-color: #fecaca;
+  border-left-color: #ef4444;
+}
+.error .iconWrapper {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.error .title {
+  color: #991b1b;
+}
+.error .message {
+  color: #1e293b;
+}
+
+.warning {
+  background: #ffffff;
+  border-color: #fde68a;
+  border-left-color: #f59e0b;
+}
+.warning .iconWrapper {
+  background: #fef3c7;
+  color: #d97706;
+}
+.warning .title {
+  color: #92400e;
+}
+.warning .message {
+  color: #1e293b;
+}
+
+.info {
+  background: #ffffff;
+  border-color: #bfdbfe;
+  border-left-color: #3b82f6;
+}
+.info .iconWrapper {
+  background: #dbeafe;
+  color: #2563eb;
+}
+.info .title {
+  color: #1e40af;
+}
+.info .message {
+  color: #1e293b;
+}
+
+/* ── Type Variations (Dark Mode) ── */
+:global([data-theme="dark"]) .success {
+  background: #0f172a;
+  border-color: #065f46;
+  border-left-color: #10b981;
+}
+:global([data-theme="dark"]) .success .iconWrapper {
+  background: #064e3b;
+  color: #34d399;
+}
+:global([data-theme="dark"]) .success .title {
+  color: #6ee7b7;
+}
+:global([data-theme="dark"]) .success .message {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .error {
+  background: #0f172a;
+  border-color: #7f1d1d;
+  border-left-color: #ef4444;
+}
+:global([data-theme="dark"]) .error .iconWrapper {
+  background: #7f1d1d;
+  color: #f87171;
+}
+:global([data-theme="dark"]) .error .title {
+  color: #fca5a5;
+}
+:global([data-theme="dark"]) .error .message {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .warning {
+  background: #0f172a;
+  border-color: #78350f;
+  border-left-color: #f59e0b;
+}
+:global([data-theme="dark"]) .warning .iconWrapper {
+  background: #78350f;
+  color: #fbbf24;
+}
+:global([data-theme="dark"]) .warning .title {
+  color: #fde68a;
+}
+:global([data-theme="dark"]) .warning .message {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .info {
+  background: #0f172a;
+  border-color: #1e3a8a;
+  border-left-color: #3b82f6;
+}
+:global([data-theme="dark"]) .info .iconWrapper {
+  background: #1e3a8a;
+  color: #60a5fa;
+}
+:global([data-theme="dark"]) .info .title {
+  color: #93c5fd;
+}
+:global([data-theme="dark"]) .info .message {
+  color: #e2e8f0;
+}
+

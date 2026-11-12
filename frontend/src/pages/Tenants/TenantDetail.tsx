@@ -314,7 +314,7 @@ export default function TenantDetail() {
                   {tickets.map((ticket) => (
                     <tr key={ticket.id}>
                       <td>
-                        <Link to={`/admin/tickets/${ticket.ticketNum ? String(ticket.ticketNum) : (ticket.referenceNumber || ticket.id)}`} className={styles.ticketRef}>
+                        <Link to={`/admin/tickets/${ticket.referenceNumber || (ticket.ticketNum ? String(ticket.ticketNum) : ticket.id)}`} className={styles.ticketRef}>
                           {ticket.referenceNumber}
                         </Link>
                       </td>

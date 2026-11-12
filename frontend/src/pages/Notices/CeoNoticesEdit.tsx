@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { fetchNotice, updateNotice } from '../../api/noticeApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
+import { toShortNoticeId } from '../../utils/idUtils';
 import styles from './CeoNotices.module.css';
 
 type NoticeFormValues = {
@@ -55,6 +56,10 @@ export default function CeoNoticesEdit() {
     fetchNotice(id)
       .then((res) => {
         const n = res.data.data;
+        const shortId = toShortNoticeId(n);
+        if (shortId && id !== shortId && id.length > 4) {
+          navigate(`/ceo/notices/${shortId}/edit`, { replace: true });
+        }
         const targetAudience = n.targetAudience ?? (n as any).target_audience ?? 'all';
         const departmentId = n.departmentId ?? (n as any).department_id ?? '';
         const expiresAt = n.expiresAt ?? (n as any).expires_at;

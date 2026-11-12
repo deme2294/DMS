@@ -130,7 +130,15 @@ export default function KnowledgeCreate() {
         departmentId: finalDeptId || null,
         submitForApproval: role === 'staff' ? false : submitForApproval,
       });
-      navigate(basePath);
+      navigate(basePath, {
+        state: {
+          alert: {
+            type: 'success',
+            message: `Article "${values.title}" created successfully`,
+            title: 'Article Created',
+          },
+        },
+      });
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create article');
     }

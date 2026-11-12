@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import pool from '../config/db.js';
+import { resolveDepartmentId } from './departmentRepository.js';
 
 let hasUserNumColumn = null;
 
@@ -49,19 +50,23 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
   if (managerDepartmentIds && managerDepartmentIds.length > 0) {
     const placeholders = managerDepartmentIds.map((_, i) => `:mgrDeptId${i}`).join(',');
     if (departmentId) {
-      if (!managerDepartmentIds.includes(departmentId)) {
+      const actualDeptId = await resolveDepartmentId(departmentId);
+      if (!managerDepartmentIds.includes(actualDeptId) && !managerDepartmentIds.includes(departmentId)) {
         where += ' AND 1=0';
       } else {
-        where += ' AND EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND ud.department_id = :departmentId)';
-        params.departmentId = departmentId;
+        where += ' AND EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND (ud.department_id = :departmentId OR ud.department_id = :origDeptId))';
+        params.departmentId = actualDeptId;
+        params.origDeptId = departmentId;
       }
     } else {
       where += ` AND EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND ud.department_id IN (${placeholders}))`;
       managerDepartmentIds.forEach((id, i) => { params[`mgrDeptId${i}`] = id; });
     }
   } else if (departmentId) {
-    where += ' AND EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND ud.department_id = :departmentId)';
-    params.departmentId = departmentId;
+    const actualDeptId = await resolveDepartmentId(departmentId);
+    where += ' AND EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND (ud.department_id = :departmentId OR ud.department_id = :origDeptId))';
+    params.departmentId = actualDeptId;
+    params.origDeptId = departmentId;
   }
 
   const [countRows] = await pool.query(
@@ -89,13 +94,16 @@ export const findAll = async ({ search, role, status, departmentId, managerDepar
 
   let departmentsMap = {};
   if (userIds.length) {
-    const placeholders = userIds.map(() => '?').join(',');
     const [deptRows] = await pool.query(
       `SELECT ud.user_id, d.id, d.name, d.code
        FROM user_departments ud
        JOIN departments d ON d.id = ud.department_id
-       WHERE ud.user_id IN (${placeholders})`,
-      userIds
+       WHERE ud.user_id IN (:userIds)
+       UNION
+       SELECT d.head_user_id AS user_id, d.id, d.name, d.code
+       FROM departments d
+       WHERE d.head_user_id IN (:userIds)`,
+      { userIds }
     );
     for (const row of deptRows) {
       if (!departmentsMap[row.user_id]) departmentsMap[row.user_id] = [];
@@ -173,7 +181,11 @@ export const findById = async (id) => {
     `SELECT d.id, d.name, d.code
      FROM user_departments ud
      JOIN departments d ON d.id = ud.department_id
-     WHERE ud.user_id = :userId`,
+     WHERE ud.user_id = :userId
+     UNION
+     SELECT d.id, d.name, d.code
+     FROM departments d
+     WHERE d.head_user_id = :userId`,
     { userId: user.id }
   );
 
@@ -185,22 +197,24 @@ export const findById = async (id) => {
 };
 
 export const findByUsername = async (username, excludeId = null) => {
+  const actualExcludeId = excludeId ? await resolveUserId(excludeId) : null;
   let sql = 'SELECT id FROM users WHERE username = :username';
   const params = { username };
-  if (excludeId) {
+  if (actualExcludeId) {
     sql += ' AND id != :excludeId';
-    params.excludeId = excludeId;
+    params.excludeId = actualExcludeId;
   }
   const [rows] = await pool.query(sql, params);
   return rows[0] || null;
 };
 
 export const findByEmail = async (email, excludeId = null) => {
+  const actualExcludeId = excludeId ? await resolveUserId(excludeId) : null;
   let sql = 'SELECT id FROM users WHERE email = :email';
   const params = { email };
-  if (excludeId) {
+  if (actualExcludeId) {
     sql += ' AND id != :excludeId';
-    params.excludeId = excludeId;
+    params.excludeId = actualExcludeId;
   }
   const [rows] = await pool.query(sql, params);
   return rows[0] || null;
@@ -234,27 +248,30 @@ export const update = async (id, fields) => {
 };
 
 export const updatePassword = async (id, passwordHash) => {
+  const actualId = await resolveUserId(id);
   await pool.query(
     `UPDATE users SET password_hash = :passwordHash, failed_login_attempts = 0, locked_until = NULL WHERE id = :id`,
-    { id, passwordHash }
+    { id: actualId, passwordHash }
   );
 };
 
 export const remove = async (id) => {
-  await pool.query('DELETE FROM users WHERE id = :id', { id });
+  const actualId = await resolveUserId(id);
+  await pool.query('DELETE FROM users WHERE id = :id', { id: actualId });
 };
 
 export const setDepartment = async (userId, departmentId) => {
+  const actualId = await resolveUserId(userId);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    await conn.query('DELETE FROM user_departments WHERE user_id = :userId', { userId });
+    await conn.query('DELETE FROM user_departments WHERE user_id = :userId', { userId: actualId });
 
-    if (departmentId) {
+    if (departmentId && String(departmentId).trim()) {
       await conn.query(
         `INSERT INTO user_departments (id, user_id, department_id)
          VALUES (UUID(), :userId, :departmentId)`,
-        { userId, departmentId }
+        { userId: actualId, departmentId: String(departmentId).trim() }
       );
     }
 
@@ -304,17 +321,20 @@ export const getAudienceUsers = async (audience) => {
   let sql;
 
   if (audience === 'all') {
-    sql = `SELECT u.id, u.email, u.first_name
+    sql = `SELECT u.id, COALESCE(NULLIF(TRIM(u.email), ''), t.email) AS email, u.first_name, u.last_name
            FROM users u
+           LEFT JOIN tenants t ON t.id = u.tenant_id
            WHERE u.status = 'active'`;
   } else if (audience === 'department') {
-    sql = `SELECT DISTINCT u.id, u.email, u.first_name
+    sql = `SELECT DISTINCT u.id, COALESCE(NULLIF(TRIM(u.email), ''), t.email) AS email, u.first_name, u.last_name
            FROM users u
+           LEFT JOIN tenants t ON t.id = u.tenant_id
            JOIN user_departments ud ON ud.user_id = u.id
            WHERE u.status = 'active'`;
   } else if (roleNames.includes(audience)) {
-    sql = `SELECT u.id, u.email, u.first_name
+    sql = `SELECT u.id, COALESCE(NULLIF(TRIM(u.email), ''), t.email) AS email, u.first_name, u.last_name
            FROM users u
+           LEFT JOIN tenants t ON t.id = u.tenant_id
            JOIN roles r ON r.id = u.role_id
            WHERE u.status = 'active' AND r.name = :audience`;
   } else {
@@ -327,22 +347,23 @@ export const getAudienceUsers = async (audience) => {
 
 export const getNextUserCode = async () => {
   const [rows] = await pool.query(
-    `SELECT user_code FROM users WHERE user_code REGEXP '^[0-9]{4,6}$' ORDER BY CAST(user_code AS UNSIGNED) DESC LIMIT 1`
+    `SELECT user_code FROM users WHERE user_code REGEXP '^[0-9]{4}$' ORDER BY CAST(user_code AS UNSIGNED) DESC LIMIT 1`
   );
   let nextNum = 1001;
   if (rows.length && rows[0].user_code) {
     const val = parseInt(rows[0].user_code, 10);
-    if (!isNaN(val) && val >= 1000 && val < 999999) {
+    if (!isNaN(val) && val >= 1000 && val < 9999) {
       nextNum = val + 1;
     }
   }
 
-  while (true) {
+  while (nextNum <= 9999) {
     const code = String(nextNum);
-    const [exists] = await pool.query('SELECT id FROM users WHERE user_code = :code LIMIT 1', { code });
+    const [exists] = await pool.query('SELECT id FROM users WHERE user_code = :code OR id = :code LIMIT 1', { code });
     if (!exists.length) {
       return code;
     }
     nextNum++;
   }
+  return String(nextNum);
 };

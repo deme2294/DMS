@@ -146,12 +146,24 @@ router.get(
   chatController.searchMessages
 );
 
-// ===================== UPLOAD =====================
+// ===================== UPLOAD & ATTACHMENT =====================
 
-// Upload attachment
+const chatUploadMiddleware = uploadChatAttachment.fields([
+  { name: 'attachment', maxCount: 1 },
+  { name: 'file', maxCount: 1 }
+]);
+
+// Upload chat attachment (used by ChatPage handleFileSelect: /api/chat/attachment)
+router.post(
+  '/attachment',
+  chatUploadMiddleware,
+  chatController.uploadAttachment
+);
+
+// Upload attachment (alias used by chatApi.uploadChatFile: /api/chat/upload)
 router.post(
   '/upload',
-  uploadChatAttachment.single('file'),
+  chatUploadMiddleware,
   chatController.uploadAttachment
 );
 

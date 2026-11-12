@@ -45,18 +45,29 @@ const validateNoDuplicateDepartments = async (userIds, excludeDepartmentId = nul
   if (!ids.length) return;
 
   const placeholders = ids.map(() => '?').join(',');
-  let query = `SELECT user_id, department_id FROM user_departments WHERE user_id IN (${placeholders})`;
+  let query = `
+    SELECT ud.user_id, ud.department_id, u.first_name, u.last_name, u.username, d.name AS department_name
+    FROM user_departments ud
+    JOIN users u ON u.id = ud.user_id
+    LEFT JOIN departments d ON d.id = ud.department_id
+    WHERE ud.user_id IN (${placeholders})
+  `;
   const params = [...ids];
 
   if (excludeDepartmentId) {
-    query += ' AND department_id != ?';
+    query += ' AND ud.department_id != ?';
     params.push(excludeDepartmentId);
   }
 
   const [rows] = await pool.query(query, params);
   if (rows.length > 0) {
+    const details = rows.map((r) => {
+      const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || `@${r.username}`;
+      const dept = r.department_name ? `"${r.department_name}"` : 'another department';
+      return `${name} is already assigned to ${dept}`;
+    }).join('; ');
     throw Object.assign(
-      new Error('User already assigned to another department'),
+      new Error(`User already assigned to another department. Conflicts: ${details}. Please reassign or uncheck conflicting members.`),
       { statusCode: 409 }
     );
   }
@@ -108,13 +119,8 @@ export const createDepartment = async (payload) => {
   let basePrefix = cleanCode.slice(0, 3);
   if (basePrefix.length < 2) basePrefix = (cleanCode + 'X').slice(0, 2);
 
-  let id = `${basePrefix}-01`;
-  let suffix = 1;
-  while (await deptRepo.findById(id)) {
-    suffix += 1;
-    const numStr = String(suffix).padStart(2, '0');
-    id = `${basePrefix}-${numStr}`.slice(0, 6);
-  }
+  // Auto-generate 4-digit numeric Department ID (2001 - 2999)
+  const id = await deptRepo.getNextDepartmentId();
 
   await deptRepo.create({
     id,
@@ -137,14 +143,15 @@ export const createDepartment = async (payload) => {
 export const updateDepartment = async (id, payload) => {
   const existing = await deptRepo.findById(id);
   if (!existing) throw Object.assign(new Error('Department not found'), { statusCode: 404 });
+  const actualId = existing.id;
 
   if (payload.name) {
-    const dup = await deptRepo.findByName(payload.name, id);
+    const dup = await deptRepo.findByName(payload.name, actualId);
     if (dup) throw Object.assign(new Error('Department name already exists'), { statusCode: 409 });
   }
 
   if (payload.code) {
-    const dup = await deptRepo.findByCode(payload.code, id);
+    const dup = await deptRepo.findByCode(payload.code, actualId);
     if (dup) throw Object.assign(new Error('Department code already exists'), { statusCode: 409 });
   }
 
@@ -152,7 +159,7 @@ export const updateDepartment = async (id, payload) => {
     await validateHeadUser(payload.headUserId);
   }
 
-  await deptRepo.update(id, {
+  await deptRepo.update(actualId, {
     name: payload.name,
     code: payload.code ? payload.code.toUpperCase() : undefined,
     description: payload.description,
@@ -162,18 +169,19 @@ export const updateDepartment = async (id, payload) => {
 
   if (payload.memberIds !== undefined) {
     const ids = await validateMemberUsers(payload.memberIds);
-    await validateNoDuplicateDepartments(ids, id);
-    await deptRepo.setMembers(id, ids);
+    await validateNoDuplicateDepartments(ids, actualId);
+    await deptRepo.setMembers(actualId, ids);
   }
 
-  return getDepartment(id);
+  return getDepartment(actualId);
 };
 
 export const deleteDepartment = async (id) => {
   const existing = await deptRepo.findById(id);
   if (!existing) throw Object.assign(new Error('Department not found'), { statusCode: 404 });
+  const actualId = existing.id;
 
-  const assignedCount = await deptRepo.countAssignedUsers(id);
+  const assignedCount = await deptRepo.countAssignedUsers(actualId);
   if (assignedCount > 0) {
     throw Object.assign(
       new Error('Cannot delete department with assigned users. Reassign users first.'),
@@ -181,7 +189,7 @@ export const deleteDepartment = async (id) => {
     );
   }
 
-  await deptRepo.remove(id);
+  await deptRepo.remove(actualId);
 };
 
 export const activateDepartment = async (id) => updateDepartment(id, { status: 'active' });

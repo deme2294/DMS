@@ -150,7 +150,7 @@ export const createTenant = async (payload, options = { createUser: false, creat
   }
 
   const passwordHash = await bcrypt.hash(trimmed.password, SALT_ROUNDS);
-  const tenantId = uuidv4();
+  const tenantId = await tenantRepo.getNextTenantId();
   const status = trimmed.status === 'inactive' ? 'inactive' : 'active';
 
   await tenantRepo.create({
@@ -209,7 +209,7 @@ export const registerTenant = async (payload) => {
   }
 
   const passwordHash = await bcrypt.hash(trimmed.password, SALT_ROUNDS);
-  const tenantId = uuidv4();
+  const tenantId = await tenantRepo.getNextTenantId();
   const roleId = await tenantRepo.getTenantRoleId();
   if (!roleId) throw Object.assign(new Error('Tenant role not configured'), { statusCode: 500 });
 
@@ -244,7 +244,7 @@ export const registerTenant = async (payload) => {
   const userCode = await generateUserCode('tenant');
 
   await tenantRepo.createTenantUser({
-    id: uuidv4(),
+    id: userCode,
     tenantId,
     roleId,
     username: trimmed.username,

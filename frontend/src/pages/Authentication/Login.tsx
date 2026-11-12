@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_DASHBOARD } from '../../config/routes';
+import { resolveRoleRedirect } from '../../utils/redirectUtils';
 import ParticleBackground from '../../components/ParticleBackground/ParticleBackground';
 import './Login.css';
 
@@ -101,9 +102,21 @@ const FEATURES = [
 ];
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // If visiting with an explicit deep-link redirect query param and user is already authenticated, route to the target task
+  useEffect(() => {
+    if (!loading && user) {
+      const searchParams = new URLSearchParams(location.search);
+      const redirectUrl = searchParams.get('redirect');
+      if (redirectUrl) {
+        const role = user.role || localStorage.getItem('role') || 'tenant';
+        navigate(resolveRoleRedirect(redirectUrl, role), { replace: true });
+      }
+    }
+  }, [user, loading, location.search, navigate]);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -115,7 +128,33 @@ export default function Login() {
   const [isFocused, setIsFocused] = useState(false);
   const identifierRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { identifierRef.current?.focus(); }, []);
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const queryUser = searchParams.get('username') || searchParams.get('email') || searchParams.get('identifier');
+    if (queryUser) {
+      setIdentifier(queryUser);
+      setTimeout(() => {
+        const pwdInput = document.getElementById('password') as HTMLInputElement | null;
+        pwdInput?.focus();
+      }, 50);
+    } else {
+      identifierRef.current?.focus();
+    }
+  }, [location.search]);
+
+  const togglePasswordVisibility = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowPassword((prev) => !prev);
+    setTimeout(() => {
+      const pwdInput = document.getElementById('password') as HTMLInputElement | null;
+      if (pwdInput) {
+        pwdInput.focus();
+        const len = pwdInput.value.length;
+        pwdInput.setSelectionRange(len, len);
+      }
+    }, 0);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,17 +165,12 @@ export default function Login() {
       await login(identifier.trim(), password, rememberMe);
       const role = localStorage.getItem('role') || 'tenant';
       const searchParams = new URLSearchParams(location.search);
-      let redirectUrl = searchParams.get('redirect') || (location.state as { from?: { pathname?: string; search?: string } })?.from?.pathname;
+      const fromState = (location.state as { from?: { pathname?: string; search?: string } })?.from;
+      const fromUrl = fromState ? `${fromState.pathname || ''}${fromState.search || ''}` : undefined;
+      const redirectUrl = searchParams.get('redirect') || fromUrl;
 
-      if (redirectUrl && redirectUrl.startsWith('/') && !redirectUrl.startsWith('//')) {
-        // If the redirect is to a ticket, ensure role prefix aligns with logged in user's role
-        const ticketMatch = redirectUrl.match(/^\/(?:tenant|admin|manager|staff|ceo|tickets)\/tickets\/(.+)$/);
-        if (ticketMatch) {
-          const ticketParam = ticketMatch[1];
-          const rolePrefix = role === 'admin' ? '/admin' : role === 'manager' ? '/manager' : role === 'staff' ? '/staff' : role === 'ceo' ? '/ceo' : '/tenant';
-          redirectUrl = `${rolePrefix}/tickets/${ticketParam}`;
-        }
-        navigate(redirectUrl, { replace: true });
+      if (redirectUrl) {
+        navigate(resolveRoleRedirect(redirectUrl, role), { replace: true });
       } else {
         navigate(ROLE_DASHBOARD[role] ?? '/login', { replace: true });
       }
@@ -328,12 +362,18 @@ export default function Login() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((p) => !p)}
-                    disabled={isLoading}
+                    onClick={togglePasswordVisibility}
+                    disabled={isLoading || isLocked}
                     className="login-eye-btn"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
                   >
-                    {showPassword ? <EyeSlashIcon style={{ width: 16, height: 16 }} /> : <EyeIcon style={{ width: 16, height: 16 }} />}
+                    {showPassword ? (
+                      <EyeSlashIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
+                    ) : (
+                      <EyeIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
+                    )}
                   </button>
                 </div>
               </div>

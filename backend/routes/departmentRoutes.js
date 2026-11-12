@@ -35,7 +35,7 @@ router.get(
 );
 
 // Member management — declared before '/:id' to avoid any path shadowing.
-router.get('/:id/members', authorize('departments.manage'), [departmentIdParam('id'), validate], departmentController.getDepartmentMembers);
+router.get('/:id/members', authorize('departments.manage', 'departments.read', 'feedback.update'), [departmentIdParam('id'), validate], departmentController.getDepartmentMembers);
 router.post(
   '/:id/members',
   authorize('departments.manage'),

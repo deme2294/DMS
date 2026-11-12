@@ -1,7 +1,7 @@
 import * as feedbackService from '../services/feedbackService.js';
 import * as officeFeedbackService from '../services/officeFeedbackService.js';
+import * as feedbackAiService from '../services/feedbackAiService.js';
 import { HTTP } from '../config/constants.js';
-
 
 export const getFeedback = async (req, res, next) => {
   try {
@@ -15,7 +15,7 @@ export const getFeedback = async (req, res, next) => {
         
         // Merge office feedback into regular feedback with a flag
         const mergedData = [
-          ...result.data.map(f => ({ ...f, feedbackType: 'general' })),
+          ...result.data.map(f => ({ ...f, feedbackType: f.feedbackType || 'general' })),
           ...officeFeedbackList.map(of => ({
             ...of,
             feedbackType: 'office_inquiry',
@@ -48,11 +48,10 @@ export const getFeedbackById = async (req, res, next) => {
     let feedback = await feedbackService.getFeedbackById(feedbackId);
     
     // If not found and user is admin/ceo, try office feedback
-    if (!feedback && (req.user.role === 'admin' || req.user.role === 'ceo')) {
+    if (!feedback && (req.user?.role === 'admin' || req.user?.role === 'ceo')) {
       feedback = await officeFeedbackService.getOfficeFeedbackById(feedbackId);
       
       if (feedback) {
-        // Mark as office inquiry
         feedback.feedbackType = 'office_inquiry';
         feedback.subject = `[Office Inquiry] ${feedback.subject}`;
       }
@@ -107,10 +106,93 @@ export const updateFeedback = async (req, res, next) => {
       }
     }
     
-    // If not found in either table
     return res.status(HTTP.NOT_FOUND).json({ 
       success: false, 
       message: 'Feedback not found' 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const assignToDepartment = async (req, res, next) => {
+  try {
+    const feedbackId = req.params.id;
+    const {
+      targetType,
+      departmentId,
+      departmentHeadId,
+      assignedToUserId,
+      adminDirective,
+      whatIsCorrect,
+      whatShouldChange,
+    } = req.body;
+    if (!departmentId && !assignedToUserId) {
+      return res.status(HTTP.BAD_REQUEST).json({
+        success: false,
+        message: 'Select a department or a specific user for feedback assignment',
+      });
+    }
+    const feedback = await feedbackService.assignToDepartment(
+      feedbackId,
+      {
+        targetType,
+        departmentId,
+        departmentHeadId,
+        assignedToUserId,
+        adminDirective,
+        whatIsCorrect,
+        whatShouldChange,
+      },
+      req.user
+    );
+    res.status(HTTP.OK).json({
+      success: true,
+      message: targetType === 'user' || (!departmentId && assignedToUserId)
+        ? 'Feedback assigned to user & notified'
+        : 'Feedback assigned to department head & manager notified',
+      data: feedback,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const assignToStaff = async (req, res, next) => {
+  try {
+    const feedbackId = req.params.id;
+    const {
+      assignmentScope,
+      assignedToUserId,
+      assignedUserIds,
+      departmentNotes,
+      whatIsCorrect,
+      whatShouldChange,
+    } = req.body;
+    if (assignmentScope !== 'department_general' && !assignedToUserId && (!Array.isArray(assignedUserIds) || !assignedUserIds.length)) {
+      return res.status(HTTP.BAD_REQUEST).json({
+        success: false,
+        message: 'Select staff member(s) or choose General (All Staff in Department)',
+      });
+    }
+    const feedback = await feedbackService.assignToStaff(
+      feedbackId,
+      {
+        assignmentScope,
+        assignedToUserId,
+        assignedUserIds,
+        departmentNotes,
+        whatIsCorrect,
+        whatShouldChange,
+      },
+      req.user
+    );
+    res.status(HTTP.OK).json({
+      success: true,
+      message: assignmentScope === 'department_general'
+        ? 'Feedback shared with all staff in department'
+        : 'Feedback shared with selected staff member(s)',
+      data: feedback,
     });
   } catch (err) {
     next(err);
@@ -121,14 +203,12 @@ export const deleteFeedback = async (req, res, next) => {
   try {
     const feedbackId = req.params.id;
 
-    // Try regular feedback first
     const regularFeedback = await feedbackService.getFeedbackById(feedbackId);
     if (regularFeedback) {
       await feedbackService.deleteFeedback(feedbackId);
       return res.status(HTTP.OK).json({ success: true, message: 'Feedback deleted' });
     }
 
-    // Fall back to office feedback (admin/ceo only — tenants never see it merged)
     if (req.user.role === 'admin' || req.user.role === 'ceo') {
       const officeFeedback = await officeFeedbackService.getOfficeFeedbackById(feedbackId);
       if (officeFeedback) {
@@ -148,15 +228,13 @@ export const getReplies = async (req, res, next) => {
     const feedbackId = req.params.id;
     let replies = [];
     
-    // Try regular feedback replies first
     try {
       replies = await feedbackService.getFeedbackReplies(feedbackId);
     } catch (regularError) {
       console.log('[getReplies] Regular feedback replies not found, trying office feedback...');
     }
     
-    // If no replies and user is admin/ceo, try office feedback replies
-    if ((!replies || replies.length === 0) && (req.user.role === 'admin' || req.user.role === 'ceo')) {
+    if ((!replies || replies.length === 0) && (req.user?.role === 'admin' || req.user?.role === 'ceo')) {
       try {
         replies = await officeFeedbackService.getOfficeFeedbackReplies(feedbackId);
       } catch (officeError) {
@@ -175,14 +253,12 @@ export const addReply = async (req, res, next) => {
     const feedbackId = req.params.id;
     const message = req.body.message;
 
-    // Check if it's a regular feedback
     const regularFeedback = await feedbackService.getFeedbackById(feedbackId);
     if (regularFeedback) {
       const reply = await feedbackService.replyFeedback(feedbackId, req.user.id, message);
       return res.status(HTTP.CREATED).json({ success: true, message: 'Reply added', data: reply });
     }
 
-    // Fall back to office feedback
     const reply = await officeFeedbackService.replyOfficeFeedback(feedbackId, req.user.id, message);
     return res.status(HTTP.CREATED).json({ success: true, message: 'Reply added', data: reply });
   } catch (err) {
@@ -192,8 +268,36 @@ export const addReply = async (req, res, next) => {
 
 export const respondToFeedback = async (req, res, next) => {
   try {
-    const feedback = await feedbackService.respondToFeedback(req.params.id, req.user.id, req.body);
+    const feedback = await feedbackService.respondToFeedback(req.params.id, req.user, req.body);
     res.status(HTTP.OK).json({ success: true, message: 'Response sent', data: feedback });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const generateAiResponse = async (req, res, next) => {
+  try {
+    const feedbackId = req.params.id;
+    let feedback = await feedbackService.getFeedbackById(feedbackId);
+
+    if (!feedback) {
+      try {
+        feedback = await officeFeedbackService.getOfficeFeedbackById(feedbackId);
+      } catch {
+        // Ignore if not an office inquiry ID
+      }
+    }
+
+    if (!feedback && req.body && (req.body.message || req.body.subject)) {
+      feedback = req.body;
+    }
+
+    if (!feedback) {
+      return res.status(HTTP.NOT_FOUND).json({ success: false, message: 'Feedback not found' });
+    }
+
+    const analysis = await feedbackAiService.analyzeAndGenerateTenantResponse(feedback);
+    res.status(HTTP.OK).json({ success: true, data: analysis });
   } catch (err) {
     next(err);
   }

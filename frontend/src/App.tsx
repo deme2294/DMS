@@ -1,7 +1,9 @@
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams, useLocation } from 'react-router-dom';
+import { resolveRoleRedirect } from './utils/redirectUtils';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SocketProvider } from './context/SocketContext';
+import { AlertProvider } from './context/AlertContext';
 import MainLayout from './layouts/MainLayout';
 import AdminLayout from './layouts/AdminLayout';
 import CeoLayout from './layouts/CeoLayout';
@@ -83,7 +85,9 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <SocketProvider>
-          <Routes>
+          <AlertProvider>
+            <Routes>
+        <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
 
         <Route element={<CeoLayout />}>
@@ -102,6 +106,8 @@ export default function App() {
           <Route path="/ceo/departments/:id/edit" element={<ProtectedRoute roles={['ceo']}><CeoDepartmentEdit /></ProtectedRoute>} />
           <Route path="/ceo/tickets" element={<ProtectedRoute roles={['ceo']}><CeoTicketList /></ProtectedRoute>} />
           <Route path="/ceo/tickets/:id" element={<ProtectedRoute roles={['ceo']}><CeoTicketDetail /></ProtectedRoute>} />
+          <Route path="/ceo/feedback" element={<ProtectedRoute roles={['ceo']}><FeedbackList /></ProtectedRoute>} />
+          <Route path="/ceo/feedback/:id" element={<ProtectedRoute roles={['ceo']}><FeedbackDetail /></ProtectedRoute>} />
           <Route path="/ceo/reports" element={<ProtectedRoute roles={['ceo']}><CeoReports /></ProtectedRoute>} />
           <Route path="/ceo/knowledge" element={<ProtectedRoute roles={['ceo']}><CeoKnowledgeList /></ProtectedRoute>} />
           <Route path="/ceo/notices" element={<ProtectedRoute roles={['ceo']}><CeoNoticesList /></ProtectedRoute>} />
@@ -152,6 +158,7 @@ export default function App() {
           <Route path="/admin/profile" element={<ProtectedRoute roles={['admin']}><MyProfile /></ProtectedRoute>} />
 
           <Route path="/manager/dashboard" element={<ProtectedRoute roles={['manager']}><ManagerDashboard /></ProtectedRoute>} />
+          <Route path="/manager/analytics" element={<ProtectedRoute roles={['manager', 'admin']}><AdminAnalytics isManagerView={true} /></ProtectedRoute>} />
           <Route path="/manager/departments" element={<ProtectedRoute roles={['manager']}><ManagerDepartmentList /></ProtectedRoute>} />
           <Route path="/manager/departments/:id/edit" element={<ProtectedRoute roles={['manager']}><ManagerDepartmentEdit /></ProtectedRoute>} />
           <Route path="/manager/matrix" element={<ProtectedRoute roles={['manager']}><ManagerMatrixView /></ProtectedRoute>} />
@@ -159,6 +166,8 @@ export default function App() {
           <Route path="/manager/tickets/:id" element={<ProtectedRoute roles={['manager']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/manager/ticket-categories" element={<ProtectedRoute roles={['admin', 'manager']}><TicketCategories /></ProtectedRoute>} />
           <Route path="/manager/notices" element={<ProtectedRoute roles={['manager']}><ManagerNotices /></ProtectedRoute>} />
+          <Route path="/manager/feedback" element={<ProtectedRoute roles={['manager']}><FeedbackList /></ProtectedRoute>} />
+          <Route path="/manager/feedback/:id" element={<ProtectedRoute roles={['manager']}><FeedbackDetail /></ProtectedRoute>} />
           <Route path="/manager/knowledge" element={<ProtectedRoute roles={['manager']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/manager/knowledge/create" element={<ProtectedRoute roles={['manager']}><KnowledgeCreate /></ProtectedRoute>} />
           <Route path="/manager/knowledge/approval" element={<ProtectedRoute roles={['manager']}><KnowledgeApproval /></ProtectedRoute>} />
@@ -175,6 +184,8 @@ export default function App() {
           <Route path="/staff/tickets" element={<ProtectedRoute roles={['staff']}><TicketList /></ProtectedRoute>} />
           <Route path="/staff/tickets/:id" element={<ProtectedRoute roles={['staff']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/staff/notices" element={<ProtectedRoute roles={['staff']}><StaffNotices /></ProtectedRoute>} />
+          <Route path="/staff/feedback" element={<ProtectedRoute roles={['staff']}><FeedbackList /></ProtectedRoute>} />
+          <Route path="/staff/feedback/:id" element={<ProtectedRoute roles={['staff']}><FeedbackDetail /></ProtectedRoute>} />
           <Route path="/staff/knowledge" element={<ProtectedRoute roles={['staff']}><KnowledgeList /></ProtectedRoute>} />
           <Route path="/staff/knowledge/create" element={<ProtectedRoute roles={['staff']}><KnowledgeCreate /></ProtectedRoute>} />
           <Route path="/staff/knowledge/my-articles" element={<ProtectedRoute roles={['staff']}><KnowledgeMyArticles /></ProtectedRoute>} />
@@ -193,6 +204,7 @@ export default function App() {
           <Route path="/tenant/knowledge/:id" element={<ProtectedRoute roles={['tenant']}><KnowledgeArticleView /></ProtectedRoute>} />
           <Route path="/tenant/feedback" element={<ProtectedRoute roles={['tenant']}><FeedbackList /></ProtectedRoute>} />
           <Route path="/tenant/feedback/create" element={<ProtectedRoute roles={['tenant']}><FeedbackCreate /></ProtectedRoute>} />
+          <Route path="/tenant/feedback/:id" element={<ProtectedRoute roles={['tenant']}><FeedbackDetail /></ProtectedRoute>} />
           <Route path="/tenant/notices" element={<ProtectedRoute roles={['tenant']}><TenantNotices /></ProtectedRoute>} />
           <Route path="/tenant/chat" element={<ProtectedRoute roles={['tenant']}><ChatPage /></ProtectedRoute>} />
           <Route path="/tenant/notifications" element={<ProtectedRoute roles={['tenant']}><NotificationsPage /></ProtectedRoute>} />
@@ -200,23 +212,32 @@ export default function App() {
         </Route>
 
         <Route element={<MainLayout />}>
-          <Route path="/tickets/:id" element={<TicketRedirect />} />
+          <Route path="/tickets/:id" element={<UniversalRedirect />} />
+          <Route path="/tickets" element={<UniversalRedirect />} />
+          <Route path="/chat" element={<UniversalRedirect />} />
+          <Route path="/knowledge" element={<UniversalRedirect />} />
+          <Route path="/knowledge/:id" element={<UniversalRedirect />} />
+          <Route path="/feedback" element={<UniversalRedirect />} />
+          <Route path="/feedback/:id" element={<UniversalRedirect />} />
+          <Route path="/notices" element={<UniversalRedirect />} />
+          <Route path="/notifications" element={<UniversalRedirect />} />
           <Route path="/track" element={<TrackTicket />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
-        </Routes>
+            </Routes>
+          </AlertProvider>
         </SocketProvider>
       </ThemeProvider>
     </AuthProvider>
   );
 }
 
-function TicketRedirect() {
-  const { id } = useParams();
+function UniversalRedirect() {
+  const location = useLocation();
   const { user, loading } = useAuth();
   if (loading) return null;
   const role = user?.role || localStorage.getItem('role') || 'tenant';
-  const prefix = role === 'admin' ? '/admin' : role === 'manager' ? '/manager' : role === 'staff' ? '/staff' : role === 'ceo' ? '/ceo' : '/tenant';
-  return <Navigate to={`${prefix}/tickets/${id}`} replace />;
+  const target = location.pathname + location.search + location.hash;
+  const resolved = resolveRoleRedirect(target, role);
+  return <Navigate to={resolved} replace />;
 }

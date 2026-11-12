@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
+import { toShortUserId } from '../../utils/idUtils';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
@@ -15,12 +16,16 @@ import type { User } from '../../types/user';
 import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
+import { CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import styles from './CeoUsers.module.css';
 
 export default function CeoUserList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser } = useAuth();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const { page, limit, setPage, resetPage } = usePagination();
   const [users, setUsers] = useState<User[]>([]);
   const [totalPages, setTotalPages] = useState(1);
@@ -32,13 +37,20 @@ export default function CeoUserList() {
   const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetchUsers({ search, role, status, page, limit });
-      setUsers(res.data.data);
-      setTotalPages(res.data.pagination.totalPages);
+      setUsers(res.data.data || []);
+      setTotalPages(res.data.pagination?.totalPages || 1);
+      setErrorMessage('');
+    } catch (err: any) {
+      console.error('Failed to load users:', err);
+      setErrorMessage(err?.response?.data?.message || 'Failed to load user list.');
+      setUsers([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -48,38 +60,111 @@ export default function CeoUserList() {
     loadUsers();
   }, [loadUsers]);
 
+  // Read action message passed via navigation state (e.g. from create/edit pages)
+  useEffect(() => {
+    if (!location.state) return;
+    const st = location.state as any;
+    const successMsg =
+      st.message ||
+      st.alert?.message ||
+      (typeof st.alert === 'string' ? st.alert : null);
+    const errorMsg =
+      st.errorMessage ||
+      st.error ||
+      (st.alert?.type === 'error' ? st.alert.message : null);
+
+    if (successMsg) {
+      setMessage(successMsg);
+      setErrorMessage('');
+      showSuccess(successMsg, st.alert?.title || 'User Action Completed');
+    } else if (errorMsg) {
+      setErrorMessage(errorMsg);
+      showError(errorMsg, st.alert?.title || 'User Management Notice');
+    }
+
+    try {
+      window.history.replaceState({}, document.title);
+    } catch {}
+  }, [location.state, showSuccess, showError]);
+
+  // Auto-dismiss alerts
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(''), 5000);
+    return () => clearTimeout(timer);
+  }, [message]);
+
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(''), 6000);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
+
   const handleDelete = async (user: User) => {
     if (user.id === currentUser?.id) {
-      setMessage('You cannot delete your own account.');
+      const err = 'You cannot delete your own account.';
+      setErrorMessage(err);
+      showError(err, 'Action Not Allowed');
       return;
     }
     if (!window.confirm(`Delete user ${user.username}?`)) return;
-    await deleteUser(user.id);
-    setMessage('User deleted successfully');
-    loadUsers();
+    try {
+      const res = await deleteUser(user.id);
+      const text = res?.data?.message || `User @${user.username} was permanently deleted.`;
+      setMessage(text);
+      showSuccess(text, 'User Deleted');
+      setErrorMessage('');
+      loadUsers();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to delete user.';
+      setErrorMessage(msg);
+      showError(msg, 'Delete Failed');
+    }
   };
 
   const handleToggleStatus = async (user: User) => {
     if (user.id === currentUser?.id) {
-      setMessage('You cannot deactivate your own account.');
+      const err = 'You cannot deactivate your own account.';
+      setErrorMessage(err);
+      showError(err, 'Action Not Allowed');
       return;
     }
-    if (user.status === 'active') {
-      await deactivateUser(user.id);
-      setMessage('User deactivated');
-    } else {
-      await activateUser(user.id);
-      setMessage('User activated');
+    try {
+      if (user.status === 'active') {
+        const res = await deactivateUser(user.id);
+        const text = res?.data?.message || `User @${user.username} was deactivated.`;
+        setMessage(text);
+        showSuccess(text, 'User Deactivated');
+      } else {
+        const res = await activateUser(user.id);
+        const text = res?.data?.message || `User @${user.username} was activated.`;
+        setMessage(text);
+        showSuccess(text, 'User Activated');
+      }
+      setErrorMessage('');
+      loadUsers();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to update user status.';
+      setErrorMessage(msg);
+      showError(msg, 'Status Update Failed');
     }
-    loadUsers();
   };
 
   const handleResetPassword = async () => {
     if (!resetModal || newPassword.length < 8) return;
-    await resetUserPassword(resetModal.id, newPassword);
-    setResetModal(null);
-    setNewPassword('');
-    setMessage('Password reset successfully');
+    try {
+      const res = await resetUserPassword(resetModal.id, newPassword);
+      const text = res?.data?.message || `Password for @${resetModal.username} reset successfully.`;
+      setResetModal(null);
+      setNewPassword('');
+      setMessage(text);
+      showSuccess(text, 'Password Reset');
+      setErrorMessage('');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to reset password.';
+      setErrorMessage(msg);
+      showError(msg, 'Reset Failed');
+    }
   };
 
   return (
@@ -91,8 +176,6 @@ export default function CeoUserList() {
         actionLabel={can('users.create') ? '+ Add User' : undefined}
         onAction={can('users.create') ? () => navigate('/ceo/users/create') : undefined}
       />
-
-      {message && <div className={styles.toast}>{message}</div>}
 
       <div className={styles.filters}>
         <input
@@ -114,6 +197,46 @@ export default function CeoUserList() {
           <option value="locked">Locked</option>
         </select>
       </div>
+
+      {/* ── Professional Action Alert Banner ── */}
+      {(message || errorMessage) && (
+        <div className={styles.professionalAlertBanner}>
+          <div className={`${styles.alertCardInner} ${errorMessage ? styles.alertCardError : styles.alertCardSuccess}`} role={errorMessage ? 'alert' : 'status'}>
+            <div className={styles.alertIconCol}>
+              {errorMessage ? (
+                <ExclamationTriangleIcon className={styles.alertActionIcon} />
+              ) : (
+                <CheckCircleIcon className={styles.alertActionIcon} />
+              )}
+            </div>
+            <div className={styles.alertBodyCol}>
+              <div className={styles.alertHeaderRow}>
+                <span className={styles.alertCategoryBadge}>
+                  {errorMessage ? 'Action Failed' : 'Action Confirmed'}
+                </span>
+                <span className={styles.alertTimestamp}>Just now</span>
+              </div>
+              <h5 className={styles.alertHeadline}>
+                {errorMessage ? 'User Management Notice' : 'User Action Completed'}
+              </h5>
+              <p className={styles.alertDescription}>
+                {message || errorMessage}
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.alertCloseBtn}
+              onClick={() => {
+                setMessage('');
+                setErrorMessage('');
+              }}
+              title="Dismiss notification"
+            >
+              <XMarkIcon style={{ width: 18, height: 18 }} />
+            </button>
+          </div>
+        </div>
+      )}
 
       <DataTable<User>
         loading={loading}
@@ -163,7 +286,10 @@ export default function CeoUserList() {
           {
             key: 'userCode',
             label: 'User ID',
-            render: (row) => <span>#{row.userNum ?? (row.userCode || row.id.slice(0, 7).toUpperCase())}</span>,
+            render: (row) => {
+              const displayId = row.userCode || (row.id && /^\d{4}$/.test(row.id) ? row.id : toShortUserId(row));
+              return <span>#{displayId}</span>;
+            },
           },
           {
             key: 'status',
@@ -188,7 +314,7 @@ export default function CeoUserList() {
                 </button>
                 {can('users.update') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/users/${row.userNum || row.id}/edit`)}>Edit</button>
+                    <button onClick={() => navigate(`/ceo/users/${toShortUserId(row)}/edit`)}>Edit</button>
                     <button
                       disabled={row.id === currentUser?.id}
                       onClick={() => handleToggleStatus(row)}

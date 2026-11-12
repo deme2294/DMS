@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { Article, ArticleFormValues } from '../../types/article';
+import { toShortKnowledgeId } from '../../utils/idUtils';
 import {
   fetchArticle,
   updateArticle,
@@ -22,6 +23,7 @@ import type { KnowledgeCategory } from '../../types/article';
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
+import { useAlert } from '../../context/AlertContext';
 import Modal from '../../components/Modal/Modal';
 import {
   TrashIcon,
@@ -52,6 +54,7 @@ export default function KnowledgeEdit() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { can } = usePermission();
+  const { showSuccess, showError } = useAlert();
   const role = user?.role;
   const basePath = role === 'staff' ? '/staff/knowledge' : role === 'manager' ? '/manager/knowledge' : '/admin/knowledge';
 
@@ -113,6 +116,11 @@ export default function KnowledgeEdit() {
         setCategories(cats);
         setArticle(a);
 
+        const shortId = toShortKnowledgeId(a);
+        if (shortId && id !== shortId && id.length > 20) {
+          navigate(`${basePath}/${shortId}/edit`, { replace: true });
+        }
+
         const deptId = (a.departmentId || (a as any).department_id || '') as any;
         reset({
           title: a.title || '',
@@ -152,10 +160,13 @@ export default function KnowledgeEdit() {
     try {
       await fn();
       setMessage(successMsg);
+      showSuccess(successMsg, 'Article Action');
       const res = await fetchArticle(id as string);
       setArticle(res.data.data);
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Action failed');
+      const errMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Action failed';
+      setError(errMsg);
+      showError(errMsg, 'Action Error');
     } finally {
       setBusy(false);
     }
@@ -181,9 +192,13 @@ export default function KnowledgeEdit() {
         visibility: values.visibility || 'internal',
         departmentId: values.departmentId || (article as any)?.departmentId || (article as any)?.department_id || null,
       });
-      setMessage('Article updated');
+      const successMsg = `Article "${values.title}" updated successfully`;
+      setMessage(successMsg);
+      showSuccess(successMsg, 'Article Updated');
     } catch (err: unknown) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update article');
+      const errMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to update article';
+      setError(errMsg);
+      showError(errMsg, 'Update Error');
     } finally {
       setSaving(false);
     }

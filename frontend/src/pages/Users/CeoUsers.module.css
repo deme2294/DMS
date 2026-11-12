@@ -174,6 +174,236 @@
   border: 1px solid #fecaca;
 }
 
+.tableAlertCenterWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 4px auto 12px auto;
+  position: relative;
+  z-index: 25;
+}
+
+.toastDismissBtn {
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  color: inherit;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+}
+
+.toastDismissBtn:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* ── Professional Action Alert Banner ── */
+.professionalAlertBanner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 4px auto 16px auto;
+  position: relative;
+  z-index: 30;
+}
+
+.alertCardInner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 22px;
+  border-radius: 14px;
+  width: 100%;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backdrop-filter: blur(12px);
+  border-left-width: 5px;
+  border-left-style: solid;
+  transition: all 0.2s ease;
+}
+
+.alertCardSuccess {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #a7f3d0;
+  border-left-color: #10b981;
+}
+
+.alertCardError {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+  border: 1px solid #fecaca;
+  border-left-color: #ef4444;
+}
+
+.alertIconCol {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.alertCardSuccess .alertIconCol {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.alertCardError .alertIconCol {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.alertActionIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.alertBodyCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.alertHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.alertCategoryBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.alertCardSuccess .alertCategoryBadge {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.alertCardError .alertCategoryBadge {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.alertTimestamp {
+  font-size: 0.76rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.alertHeadline {
+  font-size: 0.96rem;
+  font-weight: 700;
+  margin: 0 0 3px 0;
+  letter-spacing: -0.01em;
+}
+
+.alertCardSuccess .alertHeadline {
+  color: #064e3b;
+}
+
+.alertCardError .alertHeadline {
+  color: #7f1d1d;
+}
+
+.alertDescription {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.45;
+  margin: 0;
+  color: #1e293b;
+}
+
+.alertCloseBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.alertCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: #1e293b;
+  transform: scale(1.1);
+}
+
+:global([data-theme="dark"]) .alertCardSuccess {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(6, 78, 59, 0.28) 100%);
+  border-color: rgba(52, 211, 153, 0.35);
+  border-left-color: #10b981;
+}
+
+:global([data-theme="dark"]) .alertCardError {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(127, 29, 29, 0.28) 100%);
+  border-color: rgba(248, 113, 113, 0.35);
+  border-left-color: #ef4444;
+}
+
+:global([data-theme="dark"]) .alertCardSuccess .alertIconCol {
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .alertCardError .alertIconCol {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+:global([data-theme="dark"]) .alertCardSuccess .alertCategoryBadge {
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .alertCardError .alertCategoryBadge {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+:global([data-theme="dark"]) .alertCardSuccess .alertHeadline {
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .alertCardError .alertHeadline {
+  color: #fca5a5;
+}
+
+:global([data-theme="dark"]) .alertCardSuccess .alertDescription,
+:global([data-theme="dark"]) .alertCardError .alertDescription {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .alertCloseBtn {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .alertCloseBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 :global([data-theme="dark"]) .header h1 {
   color: #f8fafc;
 }

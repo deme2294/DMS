@@ -31,7 +31,9 @@ import {
 } from '../../api/knowledgeApi';
 import type { Article } from '../../types/article';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import { resolveCategoryIcon } from '../../utils/categoryIconUtils';
+import { toShortKnowledgeId } from '../../utils/idUtils';
 import { WorkflowStatusBadge } from './components/WorkflowStatusBadge';
 import { WorkflowActionModal, type WorkflowActionType } from './components/WorkflowActionModal';
 import { ArticleDetailDrawer } from './components/ArticleDetailDrawer';
@@ -45,6 +47,7 @@ type ApprovalTab = 'all' | 'pending_approval' | 'draft' | 'approved' | 'needs_re
 export default function KnowledgeApproval() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const role = user?.role;
   const isAdmin = role === 'admin';
   const isManager = role === 'manager';
@@ -188,6 +191,7 @@ export default function KnowledgeApproval() {
     try {
       await fn();
       setMessage(successMsg);
+      showSuccess(successMsg, 'Knowledge Action');
       await Promise.all([loadArticles(), fetchOverviewCounts()]);
       if (drawerArticle?.id === id) {
         setDrawerOpen(false);
@@ -197,6 +201,7 @@ export default function KnowledgeApproval() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Workflow action failed';
       setError(msg);
+      showError(msg, 'Workflow Error');
     } finally {
       setBusyId(null);
     }
@@ -219,31 +224,35 @@ export default function KnowledgeApproval() {
     setActionBusy(true);
     setError('');
     try {
+      let finalMsg = '';
       switch (type) {
         case 'request_revision':
           await requestRevision(articleId, reason || '', options);
-          setMessage(
+          finalMsg =
             options?.routeTo === 'manager'
               ? `Revision directive routed to Department Manager.`
-              : `Revision directive issued to Author.`
-          );
+              : `Revision directive issued to Author.`;
           break;
         case 'reject':
           await rejectArticle(articleId, reason || '');
-          setMessage(`Article marked as rejected.`);
+          finalMsg = `Article marked as rejected.`;
           break;
         case 'publish':
           await publishArticle(articleId);
-          setMessage(`Article published live! Now accessible to portal tenants.`);
+          finalMsg = `Article published live! Now accessible to portal tenants.`;
           break;
         case 'unpublish':
           await unpublishArticle(articleId, reason);
-          setMessage(`Article unpublished.`);
+          finalMsg = `Article unpublished.`;
           break;
         case 'submit':
           await submitArticle(articleId, reason ? { notes: reason } : undefined);
-          setMessage(isManager ? `Article revised and routed directly to Admin!` : `Article resubmitted for department review.`);
+          finalMsg = isManager ? `Article revised and routed directly to Admin!` : `Article resubmitted for department review.`;
           break;
+      }
+      if (finalMsg) {
+        setMessage(finalMsg);
+        showSuccess(finalMsg, 'Knowledge Action');
       }
       setActionModalOpen(false);
       setSelectedArticle(null);
@@ -256,6 +265,7 @@ export default function KnowledgeApproval() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         'Failed to process workflow action';
       setError(msg);
+      showError(msg, 'Workflow Error');
     } finally {
       setActionBusy(false);
     }
@@ -822,7 +832,7 @@ export default function KnowledgeApproval() {
                   {(isAdmin || isManager) && (
                     <button
                       className={styles.viewBtn}
-                      onClick={() => navigate(`${basePath}/${row.id}/edit`)}
+                      onClick={() => navigate(`${basePath}/${toShortKnowledgeId(row)}/edit`)}
                       title="Edit and finish article content before approval"
                     >
                       <PencilSquareIcon style={{ width: 14, height: 14 }} />

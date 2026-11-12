@@ -1713,3 +1713,186 @@
   color: #f1f5f9;
   border-color: #475569;
 }
+
+/* ── Category Card & Modal SLA Edit/Delete Controls ─────────────────────── */
+.slaItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.slaItemText {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.slaItemActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.slaMiniBtn,
+.slaMiniBtnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0369a1;
+  transition: all 0.15s ease;
+}
+
+.slaMiniBtn:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #0284c7;
+}
+
+.slaMiniBtnDanger {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.slaMiniBtnDanger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+
+:global([data-theme="dark"]) .slaMiniBtn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #38bdf8;
+}
+
+:global([data-theme="dark"]) .slaMiniBtn:hover {
+  background: #0f172a;
+  border-color: #38bdf8;
+}
+
+:global([data-theme="dark"]) .slaMiniBtnDanger {
+  background: #1e293b;
+  border-color: #7f1d1d;
+  color: #f87171;
+}
+
+:global([data-theme="dark"]) .slaMiniBtnDanger:hover {
+  background: #450a0a;
+  border-color: #ef4444;
+}
+
+.slaDefaultTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.slaInactiveTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.workHoursBox {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-surface, #f8fafc);
+}
+
+.workHoursToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0 !important;
+  cursor: pointer;
+}
+
+.workHoursBody {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workHoursTimeRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workDaysRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workDaysLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+}
+
+.workDaysGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workDayChip {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+}
+
+.workDayChipActive {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.slaCheckOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.slaCheckLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  margin: 0 !important;
+  cursor: pointer;
+}

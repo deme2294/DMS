@@ -1,14 +1,19 @@
 .page {
+  position: relative;
   padding: 24px;
   max-width: 1600px;
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
-/* ── Top Header & Controls ─────────────────────────────────────────────────── */
+/* ── Top Header & Controls ── */
 .headerRow {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -17,6 +22,9 @@
   border-radius: 16px;
   border: 1px solid var(--border-color, #e2e8f0);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
@@ -42,6 +50,139 @@
   margin: 4px 0 0;
   color: var(--text-secondary, #64748b);
   font-size: 0.875rem;
+}
+
+.headerControlsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .headerControlsContainer {
+    width: auto;
+    align-items: flex-end;
+  }
+}
+
+.filtersRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.deptSelectWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.selectIcon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.selectInputWithIcon {
+  padding: 8px 14px 8px 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.selectInputWithIcon:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.deptScopeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+}
+
+:global([data-theme="dark"]) .deptScopeBadge {
+  background: #151d2f !important;
+  border-color: #27344b !important;
+  color: #f8fafc !important;
+}
+
+.deptScopeIcon {
+  width: 18px;
+  height: 18px;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+:global([data-theme="dark"]) .deptScopeIcon {
+  color: #60a5fa !important;
+}
+
+.deptManagerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+:global([data-theme="dark"]) .deptManagerBadge {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.actionsGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .actionsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .actionsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.btnIcon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .controlsGroup {
@@ -102,8 +243,10 @@
 .actionBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
   font-size: 0.85rem;
   font-weight: 600;
   border-radius: 10px;
@@ -111,6 +254,7 @@
   background: var(--bg-card, #ffffff);
   color: var(--text-primary, #0f172a);
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
@@ -118,6 +262,14 @@
   background: var(--bg-surface, #f8fafc);
   border-color: #cbd5e1;
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.actionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .actionBtnPrimary {
@@ -133,11 +285,137 @@
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
-/* ── KPI Metrics Grid ──────────────────────────────────────────────────────── */
+.csvDropdownContainer {
+  position: relative;
+  display: inline-flex;
+}
+
+.csvSplitBtn {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  height: 40px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.csvSplitBtn:hover {
+  background: var(--bg-surface, #f8fafc);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.csvMainBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 10px 0 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #0f172a);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.csvChevronBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 8px;
+  border: none;
+  border-left: 1px solid var(--border-color, #e2e8f0);
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.csvChevronBtn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #2563eb;
+}
+
+.csvDropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+  padding: 6px;
+  min-width: 290px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fadeInDown 0.15s ease-out;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.csvDropdownHeader {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary, #64748b);
+  letter-spacing: 0.04em;
+  padding: 6px 10px 4px;
+}
+
+.csvDropdownItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #0f172a);
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s ease;
+  width: 100%;
+}
+
+.csvDropdownItem:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.csvDropdownSub {
+  font-size: 0.7rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 400;
+}
+
+/* ── KPI Metrics Grid ── */
 .kpiGrid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .kpiCard {
@@ -152,6 +430,9 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .kpiCard:hover {
@@ -222,8 +503,9 @@
   margin-top: 6px;
 }
 
-/* ── Section Cards ─────────────────────────────────────────────────────────── */
+/* ── Section Cards ── */
 .chartCard {
+  position: relative;
   background: var(--bg-card, #ffffff);
   border-radius: 16px;
   padding: 24px;
@@ -231,6 +513,10 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cardHeader {
@@ -304,22 +590,29 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Two Column Chart Grid ─────────────────────────────────────────────────── */
+/* ── Two Column Chart Grid ── */
 .twoColGrid {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @media (min-width: 1024px) {
   .twoColGrid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* ── Professional Monthly & Weekly SVG Trends Graph ────────────────────────── */
+/* ── Professional Monthly & Weekly SVG Trends Graph ── */
 .trendGraphWrapper {
+  position: relative;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -477,7 +770,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── SVG Multi-Color Bar Chart Styles ──────────────────────────────────────── */
+/* â”€â”€ SVG Multi-Color Bar Chart Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .barRect {
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
@@ -497,7 +790,7 @@
   pointer-events: none;
 }
 
-/* ── Horizontal Ranked Category Bar Chart ──────────────────────────────────── */
+/* â”€â”€ Horizontal Ranked Category Bar Chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .horizontalBarList {
   display: flex;
   flex-direction: column;
@@ -579,7 +872,7 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
-/* ── Interactive Pie / Donut Chart Styles ─────────────────────────────────── */
+/* â”€â”€ Interactive Pie / Donut Chart Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pieChartCardBody {
   display: flex;
   flex-direction: column;
@@ -660,7 +953,7 @@
   font-weight: 600;
 }
 
-/* ── Isolated Focus Readout Card ───────────────────────────────────────────── */
+/* â”€â”€ Isolated Focus Readout Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .focusBanner {
   display: flex;
   align-items: center;
@@ -768,9 +1061,18 @@
   text-align: right;
 }
 
-/* ── Department Matrix Table ───────────────────────────────────────────────── */
+/* ── Department Matrix Table ─────────────────────────────────────────────── */
+.tableScrollContainer {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  border-radius: 12px;
+}
+
 .deptTable {
   width: 100%;
+  min-width: 840px;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
@@ -827,7 +1129,7 @@
   transition: width 0.3s ease;
 }
 
-/* ── Loading / Empty States ────────────────────────────────────────────────── */
+/* â”€â”€ Loading / Empty States â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .loadingContainer {
   padding: 60px;
   display: flex;
@@ -860,19 +1162,17 @@
 }
 
 .emptyState::before {
-  content: '📊';
-  display: block;
-  font-size: 2.2rem;
+  display: none;
   margin-bottom: 10px;
   opacity: 0.75;
 }
 
-/* ── Print Only Executive Header ─────────────────────────────────────────── */
+
 .printOnlyHeader {
   display: none;
 }
 
-/* ── Print / PDF Visual Report Mode ──────────────────────────────────────── */
+
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;
@@ -1007,3 +1307,1855 @@
   }
 }
 
+/* ── Department Problem Solving Suite Styles ───────────────────────────────── */
+.deptKpiGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.deptKpiCard {
+  position: relative;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s ease;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.deptKpiCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.deptKpiLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deptKpiValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  letter-spacing: -0.01em;
+}
+
+.deptKpiSub {
+  font-size: 0.725rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+.deptFilterPills {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.deptFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-surface, #f1f5f9);
+  color: var(--text-secondary, #64748b);
+  border: 1px solid var(--border-color, #e2e8f0);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.deptFilterPill:hover {
+  background: var(--bg-hover, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+}
+
+.deptFilterPillActive {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+}
+
+.tierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tierElite {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.tierGood {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.tierModerate {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.tierWarn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.thSortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.thSortable:hover {
+  color: #2563eb !important;
+}
+
+.sortIcon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.deptTableDetailCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deptTableSubText {
+  font-size: 0.72rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+/* ── Department Problem-Solving Efficiency & Solved Volume Styles ── */
+.deptSectionCard {
+  position: relative;
+  background: var(--bg-card, #ffffff);
+  border-radius: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.deptSectionHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.deptSectionTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.deptSectionSubtitle {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.4;
+}
+
+.deptRowList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.deptEfficiencyRow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #f1f5f9);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.deptEfficiencyRow:hover {
+  background: var(--bg-card, #ffffff);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.deptRowHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.deptRowNameGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.deptRowName {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+}
+
+.deptRowMeta {
+  font-size: 0.775rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
+.deptRowMetrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.deptRateBadge {
+  font-size: 0.95rem;
+  font-weight: 800;
+  padding: 3px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deptCountText {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+
+.deptProgressBarTrack {
+  width: 100%;
+  height: 12px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.deptProgressBarFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.deptSubBreakdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #64748b);
+  padding-top: 2px;
+}
+
+.deptSubPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  font-weight: 500;
+}
+
+/* Volume Row specific */
+.volumeBarsContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.volumeBarRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.volumeBarLabel {
+  width: 110px;
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  flex-shrink: 0;
+}
+
+.volumeBarMeter {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.volumeBarCount {
+  min-width: 85px;
+  text-align: right;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+/* ──── Department Leaderboard & Ranking ──── */
+.leaderboardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.topSpotlightGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.spotlightCard {
+  background: var(--bg-card, #ffffff);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.spotlightCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.spotlightCardWinner {
+  border-color: #fde047;
+  background: linear-gradient(145deg, #ffffff, #fffbeb);
+  box-shadow: 0 4px 18px rgba(234, 179, 8, 0.12);
+}
+
+.spotlightHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.spotlightNameRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.rankBadgeSpotlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.rank1 {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #facc15;
+}
+
+.rank2 {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.rank3 {
+  background: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.spotlightScore {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.scoreUnit {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+}
+
+.spotlightMetricsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color, #f1f5f9);
+}
+
+.spotlightMetricItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.spotlightMetricVal {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+}
+
+.spotlightMetricLbl {
+  font-size: 0.72rem;
+  color: var(--text-secondary, #64748b);
+  font-weight: 600;
+}
+
+.strictRuleNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: #1e40af;
+  margin-top: 8px;
+}
+
+.complianceCheckPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.725rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.pillFlawless {
+  background: #fef08a;
+  color: #854d0e;
+}
+
+.pillCapped {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.categoryMetricsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.775rem;
+  color: var(--text-secondary, #64748b);
+  margin-top: 6px;
+}
+
+.catMetricTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+/* ── Redesigned Professional Department Card ── */
+.deptCardContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.deptCardContainer:hover {
+  background: var(--bg-card, #ffffff);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+}
+
+.deptCardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.deptCardIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.deptCardIconBox {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.deptCardName {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.deptCardSub {
+  font-size: 0.775rem;
+  color: var(--text-secondary, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.deptCodeTag {
+  background: #e2e8f0;
+  color: #334155;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+.deptCardHeaderBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.deptScorePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
+
+.deptScorePillMuted {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tierIdle {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+/* ── Progress Section ── */
+.deptProgressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.deptProgressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.deptProgressStats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.deptSolvedCount {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+.deptBacklogTag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.deptBacklogClean {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.deptRateDisplay {
+  font-size: 1.15rem;
+  font-weight: 900;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.deptRateUnit {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── 4-Box Breakdown Grid ── */
+.deptBreakdownGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1150px) {
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .deptBreakdownGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.breakdownBox {
+  position: relative;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.breakdownBoxHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--text-secondary, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.breakdownIcon {
+  font-size: 0.9rem;
+}
+
+.breakdownBoxTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breakdownBoxValue {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+}
+
+.breakdownBoxSub {
+  font-size: 0.725rem;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+}
+
+/* ── Bottom Notice Strips ── */
+.deptNoticeNeutral {
+  padding: 8px 12px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.deptNoticeSuccess {
+  padding: 8px 12px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.deptNoticeWarning {
+  padding: 8px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  color: #92400e;
+  font-weight: 500;
+}
+
+
+
+
+
+
+
+.tierDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+
+/* ==========================================================================
+   HIGH-VISIBILITY THEME INTEGRATION (LIGHT & DARK MODE RESILIENCE)
+   ========================================================================== */
+
+/* -- Strict Rule Governance Banner -- */
+.strictRuleNotice {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  padding: 12px 18px !important;
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 12px !important;
+  font-size: 0.825rem !important;
+  color: #1e40af !important;
+  margin-top: 10px !important;
+  transition: all 0.2s ease !important;
+}
+
+.strictRuleLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.strictRuleIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: #2563eb;
+}
+
+.strictRuleStrong {
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.strictRuleTarget {
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.downloadFormulaBtn {
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 7px 14px !important;
+  font-size: 0.775rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #93c5fd !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.downloadFormulaBtn:hover {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #1e40af !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* -- Spotlight Leaderboard Cards -- */
+.spotlightTitle {
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  margin: 0 0 4px !important;
+  color: var(--text-primary, #0f172a) !important;
+  line-height: 1.25 !important;
+}
+
+.spotlightMeta {
+  font-size: 0.8rem !important;
+  color: var(--text-secondary, #64748b) !important;
+}
+
+.scoreQualified {
+  color: #15803d !important;
+}
+
+.scoreStandard {
+  color: #2563eb !important;
+}
+
+.scoreRunnerUp {
+  color: #1e40af !important;
+}
+
+.metricValSuccess {
+  color: #15803d !important;
+}
+
+.metricValDanger {
+  color: #dc2626 !important;
+}
+
+.metricValWarning {
+  color: #b45309 !important;
+}
+
+.metricValSub {
+  font-size: 0.75rem !important;
+  color: var(--text-secondary, #64748b) !important;
+  font-weight: 500 !important;
+}
+
+/* -- KPI Icon Boxes with Theme Support -- */
+.kpiIconBlue {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+}
+
+.kpiIconGreen {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+}
+
+.kpiIconAmber {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+}
+
+.kpiIconPurple {
+  background: #ede9fe !important;
+  color: #6d28d9 !important;
+}
+
+.kpiIconRose {
+  background: #fce7f3 !important;
+  color: #be185d !important;
+}
+
+.kpiTextSuccess {
+  color: #16a34a !important;
+}
+
+.kpiTextIndigo {
+  color: #4338ca !important;
+}
+
+.kpiTextOrange {
+  color: #ea580c !important;
+}
+
+.kpiTextDanger {
+  color: #dc2626 !important;
+}
+
+.kpiTextMuted {
+  color: #64748b !important;
+}
+
+/* -- Volume Legend Strip -- */
+.volumeLegendStrip {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 10px 16px !important;
+  background: #f8fafc !important;
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  margin-bottom: 14px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary, #0f172a) !important;
+}
+
+/* ==========================================================================
+   CSS MODULE SCOPED DARK THEME SELECTORS (:global([data-theme="dark"]))
+   ========================================================================== */
+
+:global([data-theme="dark"]) .strictRuleNotice {
+  background: rgba(30, 58, 138, 0.25) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+  color: #bfdbfe !important;
+}
+
+:global([data-theme="dark"]) .strictRuleIcon {
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .strictRuleStrong {
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .strictRuleTarget {
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .downloadFormulaBtn {
+  background: rgba(30, 64, 175, 0.4) !important;
+  color: #bfdbfe !important;
+  border-color: rgba(96, 165, 250, 0.45) !important;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.2) !important;
+}
+
+:global([data-theme="dark"]) .downloadFormulaBtn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .spotlightCard {
+  background: var(--bg-card, #131b2a) !important;
+  border-color: var(--border-color, #1e293b) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .spotlightCardWinner {
+  background: linear-gradient(145deg, #131b2a, #1a1a12) !important;
+  border-color: rgba(234, 179, 8, 0.5) !important;
+  box-shadow: 0 4px 22px rgba(234, 179, 8, 0.15) !important;
+}
+
+:global([data-theme="dark"]) .rank1 {
+  background: rgba(234, 179, 8, 0.2) !important;
+  color: #fde047 !important;
+  border: 1px solid rgba(234, 179, 8, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .rank2 {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .rank3 {
+  background: rgba(249, 115, 22, 0.2) !important;
+  color: #fdba74 !important;
+  border: 1px solid rgba(249, 115, 22, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .pillFlawless {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .pillCapped {
+  background: rgba(245, 158, 11, 0.18) !important;
+  color: #fde047 !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .spotlightTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .spotlightMeta {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .scoreQualified {
+  color: #4ade80 !important;
+}
+
+:global([data-theme="dark"]) .scoreStandard {
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .scoreRunnerUp {
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .metricValSuccess {
+  color: #4ade80 !important;
+}
+
+:global([data-theme="dark"]) .metricValDanger {
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .metricValWarning {
+  color: #fbbf24 !important;
+}
+
+:global([data-theme="dark"]) .metricValSub {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .spotlightMetricItem {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:global([data-theme="dark"]) .spotlightMetricVal {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .spotlightMetricLbl {
+  color: #cbd5e1 !important;
+}
+
+/* -- Department Card in Problem-Solving Suite -- */
+:global([data-theme="dark"]) .deptCardContainer {
+  background: #131b2a !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .deptCardContainer:hover {
+  background: #172134 !important;
+  border-color: #3b4a63 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .deptCardIconBox {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .deptCardName {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptCardSub {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .deptCodeTag {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .deptScorePill {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .deptScorePillMuted {
+  background: rgba(148, 163, 184, 0.12) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+/* -- Tier Badges -- */
+:global([data-theme="dark"]) .tierIdle {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .tierElite {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .tierGood {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .tierModerate {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .tierWarn {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+}
+
+/* -- Progress & Backlog tags -- */
+:global([data-theme="dark"]) .deptSolvedCount {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptBacklogTag {
+  background: rgba(249, 115, 22, 0.2) !important;
+  color: #fdba74 !important;
+  border: 1px solid rgba(249, 115, 22, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .deptBacklogClean {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .deptRateDisplay {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptRateUnit {
+  color: #cbd5e1 !important;
+}
+
+/* -- 4-Box Breakdown Grid -- */
+:global([data-theme="dark"]) .breakdownBox {
+  background: #172134 !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .breakdownBoxHeader {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .breakdownBoxValue {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .breakdownBoxSub {
+  color: #94a3b8 !important;
+}
+
+/* -- Zone 4 Notices -- */
+:global([data-theme="dark"]) .deptNoticeNeutral {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .deptNoticeSuccess {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #6ee7b7 !important;
+}
+
+:global([data-theme="dark"]) .deptNoticeWarning {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fde047 !important;
+}
+
+/* -- KPI Icon Boxes (Dark Mode) -- */
+:global([data-theme="dark"]) .kpiIconBlue {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .kpiIconGreen {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #4ade80 !important;
+}
+
+:global([data-theme="dark"]) .kpiIconAmber {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+}
+
+:global([data-theme="dark"]) .kpiIconPurple {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #c084fc !important;
+}
+
+:global([data-theme="dark"]) .kpiIconRose {
+  background: rgba(244, 63, 94, 0.2) !important;
+  color: #fb7185 !important;
+}
+
+/* -- Dual Volume Stacked Section (Dark Mode) -- */
+:global([data-theme="dark"]) .deptSectionCard {
+  background: var(--bg-card, #131b2a) !important;
+  border-color: var(--border-color, #1e293b) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .deptSectionTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptSectionSubtitle {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .deptKpiCard {
+  background: var(--bg-surface, #101625) !important;
+  border-color: var(--border-color, #1e293b) !important;
+}
+
+:global([data-theme="dark"]) .deptKpiLabel {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .deptKpiSub {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .volumeLegendStrip {
+  background: #101625 !important;
+  border-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptEfficiencyRow {
+  background: #131b2a !important;
+  border-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .deptEfficiencyRow:hover {
+  background: #172134 !important;
+  border-color: #3b4a63 !important;
+}
+
+:global([data-theme="dark"]) .deptRowName {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptRowMeta {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .volumeBarMeter {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+:global([data-theme="dark"]) .volumeSubStats {
+  color: #cbd5e1 !important;
+}
+
+:global([data-theme="dark"]) .kpiTextSuccess {
+  color: #4ade80 !important;
+}
+
+:global([data-theme="dark"]) .kpiTextIndigo {
+  color: #818cf8 !important;
+}
+
+:global([data-theme="dark"]) .kpiTextOrange {
+  color: #fb923c !important;
+}
+
+:global([data-theme="dark"]) .kpiTextDanger {
+  color: #f87171 !important;
+}
+
+:global([data-theme="dark"]) .kpiTextMuted {
+  color: #94a3b8 !important;
+}
+
+/* -- Category & Table (Dark Mode) -- */
+:global([data-theme="dark"]) .catMetricTag {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .deptTable th {
+  background: #0e1321 !important;
+  color: #cbd5e1 !important;
+  border-bottom-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .deptTable td {
+  border-bottom-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .deptTableRow:hover td {
+  background: #172134 !important;
+}
+
+:global([data-theme="dark"]) .deptSubtext {
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================================
+   MULTI-DEVICE RESPONSIVE SYSTEM (DESKTOP, LAPTOP, TABLET, PHABLET & MOBILE)
+   ========================================================================== */
+
+/* ── Large Desktop & Ultrawide (>= 1280px) ────────────────────────────────── */
+@media (min-width: 1280px) {
+  .kpiGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+  .topSpotlightGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .spotlightMetricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .deptKpiGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── Standard Laptop & Small Desktop (1024px – 1279px) ────────────────────── */
+@media (max-width: 1279px) and (min-width: 1024px) {
+  .page {
+    padding: 20px !important;
+    gap: 20px !important;
+  }
+  .kpiGrid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
+  }
+  .topSpotlightGrid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+  }
+  .spotlightMetricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .deptKpiGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ── Tablet Devices (768px – 1023px) ──────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .page {
+    padding: 18px 16px !important;
+    gap: 18px !important;
+  }
+  .headerRow {
+    padding: 18px 20px !important;
+  }
+  .twoColGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px !important;
+  }
+  .kpiGrid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    gap: 12px !important;
+  }
+  .topSpotlightGrid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    gap: 14px !important;
+  }
+  .spotlightMetricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .deptKpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .donutLegendList {
+    max-width: 100% !important;
+  }
+}
+
+/* ── Large Mobile & Phablets (481px – 767px) ──────────────────────────────── */
+@media (max-width: 767px) {
+  .page {
+    padding: 14px 12px !important;
+    gap: 16px !important;
+  }
+  .headerRow {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 16px !important;
+    gap: 14px !important;
+  }
+  .titleGroup h1 {
+    font-size: 1.3rem !important;
+  }
+  .headerControlsContainer {
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+  .filtersRow {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .deptSelectWrapper {
+    width: 100% !important;
+  }
+  .selectInputWithIcon {
+    width: 100% !important;
+  }
+  .actionsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .actionBtn {
+    height: 38px !important;
+    font-size: 0.8rem !important;
+    padding: 0 10px !important;
+  }
+  .csvSplitBtn {
+    height: 38px !important;
+  }
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .kpiCard {
+    padding: 14px 12px !important;
+  }
+  .kpiValue {
+    font-size: 1.35rem !important;
+  }
+  .kpiLabel {
+    font-size: 0.775rem !important;
+  }
+  .strictRuleNotice {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+  .strictRuleLeft {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 0.8rem !important;
+  }
+  .downloadFormulaBtn {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 8px 14px !important;
+  }
+  .topSpotlightGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+  .spotlightCard {
+    padding: 16px 14px !important;
+  }
+  .spotlightTitle {
+    font-size: 1.15rem !important;
+  }
+  .spotlightScore {
+    font-size: 1.65rem !important;
+  }
+  .spotlightMetricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .deptSectionCard {
+    padding: 16px 14px !important;
+  }
+  .deptSectionHeader {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .deptSectionTitle {
+    font-size: 1.05rem !important;
+  }
+  .deptCardContainer {
+    padding: 14px 12px !important;
+    gap: 12px !important;
+  }
+  .deptCardHeader {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .deptCardIdentity {
+    width: 100% !important;
+  }
+  .deptCardHeaderBadges {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+  .deptProgressMeta {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .deptRateDisplay {
+    align-self: flex-start !important;
+  }
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .volumeLegendStrip {
+    gap: 8px 12px !important;
+    padding: 8px 12px !important;
+    font-size: 0.725rem !important;
+  }
+  .deptEfficiencyRow {
+    padding: 12px !important;
+  }
+  .deptRowHeader {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .deptRowName {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+  .deptRowMetrics {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  .pieChartCardBody {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+  .pieSvgWrapper {
+    width: 220px !important;
+    height: 220px !important;
+    margin: 0 auto !important;
+  }
+  .donutLegendList {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── Compact Mobile Devices (<= 480px) ────────────────────────────────────── */
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 8px !important;
+    gap: 12px !important;
+  }
+  .headerRow {
+    padding: 12px 10px !important;
+    border-radius: 12px !important;
+  }
+  .titleGroup h1 {
+    font-size: 1.15rem !important;
+  }
+  .titleGroup p {
+    font-size: 0.775rem !important;
+  }
+  .actionsGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 6px !important;
+  }
+  .csvDropdownContainer {
+    width: 100% !important;
+  }
+  .csvSplitBtn {
+    width: 100% !important;
+  }
+  .csvMainBtn {
+    flex: 1 !important;
+    justify-content: center !important;
+  }
+  .csvDropdownMenu {
+    left: 0 !important;
+    right: 0 !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .kpiCard {
+    padding: 10px 8px !important;
+    border-radius: 10px !important;
+  }
+  .kpiIconBox {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .kpiIconBox svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+  .kpiTrendBadge {
+    font-size: 0.65rem !important;
+    padding: 2px 6px !important;
+  }
+  .kpiValue {
+    font-size: 1.15rem !important;
+  }
+  .kpiLabel {
+    font-size: 0.7rem !important;
+  }
+  .kpiSubtext {
+    font-size: 0.65rem !important;
+    line-height: 1.2 !important;
+  }
+  .deptKpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .deptKpiCard {
+    padding: 10px 8px !important;
+  }
+  .deptKpiValue {
+    font-size: 1.2rem !important;
+  }
+  .deptKpiLabel {
+    font-size: 0.7rem !important;
+  }
+  .deptKpiSub {
+    font-size: 0.65rem !important;
+  }
+  .spotlightCard {
+    padding: 12px 10px !important;
+    border-radius: 12px !important;
+  }
+  .spotlightHeader {
+    gap: 6px !important;
+  }
+  .rankBadgeSpotlight {
+    font-size: 0.7rem !important;
+    padding: 3px 8px !important;
+  }
+  .complianceCheckPill {
+    font-size: 0.65rem !important;
+    padding: 2px 6px !important;
+  }
+  .spotlightNameRow {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .spotlightTitle {
+    font-size: 1.05rem !important;
+  }
+  .spotlightScore {
+    font-size: 1.45rem !important;
+  }
+  .spotlightMetricsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .spotlightMetricVal {
+    font-size: 0.825rem !important;
+  }
+  .spotlightMetricLbl {
+    font-size: 0.65rem !important;
+  }
+  .deptCardContainer {
+    padding: 10px 8px !important;
+    border-radius: 10px !important;
+    gap: 8px !important;
+  }
+  .deptCardName {
+    font-size: 0.95rem !important;
+  }
+  .deptCardSub {
+    font-size: 0.7rem !important;
+  }
+  .deptScorePill {
+    padding: 2px 8px !important;
+    font-size: 0.7rem !important;
+  }
+  .deptBreakdownGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  .breakdownBox {
+    padding: 6px 6px !important;
+    border-radius: 6px !important;
+  }
+  .breakdownBoxHeader {
+    font-size: 0.625rem !important;
+    gap: 4px !important;
+  }
+  .breakdownBoxValue {
+    font-size: 0.85rem !important;
+  }
+  .breakdownBoxSub {
+    font-size: 0.625rem !important;
+  }
+  .deptNoticeNeutral,
+  .deptNoticeSuccess,
+  .deptNoticeWarning {
+    padding: 6px 8px !important;
+    font-size: 0.7rem !important;
+  }
+  .volumeLegendStrip {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .pieSvgWrapper {
+    width: 190px !important;
+    height: 190px !important;
+  }
+  .chartCard {
+    padding: 14px 10px !important;
+    border-radius: 12px !important;
+  }
+  .cardTitle {
+    font-size: 0.95rem !important;
+  }
+  .trendHeaderStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 10px 8px !important;
+    gap: 8px !important;
+  }
+  .trendStatVal {
+    font-size: 1rem !important;
+  }
+  .trendStatLabel {
+    font-size: 0.65rem !important;
+  }
+}

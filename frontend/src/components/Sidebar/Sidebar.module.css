@@ -132,28 +132,222 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
-.sectionLabel {
-  font-size: 0.69rem;
+/* ── Interactive Navigation Group Heading Button ── */
+.sectionHeaderBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  min-height: 44px;
+  background: linear-gradient(135deg, rgba(10, 31, 62, 0.72) 0%, rgba(7, 23, 48, 0.82) 100%);
+  border: 1px solid rgba(8, 125, 147, 0.32);
+  border-radius: 11px;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.sectionHeaderBtn:hover {
+  background: linear-gradient(135deg, rgba(8, 125, 147, 0.35) 0%, rgba(14, 165, 233, 0.22) 100%);
+  border-color: rgba(56, 189, 248, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(8, 125, 147, 0.35);
+}
+
+.sectionHeaderBtn:active {
+  transform: translateY(0);
+}
+
+.sectionHeaderBtn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+/* Open / Expanded state of the Button */
+.sectionHeaderBtnOpen {
+  background: linear-gradient(135deg, rgba(8, 125, 147, 0.45) 0%, rgba(2, 132, 199, 0.3) 100%);
+  border-color: rgba(56, 189, 248, 0.7);
+  box-shadow: 0 0 16px rgba(8, 125, 147, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Has Active Page inside this group */
+.sectionHeaderHasActive {
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.sectionHeaderHasActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3.5px;
+  background: linear-gradient(180deg, #77cbc6, #38bdf8);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+}
+
+/* Left side: Icon badge + Title */
+.sectionHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sectionIconBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(8, 125, 147, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #77cbc6;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.sectionHeaderBtn:hover .sectionIconBadge,
+.sectionHeaderBtnOpen .sectionIconBadge {
+  background: rgba(8, 125, 147, 0.45);
+  color: #ffffff;
+  border-color: rgba(119, 203, 198, 0.7);
+  box-shadow: 0 2px 8px rgba(8, 125, 147, 0.4);
+}
+
+.sectionIconSvg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.sectionLabelText {
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #77cbc6;
-  padding: 10px 10px 4px;
+  letter-spacing: 0.12em;
+  color: #e2e8f0;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
-.sectionItems {
+.sectionHeaderBtn:hover .sectionLabelText,
+.sectionHeaderBtnOpen .sectionLabelText {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+/* Right side: Indicators + Count + Chevron */
+.sectionHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.activeGroupDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 10px #38bdf8, 0 0 4px #77cbc6;
+  flex-shrink: 0;
+  animation: pulseSidebar 2s infinite;
+}
+
+.sectionItemCountBadge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+.sectionHeaderBtn:hover .sectionItemCountBadge,
+.sectionHeaderBtnOpen .sectionItemCountBadge {
+  background: rgba(8, 125, 147, 0.35);
+  color: #77cbc6;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.chevronPill {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sectionHeaderBtn:hover .chevronPill,
+.sectionHeaderBtnOpen .chevronPill {
+  background: rgba(8, 125, 147, 0.35);
+}
+
+.sectionChevron {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.4;
+  color: #77cbc6;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+}
+
+.sectionHeaderBtn:hover .sectionChevron,
+.sectionHeaderBtnOpen .sectionChevron {
+  color: #ffffff;
+}
+
+.sectionChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Collapsible Menu Items Wrapper with Tree Connector ── */
+.sectionItemsWrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  opacity: 0;
+}
+
+.sectionItemsWrapperOpen {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.sectionItemsInner {
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 3px;
+  padding: 6px 0 6px 8px;
+  margin-left: 10px;
+  margin-right: 2px;
+  border-left: 2px solid rgba(8, 125, 147, 0.35);
 }
 
 .divider {
-  height: 1px;
-  background: rgba(8, 125, 147, 0.2);
-  margin: 8px 8px;
+  display: none;
 }
 
 /* Nav Item (Inactive State) */
@@ -321,25 +515,25 @@
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  background: rgba(8, 125, 147, 0.18);
-  color: #38bdf8;
+  border: 1.5px solid rgba(125, 211, 252, 0.6);
+  background: rgba(8, 125, 147, 0.28);
+  color: #e0f2fe;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   user-select: none;
 }
 
 .collapseToggleBtn:hover {
-  background: rgba(8, 125, 147, 0.38);
+  background: rgba(56, 189, 248, 0.42);
   color: #ffffff;
-  border-color: rgba(119, 203, 198, 0.65);
+  border-color: #7dd3fc;
   transform: scale(1.06);
-  box-shadow: 0 2px 10px rgba(8, 125, 147, 0.5);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.45);
 }
 
 .collapseToggleBtn:active {
@@ -407,6 +601,10 @@
   align-items: center;
 }
 
+.sidebarCollapsed .sectionHeaderBtn {
+  display: none !important;
+}
+
 .sidebarCollapsed .sectionLabel {
   display: none !important;
 }
@@ -416,7 +614,15 @@
   margin: 6px auto;
 }
 
-.sidebarCollapsed .sectionItems {
+.sidebarCollapsed .sectionItemsWrapper {
+  display: flex !important;
+  grid-template-rows: none !important;
+  opacity: 1 !important;
+  width: 100%;
+}
+
+.sidebarCollapsed .sectionItemsInner {
+  overflow: visible !important;
   width: 100%;
   gap: 6px;
   align-items: center;

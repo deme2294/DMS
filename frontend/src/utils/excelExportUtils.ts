@@ -213,13 +213,252 @@ export async function exportAnalyticsToExcel(
   workbook.creator = 'Help Desk Management System';
   workbook.created = new Date();
 
-  // ── TAB 1: EXECUTIVE MASTER DASHBOARD ─────────────────────────────────────────
-  const masterSheet = workbook.addWorksheet('Executive Analytics', {
+  const totalTickets = data.kpis.totalTickets || 1;
+
+  // ── TAB 1: EXECUTIVE MASTER ANALYTICS LEDGER (ALL 18 COLUMNS AUTO-ENLARGED) ──
+  const ledgerSheet = workbook.addWorksheet('Master Analytics Ledger', {
+    views: [{ showGridLines: true }],
+  });
+
+  // Top Title Banner (A1:R1 Merged)
+  const ledgerTitleRow = ledgerSheet.addRow(['HELP DESK MANAGEMENT SYSTEM - EXECUTIVE MASTER ANALYTICS LEDGER']);
+  ledgerSheet.mergeCells('A1:R1');
+  ledgerTitleRow.getCell(1).font = { name: 'Calibri', size: 16, bold: true, color: { argb: EXCEL_PALETTE.WHITE } };
+  ledgerTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.NAVY_HEADER } };
+  ledgerTitleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  ledgerTitleRow.height = 38;
+
+  // Metadata Subtitle (A2:R2 Merged)
+  const ledgerSubRow = ledgerSheet.addRow([
+    `Reporting Period: ${timeframe.toUpperCase()}   |   Department Scope: ${departmentName}   |   Generated On: ${new Date().toLocaleString()}   |   Audit Compliance: Enterprise Operational Standard (RFC 4180)`,
+  ]);
+  ledgerSheet.mergeCells('A2:R2');
+  ledgerSubRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true, bold: true, color: { argb: 'FF334155' } };
+  ledgerSubRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+  ledgerSubRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  ledgerSubRow.height = 24;
+  ledgerSheet.addRow([]); // Blank spacer row (Row 3)
+
+  // 18 Column Table Headers (Row 4)
+  const ledgerHeaders = [
+    'Report Domain',
+    'Record Identifier',
+    'Dimension / Entity Name',
+    'Department Code',
+    'Manager / Owner Lead',
+    'Total Workload (Tickets)',
+    'Inbound Routed',
+    'Team Created',
+    'Open Tickets',
+    'In Progress',
+    'Resolved Tickets',
+    'Overdue Tickets',
+    'Resolution Rate (%)',
+    'SLA Compliance (%)',
+    'Avg Turnaround (Hours)',
+    'Volume Share (%)',
+    'Performance Tier / Benchmark',
+    'Operational Limitations & Audit Notes',
+  ];
+  const hRow = ledgerSheet.addRow(ledgerHeaders);
+  hRow.height = 32;
+  hRow.eachCell((c) => styleHeaderCell(c, EXCEL_PALETTE.NAVY_HEADER));
+
+  // 1. Department Efficiency Rows
+  data.departmentAnalytics.forEach((dept, idx) => {
+    const share = ((dept.totalTickets / totalTickets) * 100).toFixed(1);
+    const notes = dept.totalTickets === 0
+      ? 'No active tickets or workload recorded in selected timeframe'
+      : (dept.performanceReasons && dept.performanceReasons.length > 0)
+      ? dept.performanceReasons.join('; ')
+      : dept.is100PercentQualified
+      ? 'Flawless execution: 100% resolved, zero overdue, 100% SLA compliance'
+      : `${dept.resolvedTickets} of ${dept.totalTickets} resolved`;
+
+    const tierDisplay = dept.totalTickets === 0
+      ? 'Inactive (No Workload)'
+      : dept.performanceGrade
+      ? `${dept.performanceGrade} Grade (${dept.performanceTier || 'Standard'})`
+      : (dept.performanceTier || 'Standard');
+
+    const row = ledgerSheet.addRow([
+      'Department Efficiency',
+      `DEPT-${dept.departmentCode || dept.departmentId.slice(0, 8).toUpperCase()}`,
+      dept.departmentName,
+      dept.departmentCode || 'DEPT',
+      dept.headName || 'Unassigned',
+      dept.totalTickets,
+      dept.assignedTickets ?? dept.totalTickets,
+      dept.createdByTickets ?? 0,
+      dept.openTickets,
+      dept.inProgressTickets,
+      dept.resolvedTickets,
+      dept.overdueTickets,
+      `${dept.resolutionRate}%`,
+      `${dept.slaComplianceRate}%`,
+      `${dept.avgResolutionHours}h`,
+      `${share}%`,
+      tierDisplay,
+      notes,
+    ]);
+    row.height = 22;
+    for (let c = 1; c <= 18; c++) {
+      styleDataCell(row.getCell(c), idx % 2 === 1, c === 1 || c === 3 || c === 5 || c === 18 ? 'left' : 'center');
+    }
+
+    if (dept.overdueTickets > 0) {
+      row.getCell(12).font = { name: 'Calibri', size: 10, bold: true, color: { argb: EXCEL_PALETTE.RED_TEXT } };
+      row.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.RED_BG } };
+    }
+    if (dept.resolutionRate === 100 && dept.totalTickets > 0) {
+      row.getCell(13).font = { name: 'Calibri', size: 10, bold: true, color: { argb: EXCEL_PALETTE.GREEN_TEXT } };
+      row.getCell(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.GREEN_BG } };
+    }
+  });
+
+  // 2. Monthly Ticket Trends Rows
+  data.monthlyTrends.forEach((trend, idx) => {
+    const share = ((trend.totalCreated / totalTickets) * 100).toFixed(1);
+    const resRate = trend.totalCreated > 0
+      ? ((trend.totalResolved / trend.totalCreated) * 100).toFixed(1)
+      : '0.0';
+
+    const row = ledgerSheet.addRow([
+      'Monthly Trends',
+      `TREND-${trend.monthKey}`,
+      trend.monthLabel,
+      'ALL',
+      'Enterprise Operations',
+      trend.totalCreated,
+      trend.totalCreated,
+      trend.totalCreated,
+      0,
+      trend.activeBacklog,
+      trend.totalResolved,
+      trend.overdueCount,
+      `${resRate}%`,
+      '-',
+      `${trend.avgResolutionHours}h`,
+      `${share}%`,
+      trend.overdueCount > 0 ? 'Overdue Inflow' : 'Controlled Inflow',
+      `${trend.activeBacklog} active backlog; ${trend.overdueCount} overdue tickets`,
+    ]);
+    row.height = 22;
+    for (let c = 1; c <= 18; c++) {
+      styleDataCell(row.getCell(c), idx % 2 === 1, c === 1 || c === 3 || c === 5 || c === 18 ? 'left' : 'center');
+    }
+  });
+
+  // 3. Category Distribution Rows
+  data.categoryBreakdown.forEach((cat, idx) => {
+    const share = ((cat.count / totalTickets) * 100).toFixed(1);
+    const resRate = cat.count > 0 ? ((cat.resolved / cat.count) * 100).toFixed(1) : '0.0';
+
+    const row = ledgerSheet.addRow([
+      'Category Distribution',
+      `CAT-${String(idx + 1).padStart(2, '0')}`,
+      cat.categoryName,
+      'ALL',
+      'Category Leads',
+      cat.count,
+      cat.count,
+      0,
+      cat.openTickets ?? 0,
+      cat.inProgressTickets ?? 0,
+      cat.resolved,
+      cat.overdue ?? 0,
+      `${cat.resolutionRate ?? resRate}%`,
+      cat.slaComplianceRate !== undefined ? `${cat.slaComplianceRate}%` : '-',
+      cat.avgHours !== undefined ? `${cat.avgHours}h` : '-',
+      `${share}%`,
+      cat.performanceScore !== undefined ? `Score: ${cat.performanceScore}%` : 'Active Category',
+      `${cat.resolved} of ${cat.count} resolved`,
+    ]);
+    row.height = 22;
+    for (let c = 1; c <= 18; c++) {
+      styleDataCell(row.getCell(c), idx % 2 === 1, c === 1 || c === 3 || c === 5 || c === 18 ? 'left' : 'center');
+    }
+  });
+
+  // 4. Status Lifecycle Rows
+  data.statusBreakdown.forEach((status, idx) => {
+    const label = STATUS_LABELS[status.status as TicketStatus] || status.status;
+    const cleanLabel = label.replace(/\s*-\s*/g, ' - ');
+    const row = ledgerSheet.addRow([
+      'Status Lifecycle',
+      `STATUS-${status.status.toUpperCase().replace(/\./g, '_')}`,
+      cleanLabel,
+      'ALL',
+      'Workflow Routing',
+      status.count,
+      status.count,
+      0,
+      status.status === 'open' ? status.count : 0,
+      status.status.includes('progress') ? status.count : 0,
+      status.status === 'resolved' || status.status === 'closed' ? status.count : 0,
+      status.overdueCount ?? 0,
+      status.status === 'resolved' || status.status === 'closed' ? '100.0%' : '0.0%',
+      '-',
+      status.avgHours ? `${status.avgHours}h` : '-',
+      `${status.percentage}%`,
+      status.overdueCount && status.overdueCount > 0 ? 'Overdue Queue' : 'Active Stage',
+      `${status.count} tickets currently at ${cleanLabel} stage`,
+    ]);
+    row.height = 22;
+    for (let c = 1; c <= 18; c++) {
+      styleDataCell(row.getCell(c), idx % 2 === 1, c === 1 || c === 3 || c === 5 || c === 18 ? 'left' : 'center');
+    }
+  });
+
+  // 5. Executive KPI Scorecard Rows
+  const kpiList = [
+    { id: 'KPI-01', name: 'Total Tickets Registered', val: data.kpis.totalTickets, unit: 'Tickets', note: `${data.kpis.currentMonthCount} this month vs ${data.kpis.previousMonthCount} last month` },
+    { id: 'KPI-02', name: 'Tickets Resolved Successfully', val: data.kpis.resolvedTickets, unit: 'Tickets', note: `${data.kpis.resolvedTickets} of ${data.kpis.totalTickets} closed` },
+    { id: 'KPI-03', name: 'Active Backlog Queue', val: data.kpis.openTickets + data.kpis.inProgressTickets, unit: 'Tickets', note: `${data.kpis.openTickets} open, ${data.kpis.inProgressTickets} in progress` },
+    { id: 'KPI-04', name: 'Overdue Tickets (SLA Breached)', val: data.kpis.overdueTickets, unit: 'Tickets', note: `${data.kpis.overdueRate}% overdue rate` },
+    { id: 'KPI-05', name: 'Resolution Rate Benchmark', val: `${data.kpis.resolutionRate}%`, unit: 'Percentage', note: 'Target >= 85%' },
+    { id: 'KPI-06', name: 'SLA Compliance Benchmark', val: `${data.kpis.slaComplianceRate}%`, unit: 'Percentage', note: 'Target >= 95%' },
+    { id: 'KPI-07', name: 'Avg Resolution Turnaround', val: `${data.kpis.avgResolutionHours}h`, unit: 'Hours', note: `First response avg: ${data.kpis.avgFirstResponseHours}h` },
+    { id: 'KPI-08', name: 'Month-over-Month Velocity Growth', val: `${data.kpis.monthGrowthPercent}%`, unit: 'Percentage', note: 'Comparative volume surge' },
+  ];
+
+  kpiList.forEach((kpi, idx) => {
+    const row = ledgerSheet.addRow([
+      'Executive KPI Benchmark',
+      kpi.id,
+      kpi.name,
+      'ALL',
+      'System Administration',
+      typeof kpi.val === 'number' ? kpi.val : 0,
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      typeof kpi.val === 'string' && kpi.val.includes('%') ? kpi.val : '-',
+      '-',
+      typeof kpi.val === 'string' && kpi.val.includes('h') ? kpi.val : '-',
+      '100.0%',
+      'Executive Standard',
+      kpi.note,
+    ]);
+    row.height = 22;
+    for (let c = 1; c <= 18; c++) {
+      styleDataCell(row.getCell(c), idx % 2 === 1, c === 1 || c === 3 || c === 5 || c === 18 ? 'left' : 'center');
+    }
+  });
+
+  // Generously auto-enlarge every single column across the master ledger!
+  autoEnlargeColumns(ledgerSheet, 18, 90);
+
+  // ── TAB 2: EXECUTIVE SUMMARY & DASHBOARD OVERVIEW ─────────────────────────────
+  const masterSheet = workbook.addWorksheet('Executive Overview', {
     views: [{ showGridLines: true }],
   });
 
   // Top Title Banner
-  const titleRow = masterSheet.addRow(['HELP DESK MANAGEMENT SYSTEM — EXECUTIVE ANALYTICS REPORT']);
+  const titleRow = masterSheet.addRow(['HELP DESK MANAGEMENT SYSTEM - EXECUTIVE ANALYTICS REPORT']);
   masterSheet.mergeCells('A1:I1');
   titleRow.getCell(1).font = { name: 'Calibri', size: 16, bold: true, color: { argb: EXCEL_PALETTE.WHITE } };
   titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.NAVY_HEADER } };
@@ -243,14 +482,14 @@ export async function exportAnalyticsToExcel(
   kpiHeader.eachCell((c) => styleHeaderCell(c));
 
   const kpiRows = [
-    ['Total Registered Tickets', data.kpis.totalTickets, '—', 'Enterprise Inflow'],
-    ['Resolved Tickets', data.kpis.resolvedTickets, '—', 'Successfully Solved'],
+    ['Total Registered Tickets', data.kpis.totalTickets, '-', 'Enterprise Inflow'],
+    ['Resolved Tickets', data.kpis.resolvedTickets, '-', 'Successfully Solved'],
     ['Open Tickets (Awaiting Staff)', data.kpis.openTickets, '< 10%', data.kpis.openTickets > 20 ? 'Action Needed' : 'Normal'],
-    ['In Progress Tickets', data.kpis.inProgressTickets, '—', 'Currently Under Investigation'],
+    ['In Progress Tickets', data.kpis.inProgressTickets, '-', 'Currently Under Investigation'],
     ['Overdue Tickets (Breached SLA)', data.kpis.overdueTickets, '0 Target', data.kpis.overdueTickets > 0 ? 'CRITICAL ESCALATION' : 'TARGET MET'],
-    ['Overall Resolution Rate (%)', `${data.kpis.resolutionRate}%`, '≥ 85%', Number(data.kpis.resolutionRate) >= 85 ? 'TARGET MET' : 'BELOW BENCHMARK'],
-    ['SLA Compliance Rate (%)', `${data.kpis.slaComplianceRate}%`, '≥ 95%', Number(data.kpis.slaComplianceRate) >= 95 ? 'OPTIMAL' : 'ATTENTION REQUIRED'],
-    ['Avg Resolution Turnaround (Hours)', `${data.kpis.avgResolutionHours}h`, '≤ 24h SLA', Number(data.kpis.avgResolutionHours) <= 24 ? 'Within Target' : 'Exceeding SLA'],
+    ['Overall Resolution Rate (%)', `${data.kpis.resolutionRate}%`, '>= 85%', Number(data.kpis.resolutionRate) >= 85 ? 'TARGET MET' : 'BELOW BENCHMARK'],
+    ['SLA Compliance Rate (%)', `${data.kpis.slaComplianceRate}%`, '>= 95%', Number(data.kpis.slaComplianceRate) >= 95 ? 'OPTIMAL' : 'ATTENTION REQUIRED'],
+    ['Avg Resolution Turnaround (Hours)', `${data.kpis.avgResolutionHours}h`, '<= 24h SLA', Number(data.kpis.avgResolutionHours) <= 24 ? 'Within Target' : 'Exceeding SLA'],
     ['Month-over-Month Growth (%)', `${data.kpis.monthGrowthPercent}%`, 'Stable', Number(data.kpis.monthGrowthPercent) > 0 ? 'Increasing Volume' : 'Decreasing Volume'],
   ];
 
@@ -370,8 +609,8 @@ export async function exportAnalyticsToExcel(
   const deptSheet = workbook.addWorksheet('Department Matrix', {
     views: [{ showGridLines: true }],
   });
-  const dTitle = deptSheet.addRow(['DEPARTMENT OPERATIONAL PERFORMANCE & SLA COMPLIANCE']);
-  deptSheet.mergeCells('A1:I1');
+  const dTitle = deptSheet.addRow(['DEPARTMENT ROUTED WORKLOAD & STRICT SLA PERFORMANCE MATRIX']);
+  deptSheet.mergeCells('A1:M1');
   dTitle.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: EXCEL_PALETTE.WHITE } };
   dTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.NAVY_HEADER } };
   dTitle.height = 32;
@@ -379,41 +618,52 @@ export async function exportAnalyticsToExcel(
   const dHead = deptSheet.addRow([
     'Department Name',
     'Department Head',
-    'Total Volume',
-    'Open / Triage',
-    'Active In-Progress',
-    'Resolved Tickets',
-    'Overdue Tickets',
+    'Routed Workload',
+    'Solved Early',
+    'Solved On-Time',
+    'Solved Late',
+    'Active Backlog',
+    'Overdue Backlog',
     'Resolution Rate (%)',
     'SLA Compliance (%)',
+    'Avg Turnaround (h)',
+    'Performance Score (%)',
+    'Operational Limitations & Reasons',
   ]);
   dHead.height = 26;
   dHead.eachCell((c) => styleHeaderCell(c));
 
   data.departmentAnalytics.forEach((d, idx) => {
+    const activeBacklog = d.openTickets + d.inProgressTickets;
+    const notes = d.totalTickets === 0
+      ? 'No tickets routed in selected period'
+      : (d.performanceReasons && d.performanceReasons.length > 0)
+      ? d.performanceReasons.join('; ')
+      : d.is100PercentQualified
+      ? '100% SLA met: zero overdue, zero late, full resolution'
+      : `${d.resolvedTickets} of ${d.totalTickets} resolved`;
+
     const r = deptSheet.addRow([
       d.departmentName,
       d.headName || 'Unassigned',
       d.totalTickets,
-      d.openTickets,
-      d.inProgressTickets,
-      d.resolvedTickets,
+      d.earlyResolvedTickets ?? 0,
+      d.onTimeResolvedTickets ?? 0,
+      d.lateResolvedTickets ?? 0,
+      activeBacklog,
       d.overdueTickets,
       `${d.resolutionRate}%`,
       `${d.slaComplianceRate}%`,
+      `${d.avgResolutionHours}h`,
+      `${d.performanceScore ?? d.resolutionRate}%`,
+      notes,
     ]);
     r.height = 22;
-    styleDataCell(r.getCell(1), idx % 2 === 1, 'left');
-    styleDataCell(r.getCell(2), idx % 2 === 1, 'left');
-    styleDataCell(r.getCell(3), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(4), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(5), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(6), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(7), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(8), idx % 2 === 1, 'center');
-    styleDataCell(r.getCell(9), idx % 2 === 1, 'center');
+    for (let c = 1; c <= 13; c++) {
+      styleDataCell(r.getCell(c), idx % 2 === 1, c <= 2 || c === 13 ? 'left' : 'center');
+    }
   });
-  autoEnlargeColumns(deptSheet, 20);
+  autoEnlargeColumns(deptSheet, 18, 80);
 
   // ── TAB 3: DEDICATED MONTHLY TRENDS ─────────────────────────────────────────
   const trendSheet = workbook.addWorksheet('Monthly Trends', {
@@ -530,7 +780,7 @@ export async function exportTableToExcel<T>({
       if (col.formatter) {
         return col.formatter(rawVal, item);
       }
-      return rawVal !== undefined && rawVal !== null ? rawVal : '—';
+      return rawVal !== undefined && rawVal !== null ? rawVal : '-';
     });
 
     const row = sheet.addRow(rowValues);
@@ -568,7 +818,7 @@ export async function exportDashboardOverviewToExcel(
     views: [{ showGridLines: true }],
   });
 
-  const titleRow = masterSheet.addRow(['HELP DESK MANAGEMENT SYSTEM — COMMAND CENTER OVERVIEW']);
+  const titleRow = masterSheet.addRow(['HELP DESK MANAGEMENT SYSTEM - COMMAND CENTER OVERVIEW']);
   masterSheet.mergeCells('A1:E1');
   titleRow.getCell(1).font = { name: 'Calibri', size: 15, bold: true, color: { argb: EXCEL_PALETTE.WHITE } };
   titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_PALETTE.NAVY_HEADER } };
@@ -627,9 +877,9 @@ export async function exportDashboardOverviewToExcel(
     const complianceRate = Number(slaData.stats.slaCompliancePercentage || 100);
 
     const slaItems = [
-      ['Tickets Fulfilled Within SLA', withinSla, '≥ 95%', 'Optimal Velocity'],
+      ['Tickets Fulfilled Within SLA', withinSla, '>= 95%', 'Optimal Velocity'],
       ['Tickets Breached SLA / Overdue', overdue, '0 Target', overdue > 0 ? 'CRITICAL ATTENTION' : 'COMPLIANT'],
-      ['Overall SLA Compliance Rate', `${complianceRate}%`, '≥ 95.0%', complianceRate >= 95 ? 'TARGET MET' : 'ATTENTION REQUIRED'],
+      ['Overall SLA Compliance Rate', `${complianceRate}%`, '>= 95.0%', complianceRate >= 95 ? 'TARGET MET' : 'ATTENTION REQUIRED'],
     ];
 
     slaItems.forEach((rowValues, idx) => {

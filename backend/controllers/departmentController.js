@@ -1,4 +1,5 @@
 import * as departmentService from '../services/departmentService.js';
+import { resolveDepartmentId } from '../repository/departmentRepository.js';
 import { HTTP } from '../config/constants.js';
 
 export const getDepartments = async (req, res, next) => {
@@ -31,7 +32,8 @@ export const getDepartmentById = async (req, res, next) => {
   try {
     if (req.user.role === 'manager') {
       const myDeptIds = await departmentService.getMyDepartmentIds(req.user.id);
-      if (!myDeptIds.includes(req.params.id)) {
+      const actualId = await resolveDepartmentId(req.params.id);
+      if (!myDeptIds.includes(req.params.id) && !myDeptIds.includes(actualId)) {
         return res.status(HTTP.FORBIDDEN).json({ success: false, message: 'Access denied to this department' });
       }
     }
@@ -126,7 +128,8 @@ export const getDepartmentMembers = async (req, res, next) => {
   try {
     if (req.user.role === 'manager') {
       const myDeptIds = await departmentService.getMyDepartmentIds(req.user.id);
-      if (!myDeptIds.includes(req.params.id)) {
+      const actualId = await resolveDepartmentId(req.params.id);
+      if (!myDeptIds.includes(req.params.id) && !myDeptIds.includes(actualId)) {
         return res.status(HTTP.FORBIDDEN).json({ success: false, message: 'Access denied to this department' });
       }
     }
@@ -141,7 +144,8 @@ export const assignDepartmentUsers = async (req, res, next) => {
   try {
     if (req.user.role === 'manager') {
       const myDeptIds = await departmentService.getMyDepartmentIds(req.user.id);
-      if (!myDeptIds.includes(req.params.id)) {
+      const actualId = await resolveDepartmentId(req.params.id);
+      if (!myDeptIds.includes(req.params.id) && !myDeptIds.includes(actualId)) {
         return res.status(HTTP.FORBIDDEN).json({ success: false, message: 'Access denied to this department' });
       }
     }
