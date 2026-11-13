@@ -140,24 +140,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return 0; // default to first section (e.g. 'Main')
   }, [sections, location.pathname, can]);
 
-  // Accordion state: only one navigation group heading is open at a time
-  const [openSectionIndex, setOpenSectionIndex] = useState<number | null>(() => getActiveSectionIndex());
+  // Section expand state: all sections open by default so all elements are visible and scrollable
+  const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>(() => {
+    const init: Record<number, boolean> = {};
+    sections.forEach((_, idx) => {
+      init[idx] = true;
+    });
+    return init;
+  });
 
-  // Automatically update the opened group when user navigates to a new route in a different section
+  // Automatically ensure active route section is open on route change, avoiding unnecessary updates
   const previousPathRef = useRef(location.pathname);
   useEffect(() => {
     if (previousPathRef.current !== location.pathname) {
       previousPathRef.current = location.pathname;
       const activeIdx = getActiveSectionIndex();
-      setOpenSectionIndex(activeIdx);
+      setExpandedSections((prev) => {
+        if (prev[activeIdx]) return prev;
+        return {
+          ...prev,
+          [activeIdx]: true,
+        };
+      });
     }
   }, [location.pathname, getActiveSectionIndex]);
 
-  // When a navigation group heading is clicked:
-  // If another heading was open, it collapses and the clicked one opens.
-  // If the same heading is clicked, it toggles open/closed.
+  // When a navigation group heading is clicked, toggle that section's visibility
   const handleToggleSection = (sIdx: number) => {
-    setOpenSectionIndex((prev) => (prev === sIdx ? null : sIdx));
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sIdx]: prev[sIdx] === false ? true : false,
+    }));
+  };
+
+  const allExpanded = sections.length > 0 && sections.every((_, idx) => expandedSections[idx] !== false);
+
+  const toggleAllSections = () => {
+    const nextState = !allExpanded;
+    const updated: Record<number, boolean> = {};
+    sections.forEach((_, idx) => {
+      updated[idx] = nextState;
+    });
+    setExpandedSections(updated);
   };
 
   const getInitials = () => {
@@ -221,8 +245,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ) : null}
       </div>
 
-      {/* ── Navigation Items (Accordion Groups) ── */}
+      {/* ── Navigation Items (All Elements Displayed & Smoothly Scrollable) ── */}
       <nav className={styles.nav}>
+        {!isCollapsed && sections.length > 1 && (
+          <div className={styles.navQuickToolbar}>
+            <div className={styles.navQuickLabel}>
+              <span>Navigation Menu</span>
+              <span className={styles.navTotalCountBadge}>
+                {sections.reduce((acc, s) => acc + s.items.filter((item) => !item.permission || can(item.permission)).length, 0)} items
+              </span>
+            </div>
+            <button
+              type="button"
+              className={styles.toggleAllBtn}
+              onClick={toggleAllSections}
+              title={allExpanded ? 'Collapse all menu groups' : 'Expand all menu groups to show all items'}
+            >
+              <span>{allExpanded ? 'Collapse All' : 'Expand All'}</span>
+            </button>
+          </div>
+        )}
+
         {sections.map((section, sIdx) => {
           const visibleItems = section.items.filter((item) => !item.permission || can(item.permission));
           if (!visibleItems.length) return null;
@@ -233,8 +276,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
           );
 
-          // In expanded mode: accordion controls open/close. In collapsed icon mode: all icons remain accessible.
-          const isOpen = isCollapsed ? true : openSectionIndex === sIdx;
+          // All sections open by default so all elements are rendered and displayed; user can still toggle
+          const isOpen = isCollapsed ? true : (expandedSections[sIdx] !== false);
 
           return (
             <div key={sIdx} className={styles.section}>

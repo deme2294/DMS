@@ -576,6 +576,7 @@ export async function runAutoMigrations() {
       { col: 'admin_directive', def: 'TEXT NULL' },
       { col: 'department_notes', def: 'TEXT NULL' },
       { col: 'feedback_num', def: 'INT NULL' },
+      { col: 'article_id', def: 'CHAR(36) NULL' },
     ];
     for (const { col, def } of feedbackWorkflowCols) {
       if (!(await columnExists('feedback', col))) {
@@ -1054,6 +1055,14 @@ export async function runAutoMigrations() {
     if (!(await columnExists('knowledge_article_feedback', 'comment'))) {
       await pool.query('ALTER TABLE knowledge_article_feedback ADD COLUMN comment TEXT NULL');
       console.log('[MIGRATION] Added column knowledge_article_feedback.comment');
+    }
+    if (!(await columnExists('knowledge_article_feedback', 'what_is_helpful'))) {
+      await pool.query('ALTER TABLE knowledge_article_feedback ADD COLUMN what_is_helpful TEXT NULL');
+      console.log('[MIGRATION] Added column knowledge_article_feedback.what_is_helpful');
+    }
+    if (!(await columnExists('knowledge_article_feedback', 'what_should_change'))) {
+      await pool.query('ALTER TABLE knowledge_article_feedback ADD COLUMN what_should_change TEXT NULL');
+      console.log('[MIGRATION] Added column knowledge_article_feedback.what_should_change');
     }
 
     // Populate deduplicated feedback from historical audit_logs if any

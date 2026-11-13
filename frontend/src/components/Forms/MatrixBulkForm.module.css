@@ -88,3 +88,15 @@
   background-color: #0f1420;
   color: #f8fafc;
 }
+
+@media (max-width: 640px) {
+  .form button {
+    align-self: stretch;
+    width: 100%;
+    text-align: center;
+  }
+
+  .form select {
+    font-size: 16px;
+  }
+}

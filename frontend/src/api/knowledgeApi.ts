@@ -84,7 +84,11 @@ export const moveToDraft = (id: string) =>
 
 export const deleteArticle = (id: string) => api.delete(`/knowledge/${id}`);
 
-export const rateArticle = (id: string, helpful: boolean, payload?: { reason?: string; comment?: string }) =>
+export const rateArticle = (
+  id: string,
+  helpful: boolean,
+  payload?: { reason?: string; comment?: string; whatIsHelpful?: string; whatShouldChange?: string }
+) =>
   api.post(`/knowledge/${id}/feedback`, { helpful, ...payload });
 
 export const fetchArticleCategories = (params?: { departmentId?: string }) =>

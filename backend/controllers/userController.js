@@ -63,7 +63,10 @@ export const createUser = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
   try {
-    const profileImage = req.file ? `/uploads/users/${req.file.filename}` : undefined;
+    let profileImage = req.file ? `/uploads/users/${req.file.filename}` : undefined;
+    if (req.body.removeProfileImage === 'true' || req.body.removeProfileImage === true || req.body.profileImage === '') {
+      profileImage = null;
+    }
     const rawDeptId = req.body.departmentId;
     const departmentId = rawDeptId !== undefined
       ? (typeof rawDeptId === 'string' && rawDeptId.trim() ? rawDeptId.trim() : null)

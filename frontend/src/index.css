@@ -687,23 +687,56 @@ button:not(:disabled):active,
   border-bottom-color: var(--border-color) !important;
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────── */
-[data-theme="dark"] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ── Professional Global Custom Scrollbars (Light & Dark Themes) ────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: #334155 transparent;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-track {
-  background: #0f1117;
+  background: transparent;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: #252b38;
-  border-radius: 4px;
+  background: #334155;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: #2e3547;
+  background: #475569;
+  background-clip: padding-box;
 }
 
 /* ── MainLayout (tenant/public pages) ───────────────────────────────────── */
@@ -2045,21 +2078,27 @@ body:has(.login-root) #root {
   th,
   td {
     border: 1px solid #cbd5e1 !important;
-    padding: 8px 10px !important;
-    font-size: 9.5pt !important;
-    white-space: normal !important;
-    word-break: break-word !important;
+    padding: 8px 12px !important;
+    font-size: 9pt !important;
+    white-space: normal;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: none !important;
     overflow: visible !important;
     color: #0f172a !important;
     background-clip: padding-box !important;
   }
 
   th {
-    background-color: #f1f5f9 !important;
+    background-color: #f8fafc !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-    font-size: 8.5pt !important;
-    letter-spacing: 0.03em !important;
+    font-size: 8pt !important;
+    letter-spacing: 0.04em !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    color: #1e293b !important;
   }
 
   /* Cards and charts should avoid breaking across pages */

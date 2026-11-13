@@ -39,6 +39,9 @@ export interface Feedback {
   contactPerson?: string;
   ticketReference?: string | null;
   ticketTitle?: string | null;
+  articleId?: string | null;
+  articleTitle?: string | null;
+  articleReference?: string | null;
   replies?: FeedbackReply[];
   createdAt?: string;
   updatedAt?: string;
@@ -57,6 +60,7 @@ export interface FeedbackReply {
 
 export interface FeedbackFormValues {
   ticketId?: string;
+  articleId?: string;
   categoryId?: string;
   serviceName?: string;
   departmentId?: string;

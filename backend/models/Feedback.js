@@ -50,6 +50,9 @@ export const sanitizeFeedback = (row) => {
     contactPerson: row.contact_person,
     ticketReference: row.ticket_reference,
     ticketTitle: row.ticket_title,
+    articleId: row.article_id || null,
+    articleTitle: row.article_title || null,
+    articleReference: row.article_reference || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

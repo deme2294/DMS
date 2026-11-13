@@ -710,9 +710,15 @@ export const getAdminSlaDashboard = async () => {
     SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, COALESCE(closed_at, resolved_at, NOW()))) AS avg_hours
     FROM tickets WHERE status IN (${resolvedStatuses})
   `);
-  const totalResolved = Number(completedWithinSla[0]?.count || 0) + Number(completedAfterSla[0]?.count || 0);
-  const slaCompliance = totalResolved > 0
-    ? ((Number(completedWithinSla[0]?.count || 0) / totalResolved) * 100)
+  const countWithin = Number(withinSla[0]?.count || 0);
+  const countCompletedWithin = Number(completedWithinSla[0]?.count || 0);
+  const countCompletedAfter = Number(completedAfterSla[0]?.count || 0);
+  const countOverdue = Number(overdue[0]?.count || 0);
+
+  const totalTicketsWithSla = countWithin + countCompletedWithin + countCompletedAfter + countOverdue;
+  const compliantTickets = countWithin + countCompletedWithin;
+  const slaCompliance = totalTicketsWithSla > 0
+    ? Number(((compliantTickets / totalTicketsWithSla) * 100).toFixed(1))
     : 0;
 
   const [recentBreaches] = await pool.query(`
@@ -745,10 +751,15 @@ export const getManagerSlaDashboard = async (userId) => {
   const [deptPerf] = await pool.query(`
     SELECT AVG(TIMESTAMPDIFF(HOUR, t.created_at, COALESCE(t.closed_at, t.resolved_at, NOW()))) AS avg_hours,
            COUNT(*) AS total,
-           SUM(CASE WHEN t.is_overdue = 0 AND t.response_sla_breached = 0 THEN 1 ELSE 0 END) AS within_sla
+           SUM(CASE 
+             WHEN (
+               ((t.status IN ('closed','resolved') OR t.resolved_at IS NOT NULL) AND t.is_overdue = 0 AND COALESCE(t.response_sla_breached, 0) = 0)
+               OR
+               (t.status NOT IN ('closed','resolved','rejected','cancelled') AND t.resolved_at IS NULL AND t.is_overdue = 0 AND (t.due_date IS NULL OR t.due_date >= NOW()) AND COALESCE(t.response_sla_breached, 0) = 0)
+             ) THEN 1 ELSE 0 END) AS within_sla
     FROM tickets t
     JOIN user_departments ud ON ud.department_id = t.department_id
-    WHERE ud.user_id = :userId AND t.status NOT IN ('closed','resolved','rejected','cancelled')
+    WHERE ud.user_id = :userId AND t.status NOT IN ('rejected','cancelled')
   `, { userId });
 
   const [teamPerf] = await pool.query(`
@@ -956,7 +967,18 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
                THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END) AS avg_resolution_hours,
       AVG(CASE WHEN tr.first_reply_at IS NOT NULL
                THEN TIMESTAMPDIFF(MINUTE, t.created_at, tr.first_reply_at) / 60.0 ELSE NULL END) AS avg_first_response_hours,
-      SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) AS resolved_within_sla
+      SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) AS resolved_within_sla,
+      COUNT(t.id) AS total_sla_tickets,
+      SUM(CASE 
+        WHEN (
+          ((t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+           AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at, t.completed_at) <= t.due_date))
+           AND COALESCE(t.response_sla_breached, 0) = 0)
+          OR
+          (t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL
+           AND (t.is_overdue = 0 AND (t.due_date IS NULL OR t.due_date >= NOW()))
+           AND COALESCE(t.response_sla_breached, 0) = 0)
+        ) THEN 1 ELSE 0 END) AS compliant_sla_tickets
     FROM tickets t
     LEFT JOIN (
       SELECT tr.ticket_id, MIN(tr.created_at) AS first_reply_at
@@ -1056,7 +1078,7 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
       COALESCE(dept_t.overdue_tickets, 0) AS overdue_tickets,
       COALESCE(dept_t.active_on_track_tickets, 0) AS active_on_track_tickets,
       COALESCE(dept_t.avg_resolution_hours, 0) AS avg_resolution_hours,
-      COALESCE(dept_t.sla_compliance_rate, 100) AS sla_compliance_rate
+      COALESCE(dept_t.sla_compliance_rate, 0) AS sla_compliance_rate
     FROM departments d
     LEFT JOIN users u ON u.id = d.head_user_id
     LEFT JOIN (
@@ -1096,8 +1118,21 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
           THEN 1 ELSE 0 END) AS active_on_track_tickets,
         ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                        THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-        ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-              NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate
+        ROUND(
+          SUM(CASE 
+            WHEN (
+              -- 1. Resolved within SLA target
+              ((t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+               AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at, t.completed_at) <= t.due_date))
+               AND COALESCE(t.response_sla_breached, 0) = 0)
+              OR
+              -- 2. Active on-track within SLA target
+              (t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL
+               AND (t.is_overdue = 0 AND (t.due_date IS NULL OR t.due_date >= NOW()))
+               AND COALESCE(t.response_sla_breached, 0) = 0)
+            ) THEN 1 ELSE 0 END) * 100.0 /
+          NULLIF(COUNT(t.id), 0), 1
+        ) AS sla_compliance_rate
       FROM tickets t
       WHERE t.department_id IS NOT NULL ${dateFilter}
       GROUP BY t.department_id
@@ -1160,8 +1195,19 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
       SUM(CASE WHEN (t.is_overdue = 1 OR (t.due_date IS NOT NULL AND t.due_date < NOW())) AND t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL THEN 1 ELSE 0 END) AS overdue_tickets,
       ROUND(AVG(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.resolved_at IS NOT NULL OR t.closed_at IS NOT NULL)
                      THEN TIMESTAMPDIFF(MINUTE, t.created_at, COALESCE(t.resolved_at, t.closed_at)) / 60.0 ELSE NULL END), 1) AS avg_resolution_hours,
-      ROUND(SUM(CASE WHEN (t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL) AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at) <= t.due_date)) THEN 1 ELSE 0 END) * 100.0 /
-            NULLIF(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0), 1) AS sla_compliance_rate,
+      ROUND(
+        SUM(CASE 
+          WHEN (
+            ((t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL)
+             AND (t.is_overdue = 0 AND (t.due_date IS NULL OR COALESCE(t.resolved_at, t.closed_at, t.completed_at) <= t.due_date))
+             AND COALESCE(t.response_sla_breached, 0) = 0)
+            OR
+            (t.status NOT IN ('resolved', 'closed', 'completed') AND t.resolved_at IS NULL
+             AND (t.is_overdue = 0 AND (t.due_date IS NULL OR t.due_date >= NOW()))
+             AND COALESCE(t.response_sla_breached, 0) = 0)
+          ) THEN 1 ELSE 0 END) * 100.0 /
+        NULLIF(COUNT(t.id), 0), 1
+      ) AS sla_compliance_rate,
       ROUND(SUM(CASE WHEN t.status IN ('resolved', 'closed', 'completed') OR t.resolved_at IS NOT NULL THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(t.id), 0), 1) AS resolution_rate
     FROM ticket_categories tc
     INNER JOIN tickets t
@@ -1197,7 +1243,9 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
 
   const resolutionRate = total > 0 ? Number(((resolved / total) * 100).toFixed(1)) : 0;
   const overdueRate = total > 0 ? Number(((overdue / total) * 100).toFixed(1)) : 0;
-  const slaComplianceRate = resolved > 0 ? Number(((resolvedWithinSla / resolved) * 100).toFixed(1)) : 100;
+  const totalSla = Number(kpis.total_sla_tickets || total);
+  const compliantSla = Number(kpis.compliant_sla_tickets || 0);
+  const slaComplianceRate = totalSla > 0 ? Number(((compliantSla / totalSla) * 100).toFixed(1)) : 0;
 
   return {
     kpis: {
@@ -1265,7 +1313,7 @@ export const getAdminAnalytics = async ({ timeframe = '6m', departmentId = null,
       // 3. Zero late tickets (late === 0)
       // 4. 100% SLA compliance achieved on all routed tickets (slaRate >= 100)
       // 5. Total routed tickets > 0
-      const allSlaMet = dSlaRate >= 100 && dLate === 0;
+      const allSlaMet = dTotal > 0 && dSlaRate >= 100 && dLate === 0 && dOverdue === 0;
       const allResolved = dTotal > 0 && dResolved === dTotal && (dOpen + dInProgress) === 0;
       const zeroOverdue = dOverdue === 0;
       const zeroLate = dLate === 0;

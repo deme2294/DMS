@@ -108,25 +108,91 @@
   font-weight: 800;
 }
 
-/* ── Navigation Menu ── */
+/* ── Navigation Menu & Professional Scroller ── */
 .nav {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 16px 12px;
+  overflow-x: hidden;
+  padding: 12px 10px 28px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(8, 125, 147, 0.35) transparent;
+  scrollbar-color: rgba(56, 189, 248, 0.45) rgba(4, 18, 45, 0.35);
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 
 .nav::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+}
+
+.nav::-webkit-scrollbar-track {
+  background: rgba(7, 25, 51, 0.4);
+  border-radius: 999px;
 }
 
 .nav::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(8, 125, 147, 0.65) 0%, rgba(56, 189, 248, 0.75) 100%);
+  border-radius: 999px;
+  border: 1px solid rgba(119, 203, 198, 0.3);
+  transition: all 0.2s ease;
+}
+
+.nav::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.9) 0%, rgba(119, 203, 198, 0.98) 100%);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+/* ── Navigation Quick Action Bar (Expand/Collapse All) ── */
+.navQuickToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(8, 125, 147, 0.2);
+}
+
+.navQuickLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #77cbc6;
+}
+
+.navTotalCountBadge {
   background: rgba(8, 125, 147, 0.35);
-  border-radius: 4px;
+  color: #38bdf8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.toggleAllBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(8, 125, 147, 0.35);
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.toggleAllBtn:hover {
+  background: rgba(8, 125, 147, 0.35);
+  color: #ffffff;
+  border-color: rgba(56, 189, 248, 0.5);
 }
 
 .section {

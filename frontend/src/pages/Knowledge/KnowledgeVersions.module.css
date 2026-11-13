@@ -130,3 +130,31 @@
   border-radius: 12px;
   border: 1px dashed var(--border-color, #cbd5e1);
 }
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
+    box-sizing: border-box;
+  }
+
+  .versionItem {
+    padding: 14px 16px;
+  }
+
+  .actionBtns {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .viewBtn,
+  .restoreBtn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 12px;
+  }
+}

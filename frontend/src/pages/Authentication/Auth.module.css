@@ -77,3 +77,18 @@
   padding: 2px 6px;
   border-radius: 4px;
 }
+
+@media (max-width: 480px) {
+  .wrapper {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+
+  .card input {
+    font-size: 16px;
+  }
+}

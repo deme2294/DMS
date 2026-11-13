@@ -130,8 +130,11 @@ export default function KnowledgeArticleView() {
   const [readingAttachment, setReadingAttachment] = useState<KnowledgeAttachment | null>(null);
   const [attachmentTextContent, setAttachmentTextContent] = useState<string | null>(null);
   const [attachmentLoadingText, setAttachmentLoadingText] = useState(false);
-  const [showUnhelpfulModal, setShowUnhelpfulModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackVoteType, setFeedbackVoteType] = useState<'helpful' | 'not_helpful'>('helpful');
   const [feedbackReasonOption, setFeedbackReasonOption] = useState('Instructions are unclear or incomplete');
+  const [feedbackWhatIsHelpful, setFeedbackWhatIsHelpful] = useState('');
+  const [feedbackWhatShouldChange, setFeedbackWhatShouldChange] = useState('');
   const [feedbackCommentText, setFeedbackCommentText] = useState('');
 
   const loadArticle = async () => {
@@ -215,10 +218,20 @@ export default function KnowledgeArticleView() {
     setDeleteTarget(false);
     runAction(() => deleteArticle(id!), 'Article deleted').then(() => navigate(basePath));
   };
-  const handleRate = async (helpful: boolean, options?: { reason?: string; comment?: string }) => {
+  const handleRate = async (
+    helpful: boolean,
+    options?: {
+      reason?: string;
+      comment?: string;
+      whatIsHelpful?: string;
+      whatShouldChange?: string;
+    }
+  ) => {
     if (!id || !article) return;
     const currentVote = article.userFeedback;
-    const isSameVote = (helpful && currentVote === 'helpful') || (!helpful && currentVote === 'not_helpful' && !options?.reason && !options?.comment);
+    const isSameVote =
+      (helpful && currentVote === 'helpful') ||
+      (!helpful && currentVote === 'not_helpful' && !options?.reason && !options?.comment && !options?.whatIsHelpful && !options?.whatShouldChange);
     if (isSameVote) {
       setMessage('You have already submitted this feedback for this article');
       return;
@@ -235,7 +248,7 @@ export default function KnowledgeArticleView() {
       } else {
         await loadArticle();
       }
-      setShowUnhelpfulModal(false);
+      setShowFeedbackModal(false);
     } catch (err: unknown) {
       setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to submit feedback');
     } finally {
@@ -1542,9 +1555,12 @@ export default function KnowledgeArticleView() {
             <button
               type="button"
               className={`${styles.feedbackThumbBtn} ${article.userFeedback === 'helpful' ? styles.feedbackThumbActiveHelpful : ''}`}
-              onClick={() => handleRate(true)}
+              onClick={() => {
+                setFeedbackVoteType('helpful');
+                setShowFeedbackModal(true);
+              }}
               disabled={busy}
-              title={article.userFeedback === 'helpful' ? 'You voted helpful' : 'Vote yes, helpful'}
+              title={article.userFeedback === 'helpful' ? 'You voted helpful (click to update review)' : 'Vote yes, helpful'}
             >
               <HandThumbUpIcon className={styles.btnIcon} style={{ color: '#10b981' }} />
               <span>{article.userFeedback === 'helpful' ? '✓ Helpful (Your Vote)' : 'Yes, Helpful'}</span>
@@ -1553,14 +1569,11 @@ export default function KnowledgeArticleView() {
               type="button"
               className={`${styles.feedbackThumbBtn} ${article.userFeedback === 'not_helpful' ? styles.feedbackThumbActiveNotHelpful : ''}`}
               onClick={() => {
-                if (article.userFeedback === 'not_helpful') {
-                  setMessage('You have already submitted this feedback for this article');
-                } else {
-                  setShowUnhelpfulModal(true);
-                }
+                setFeedbackVoteType('not_helpful');
+                setShowFeedbackModal(true);
               }}
               disabled={busy}
-              title={article.userFeedback === 'not_helpful' ? 'You voted not helpful' : 'Vote not helpful'}
+              title={article.userFeedback === 'not_helpful' ? 'You voted not helpful (click to update review)' : 'Vote not helpful'}
             >
               <HandThumbDownIcon className={styles.btnIcon} style={{ color: '#ef4444' }} />
               <span>{article.userFeedback === 'not_helpful' ? '✓ Not Helpful (Your Vote)' : 'Not Helpful'}</span>
@@ -1568,48 +1581,83 @@ export default function KnowledgeArticleView() {
           </div>
           {article.hasVoted && (
             <div className={styles.feedbackNoticeRecorded}>
-              <span>ℹ️ One user can only submit one rating per article. Repeated clicks will not increment the feedback count.</span>
+              <span>ℹ️ One user can only submit one rating per article. Submitting updates your existing evaluation.</span>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Unhelpful Feedback Modal ── */}
-      <Modal open={showUnhelpfulModal} title="👎 Reader Feedback & Improvement" onClose={() => setShowUnhelpfulModal(false)} maxWidth="540px">
-        <div className={`${styles.modalNoticeBox} ${styles.modalNoticeWarning}`}>
-          <span style={{ fontSize: '1.2rem' }}>💡</span>
+      {/* ── Reader Feedback & Improvement Evaluation Modal ── */}
+      <Modal
+        open={showFeedbackModal}
+        title={feedbackVoteType === 'helpful' ? '👍 Article Evaluation & Reader Feedback' : '👎 Article Improvement & Reader Feedback'}
+        onClose={() => setShowFeedbackModal(false)}
+        maxWidth="580px"
+      >
+        <div className={`${styles.modalNoticeBox} ${feedbackVoteType === 'helpful' ? styles.modalNoticeInfo : styles.modalNoticeWarning}`}>
+          <span style={{ fontSize: '1.2rem' }}>{feedbackVoteType === 'helpful' ? '💡' : '⚠️'}</span>
           <div>
-            <strong>Help Us Improve This Article</strong>
+            <strong>{feedbackVoteType === 'helpful' ? 'Tell Us What Worked Well' : 'Help Us Improve This Article'}</strong>
             <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', opacity: 0.9 }}>
-              Tell us why this article was not helpful so our editors and authors can update what needs to be changed.
+              {feedbackVoteType === 'helpful'
+                ? 'Your feedback helps other readers find top solutions and lets our documentation team know what content is effective.'
+                : 'Tell us why this article did not solve your inquiry so our authors and editors know exactly what should be changed.'}
             </p>
           </div>
         </div>
 
+        {feedbackVoteType === 'not_helpful' && (
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel}>What issue did you encounter?</label>
+            <select
+              className={styles.formSelect}
+              value={feedbackReasonOption}
+              onChange={(e) => setFeedbackReasonOption(e.target.value)}
+            >
+              <option value="Instructions are unclear or incomplete">Instructions are unclear or incomplete</option>
+              <option value="Information is outdated or no longer accurate">Information is outdated or no longer accurate</option>
+              <option value="Missing steps or prerequisites">Missing steps or prerequisites</option>
+              <option value="Did not resolve my issue">Did not resolve my issue</option>
+              <option value="Formatting issues or broken links">Formatting issues or broken links</option>
+              <option value="Other feedback">Other feedback</option>
+            </select>
+          </div>
+        )}
+
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>What issue did you encounter?</label>
-          <select
-            className={styles.formSelect}
-            value={feedbackReasonOption}
-            onChange={(e) => setFeedbackReasonOption(e.target.value)}
-          >
-            <option value="Instructions are unclear or incomplete">Instructions are unclear or incomplete</option>
-            <option value="Information is outdated or no longer accurate">Information is outdated or no longer accurate</option>
-            <option value="Missing steps or prerequisites">Missing steps or prerequisites</option>
-            <option value="Did not resolve my issue">Did not resolve my issue</option>
-            <option value="Formatting issues or broken links">Formatting issues or broken links</option>
-            <option value="Other feedback">Other feedback</option>
-          </select>
+          <label className={styles.formLabel}>
+            🟢 What is Helpful? <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>(What worked well, clear instructions, etc.)</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={feedbackWhatIsHelpful}
+            onChange={(e) => setFeedbackWhatIsHelpful(e.target.value)}
+            rows={2}
+            placeholder="E.g. The introductory troubleshooting steps and command examples were easy to follow..."
+          />
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>What should be changed? (Optional)</label>
+          <label className={styles.formLabel}>
+            🔴 What Should Be Changed? <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: '#64748b' }}>(What needs correction or improvement)</span>
+          </label>
+          <textarea
+            className={styles.formTextarea}
+            value={feedbackWhatShouldChange}
+            onChange={(e) => setFeedbackWhatShouldChange(e.target.value)}
+            rows={2}
+            placeholder="E.g. Step 3 is missing credentials or needs updated screenshots for the new portal..."
+          />
+        </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Additional Comments (Optional)</label>
           <textarea
             className={styles.formTextarea}
             value={feedbackCommentText}
             onChange={(e) => setFeedbackCommentText(e.target.value)}
-            rows={3}
-            placeholder="E.g. Step 3 is missing required credentials or links, please update..."
+            rows={2}
+            placeholder="Any other details to share with the documentation team..."
           />
         </div>
 
@@ -1617,18 +1665,25 @@ export default function KnowledgeArticleView() {
           <button
             type="button"
             className={styles.secondaryModalBtn}
-            onClick={() => handleRate(false, { reason: feedbackReasonOption })}
+            onClick={() => handleRate(feedbackVoteType === 'helpful', {
+              reason: feedbackVoteType === 'not_helpful' ? feedbackReasonOption : undefined,
+            })}
             disabled={busy}
           >
-            Skip Comment & Submit Vote
+            Quick Submit ({feedbackVoteType === 'helpful' ? '👍 Helpful' : '👎 Not Helpful'})
           </button>
           <button
             type="button"
             className={styles.primaryModalBtn}
-            onClick={() => handleRate(false, { reason: feedbackReasonOption, comment: feedbackCommentText })}
+            onClick={() => handleRate(feedbackVoteType === 'helpful', {
+              reason: feedbackVoteType === 'not_helpful' ? feedbackReasonOption : 'Reader evaluation',
+              whatIsHelpful: feedbackWhatIsHelpful.trim() || undefined,
+              whatShouldChange: feedbackWhatShouldChange.trim() || undefined,
+              comment: feedbackCommentText.trim() || undefined,
+            })}
             disabled={busy}
           >
-            Submit Feedback
+            Submit Detailed Evaluation
           </button>
         </div>
       </Modal>

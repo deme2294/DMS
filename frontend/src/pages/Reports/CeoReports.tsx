@@ -749,6 +749,12 @@ export default function CeoReports() {
           ]}
         />
       </div>
+
+      {/* Print-Only Footer */}
+      <div className={styles.printOnlyFooter}>
+        <span>Help Desk Management System &bull; Executive Board Analytics</span>
+        <span>CONFIDENTIAL &bull; Generated on {new Date().toLocaleDateString()}</span>
+      </div>
     </div>
   );
 }

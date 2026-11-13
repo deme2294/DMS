@@ -133,6 +133,20 @@ export const updateUser = async (id, payload, currentUserId) => {
     await userRepo.setDepartment(actualId, payload.departmentId);
   }
 
+  if (payload.profileImage !== undefined) {
+    auditService.logAction(
+      currentUserId || null,
+      'update_avatar',
+      'user',
+      actualId,
+      null,
+      {
+        username: existing.username,
+        what_user_is_doing: payload.profileImage ? `Updated profile photo for user @${existing.username}` : `Removed profile photo for user @${existing.username}`
+      }
+    ).catch(() => {});
+  }
+
   return getUser(actualId);
 };
 

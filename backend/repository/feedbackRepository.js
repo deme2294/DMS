@@ -60,6 +60,7 @@ export const findById = async (id) => {
             COALESCE(f.department_id, tc.department_id, tk.department_id) AS resolved_department_id,
             t.organization_name AS tenant_name, t.contact_person AS contact_person,
             tk.reference_number AS ticket_reference, tk.title AS ticket_title,
+            kb.title AS article_title, kb.article_reference AS article_reference,
             d.name AS department_name,
             tc.name AS category_name,
             u_mgr.first_name AS dept_head_first_name, u_mgr.last_name AS dept_head_last_name,
@@ -69,6 +70,7 @@ export const findById = async (id) => {
      FROM feedback f
      LEFT JOIN tenants t ON t.id = f.tenant_id
      LEFT JOIN tickets tk ON tk.id = f.ticket_id
+     LEFT JOIN knowledge_base kb ON kb.id = f.article_id
      LEFT JOIN departments d ON d.id = f.department_id
      LEFT JOIN ticket_categories tc ON tc.id = f.category_id
      LEFT JOIN users u_mgr ON u_mgr.id = f.department_head_id
@@ -147,6 +149,7 @@ export const findAll = async ({ search, status, departmentId, categoryId, page =
             COALESCE(f.department_id, tc.department_id, tk.department_id) AS resolved_department_id,
             t.organization_name AS tenant_name, t.contact_person AS contact_person,
             tk.reference_number AS ticket_reference, tk.title AS ticket_title,
+            kb.title AS article_title, kb.article_reference AS article_reference,
             d.name AS department_name,
             tc.name AS category_name,
             u_mgr.first_name AS dept_head_first_name, u_mgr.last_name AS dept_head_last_name,
@@ -156,6 +159,7 @@ export const findAll = async ({ search, status, departmentId, categoryId, page =
      FROM feedback f
      LEFT JOIN tenants t ON t.id = f.tenant_id
      LEFT JOIN tickets tk ON tk.id = f.ticket_id
+     LEFT JOIN knowledge_base kb ON kb.id = f.article_id
      LEFT JOIN departments d ON d.id = f.department_id
      LEFT JOIN ticket_categories tc ON tc.id = f.category_id
      LEFT JOIN users u_mgr ON u_mgr.id = f.department_head_id
@@ -205,14 +209,16 @@ export const create = async (feedback) => {
     howItShouldGo,
     adminDirective,
     departmentNotes,
+    articleId,
   } = feedback;
 
   const fNum = feedbackNum || (/^\d+$/.test(id) ? Number(id) : null);
+  const resolvedArticleId = articleId || feedback.article_id || null;
 
   await pool.query(
     `INSERT INTO feedback 
-      (id, feedback_num, tenant_id, ticket_id, category_id, service_name, department_id, department_head_id, assigned_to_user_id, subject, message, rating, status, feedback_type, what_should_change, what_is_correct, what_is_wrong, how_it_should_go, admin_directive, department_notes, created_at, updated_at) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      (id, feedback_num, tenant_id, ticket_id, category_id, service_name, department_id, department_head_id, assigned_to_user_id, subject, message, rating, status, feedback_type, what_should_change, what_is_correct, what_is_wrong, how_it_should_go, admin_directive, department_notes, article_id, created_at, updated_at) 
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [
       id,
       fNum,
@@ -234,6 +240,7 @@ export const create = async (feedback) => {
       howItShouldGo || null,
       adminDirective || null,
       departmentNotes || null,
+      resolvedArticleId,
     ]
   );
   return id;

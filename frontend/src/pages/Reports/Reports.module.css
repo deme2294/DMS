@@ -697,7 +697,7 @@
 /* ── Two-Column Layout ───────────────────────────────────────────────────── */
 .twoColGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -1483,64 +1483,473 @@
   color: #94a3b8;
 }
 
+.printOnlyFooter {
+  display: none;
+}
+
 /* ── Print / PDF Visual Export Mode ──────────────────────────────────────── */
 @media print {
+  @page {
+    size: auto;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    box-sizing: border-box !important;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
   }
 
   .page {
-    padding: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
+    display: block !important;
   }
 
+  /* Hide interactive controls during printing */
   .header,
   .filterCard,
   .exportBtn,
   .refreshBtn,
-  .clearFilterBtn {
+  .clearFilterBtn,
+  .resetFilterLink,
+  button {
     display: none !important;
   }
 
+  /* Printable Report Header */
   .printOnlyHeader {
     display: block !important;
-    margin-bottom: 24px !important;
-    padding-bottom: 16px !important;
-    border-bottom: 2px solid #0f172a !important;
+    margin-bottom: 20px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 2.5px solid #0f172a !important;
+    width: 100% !important;
+  }
+
+  .printHeaderTop {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  .printReportTitle {
+    font-size: 15pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .printReportMeta {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+    margin: 0 !important;
+  }
+
+  .printHeaderBadge {
+    font-size: 7.5pt !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+    padding: 4px 10px !important;
+    background: #f1f5f9 !important;
+    border: 1.5px solid #94a3b8 !important;
+    border-radius: 6px !important;
+    color: #0f172a !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+  }
+
+  .printFilterSummary {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-top: 8px !important;
+    font-size: 8.5pt !important;
+    color: #334155 !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Banners */
+  .activeFilterNotice,
+  .deptBadgeRow {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    margin-bottom: 16px !important;
+    font-size: 8.5pt !important;
+  }
+
+  /* KPI Stats Grid */
+  .statsGrid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    margin-bottom: 18px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .statCard {
+    padding: 12px 14px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .statValue {
+    font-size: 17pt !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+  }
+
+  .statLabel {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: #475569 !important;
+  }
+
+  .statSubtext {
+    font-size: 7.5pt !important;
+    margin-top: 4px !important;
+    color: #64748b !important;
+  }
+
+  /* Two-Column Analytics Grid:
+     In print, expand cards to 100% full width so tables like Category Analysis &
+     Resolution Velocity are wide, spacious, and never cramped or vertically broken! */
+  .twoColGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    gap: 18px !important;
+    margin-bottom: 20px !important;
   }
 
   .sectionCard {
-    break-inside: avoid;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 16px 18px !important;
+    margin-bottom: 18px !important;
     box-shadow: none !important;
-    border: 1px solid #cbd5e1 !important;
-    margin-bottom: 20px !important;
-    page-break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
-  .trendBarTrack,
+  .sectionHeader {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    width: 100% !important;
+  }
+
+  .sectionTitleGroup {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .sectionTitleIcon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .sectionHeading {
+    font-size: 11pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+  }
+
+  .sectionSub {
+    font-size: 8pt !important;
+    color: #64748b !important;
+    display: block !important;
+    margin-top: 2px !important;
+  }
+
+  /* Distribution Progress Bars */
+  .distributionList {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .distRow {
+    width: 100% !important;
+  }
+
+  .distRowHeader {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 3px !important;
+  }
+
+  .distCountGroup {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .distCount {
+    font-weight: 700 !important;
+    font-size: 8.5pt !important;
+    color: #0f172a !important;
+  }
+
+  .distPct {
+    font-size: 8pt !important;
+    color: #64748b !important;
+  }
+
   .progressBar {
+    width: 100% !important;
+    height: 8px !important;
     background-color: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .progressFill {
+    height: 100% !important;
+    background: #2563eb !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Data Table Overrides in Print */
+  div[class*="wrapper"] {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    margin: 4px 0 !important;
+  }
+
+  table {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+  }
+
+  thead th {
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    padding: 8px 12px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    text-align: left !important;
+  }
+
+  tbody td {
+    padding: 8px 12px !important;
+    font-size: 8.5pt !important;
+    color: #0f172a !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    vertical-align: middle !important;
+  }
+
+  /* Table Badges, Tags, and Pill Elements */
+  .categoryPill {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: #f0f9ff !important;
+    border: 1px solid #bae6fd !important;
+    color: #0369a1 !important;
+    font-size: 8.5pt !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  .tableNumberBold {
+    font-weight: 700 !important;
+    font-size: 9pt !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+  }
+
+  .tableShareTag {
+    display: inline-block !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #334155 !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  .timeBadge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: #faf5ff !important;
+    border: 1px solid #e9d5ff !important;
+    color: #6b21a8 !important;
+    font-size: 8.5pt !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  .badge {
+    display: inline-block !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    text-transform: capitalize !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  .efficiencyTag {
+    display: inline-block !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    font-size: 8pt !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  .tableDeptName {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  .tableTenantName {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-weight: 600 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+
+  /* Monthly Trend Activity */
+  .monthlyTrendContainer {
+    width: 100% !important;
+    padding: 12px 6px 4px !important;
+    gap: 16px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .trendColumn {
+    min-height: 110px !important;
+  }
+
+  .trendBarTrack {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
   }
 
   .trendBarFill {
     background: #2563eb !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  .progressFill {
-    background: #3b82f6 !important;
+  .trendMonthLabel {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    color: #334155 !important;
+    white-space: nowrap !important;
   }
 
-  .statsGrid {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 12px !important;
+  .trendCountBadge {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
   }
 
+  /* Print-Only Footer */
+  .printOnlyFooter {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    font-size: 7.5pt !important;
+    color: #64748b !important;
+    padding-top: 12px !important;
+    margin-top: 24px !important;
+    border-top: 1.5px solid #cbd5e1 !important;
+    width: 100% !important;
+    page-break-before: avoid !important;
+  }
+}
+
+@media print and (orientation: landscape) {
   .twoColGrid {
+    display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    gap: 16px !important;
+    gap: 18px !important;
   }
 }
 

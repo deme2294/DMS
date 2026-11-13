@@ -35,7 +35,7 @@ export default function KnowledgeStatistics() {
   const [error, setError] = useState<string | null>(null);
 
   // Reader Feedback & Utility interactive state
-  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'helpful' | 'not_helpful'>('all');
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'helpful' | 'not_helpful' | 'tenant_kb'>('all');
   const [feedbackSearch, setFeedbackSearch] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -70,19 +70,25 @@ export default function KnowledgeStatistics() {
   }, []);
 
   const ratedArticles: Article[] = useMemo(() => stats?.ratedArticles || [], [stats]);
+  const kbFeedbackList = useMemo(() => stats?.knowledgeBaseFeedback || [], [stats]);
+
   const helpfulArticles = useMemo(
-    () => ratedArticles.filter((a) => (Number(a.helpfulCount) || 0) > 0),
+    () => ratedArticles.filter((a) => (Number(a.helpfulCount) || 0) > 0 || (a.feedbackEntries && a.feedbackEntries.some(e => Boolean(e.isHelpful)))),
     [ratedArticles]
   );
   const notHelpfulArticles = useMemo(
-    () => ratedArticles.filter((a) => (Number(a.notHelpfulCount) || 0) > 0),
+    () => ratedArticles.filter((a) => (Number(a.notHelpfulCount) || 0) > 0 || (a.feedbackEntries && a.feedbackEntries.some(e => !Boolean(e.isHelpful)))),
     [ratedArticles]
   );
 
   const filteredArticles = useMemo(() => {
+    if (feedbackFilter === 'tenant_kb') return [];
     return ratedArticles.filter((a) => {
-      if (feedbackFilter === 'helpful' && (Number(a.helpfulCount) || 0) <= 0) return false;
-      if (feedbackFilter === 'not_helpful' && (Number(a.notHelpfulCount) || 0) <= 0) return false;
+      const hasHelpful = (Number(a.helpfulCount) || 0) > 0 || (a.feedbackEntries && a.feedbackEntries.some(e => Boolean(e.isHelpful)));
+      const hasNotHelpful = (Number(a.notHelpfulCount) || 0) > 0 || (a.feedbackEntries && a.feedbackEntries.some(e => !Boolean(e.isHelpful)));
+
+      if (feedbackFilter === 'helpful' && !hasHelpful) return false;
+      if (feedbackFilter === 'not_helpful' && !hasNotHelpful) return false;
 
       if (feedbackSearch.trim()) {
         const q = feedbackSearch.toLowerCase();
@@ -96,6 +102,28 @@ export default function KnowledgeStatistics() {
       return true;
     });
   }, [ratedArticles, feedbackFilter, feedbackSearch]);
+
+  const filteredKbFeedback = useMemo(() => {
+    return kbFeedbackList.filter((fb) => {
+      if (feedbackFilter === 'helpful' && !fb.isHelpful) return false;
+      if (feedbackFilter === 'not_helpful' && fb.isHelpful) return false;
+
+      if (feedbackSearch.trim()) {
+        const q = feedbackSearch.toLowerCase();
+        const matchSubject = (fb.subject || '').toLowerCase().includes(q);
+        const matchComment = (fb.comment || '').toLowerCase().includes(q);
+        const matchHelpful = (fb.whatIsHelpful || '').toLowerCase().includes(q);
+        const matchChange = (fb.whatShouldChange || '').toLowerCase().includes(q);
+        const matchAuthor = `${fb.userFirstName || ''} ${fb.userLastName || ''}`.toLowerCase().includes(q);
+        const matchArtRef = (fb.articleReference || '').toLowerCase().includes(q);
+        const matchArtTitle = (fb.articleTitle || '').toLowerCase().includes(q);
+        if (!matchSubject && !matchComment && !matchHelpful && !matchChange && !matchAuthor && !matchArtRef && !matchArtTitle) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [kbFeedbackList, feedbackFilter, feedbackSearch]);
 
   if (loading) {
     return (
@@ -770,13 +798,22 @@ export default function KnowledgeStatistics() {
                 >
                   👎 Needs Improvement ({notHelpfulArticles.length})
                 </button>
+                <button
+                  type="button"
+                  className={`${styles.feedbackFilterTab} ${
+                    feedbackFilter === 'tenant_kb' ? styles.feedbackFilterTabActive : ''
+                  }`}
+                  onClick={() => setFeedbackFilter('tenant_kb')}
+                >
+                  💬 Tenant Feedback ({kbFeedbackList.length})
+                </button>
               </div>
 
               <div className={styles.searchWrapper}>
                 <MagnifyingGlassIcon className={styles.searchIcon} />
                 <input
                   type="text"
-                  placeholder="Search rated articles..."
+                  placeholder="Search articles, feedback, what should be changed..."
                   className={styles.feedbackSearchInput}
                   value={feedbackSearch}
                   onChange={(e) => setFeedbackSearch(e.target.value)}
@@ -907,24 +944,47 @@ export default function KnowledgeStatistics() {
                         </div>
                       )}
 
-                      {/* Reader Comments (if any logged) */}
+                      {/* Reader Comments & Detailed Evaluations */}
                       {art.feedbackEntries && art.feedbackEntries.length > 0 && (
                         <div className={styles.feedbackCommentsWrap}>
                           <span className={styles.feedbackCommentsTitle}>
-                            💬 Reader Feedback Log ({art.feedbackEntries.length}):
+                            💬 Reader & Tenant Evaluations ({art.feedbackEntries.length}):
                           </span>
                           {art.feedbackEntries.map((fb) => (
                             <div key={fb.id} className={styles.commentItem}>
-                              <span className={styles.commentAuthor}>
-                                {fb.isHelpful ? '👍' : '👎'}{' '}
-                                {fb.userFirstName ? `${fb.userFirstName} ${fb.userLastName || ''}` : 'Reader'}
-                                {fb.userRole ? ` (${fb.userRole})` : ''}:
-                              </span>{' '}
-                              {fb.reason && <span><strong>[{fb.reason}]</strong> </span>}
-                              {fb.comment ? (
-                                <span className={styles.commentQuote}>"{fb.comment}"</span>
-                              ) : (
-                                <span>{fb.isHelpful ? 'Marked as helpful' : 'Marked as needing improvement'}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span className={styles.commentAuthor}>
+                                  {fb.isHelpful ? '👍 Helpful' : '👎 Needs Improvement'}{' '}
+                                  • {fb.userFirstName ? `${fb.userFirstName} ${fb.userLastName || ''}` : 'Reader'}
+                                  {fb.userRole ? ` (${fb.userRole})` : ''}
+                                </span>
+                                {fb.createdAt && (
+                                  <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginLeft: 'auto' }}>
+                                    {new Date(fb.createdAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              {fb.reason && (
+                                <div style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: '2px' }}>
+                                  <strong>Reason / Category:</strong> {fb.reason}
+                                </div>
+                              )}
+                              {fb.whatIsHelpful && (
+                                <div className={styles.entryHelpfulBlock}>
+                                  <strong>🟢 What is Helpful:</strong>
+                                  <div style={{ marginTop: '2px' }}>{fb.whatIsHelpful}</div>
+                                </div>
+                              )}
+                              {fb.whatShouldChange && (
+                                <div className={styles.entryChangeBlock}>
+                                  <strong>🔴 What Should Be Changed:</strong>
+                                  <div style={{ marginTop: '2px' }}>{fb.whatShouldChange}</div>
+                                </div>
+                              )}
+                              {fb.comment && (
+                                <div className={styles.commentQuote} style={{ marginTop: '4px' }}>
+                                  "{fb.comment}"
+                                </div>
                               )}
                             </div>
                           ))}
@@ -982,7 +1042,7 @@ export default function KnowledgeStatistics() {
                   );
                 })}
               </div>
-            ) : (
+            ) : feedbackFilter !== 'tenant_kb' ? (
               <div className={styles.emptyState} style={{ padding: '24px 16px' }}>
                 <div className={styles.emptyStateIcon}>📋</div>
                 <h4>No Articles Match This Filter</h4>
@@ -1005,6 +1065,90 @@ export default function KnowledgeStatistics() {
                   >
                     View All Rated Articles
                   </button>
+                )}
+              </div>
+            ) : null}
+
+            {/* Direct Tenant Knowledge Base Feedback Section */}
+            {(feedbackFilter === 'tenant_kb' || (feedbackFilter === 'all' && filteredKbFeedback.length > 0)) && (
+              <div style={{ marginTop: '28px', borderTop: feedbackFilter === 'all' ? '1px dashed #e2e8f0' : 'none', paddingTop: feedbackFilter === 'all' ? '20px' : '0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>💬</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0f172a' }}>
+                        Tenant Knowledge Base & Documentation Feedback
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+                        Direct evaluations submitted by tenants on articles and knowledge base resources
+                      </p>
+                    </div>
+                  </div>
+                  <span className={styles.feedbackArticlesCountBadge}>
+                    {filteredKbFeedback.length} Feedback Entr{filteredKbFeedback.length === 1 ? 'y' : 'ies'}
+                  </span>
+                </div>
+
+                {filteredKbFeedback.length > 0 ? (
+                  <div className={styles.feedbackArticlesList}>
+                    {filteredKbFeedback.map((fb) => (
+                      <div key={fb.id} className={styles.tenantKbCard}>
+                        <div className={styles.tenantKbHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span className={fb.isHelpful ? styles.entryBadgeHelpful : styles.entryBadgeNotHelpful}>
+                              {fb.isHelpful ? '👍 Positive Evaluation' : '👎 Needs Improvement'}
+                            </span>
+                            <span className={styles.tenantKbAuthor}>
+                              👤 {fb.userFirstName ? `${fb.userFirstName} ${fb.userLastName || ''}` : 'Tenant Reader'}
+                              {fb.userEmail ? ` (${fb.userEmail})` : ''}
+                            </span>
+                            {fb.articleTitle && (
+                              <span className={styles.refChip} title="Linked article">
+                                📖 {fb.articleReference ? `[${fb.articleReference}] ` : ''}{fb.articleTitle}
+                              </span>
+                            )}
+                          </div>
+                          {fb.createdAt && (
+                            <span className={styles.entryDate}>
+                              🕒 {new Date(fb.createdAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+
+                        {fb.subject && (
+                          <div className={styles.tenantKbSubject}>
+                            📌 {fb.subject}
+                          </div>
+                        )}
+
+                        {fb.whatIsHelpful && (
+                          <div className={styles.entryHelpfulBlock}>
+                            <strong>🟢 What is Helpful:</strong>
+                            <div style={{ marginTop: '2px' }}>{fb.whatIsHelpful}</div>
+                          </div>
+                        )}
+
+                        {fb.whatShouldChange && (
+                          <div className={styles.entryChangeBlock}>
+                            <strong>🔴 What Should Be Changed:</strong>
+                            <div style={{ marginTop: '2px' }}>{fb.whatShouldChange}</div>
+                          </div>
+                        )}
+
+                        {fb.comment && (
+                          <div className={styles.commentQuote} style={{ marginTop: '6px' }}>
+                            "{fb.comment}"
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState} style={{ padding: '20px 16px' }}>
+                    <div className={styles.emptyStateIcon}>💬</div>
+                    <h4>No Tenant Knowledge Base Feedback</h4>
+                    <p>No tenant feedback currently matches your criteria.</p>
+                  </div>
                 )}
               </div>
             )}

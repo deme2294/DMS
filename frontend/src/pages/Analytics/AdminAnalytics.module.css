@@ -27,7 +27,7 @@
   box-sizing: border-box;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1120px) {
   .headerRow {
     flex-direction: row;
     align-items: center;
@@ -194,6 +194,10 @@
 
 .timeframeSelector {
   display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+  box-sizing: border-box;
   background: var(--bg-surface, #f1f5f9);
   padding: 3px;
   border-radius: 12px;
@@ -209,6 +213,8 @@
   border: none;
   border-radius: 9px;
   cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
   transition: all 0.15s ease;
 }
 
@@ -1679,7 +1685,7 @@
 .topSpotlightGrid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   width: 100%;
   max-width: 100%;
@@ -2758,7 +2764,7 @@
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
   }
   .topSpotlightGrid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)) !important;
   }
   .spotlightMetricsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -3157,5 +3163,33 @@
   }
   .trendStatLabel {
     font-size: 0.65rem !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .timeframeSelector {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+  .timeframeBtn {
+    width: 100% !important;
+    padding: 8px 6px !important;
+    font-size: 0.78rem !important;
+  }
+  .deptScopeBadge {
+    white-space: normal !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .timeframeSelector {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .kpiGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }

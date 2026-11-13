@@ -314,6 +314,18 @@ export const ArticleDetailDrawer: React.FC<ArticleDetailDrawerProps> = ({
                           <strong>Reason:</strong> {fb.reason}
                         </div>
                       )}
+                      {fb.whatIsHelpful && (
+                        <div className={styles.entryHelpfulBlock}>
+                          <strong>🟢 What is Helpful / Working Well:</strong>
+                          <div style={{ marginTop: '2px' }}>{fb.whatIsHelpful}</div>
+                        </div>
+                      )}
+                      {fb.whatShouldChange && (
+                        <div className={styles.entryChangeBlock}>
+                          <strong>🔴 What Should Be Changed / Needs Improvement:</strong>
+                          <div style={{ marginTop: '2px' }}>{fb.whatShouldChange}</div>
+                        </div>
+                      )}
                       {fb.comment && (
                         <div className={styles.entryComment}>
                           "{fb.comment}"

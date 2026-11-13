@@ -164,11 +164,11 @@
 /* ── Workflow Tabs ── */
 .tabBar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 20px;
   border-bottom: 2px solid var(--my-border-light);
-  padding-bottom: 8px;
-  overflow-x: auto;
+  padding-bottom: 10px;
 }
 
 .tabBtn {
@@ -212,7 +212,7 @@
 
 .searchInput {
   flex: 1;
-  min-width: 260px;
+  min-width: min(260px, 100%);
   max-width: 480px;
   padding: 10px 16px;
   border: 1px solid var(--my-input-border);
@@ -1461,14 +1461,23 @@
 }
 
 :global([data-theme="dark"]) .tabBtn {
-  background: #151b28 !important;
-  border-color: #252e3e !important;
-  color: #94a3b8 !important;
+  background: #1a2335 !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
 }
 
 :global([data-theme="dark"]) .tabBtn:hover {
-  background: #1c2436 !important;
-  color: #f8fafc !important;
+  background: #24314a !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .tabBtn.tabBtnActive,
+:global([data-theme="dark"]) .tabBtnActive {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45) !important;
 }
 
 :global([data-theme="dark"]) .searchInput {
@@ -2184,6 +2193,38 @@
   border-left-color: #475569;
 }
 
+.entryHelpfulBlock {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.78rem;
+}
+
+:global([data-theme="dark"]) .entryHelpfulBlock {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+
+.entryChangeBlock {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 0.78rem;
+}
+
+:global([data-theme="dark"]) .entryChangeBlock {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 /* ── Article Detail Drawer Dark Mode Overrides ────────────────────────────── */
 :global([data-theme="dark"]) .drawerContainer {
   background: #111827 !important;
@@ -2309,6 +2350,56 @@
 :global([data-theme="dark"]) .drawerFooterPdfBtn:hover {
   background: #0284c7 !important;
   color: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
+    box-sizing: border-box;
+  }
+
+  .roleScopeBanner {
+    padding: 14px 16px;
+    gap: 14px;
+  }
+
+  .lifecyclePills {
+    flex-wrap: wrap;
+    border-radius: 12px;
+    max-width: 100%;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .drawerContainer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .drawerHeader {
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 12px;
+  }
+
+  .roleScopeLeft {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .inputField,
+  .selectField,
+  .textareaField {
+    font-size: 16px;
+  }
 }
 
 

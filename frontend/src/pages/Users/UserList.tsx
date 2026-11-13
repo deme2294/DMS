@@ -5,6 +5,7 @@ import { toShortUserId } from '../../utils/idUtils';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
+import UserProfileModal from '../../components/UserProfileModal/UserProfileModal';
 import {
   fetchUsers,
   deleteUser,
@@ -58,6 +59,7 @@ export default function UserList() {
   const [status, setStatus] = useState(searchParams.get('status') || '');
 
   // Modals state
+  const [viewUser, setViewUser] = useState<User | null>(null);
   const [resetModal, setResetModal] = useState<User | null>(null);
   const [contactTarget, setContactTarget] = useState<ContactTarget | null>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -655,6 +657,16 @@ export default function UserList() {
               <div className={styles.actionGroup}>
                 <button
                   type="button"
+                  className={styles.actionBtnView}
+                  onClick={() => setViewUser(row)}
+                  title="View user profile & manage avatar image"
+                >
+                  <EyeIcon className={styles.actionIcon} />
+                  <span>View</span>
+                </button>
+
+                <button
+                  type="button"
                   className={styles.actionBtnEdit}
                   style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
                   onClick={() => setContactTarget({
@@ -900,6 +912,20 @@ export default function UserList() {
         open={!!contactTarget}
         target={contactTarget}
         onClose={() => setContactTarget(null)}
+      />
+
+      {/* ── User Profile & Image Manager Modal ── */}
+      <UserProfileModal
+        user={viewUser}
+        isOpen={!!viewUser}
+        onClose={() => setViewUser(null)}
+        onUserUpdated={(updatedUser) => {
+          setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? { ...u, ...updatedUser } : u)));
+          setViewUser(updatedUser);
+          showSuccess('User profile image updated successfully.', 'Profile Updated');
+        }}
+        onContactUser={(target) => setContactTarget(target)}
+        onEditUser={(u) => navigate(`/admin/users/${toShortUserId(u)}/edit`)}
       />
     </div>
   );

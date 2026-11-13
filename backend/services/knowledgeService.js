@@ -1350,8 +1350,18 @@ export const rateArticle = async (id, isHelpful, user, req, options = {}) => {
 
   const reason = options?.reason || null;
   const comment = options?.comment || null;
+  const whatIsHelpful = options?.whatIsHelpful || null;
+  const whatShouldChange = options?.whatShouldChange || null;
 
-  const result = await knowledgeRepo.rateArticleFeedback(article.id, user.id, isHelpful, reason, comment);
+  const result = await knowledgeRepo.rateArticleFeedback(
+    article.id,
+    user.id,
+    isHelpful,
+    reason,
+    comment,
+    whatIsHelpful,
+    whatShouldChange
+  );
   const updated = await knowledgeRepo.findById(article.id);
 
   if (result.status !== 'already_submitted') {
@@ -1361,6 +1371,8 @@ export const rateArticle = async (id, isHelpful, user, req, options = {}) => {
       feedbackStatus: result.status,
       reason,
       comment,
+      whatIsHelpful,
+      whatShouldChange,
     });
   }
 

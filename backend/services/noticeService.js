@@ -3,6 +3,7 @@ import * as noticeRepo from '../repository/noticeRepository.js';
 import * as userRepo from '../repository/userRepository.js';
 import * as notificationService from './notificationService.js';
 import * as departmentService from './departmentService.js';
+import * as auditService from './auditService.js';
 import pool from '../config/db.js';
 
 export const getNextNoticeId = async () => {
@@ -182,6 +183,21 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
   };
   await noticeRepo.create(notice);
 
+  auditService.logAction(
+    userId,
+    'create',
+    'notice',
+    notice.id,
+    null,
+    {
+      title: notice.title,
+      targetAudience: notice.targetAudience,
+      status: notice.status,
+      what_user_is_doing: `User published notice "${notice.title}"`
+    },
+    { role: userRole }
+  ).catch(() => {});
+
   if (isPublished(notice.status)) {
     await publishNotice(notice);
   }
@@ -258,6 +274,19 @@ export const updateNotice = async (id, data, updaterId = null, updaterRole = nul
 
   if (Object.keys(updateData).length) {
     await noticeRepo.update(id, updateData);
+    auditService.logAction(
+      updaterId,
+      'update',
+      'notice',
+      id,
+      null,
+      {
+        title: existing.title,
+        updatedFields: Object.keys(updateData),
+        what_user_is_doing: `User updated notice #${id} ("${existing.title}")`
+      },
+      { role: updaterRole }
+    ).catch(() => {});
   }
 
   const updated = await noticeRepo.findById(id);
@@ -282,6 +311,18 @@ export const deleteNotice = async (id, userId = null, userRole = null) => {
   }
 
   await noticeRepo.remove(id);
+  auditService.logAction(
+    userId,
+    'delete',
+    'notice',
+    id,
+    null,
+    {
+      title: notice.title,
+      what_user_is_doing: `User deleted notice #${id} ("${notice.title}")`
+    },
+    { role: userRole }
+  ).catch(() => {});
 };
 
 export const acknowledgeNotice = async (id, userId) => {

@@ -888,6 +888,12 @@ export default function Reports() {
           />
         </div>
       )}
+
+      {/* Print-Only Footer */}
+      <div className={styles.printOnlyFooter}>
+        <span>Help Desk Management System &bull; Executive Operational Analytics</span>
+        <span>CONFIDENTIAL &bull; Generated on {new Date().toLocaleDateString()}</span>
+      </div>
     </div>
   );
 }

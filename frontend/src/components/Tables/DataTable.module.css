@@ -8,6 +8,42 @@
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   max-width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+:global([data-theme="dark"]) .wrapper {
+  scrollbar-color: #334155 transparent;
+}
+
+:global([data-theme="dark"]) .wrapper::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+:global([data-theme="dark"]) .wrapper::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .wrapper:hover {

@@ -195,6 +195,8 @@ export const rateArticle = async (req, res, next) => {
     const article = await knowledgeService.rateArticle(req.params.id, isHelpful, req.user, req, {
       reason: req.body.reason,
       comment: req.body.comment,
+      whatIsHelpful: req.body.whatIsHelpful || req.body.what_is_helpful,
+      whatShouldChange: req.body.whatShouldChange || req.body.what_should_change,
     });
     let message = 'Thanks for your feedback';
     if (article.feedbackStatus === 'already_submitted') {

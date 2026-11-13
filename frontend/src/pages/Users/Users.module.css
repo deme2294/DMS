@@ -842,6 +842,7 @@
   vertical-align: middle;
 }
 
+.actionBtnView,
 .actionBtnEdit,
 .actionBtnDeactivate,
 .actionBtnActivate,
@@ -865,6 +866,7 @@
   line-height: 1;
 }
 
+.actionBtnView:disabled,
 .actionBtnEdit:disabled,
 .actionBtnDeactivate:disabled,
 .actionBtnActivate:disabled,
@@ -876,6 +878,7 @@
   box-shadow: none !important;
 }
 
+.actionBtnView span,
 .actionBtnEdit span,
 .actionBtnDeactivate span,
 .actionBtnActivate span,
@@ -883,6 +886,21 @@
 .actionBtnDelete span {
   display: inline-block;
   white-space: nowrap;
+}
+
+/* View: Soft Teal / Emerald */
+.actionBtnView {
+  background: rgba(13, 148, 136, 0.08);
+  color: #0d9488;
+  border-color: rgba(13, 148, 136, 0.25);
+}
+
+.actionBtnView:hover {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
+  transform: translateY(-1px);
 }
 
 /* Edit: Soft Blue */
@@ -961,6 +979,20 @@
 }
 
 /* ── Night / Dark Theme High-Visibility Overrides ── */
+:global([data-theme="dark"]) .actionBtnView {
+  background: rgba(45, 212, 191, 0.16) !important;
+  color: #2dd4bf !important;
+  border-color: rgba(45, 212, 191, 0.45) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+:global([data-theme="dark"]) .actionBtnView:hover {
+  background: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #2dd4bf !important;
+  box-shadow: 0 0 12px rgba(45, 212, 191, 0.4) !important;
+}
+
 :global([data-theme="dark"]) .actionBtnEdit {
   background: rgba(14, 165, 233, 0.16) !important;
   color: #38bdf8 !important;

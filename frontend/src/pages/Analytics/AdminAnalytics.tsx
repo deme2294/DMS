@@ -1926,7 +1926,7 @@ function CategoryRankedBarChart({
 
                 <div className={styles.categoryMetricsRow}>
                   <span className={styles.catMetricTag}>
-                    <ShieldCheckIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} /> SLA: {cat.slaComplianceRate ?? 100}%
+                    <ShieldCheckIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 3 }} /> SLA: {cat.count > 0 ? (cat.slaComplianceRate ?? 0) : 0}%
                   </span>
                   {cat.overdue !== undefined && cat.overdue > 0 && (
                     <span className={styles.catMetricTag} style={{ background: '#fee2e2', color: '#b91c1c' }}>
@@ -2855,9 +2855,11 @@ export default function AdminAnalytics({
                                 <div
                                   className={styles.progressFill}
                                   style={{
-                                    width: `${dept.slaComplianceRate}%`,
+                                    width: `${dept.totalTickets > 0 ? dept.slaComplianceRate : 0}%`,
                                     background:
-                                      dept.slaComplianceRate >= 90
+                                      dept.totalTickets === 0
+                                        ? '#94a3b8'
+                                        : dept.slaComplianceRate >= 90
                                         ? '#10b981'
                                         : dept.slaComplianceRate >= 75
                                         ? '#f59e0b'
@@ -2866,7 +2868,7 @@ export default function AdminAnalytics({
                                 />
                               </div>
                               <span className="analytics-table-strong" style={{ fontSize: '0.75rem', fontWeight: 700, minWidth: '38px', textAlign: 'right', color: 'var(--text-primary, #0f172a)' }}>
-                                {dept.slaComplianceRate}%
+                                {dept.totalTickets > 0 ? `${dept.slaComplianceRate}%` : '0%'}
                               </span>
                             </div>
                           </td>

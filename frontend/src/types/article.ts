@@ -86,11 +86,17 @@ export interface Article {
 
 export interface ArticleFeedbackEntry {
   id: string;
-  articleId: string;
-  userId: string;
+  articleId?: string | null;
+  userId?: string | null;
   isHelpful: boolean | number;
   reason?: string | null;
   comment?: string | null;
+  whatIsHelpful?: string | null;
+  whatShouldChange?: string | null;
+  subject?: string | null;
+  rating?: number | null;
+  articleTitle?: string | null;
+  articleReference?: string | null;
   createdAt?: string;
   updatedAt?: string;
   userFirstName?: string | null;
@@ -127,6 +133,7 @@ export interface ArticleStats {
   notHelpfulNo: number;
   byDepartment: { name: string; count: number }[];
   ratedArticles?: Article[];
+  knowledgeBaseFeedback?: ArticleFeedbackEntry[];
 }
 
 export interface KnowledgeCategory {

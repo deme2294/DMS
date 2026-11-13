@@ -5,12 +5,16 @@ import PageHeader from '../../components/PageHeader/PageHeader';
 import { createFeedback } from '../../api/feedbackApi';
 import { fetchTickets } from '../../api/ticketApi';
 import { fetchCategories, type TicketCategory } from '../../api/categoryApi';
+import { fetchArticles } from '../../api/knowledgeApi';
+import type { Article } from '../../types/article';
 import type { FeedbackFormValues } from '../../types/feedback';
 import type { Ticket } from '../../types/ticket';
 import styles from './FeedbackCreate.module.css';
 
 type FormValues = {
+  targetType: 'ticket' | 'knowledge';
   ticketId: string;
+  articleId: string;
   categoryId: string;
   serviceName: string;
   subject: string;
@@ -42,7 +46,9 @@ export default function FeedbackCreate() {
   const navigate = useNavigate();
   const { register, handleSubmit, reset, watch, setValue, formState: { isSubmitting, errors } } = useForm<FormValues>({
     defaultValues: {
+      targetType: 'ticket',
       ticketId: '',
+      articleId: '',
       categoryId: '',
       serviceName: '',
       subject: '',
@@ -58,14 +64,18 @@ export default function FeedbackCreate() {
   });
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [categories, setCategories] = useState<TicketCategory[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [hoverRating, setHoverRating] = useState(0);
 
+  const targetType = watch('targetType');
   const ticketId = watch('ticketId');
+  const articleId = watch('articleId');
   const categoryId = watch('categoryId');
   const selectedTicket = tickets.find(t => t.id === ticketId);
   const selectedCategory = categories.find(c => c.id === categoryId);
+  const selectedArticle = articles.find(a => a.id === articleId);
   const feedbackFocus = watch('feedbackFocus');
   const rating = watch('rating');
 
@@ -75,6 +85,9 @@ export default function FeedbackCreate() {
       .catch(() => {});
     fetchCategories({ includeInactive: false })
       .then(res => setCategories(res.data.data || []))
+      .catch(() => {});
+    fetchArticles({ status: 'published', limit: 100 })
+      .then(res => setArticles(res.data.data || []))
       .catch(() => {});
   }, []);
 
@@ -98,9 +111,10 @@ export default function FeedbackCreate() {
     setError('');
     try {
       await createFeedback({
-        ticketId: values.ticketId || undefined,
-        categoryId: values.categoryId || undefined,
-        serviceName: values.serviceName || undefined,
+        ticketId: values.targetType === 'ticket' ? (values.ticketId || undefined) : undefined,
+        articleId: values.targetType === 'knowledge' ? (values.articleId || undefined) : undefined,
+        categoryId: values.targetType === 'ticket' ? (values.categoryId || undefined) : undefined,
+        serviceName: values.targetType === 'knowledge' ? (values.serviceName || 'Knowledge Base') : (values.serviceName || undefined),
         subject: values.subject,
         message: values.message,
         feedbackType: values.feedbackType,
@@ -140,63 +154,144 @@ export default function FeedbackCreate() {
 
       <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Category, Service & Ticket Context</h2>
-          
+          <h2 className={styles.cardTitle}>Feedback Subject & Target Context</h2>
+
+          {/* Feedback Target Switcher */}
           <div className={styles.field}>
-            <label htmlFor="categoryId">Ticket Category / Service Department</label>
-            <select
-              id="categoryId"
-              {...register('categoryId')}
-              onChange={(e) => {
-                const cat = categories.find(c => c.id === e.target.value);
-                setValue('categoryId', e.target.value);
-                if (cat) {
-                  setValue('serviceName', cat.name);
-                }
-              }}
-            >
-              <option value="">-- Choose Ticket Category / Service --</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.departmentName ? `(${c.departmentName})` : ''}
-                </option>
-              ))}
-            </select>
-            {selectedCategory && (
-              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
-                ⚡ Linked Department: {selectedCategory.departmentName || 'Responsible Department'}
-              </p>
-            )}
+            <label style={{ fontWeight: 600 }}>What are you submitting feedback on?</label>
+            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.4rem', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: targetType === 'ticket' ? 700 : 500 }}>
+                <input
+                  type="radio"
+                  name="targetTypeSelection"
+                  checked={targetType === 'ticket'}
+                  onChange={() => {
+                    setValue('targetType', 'ticket');
+                    setValue('articleId', '');
+                  }}
+                />
+                🎫 Service Ticket or Category
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: targetType === 'knowledge' ? 700 : 500 }}>
+                <input
+                  type="radio"
+                  name="targetTypeSelection"
+                  checked={targetType === 'knowledge'}
+                  onChange={() => {
+                    setValue('targetType', 'knowledge');
+                    setValue('ticketId', '');
+                    setValue('serviceName', 'Knowledge Base');
+                    setValue('subject', 'Feedback on Knowledge Base');
+                  }}
+                />
+                📚 Knowledge Base & Articles
+              </label>
+            </div>
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="serviceName">Specific Service Detail (optional)</label>
-            <input
-              id="serviceName"
-              {...register('serviceName')}
-              placeholder="e.g. Inverter Backup, Water Supply, Network Connectivity..."
-            />
-          </div>
-
-          <div className={styles.field}>
-            <label htmlFor="ticketId">Associated Ticket (optional)</label>
-            <select id="ticketId" {...register('ticketId')}>
-              <option value="">-- Select an associated ticket (optional) --</option>
-              {tickets.map(t => (
-                <option key={t.id} value={t.id}>
-                  [{t.referenceNumber}] {t.title} - {t.status}
-                </option>
-              ))}
-            </select>
-            {selectedTicket && (
-              <div className={styles.ticketInfo}>
-                <span><strong>Reference:</strong> {selectedTicket.referenceNumber}</span>
-                <span><strong>Status:</strong> {selectedTicket.status}</span>
-                <span><strong>Priority:</strong> {selectedTicket.priority}</span>
-                {selectedTicket.category && <span><strong>Category:</strong> {selectedTicket.category}</span>}
+          {targetType === 'knowledge' ? (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="articleId">Knowledge Base Article (optional)</label>
+                <select
+                  id="articleId"
+                  {...register('articleId')}
+                  onChange={(e) => {
+                    setValue('articleId', e.target.value);
+                    const art = articles.find(a => a.id === e.target.value);
+                    if (art) {
+                      setValue('subject', `Feedback on Article: ${art.title}`);
+                      setValue('serviceName', `Knowledge Base - ${art.category || 'Documentation'}`);
+                    }
+                  }}
+                >
+                  <option value="">-- General Knowledge Base Feedback (or choose specific article) --</option>
+                  {articles.map((art) => (
+                    <option key={art.id} value={art.id}>
+                      [{art.articleReference || 'KB-ARTICLE'}] {art.title} {art.category ? `(${art.category})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedArticle && (
+                  <div className={styles.ticketInfo}>
+                    <span><strong>Article Ref:</strong> {selectedArticle.articleReference || 'KB'}</span>
+                    <span><strong>Category:</strong> {selectedArticle.category || 'General'}</span>
+                    {selectedArticle.departmentName && <span><strong>Department:</strong> {selectedArticle.departmentName}</span>}
+                  </div>
+                )}
+                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#0284c7' }}>
+                  💡 Submit your evaluation for authors to know what is helpful and what should be changed.
+                </p>
               </div>
-            )}
-          </div>
+
+              <div className={styles.field}>
+                <label htmlFor="serviceName">Documentation Section or Topic</label>
+                <input
+                  id="serviceName"
+                  {...register('serviceName')}
+                  placeholder="e.g. Knowledge Base, Tenant Portal Guide, Troubleshooting FAQs..."
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.field}>
+                <label htmlFor="categoryId">Ticket Category / Service Department</label>
+                <select
+                  id="categoryId"
+                  {...register('categoryId')}
+                  onChange={(e) => {
+                    const cat = categories.find(c => c.id === e.target.value);
+                    setValue('categoryId', e.target.value);
+                    if (cat) {
+                      setValue('serviceName', cat.name);
+                    }
+                  }}
+                >
+                  <option value="">-- Choose Ticket Category / Service --</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.departmentName ? `(${c.departmentName})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedCategory && (
+                  <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
+                    ⚡ Linked Department: {selectedCategory.departmentName || 'Responsible Department'}
+                  </p>
+                )}
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="serviceName">Specific Service Detail (optional)</label>
+                <input
+                  id="serviceName"
+                  {...register('serviceName')}
+                  placeholder="e.g. Inverter Backup, Water Supply, Network Connectivity..."
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="ticketId">Associated Ticket (optional)</label>
+                <select id="ticketId" {...register('ticketId')}>
+                  <option value="">-- Select an associated ticket (optional) --</option>
+                  {tickets.map(t => (
+                    <option key={t.id} value={t.id}>
+                      [{t.referenceNumber}] {t.title} - {t.status}
+                    </option>
+                  ))}
+                </select>
+                {selectedTicket && (
+                  <div className={styles.ticketInfo}>
+                    <span><strong>Reference:</strong> {selectedTicket.referenceNumber}</span>
+                    <span><strong>Status:</strong> {selectedTicket.status}</span>
+                    <span><strong>Priority:</strong> {selectedTicket.priority}</span>
+                    {selectedTicket.category && <span><strong>Category:</strong> {selectedTicket.category}</span>}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <div className={styles.field}>
             <label htmlFor="subject">Subject</label>

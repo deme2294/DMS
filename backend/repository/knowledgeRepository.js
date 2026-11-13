@@ -432,7 +432,15 @@ export const getUserArticleFeedback = async (articleId, userId) => {
   return rows[0] || null;
 };
 
-export const rateArticleFeedback = async (articleId, userId, isHelpful, reason = null, comment = null) => {
+export const rateArticleFeedback = async (
+  articleId,
+  userId,
+  isHelpful,
+  reason = null,
+  comment = null,
+  whatIsHelpful = null,
+  whatShouldChange = null
+) => {
   const helpfulVal = isHelpful ? 1 : 0;
   const [existing] = await pool.query(
     'SELECT id, is_helpful FROM knowledge_article_feedback WHERE article_id = :articleId AND user_id = :userId LIMIT 1',
@@ -441,15 +449,35 @@ export const rateArticleFeedback = async (articleId, userId, isHelpful, reason =
 
   if (existing.length > 0) {
     const prevHelpful = Boolean(existing[0].is_helpful);
-    if (prevHelpful === Boolean(isHelpful) && !reason && !comment) {
+    if (
+      prevHelpful === Boolean(isHelpful) &&
+      !reason &&
+      !comment &&
+      !whatIsHelpful &&
+      !whatShouldChange
+    ) {
       // User clicked the exact same feedback again: DO NOT increment count!
       return { status: 'already_submitted', isHelpful: Boolean(isHelpful) };
     }
 
     // User changed their feedback or supplied comments: update row
     await pool.query(
-      'UPDATE knowledge_article_feedback SET is_helpful = :helpfulVal, reason = COALESCE(:reason, reason), comment = COALESCE(:comment, comment), updated_at = CURRENT_TIMESTAMP WHERE id = :id',
-      { helpfulVal, reason: reason || null, comment: comment || null, id: existing[0].id }
+      `UPDATE knowledge_article_feedback 
+       SET is_helpful = :helpfulVal, 
+           reason = COALESCE(:reason, reason), 
+           comment = COALESCE(:comment, comment),
+           what_is_helpful = COALESCE(:whatIsHelpful, what_is_helpful),
+           what_should_change = COALESCE(:whatShouldChange, what_should_change),
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = :id`,
+      {
+        helpfulVal,
+        reason: reason || null,
+        comment: comment || null,
+        whatIsHelpful: whatIsHelpful || null,
+        whatShouldChange: whatShouldChange || null,
+        id: existing[0].id,
+      }
     );
 
     // Adjust counts: decrement previous, increment new
@@ -471,8 +499,19 @@ export const rateArticleFeedback = async (articleId, userId, isHelpful, reason =
   // First time submitting feedback
   const feedbackId = uuidv4();
   await pool.query(
-    'INSERT INTO knowledge_article_feedback (id, article_id, user_id, is_helpful, reason, comment) VALUES (:feedbackId, :articleId, :userId, :helpfulVal, :reason, :comment)',
-    { feedbackId, articleId, userId, helpfulVal, reason: reason || null, comment: comment || null }
+    `INSERT INTO knowledge_article_feedback 
+       (id, article_id, user_id, is_helpful, reason, comment, what_is_helpful, what_should_change) 
+     VALUES (:feedbackId, :articleId, :userId, :helpfulVal, :reason, :comment, :whatIsHelpful, :whatShouldChange)`,
+    {
+      feedbackId,
+      articleId,
+      userId,
+      helpfulVal,
+      reason: reason || null,
+      comment: comment || null,
+      whatIsHelpful: whatIsHelpful || null,
+      whatShouldChange: whatShouldChange || null,
+    }
   );
 
   const col = isHelpful ? 'helpful_count' : 'not_helpful_count';
@@ -536,36 +575,87 @@ export const getStats = async (filter = {}) => {
   // Retrieve all rated articles with their feedback breakdown and feedback entries
   const [ratedArticles] = await pool.query(
     `SELECT ${SELECT_FIELDS} ${FROM}
-     WHERE kb.deleted_at IS NULL AND (kb.helpful_count > 0 OR kb.not_helpful_count > 0)
+     WHERE kb.deleted_at IS NULL AND (
+       kb.helpful_count > 0 
+       OR kb.not_helpful_count > 0
+       OR kb.id IN (SELECT DISTINCT article_id FROM knowledge_article_feedback WHERE article_id IS NOT NULL)
+       OR kb.id IN (SELECT DISTINCT article_id FROM feedback WHERE article_id IS NOT NULL)
+     )
      ORDER BY kb.not_helpful_count DESC, kb.helpful_count DESC`
   );
 
   const feedbackMap = {};
-  if (ratedArticles.length > 0) {
-    try {
-      const [feedbackRows] = await pool.query(
-        `SELECT kaf.id, kaf.article_id AS articleId, kaf.user_id AS userId, kaf.is_helpful AS isHelpful,
-                kaf.reason, kaf.comment, kaf.created_at AS createdAt, kaf.updated_at AS updatedAt,
-                u.first_name AS userFirstName, u.last_name AS userLastName, u.email AS userEmail,
-                r.name AS userRole
-         FROM knowledge_article_feedback kaf
-         LEFT JOIN users u ON u.id = kaf.user_id
-         LEFT JOIN roles r ON r.id = u.role_id
-         ORDER BY kaf.updated_at DESC`
-      );
-      feedbackRows.forEach((fb) => {
-        if (!feedbackMap[fb.articleId]) feedbackMap[fb.articleId] = [];
-        feedbackMap[fb.articleId].push(fb);
-      });
-    } catch (e) {
-      console.error('[KNOWLEDGE] Error retrieving feedback rows:', e.message);
-    }
+  try {
+    const [feedbackRows] = await pool.query(
+      `SELECT kaf.id, kaf.article_id AS articleId, kaf.user_id AS userId, kaf.is_helpful AS isHelpful,
+              kaf.reason, kaf.comment, kaf.what_is_helpful AS whatIsHelpful, kaf.what_should_change AS whatShouldChange,
+              kaf.created_at AS createdAt, kaf.updated_at AS updatedAt,
+              u.first_name AS userFirstName, u.last_name AS userLastName, u.email AS userEmail,
+              r.name AS userRole
+       FROM knowledge_article_feedback kaf
+       LEFT JOIN users u ON u.id = kaf.user_id
+       LEFT JOIN roles r ON r.id = u.role_id
+       ORDER BY kaf.updated_at DESC`
+    );
+    feedbackRows.forEach((fb) => {
+      if (!feedbackMap[fb.articleId]) feedbackMap[fb.articleId] = [];
+      feedbackMap[fb.articleId].push(fb);
+    });
+  } catch (e) {
+    console.error('[KNOWLEDGE] Error retrieving feedback rows:', e.message);
   }
 
-  stats.ratedArticles = ratedArticles.map((art) => ({
-    ...art,
-    feedbackEntries: feedbackMap[art.id] || [],
-  }));
+  // Retrieve tenant feedback targeting knowledge base articles or general knowledge base
+  let kbFeedbackList = [];
+  try {
+    const [kbTenantFeedback] = await pool.query(
+      `SELECT f.id, f.article_id AS articleId, f.tenant_id AS userId,
+              CASE WHEN f.rating >= 4 OR f.feedback_type = 'suggestion' THEN 1 ELSE 0 END AS isHelpful,
+              f.feedback_type AS reason,
+              f.message AS comment,
+              COALESCE(f.what_is_correct, '') AS whatIsHelpful,
+              COALESCE(f.what_should_change, f.what_is_wrong, '') AS whatShouldChange,
+              f.subject,
+              f.rating,
+              f.created_at AS createdAt,
+              f.updated_at AS updatedAt,
+              u.first_name AS userFirstName, u.last_name AS userLastName, u.email AS userEmail,
+              'tenant' AS userRole,
+              kb.title AS articleTitle,
+              kb.article_reference AS articleReference
+       FROM feedback f
+       LEFT JOIN users u ON u.id = f.tenant_id
+       LEFT JOIN knowledge_base kb ON kb.id = f.article_id
+       WHERE (f.article_id IS NOT NULL 
+              OR LOWER(f.service_name) LIKE '%knowledge%' 
+              OR LOWER(f.subject) LIKE '%knowledge%'
+              OR LOWER(f.subject) LIKE '%article%')
+       ORDER BY f.created_at DESC`
+    );
+    kbFeedbackList = kbTenantFeedback;
+    kbTenantFeedback.forEach((tfb) => {
+      if (tfb.articleId) {
+        if (!feedbackMap[tfb.articleId]) feedbackMap[tfb.articleId] = [];
+        feedbackMap[tfb.articleId].push(tfb);
+      }
+    });
+  } catch (e) {
+    console.warn('[KNOWLEDGE] Warning querying tenant feedback for KB:', e.message);
+  }
+
+  stats.knowledgeBaseFeedback = kbFeedbackList;
+
+  stats.ratedArticles = ratedArticles.map((art) => {
+    const entries = feedbackMap[art.id] || [];
+    const helpfulVotes = entries.filter((e) => Boolean(e.isHelpful)).length;
+    const notHelpfulVotes = entries.filter((e) => !Boolean(e.isHelpful)).length;
+    return {
+      ...art,
+      helpfulCount: Math.max(Number(art.helpfulCount) || 0, helpfulVotes),
+      notHelpfulCount: Math.max(Number(art.notHelpfulCount) || 0, notHelpfulVotes),
+      feedbackEntries: entries,
+    };
+  });
 
   return stats;
 };

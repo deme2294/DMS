@@ -399,3 +399,16 @@
   font-weight: 600;
 }
 
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 12px;
+  }
+}
+

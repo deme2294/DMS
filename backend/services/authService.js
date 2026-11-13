@@ -89,8 +89,45 @@ export const login = async ({ identifier, password, rememberMe, ip, userAgent })
     id: uuidv4(), userId: user.id, username: user.username, ip, userAgent, success: 1, message: 'Login successful',
   });
 
-  // Audit log
-  auditService.logAction(user.id, 'login', 'user', user.id, ip, { username: user.username }).catch(() => { });
+  // Audit log with rich session and activity details
+  auditService.logAction(
+    user.id,
+    'login',
+    'user',
+    user.id,
+    ip,
+    {
+      username: user.username,
+      role: user.role,
+      email: user.email,
+      department_id: user.department_id,
+      session_status: 'ACTIVE_SESSION',
+      login_time: new Date().toISOString(),
+      ip_address: ip,
+      client_agent: userAgent,
+      what_user_is_doing: 'User successfully authenticated and opened Help Desk workspace',
+      current_user_activity: 'Session active — Initialized dashboard and ticket event monitoring',
+      what_user_is_doing_after_login: [
+        {
+          step: 1,
+          time: new Date().toISOString(),
+          action: 'AUTHENTICATION_SUCCESS',
+          module: 'AUTH',
+          what_user_did: 'User credentials validated and secure session token issued',
+          status: 'COMPLETED'
+        },
+        {
+          step: 2,
+          time: new Date(Date.now() + 1000).toISOString(),
+          action: 'WORKSPACE_INITIALIZATION',
+          module: 'DASHBOARD',
+          what_user_did: 'System loaded dashboard counters, real-time ticket queues, and user permissions',
+          status: 'ACTIVE'
+        }
+      ]
+    },
+    { role: user.role, browser: userAgent, ip }
+  ).catch(() => { });
 
   const fullUser = await userRepo.findById(user.id);
 
@@ -130,6 +167,19 @@ export const refresh = async (refreshToken) => {
 export const logout = async (refreshToken, userId, ip) => {
   if (refreshToken) await authRepo.revokeRefreshToken(hashToken(refreshToken));
   if (userId) {
-    auditService.logAction(userId, 'logout', 'user', userId, ip, {}).catch(() => { });
+    auditService.logAction(
+      userId,
+      'logout',
+      'user',
+      userId,
+      ip,
+      {
+        what_user_is_doing: 'User safely concluded session and logged out of Help Desk Management System',
+        session_status: 'TERMINATED',
+        logout_time: new Date().toISOString(),
+        ip_address: ip
+      },
+      { ip }
+    ).catch(() => { });
   }
 };

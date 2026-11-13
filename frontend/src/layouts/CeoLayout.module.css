@@ -215,6 +215,39 @@
   overflow-y: auto;
   box-sizing: border-box;
   min-width: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.content::-webkit-scrollbar {
+  width: 7px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+:global([data-theme="dark"]) .content {
+  scrollbar-color: #334155 transparent;
+}
+
+:global([data-theme="dark"]) .content::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+:global([data-theme="dark"]) .content::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .contentChat {
@@ -327,5 +360,40 @@
 
   .content {
     padding: 10px 6px;
+  }
+}
+
+@media print {
+  .layout {
+    display: block !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .topBar {
+    display: none !important;
+  }
+
+  .main,
+  .mainCollapsed {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .content {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    display: block !important;
   }
 }

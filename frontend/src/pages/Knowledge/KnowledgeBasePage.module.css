@@ -2,6 +2,8 @@
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .searchSection {
@@ -104,7 +106,7 @@
 
 .articleGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -256,4 +258,45 @@
   font-size: 1.1rem;
   font-weight: 600;
   color: #0f172a;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px;
+  }
+
+  .searchSection {
+    padding: 28px 16px;
+  }
+
+  .searchBox {
+    flex-direction: column;
+  }
+
+  .searchBox input,
+  .searchBox button,
+  .filters select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .suggestedItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 12px;
+  }
+
+  .searchSection {
+    padding: 22px 12px;
+  }
+
+  .searchSection h2 {
+    font-size: 1.25rem;
+  }
 }

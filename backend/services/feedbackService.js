@@ -46,6 +46,22 @@ export const createFeedback = async (data, user) => {
   let departmentId = data.departmentId || null;
   let categoryId = data.categoryId || null;
   let serviceName = data.serviceName || null;
+  let articleId = data.articleId || data.article_id || null;
+
+  if (articleId) {
+    const [aRows] = await pool.query(
+      'SELECT id, title, department_id FROM knowledge_base WHERE id = ? LIMIT 1',
+      [articleId]
+    );
+    if (aRows.length) {
+      if (!departmentId && aRows[0].department_id) {
+        departmentId = aRows[0].department_id;
+      }
+      if (!serviceName) {
+        serviceName = 'Knowledge Base';
+      }
+    }
+  }
 
   if (categoryId) {
     const [catRows] = await pool.query(
@@ -81,6 +97,7 @@ export const createFeedback = async (data, user) => {
     feedbackNum: Number(nextId),
     tenantId,
     ticketId: data.ticketId || null,
+    articleId,
     categoryId,
     serviceName,
     departmentId,
