@@ -1786,10 +1786,11 @@
 }
 
 .formLabel {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--kb-text-primary);
-  margin-bottom: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--kb-text-muted, #64748b);
+  letter-spacing: 0.01em;
+  margin-bottom: 5px;
   display: flex;
   align-items: center;
   gap: 4px;

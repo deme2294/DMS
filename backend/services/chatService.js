@@ -457,7 +457,22 @@ export const getRoomMessages = async (roomId, userId, limit = 50, offset = 0) =>
   // Update last seen
   await chatRepo.updateParticipantLastSeen(roomId, userId);
   
-  return chatRepo.findMessagesByRoom(roomId, userId, limit, offset);
+  const messages = await chatRepo.findMessagesByRoom(roomId, userId, limit, offset);
+  return messages.map((m) => {
+    const isDeletedForMe = Boolean(m.is_deleted_for_me);
+    const isDeleted = Boolean(m.is_deleted);
+    if (isDeleted || isDeletedForMe) {
+      return {
+        ...m,
+        message: '',
+        attachment_path: null,
+        attachment_name: null,
+        is_deleted: isDeleted,
+        is_deleted_for_me: isDeletedForMe,
+      };
+    }
+    return m;
+  });
 };
 
 export const sendMessage = async (data, userId) => {
@@ -547,7 +562,7 @@ export const deleteMessage = async (messageId, userId, deleteType = 'everyone') 
   }
 
   // 2. Delete for Everyone (Only the creator can delete for everyone)
-  if (message.sender_id !== userId) {
+  if (String(message.sender_id).trim() !== String(userId).trim()) {
     throw Object.assign(
       new Error('Access denied. Only the message creator can delete this message for everyone.'),
       { statusCode: 403 }
@@ -561,6 +576,7 @@ export const deleteMessage = async (messageId, userId, deleteType = 'everyone') 
     messageId,
     roomId: message.room_id,
     deletedBy: userId,
+    senderId: message.sender_id,
     deleteType: 'everyone',
   });
 

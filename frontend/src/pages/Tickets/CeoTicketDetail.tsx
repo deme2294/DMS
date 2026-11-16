@@ -15,6 +15,7 @@ import { toShortId } from '../../utils/idUtils';
 import type { Ticket, TicketStatus, TicketReply, TimelineEvent } from '../../types/ticket';
 import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { useAlert } from '../../context/AlertContext';
 import styles from './CeoTickets.module.css';
 import {
@@ -53,7 +54,6 @@ import {
   UserIcon,
 } from '@heroicons/react/24/outline';
 import { formatFileSize, buildAttachmentUrl } from '../../utils/attachmentUtils';
-import { io, Socket } from 'socket.io-client';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
@@ -225,7 +225,7 @@ export default function CeoTicketDetail() {
   const [editAttachmentComment, setEditAttachmentComment] = useState('');
   const [editAttachmentSaving, setEditAttachmentSaving] = useState(false);
   const [assignPrefill, setAssignPrefill] = useState<{ text: string } | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const { socket } = useSocket();
 
   const loadTicket = async () => {
     if (!id) return;
@@ -261,16 +261,29 @@ export default function CeoTicketDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('accessToken');
-    // Connect through Vite proxy instead of directly to localhost:5000
-    const socket = io(window.location.origin, { path: '/socket.io', withCredentials: true, auth: { token } });
-    socketRef.current = socket;
-    socket.on('connect', () => { if (id) socket.emit('join-ticket', id); });
-    socket.on('ticket:updated', () => { loadTicket(); loadReplies(); loadTimeline(); });
-    return () => { socket.disconnect(); };
+    if (!socket || !user) return;
+    const joinRoom = () => {
+      if (id) socket.emit('join-ticket', id);
+    };
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on('connect', joinRoom);
+    const handleTicketUpdated = () => {
+      loadTicket();
+      loadReplies();
+      loadTimeline();
+    };
+    socket.on('ticket:updated', handleTicketUpdated);
+    return () => {
+      socket.off('connect', joinRoom);
+      socket.off('ticket:updated', handleTicketUpdated);
+      if (id) {
+        socket.emit('leave-ticket', id);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, id]);
+  }, [socket, user, id]);
 
   useEffect(() => {
     if (deptModal || noteModal) fetchActiveDepartments().then((r) => setDepartments(r.data.data));
@@ -1907,8 +1920,10 @@ export default function CeoTicketDetail() {
       >
         <div className={styles.modalForm}>
           {ticket?.assignedTo && (
-            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.86rem' }}>
-              <strong>Currently Assigned:</strong> {ticket.assignedToName || 'Assigned Staff'}
+            <div className={styles.assignmentCurrentBox}>
+              <UserIcon className={styles.assignmentCurrentIcon} />
+              <span className={styles.assignmentCurrentLabel}>Currently Assigned:</span>
+              <strong className={styles.assignmentCurrentValue}>{ticket.assignedToName || 'Assigned Staff'}</strong>
             </div>
           )}
           <label>Staff Member</label>
@@ -1929,8 +1944,14 @@ export default function CeoTicketDetail() {
           </select>
 
           {selectedStaff && selectedStaff === ticket?.assignedTo && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 6, padding: '8px 12px', margin: '8px 0', fontSize: '0.84rem', color: '#92400e' }}>
-              ⚠️ <strong>{ticket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+            <div className={styles.duplicateAssignWarning}>
+              <div className={styles.duplicateAssignHeader}>
+                <ExclamationTriangleIcon className={styles.duplicateAssignIcon} />
+                <span>Duplicate Assignment Restricted</span>
+              </div>
+              <p style={{ margin: '4px 0' }}>
+                <strong>{ticket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+              </p>
             </div>
           )}
 

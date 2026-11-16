@@ -1009,7 +1009,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               onClick={onStartNewVideoConference}
               title="Create a new video conference chat session with custom date (default today)"
             >
-              📹 + New Video Chat
+              <span>📹</span>
+              <span className={styles.inAppBtnLabelLong}>+ New Video Call</span>
+              <span className={styles.inAppBtnLabelShort}>+ Call</span>
             </button>
           )}
 
@@ -1019,7 +1021,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
             onClick={onSwitchToChat}
             title="Switch back to Text Chat conversation"
           >
-            💬 View Chat
+            <span>💬</span>
+            <span className={styles.inAppBtnLabelLong}>View Chat</span>
+            <span className={styles.inAppBtnLabelShort}>Chat</span>
           </button>
 
           {onOpenInviteModal && (
@@ -1029,7 +1033,9 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               onClick={onOpenInviteModal}
               title="Schedule event time and invite registered users"
             >
-              🗓️ + Invite & Schedule
+              <span>🗓️</span>
+              <span className={styles.inAppBtnLabelLong}>+ Invite</span>
+              <span className={styles.inAppBtnLabelShort}>Invite</span>
             </button>
           )}
 
@@ -1044,7 +1050,12 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
                   : 'Expand conference and screen share to whole page'
               }
             >
-              {isWholePageMode ? '⊡ Normal Page' : '⛶ Whole Page'}
+              <span className={styles.inAppBtnLabelLong}>
+                {isWholePageMode ? '⊡ Normal Page' : '⛶ Whole Page'}
+              </span>
+              <span className={styles.inAppBtnLabelShort}>
+                {isWholePageMode ? '⊡ Normal' : '⛶ Page'}
+              </span>
             </button>
           )}
 
@@ -1054,7 +1065,12 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'}
           >
-            {isFullscreen ? '⤦ Exit Full' : '⛶ Fullscreen'}
+            <span className={styles.inAppBtnLabelLong}>
+              {isFullscreen ? '⤦ Exit Full' : '⛶ Fullscreen'}
+            </span>
+            <span className={styles.inAppBtnLabelShort}>
+              {isFullscreen ? '⤦ Exit' : '⛶ Full'}
+            </span>
           </button>
         </div>
       </div>

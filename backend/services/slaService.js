@@ -270,6 +270,56 @@ export const computeAllDueDates = (policy, createdAt = new Date()) => {
   return { responseDueDate, resolutionDueDate, escalationDueDate };
 };
 
+// Resolve specific SLA policy created for a category and priority combination
+// Returns the policy only if explicitly created for this category and priority (or linked category SLA matching priority)
+export const findSpecificPolicyForCategoryAndPriority = async (categoryId = null, priority = 'medium') => {
+  const prio = String(priority || 'medium');
+
+  if (!categoryId) {
+    // If no category is selected (global), check for an active global policy
+    const [globalRows] = await pool.query(
+      `SELECT id, name, priority, category_id, response_hours, resolution_hours, escalation_hours, working_hours, description
+       FROM sla_policies
+       WHERE category_id IS NULL AND LOWER(priority) = LOWER(:priority) AND is_active = 1
+       LIMIT 1`,
+      { priority: prio }
+    );
+    return globalRows[0] || null;
+  }
+
+  // 1. Direct match: category_id = :categoryId AND LOWER(priority) = LOWER(:priority)
+  const [directRows] = await pool.query(
+    `SELECT id, name, priority, category_id, response_hours, resolution_hours, escalation_hours, working_hours, description
+     FROM sla_policies
+     WHERE category_id = :categoryId AND LOWER(priority) = LOWER(:priority) AND is_active = 1
+     LIMIT 1`,
+    { categoryId, priority: prio }
+  );
+  if (directRows.length) {
+    return directRows[0];
+  }
+
+  // 2. Linked policy on ticket_categories: check if category has sla_policy_id AND its priority matches
+  const [catRows] = await pool.query(
+    'SELECT sla_policy_id FROM ticket_categories WHERE id = :categoryId LIMIT 1',
+    { categoryId }
+  );
+  if (catRows[0]?.sla_policy_id) {
+    const [linkedRows] = await pool.query(
+      `SELECT id, name, priority, category_id, response_hours, resolution_hours, escalation_hours, working_hours, description
+       FROM sla_policies
+       WHERE id = :slaPolicyId AND LOWER(priority) = LOWER(:priority) AND is_active = 1
+       LIMIT 1`,
+      { slaPolicyId: catRows[0].sla_policy_id, priority: prio }
+    );
+    if (linkedRows.length) {
+      return linkedRows[0];
+    }
+  }
+
+  return null;
+};
+
 // Resolve the effective policy for a category and priority:
 // 1. Policy matching categoryId and priority
 // 2. Default policy linked to the category (ticket_categories.sla_policy_id)

@@ -259,12 +259,13 @@ export const findMessagesByRoom = async (roomId, userId = null, limit = 50, offs
   const [rows] = await pool.query(
     `SELECT cm.*, 
        u.first_name, u.last_name, u.username,
-       r.name AS role_name
+       r.name AS role_name,
+       (cmd.id IS NOT NULL) AS is_deleted_for_me
      FROM chat_messages cm
      INNER JOIN users u ON u.id = cm.sender_id
      INNER JOIN roles r ON r.id = u.role_id
      LEFT JOIN chat_message_deletions cmd ON cmd.message_id = cm.id AND cmd.user_id = ?
-     WHERE cm.room_id = ? AND cm.is_deleted = FALSE AND cmd.id IS NULL
+     WHERE cm.room_id = ?
      ORDER BY cm.created_at DESC
      LIMIT ? OFFSET ?`,
     [userId, roomId, limit, offset]

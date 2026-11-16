@@ -17,8 +17,8 @@ import type { Ticket, TicketStatus } from '../../types/ticket';
 import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { usePagination } from '../../hooks/usePagination';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { useAlert } from '../../context/AlertContext';
-import { io, Socket } from 'socket.io-client';
 import {
   EyeIcon,
   BuildingOffice2Icon,
@@ -29,6 +29,7 @@ import {
   EnvelopeIcon,
   PhoneIcon,
   UserIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { exportTableToExcel } from '../../utils/excelExportUtils';
 import styles from './Tickets.module.css';
@@ -99,7 +100,7 @@ export default function TicketList() {
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
   const [exporting, setExporting] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
+  const { socket } = useSocket();
 
   const handleExportTickets = async () => {
     if (!tickets.length) return;
@@ -160,15 +161,15 @@ export default function TicketList() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('accessToken');
-    // Connect through Vite proxy instead of directly to localhost:5000
-    const socket = io(window.location.origin, { path: '/socket.io', withCredentials: true, auth: { token } });
-    socketRef.current = socket;
-    socket.on('connect', () => socket.emit('join', { userId: user.id }));
-    socket.on('ticket:updated', () => loadTickets());
-    return () => { socket.disconnect(); };
-  }, [user, loadTickets]);
+    if (!socket || !user) return;
+    const handleTicketUpdated = () => {
+      loadTickets();
+    };
+    socket.on('ticket:updated', handleTicketUpdated);
+    return () => {
+      socket.off('ticket:updated', handleTicketUpdated);
+    };
+  }, [socket, user, loadTickets]);
 
   useEffect(() => {
     if (deptModal) fetchActiveDepartments().then((res) => setDepartments(res.data.data));
@@ -701,8 +702,10 @@ export default function TicketList() {
       >
         <div className={styles.modalForm}>
           {assignTicket?.assignedTo && (
-            <div style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.86rem' }}>
-              <strong>Currently Assigned:</strong> {assignTicket.assignedToName || 'Assigned Staff'}
+            <div className={styles.assignmentCurrentBox}>
+              <UserIcon className={styles.assignmentCurrentIcon} />
+              <span className={styles.assignmentCurrentLabel}>Currently Assigned:</span>
+              <strong className={styles.assignmentCurrentValue}>{assignTicket.assignedToName || 'Assigned Staff'}</strong>
             </div>
           )}
           <div className={styles.modalField}>
@@ -727,8 +730,14 @@ export default function TicketList() {
             </select>
           </div>
           {selectedStaff && selectedStaff === assignTicket?.assignedTo && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderLeft: '4px solid #f59e0b', borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: '0.84rem', color: '#92400e' }}>
-              ⚠️ <strong>{assignTicket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+            <div className={styles.duplicateAssignWarning}>
+              <div className={styles.duplicateAssignHeader}>
+                <ExclamationTriangleIcon className={styles.duplicateAssignIcon} />
+                <span>Duplicate Assignment Restricted</span>
+              </div>
+              <p style={{ margin: '4px 0' }}>
+                <strong>{assignTicket.assignedToName || 'This staff member'}</strong> is already assigned to this ticket. Duplicate continuous assignment is restricted.
+              </p>
             </div>
           )}
           <div className={styles.modalField}>

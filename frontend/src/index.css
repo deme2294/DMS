@@ -228,6 +228,24 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7) !important;
 }
 
+[data-theme="dark"] [class*="assignmentCurrentBox"] {
+  background-color: #1e293b !important;
+  border-color: #3b82f6 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] [class*="assignmentCurrentBox"] [class*="assignmentCurrentLabel"] {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] [class*="assignmentCurrentBox"] [class*="assignmentCurrentValue"] {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] [class*="assignmentCurrentBox"] svg {
+  color: #60a5fa !important;
+}
+
 /* ── Inputs, selects, textareas — Crystal Clear Write Visibility ─────────── */
 [data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 [data-theme="dark"] select,
@@ -1029,6 +1047,49 @@ code {
   padding: 0 !important;
 }
 
+/* ── Inline Alert & Badge Safeguards in Dark Mode ──────────────────────── */
+[data-theme="dark"] [style*="background: rgb(241, 245, 249)"],
+[data-theme="dark"] [style*="background:#f1f5f9"],
+[data-theme="dark"] [style*="background: #f1f5f9"],
+[data-theme="dark"] [style*="background:#f8fafc"],
+[data-theme="dark"] [style*="background: #f8fafc"],
+[data-theme="dark"] [style*="background: rgb(248, 250, 252)"] {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] [style*="background: #fffbeb"],
+[data-theme="dark"] [style*="background:#fffbeb"],
+[data-theme="dark"] [style*="background: rgb(255, 251, 235)"],
+[data-theme="dark"] [style*="background: #fef3c7"],
+[data-theme="dark"] [style*="background:#fef3c7"],
+[data-theme="dark"] [style*="background: rgb(254, 243, 199)"] {
+  background-color: rgba(120, 53, 15, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #fde68a !important;
+}
+
+[data-theme="dark"] [style*="background: #fee2e2"],
+[data-theme="dark"] [style*="background:#fee2e2"],
+[data-theme="dark"] [style*="background: #fef2f2"],
+[data-theme="dark"] [style*="background:#fef2f2"],
+[data-theme="dark"] [style*="background: rgb(254, 226, 226)"],
+[data-theme="dark"] [style*="background: rgb(254, 242, 242)"] {
+  background-color: rgba(185, 28, 28, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] [style*="background: #eff6ff"],
+[data-theme="dark"] [style*="background:#eff6ff"],
+[data-theme="dark"] [style*="background: #f0fdf4"],
+[data-theme="dark"] [style*="background:#f0fdf4"] {
+  background-color: rgba(30, 64, 175, 0.25) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  color: #93c5fd !important;
+}
+
 /* ── Write Fields & Input Areas in Night Mode ──────────────────────────── */
 [data-theme="dark"] input,
 [data-theme="dark"] select,
@@ -1049,7 +1110,8 @@ code {
 
 [data-theme="dark"] input::placeholder,
 [data-theme="dark"] textarea::placeholder {
-  color: #64748b !important;
+  color: #94a3b8 !important;
+  opacity: 0.85;
 }
 
 [data-theme="dark"] option {
@@ -1115,11 +1177,11 @@ code {
 [data-theme="dark"] [class*="btnSecondary"]:disabled,
 [data-theme="dark"] [class*="paginationBtn"]:disabled,
 [data-theme="dark"] button:disabled {
-  opacity: 0.45 !important;
+  opacity: 0.65 !important;
   cursor: not-allowed !important;
-  background: #131926 !important;
-  border-color: #20293a !important;
-  color: #64748b !important;
+  background: rgba(30, 41, 59, 0.75) !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
 }
 
 /* ── Pagination Elements in dark mode ──────────────────────────────────── */

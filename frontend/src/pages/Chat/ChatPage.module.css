@@ -1351,13 +1351,55 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 20px;
+  padding: 48px 24px;
   color: var(--text-muted);
+  max-width: 480px;
+  margin: auto;
 }
 
-.emptyMessageGraphic {
-  font-size: 3.5rem;
-  margin-bottom: 12px;
+.emptyMessageIconWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.18) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
+}
+
+.emptyMessageSvg {
+  width: 32px;
+  height: 32px;
+  color: var(--primary-blue);
+}
+
+.emptyMessagesTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 8px 0;
+}
+
+.emptyMessagesSubtitle {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0 0 16px 0;
+}
+
+.emptyMessageBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-surface, #f1f5f9);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .dateGroup {
@@ -1472,10 +1514,11 @@
 
 .messageBubble {
   position: relative;
-  padding: 11px 15px;
-  border-radius: var(--radius-lg);
+  padding: 11px 16px;
+  border-radius: 18px;
   word-wrap: break-word;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease;
 }
 
 .ownBubble {
@@ -1486,16 +1529,271 @@
 }
 
 .otherBubble {
-  background: #f1f5f9;
+  background: #ffffff;
   color: var(--text-main);
   border-bottom-left-radius: 4px;
-  border: 1px solid var(--border-light);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .messageText {
   font-size: 0.92rem;
-  line-height: 1.45;
+  line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ownMessageLink {
+  color: #93c5fd;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.ownMessageLink:hover {
+  color: #ffffff;
+}
+
+.otherMessageLink {
+  color: var(--primary-blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.otherMessageLink:hover {
+  color: var(--primary-blue-hover);
+}
+
+.ownInlineCode {
+  display: inline-block;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.84em;
+  color: #e0f2fe;
+}
+
+.otherInlineCode {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.84em;
+  color: #0f172a;
+}
+
+/* In-Page Notification Banner for Deleted Chat */
+.chatDeletedAlertBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border-bottom: 1px solid #fecdd3;
+  color: #9f1239;
+  z-index: 15;
+  animation: slideDownNotice 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.08);
+  flex-shrink: 0;
+}
+
+@keyframes slideDownNotice {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chatDeletedAlertLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chatDeletedAlertIcon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.chatDeletedAlertDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.chatDeletedAlertTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #881337;
+  letter-spacing: -0.01em;
+}
+
+.chatDeletedAlertMsg {
+  font-size: 0.78rem;
+  color: #9f1239;
+  line-height: 1.35;
+}
+
+.chatDeletedAlertRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chatDeletedAlertTime {
+  font-size: 0.72rem;
+  color: #be123c;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.chatDeletedAlertClose {
+  background: transparent;
+  border: none;
+  color: #be123c;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s ease;
+}
+
+.chatDeletedAlertClose:hover {
+  background: rgba(225, 29, 72, 0.15);
+  color: #881337;
+}
+
+/* Deleted Message Bubble in Stream */
+.deletedMessageBubble {
+  font-style: italic;
+  padding: 8px 14px !important;
+  user-select: none;
+}
+
+.ownBubble.deletedMessageBubble {
+  background: rgba(37, 99, 235, 0.14) !important;
+  border: 1px dashed rgba(37, 99, 235, 0.45) !important;
+  color: #1e40af !important;
+  box-shadow: none !important;
+}
+
+.otherBubble.deletedMessageBubble {
+  background: #f1f5f9 !important;
+  border: 1px dashed #cbd5e1 !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+}
+
+.deletedMessageContent {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.deletedMessageIcon {
+  font-size: 0.95rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.deletedMessageText {
+  letter-spacing: 0.01em;
+}
+
+/* Floating Hover Action Toolbar */
+.messageHoverToolbar {
+  position: absolute;
+  top: -14px;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 20px;
+  padding: 2px 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+  animation: fadeInToolbar 0.15s ease;
+}
+
+@keyframes fadeInToolbar {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ownHoverToolbar {
+  right: 12px;
+}
+
+.otherHoverToolbar {
+  left: 12px;
+}
+
+.messageRow:hover .messageHoverToolbar {
+  display: flex;
+}
+
+.messageActionBtn {
+  background: transparent;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  transition: all 0.15s ease;
+}
+
+.messageActionBtn:hover {
+  background: var(--bg-surface, #f1f5f9);
+  color: var(--primary-blue, #2563eb);
+  transform: scale(1.08);
+}
+
+.messageActionBtnDelete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.actionBtnIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.actionBtnIconCopied {
+  width: 14px;
+  height: 14px;
+  color: #10b981;
 }
 
 .messageMeta {
@@ -1503,13 +1801,14 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 .messageTimestamp {
   font-size: 0.68rem;
-  opacity: 0.8;
+  opacity: 0.78;
   display: inline-block;
+  font-weight: 500;
 }
 
 .editedTag {
@@ -1519,45 +1818,15 @@
 }
 
 .checkmarks {
-  font-size: 0.72rem;
-  color: #a7f3d0;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-
-.messageDeleteIconBtn {
-  background: transparent;
-  border: none;
-  color: inherit;
-  opacity: 0.45;
-  padding: 2px 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.78rem;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  user-select: none;
+  color: #a7f3d0;
 }
 
-.messageRow:hover .messageDeleteIconBtn,
-.messageDeleteIconBtn:focus,
-.messageDeleteIconBtn:hover {
-  opacity: 1;
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  transform: scale(1.12);
-}
-
-.ownBubble .messageDeleteIconBtn {
-  color: #ffffff;
-}
-
-.ownBubble .messageDeleteIconBtn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: #fee2e2;
+.doubleCheckSvg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
 }
 
 /* --------------------------------------------------------------------------
@@ -1932,51 +2201,130 @@
 /* --------------------------------------------------------------------------
    8. FILE & IMAGE ATTACHMENTS
    -------------------------------------------------------------------------- */
-.imageAttachment {
+.imageAttachmentCard {
+  position: relative;
+  display: inline-block;
   margin-bottom: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: #000000;
 }
 
 .messageImage {
-  max-width: 280px;
+  display: block;
+  max-width: 320px;
   max-height: 280px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   cursor: pointer;
   object-fit: cover;
-  transition: transform 0.2s;
-  box-shadow: var(--shadow-sm);
+  transition: transform 0.25s ease;
 }
 
-.messageImage:hover {
-  transform: scale(1.02);
+.imageHoverOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.imageAttachmentCard:hover .imageHoverOverlay {
+  opacity: 1;
+}
+
+.imageActionBtn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  transform: translateY(4px);
+  transition: all 0.2s ease;
+}
+
+.imageAttachmentCard:hover .imageActionBtn {
+  transform: translateY(0);
+}
+
+.imageActionIcon {
+  width: 14px;
+  height: 14px;
 }
 
 .fileAttachmentCard {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 14px;
   background: #ffffff;
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-sm);
-  margin-bottom: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 8px;
   text-decoration: none;
   color: var(--text-main);
-  transition: all 0.15s ease;
-  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.ownBubble .fileAttachmentCard {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #0f172a;
 }
 
 .otherBubble .fileAttachmentCard {
   background: #ffffff;
+  border-color: #e2e8f0;
 }
 
 .fileAttachmentCard:hover {
   border-color: var(--primary-blue);
-  background: #f8fafc;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.12);
   transform: translateY(-1px);
 }
 
-.fileIcon {
-  font-size: 1.4rem;
+.fileBadgeIcon {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fileSvgIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.fileExtBadge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #ffffff;
+  letter-spacing: 0.02em;
 }
 
 .fileInfo {
@@ -1984,91 +2332,238 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .fileName {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #0f172a;
 }
 
 .fileAction {
   font-size: 0.72rem;
-  color: var(--text-muted);
+  color: #64748b;
+  font-weight: 500;
 }
 
-.downloadIcon {
-  font-size: 1rem;
+.fileDownloadBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--primary-blue);
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.fileAttachmentCard:hover .fileDownloadBtn {
+  background: var(--primary-blue);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.downloadSvgIcon {
+  width: 15px;
+  height: 15px;
 }
 
 /* --------------------------------------------------------------------------
    9. CHAT INPUT AREA COMPONENT
    -------------------------------------------------------------------------- */
-.chatInputContainer {
+.chatInputWrapper {
   flex-shrink: 0 !important;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border-light);
+  flex-direction: column;
+  background: var(--bg-card, #ffffff);
+  border-top: 1px solid var(--border-light, #e2e8f0);
   box-sizing: border-box;
   position: relative;
-  z-index: 10;
-  min-height: 58px;
+  z-index: 15;
 }
 
-.attachBtn {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  min-height: 38px;
-  flex-shrink: 0 !important;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-light);
+/* Quick Emoji Bar */
+.quickEmojiBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
   background: var(--bg-surface, #f8fafc);
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
+  animation: slideDownEmoji 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownEmoji {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quickEmojiList {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quickEmojiBtn {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quickEmojiBtn:hover {
+  background: rgba(37, 99, 235, 0.12);
+  transform: scale(1.22);
+}
+
+.closeEmojiBtn {
+  background: transparent;
+  border: none;
   color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
-  cursor: pointer;
   transition: all 0.15s ease;
-  flex-shrink: 0;
 }
 
-.attachBtn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
+.closeEmojiBtn:hover {
+  background: var(--border-light);
+  color: var(--text-main);
+}
+
+.closeEmojiIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.chatInputContainer {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px 16px 8px;
+  box-sizing: border-box;
+  min-height: 56px;
+}
+
+.inputActionLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+.attachBtn,
+.emojiToggleBtn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0 !important;
+  border-radius: 50%;
+  border: 1px solid var(--border-light, #e2e8f0);
+  background: var(--bg-surface, #f8fafc);
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.attachBtn:hover:not(:disabled),
+.emojiToggleBtn:hover:not(:disabled) {
+  background: var(--bg-hover, #edf2f7);
+  border-color: var(--primary-blue);
   color: var(--primary-blue);
-  transform: scale(1.05);
+  transform: translateY(-1px);
+}
+
+.emojiToggleBtnActive {
+  background: rgba(37, 99, 235, 0.12) !important;
+  border-color: var(--primary-blue) !important;
+  color: var(--primary-blue) !important;
+}
+
+.inputIconSvg {
+  width: 18px;
+  height: 18px;
+}
+
+.inputFieldContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .messageInput {
-  flex: 1;
-  padding: 10px 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 24px;
+  width: 100%;
+  padding: 9px 14px;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 16px;
   background: var(--bg-surface, #f8fafc);
   font-size: 0.92rem;
-  color: var(--text-main);
+  color: var(--text-main, #0f172a);
   outline: none;
   resize: none;
-  min-height: 42px;
-  max-height: 120px;
-  line-height: 1.4;
+  min-height: 40px;
+  max-height: 130px;
+  line-height: 1.45;
   box-sizing: border-box;
   font-family: inherit;
   transition: all 0.2s ease;
 }
 
 .messageInput:focus {
-  background: var(--bg-card);
-  border-color: var(--primary-blue);
+  background: var(--bg-card, #ffffff);
+  border-color: var(--primary-blue, #2563eb);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.inputHelperBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.keyboardShortcutHint {
+  font-size: 0.68rem;
+  color: var(--text-muted, #94a3b8);
+  user-select: none;
+}
+
+.hintKbd {
+  display: inline-block;
+  padding: 1px 4px;
+  background: var(--bg-surface, #f1f5f9);
+  border: 1px solid var(--border-light, #cbd5e1);
+  border-radius: 4px;
+  font-size: 0.64rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--text-main, #475569);
 }
 
 .sendBtn {
@@ -2076,35 +2571,41 @@
   height: 38px;
   min-width: 38px;
   min-height: 38px;
+  margin-bottom: 4px;
   flex-shrink: 0 !important;
-  border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-hover) 100%);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-blue, #2563eb) 0%, var(--primary-blue-hover, #1d4ed8) 100%);
   color: #ffffff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
 }
 
 .sendBtn:hover:not(:disabled) {
-  transform: scale(1.06);
+  transform: translateY(-1px) scale(1.05);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
 }
 
 .sendBtn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
+  transform: none;
+}
+
+.sendIconSvg {
+  width: 17px;
+  height: 17px;
+  transform: translate(1px, -1px);
 }
 
 .sendingDot {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   border: 2px solid #ffffff;
   border-top-color: transparent;
   border-radius: 50%;
@@ -2180,8 +2681,16 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 280px;
+  min-width: 0;
   flex: 1 1 auto;
+}
+
+.inAppBtnLabelLong {
+  display: inline;
+}
+
+.inAppBtnLabelShort {
+  display: none;
 }
 
 .inAppConferenceLiveDot,
@@ -2249,6 +2758,7 @@
   gap: 6px;
   flex-wrap: wrap;
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .inAppSwitchChatBtn,
@@ -5240,6 +5750,40 @@
   background: #151b28;
 }
 
+:global([data-theme='dark']) .chatDeletedAlertBanner {
+  background: linear-gradient(135deg, rgba(136, 19, 55, 0.45) 0%, rgba(159, 18, 57, 0.3) 100%);
+  border-bottom-color: rgba(244, 63, 94, 0.35);
+  color: #fecdd3;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme='dark']) .chatDeletedAlertTitle {
+  color: #fda4af;
+}
+
+:global([data-theme='dark']) .chatDeletedAlertMsg {
+  color: #fecdd3;
+}
+
+:global([data-theme='dark']) .chatDeletedAlertTime {
+  color: #f43f5e;
+}
+
+:global([data-theme='dark']) .chatDeletedAlertClose {
+  color: #fda4af;
+}
+
+:global([data-theme='dark']) .chatDeletedAlertClose:hover {
+  background: rgba(244, 63, 94, 0.25);
+  color: #ffffff;
+}
+
+:global([data-theme='dark']) .deletedMessageBubble {
+  background: #182030 !important;
+  border-color: #27354a !important;
+  color: #94a3b8 !important;
+}
+
 :global([data-theme='dark']) .messagesArea {
   background: #0b0f17;
 }
@@ -5277,32 +5821,136 @@
   color: #f1f5f9;
 }
 
+:global([data-theme='dark']) .ownBubble .fileAttachmentCard {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #0f172a;
+}
+
+:global([data-theme='dark']) .fileAttachmentCard:hover {
+  background: #222d42;
+  border-color: #3b82f6;
+}
+
+:global([data-theme='dark']) .fileName {
+  color: #f1f5f9;
+}
+
+:global([data-theme='dark']) .fileAction {
+  color: #94a3b8;
+}
+
+:global([data-theme='dark']) .fileDownloadBtn {
+  background: #26334a;
+  color: #60a5fa;
+}
+
+:global([data-theme='dark']) .imageAttachmentCard {
+  border-color: #334155;
+  background: #0f172a;
+}
+
+:global([data-theme='dark']) .messageHoverToolbar {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+:global([data-theme='dark']) .messageActionBtn {
+  color: #94a3b8;
+}
+
+:global([data-theme='dark']) .messageActionBtn:hover {
+  background: #283548;
+  color: #60a5fa;
+}
+
+:global([data-theme='dark']) .messageActionBtnDelete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+:global([data-theme='dark']) .otherInlineCode {
+  background: #0f172a;
+  border-color: #334155;
+  color: #38bdf8;
+}
+
+:global([data-theme='dark']) .chatInputWrapper {
+  background: #111827;
+  border-top-color: #1f2937;
+}
+
+:global([data-theme='dark']) .quickEmojiBar {
+  background: #0d131f;
+  border-bottom-color: #1f2937;
+}
+
+:global([data-theme='dark']) .quickEmojiBtn:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+:global([data-theme='dark']) .closeEmojiBtn {
+  color: #94a3b8;
+}
+
+:global([data-theme='dark']) .closeEmojiBtn:hover {
+  background: #1f2937;
+  color: #f8fafc;
+}
+
 :global([data-theme='dark']) .inputArea {
   background: #151b28;
   border-top-color: #252e3e;
 }
 
-:global([data-theme='dark']) .attachBtn {
+:global([data-theme='dark']) .attachBtn,
+:global([data-theme='dark']) .emojiToggleBtn {
   background: #1e293b;
   border-color: #334155;
   color: #94a3b8;
 }
 
-:global([data-theme='dark']) .attachBtn:hover {
+:global([data-theme='dark']) .attachBtn:hover,
+:global([data-theme='dark']) .emojiToggleBtn:hover {
   background: #26334a;
+  border-color: #3b82f6;
   color: #60a5fa;
 }
 
+:global([data-theme='dark']) .emojiToggleBtnActive {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: #3b82f6 !important;
+  color: #60a5fa !important;
+}
+
 :global([data-theme='dark']) .messageInput {
-  background: #0f1420;
+  background: #0b0f19;
   border-color: #2e384d;
   color: #f8fafc;
 }
 
 :global([data-theme='dark']) .messageInput:focus {
-  background: #0f1420;
+  background: #0b0f19;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+:global([data-theme='dark']) .hintKbd {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+:global([data-theme='dark']) .emptyMessageIconWrapper {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(96, 165, 250, 0.25) 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+:global([data-theme='dark']) .emptyMessageBadge {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
 }
 
 :global([data-theme='dark']) .modeSwitcherContainer {
@@ -6849,5 +7497,262 @@
     min-width: 34px !important;
     min-height: 34px !important;
     font-size: 1rem !important;
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN FOR IN-APP VIDEO CONFERENCE & CHAT (ALL SCREEN SIZES)
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .chatSplitArea {
+    flex-direction: column !important;
+  }
+  .splitVideoPane {
+    flex: 1 1 50% !important;
+    min-height: 260px !important;
+  }
+  .splitChatPane {
+    flex: 1 1 50% !important;
+    min-height: 280px !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .inAppBtnLabelLong {
+    display: none !important;
+  }
+  .inAppBtnLabelShort {
+    display: inline !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .inAppConferenceHeader {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+  .inAppConferenceTitle {
+    font-size: 0.95rem !important;
+  }
+  .inAppConferenceMeta {
+    gap: 6px !important;
+    font-size: 0.72rem !important;
+  }
+  .inAppHdAudioBadge {
+    padding: 1px 6px !important;
+    font-size: 0.68rem !important;
+  }
+  .inAppConferenceHeaderActions {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    gap: 6px !important;
+  }
+  .inAppConferenceHeaderActions::-webkit-scrollbar {
+    display: none;
+  }
+  .inAppSwitchChatBtn,
+  .inAppInviteBtn,
+  .inAppFullscreenBtn {
+    padding: 5px 9px !important;
+    font-size: 0.74rem !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  .inAppVideoStage {
+    padding: 10px !important;
+    gap: 10px !important;
+  }
+  .inAppControlBar {
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+  .inAppControlBtn {
+    min-width: 58px !important;
+    height: 50px !important;
+    padding: 4px 8px !important;
+    border-radius: 10px !important;
+  }
+  .inAppControlLabel {
+    font-size: 0.66rem !important;
+  }
+  .inAppEndCallBtn {
+    min-width: 64px !important;
+    height: 50px !important;
+    padding: 4px 10px !important;
+    border-radius: 10px !important;
+  }
+  .inAppEndCallBtn .inAppControlLabel {
+    font-size: 0.66rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Mobile Header */
+  .chatHeader {
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    padding: 0 10px !important;
+    gap: 6px !important;
+  }
+  .roomAvatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.82rem !important;
+  }
+  .chatHeaderTitle {
+    font-size: 0.88rem !important;
+    max-width: 110px !important;
+  }
+  .modeSwitcherContainer {
+    padding: 2px !important;
+    gap: 1px !important;
+  }
+  .modeSwitchBtn {
+    padding: 4px 6px !important;
+  }
+  .modeHeaderIcon {
+    width: 15px !important;
+    height: 15px !important;
+  }
+  .headerActionBtn {
+    padding: 4px 6px !important;
+    min-width: 30px !important;
+  }
+  .headerBtnIcon {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* In-App Video Conference Mobile View */
+  .inAppConferenceHeader {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .inAppConferenceTitleGroup {
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 8px !important;
+  }
+  .inAppConferenceHeaderActions {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    gap: 6px !important;
+    padding-bottom: 2px !important;
+  }
+  .inAppVideoStage {
+    padding: 6px !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+  .inAppVideoGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 6px !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+  }
+  .inAppParticipantCard {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 290px) !important;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px !important;
+  }
+  .inAppWaitingNotice {
+    flex: 0 0 auto !important;
+    padding: 10px 12px !important;
+    margin-top: 4px !important;
+    border-radius: 10px !important;
+  }
+  .inAppWaitingNotice h5 {
+    font-size: 0.82rem !important;
+    margin-bottom: 2px !important;
+  }
+  .inAppWaitingNotice p {
+    font-size: 0.72rem !important;
+    line-height: 1.3 !important;
+  }
+
+  /* Single-Row Floating Action Button Bar on Mobile */
+  .inAppControlBar {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: center !important;
+  }
+  .inAppControlBar::-webkit-scrollbar {
+    display: none;
+  }
+  .inAppControlBtn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-direction: row !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  }
+  .inAppControlLabel {
+    display: none !important;
+  }
+  .inAppControlIcon {
+    font-size: 1.25rem !important;
+  }
+  .inAppEndCallBtn {
+    width: 48px !important;
+    height: 44px !important;
+    min-width: 48px !important;
+    min-height: 44px !important;
+    border-radius: 22px !important;
+    padding: 0 10px !important;
+    box-shadow: 0 2px 10px rgba(220, 38, 38, 0.45) !important;
+  }
+  .inAppEndCallBtn .inAppControlLabel {
+    display: none !important;
+  }
+  .inAppEndCallBtn .inAppControlIcon {
+    font-size: 1.25rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .inAppConferenceTitle {
+    font-size: 0.88rem !important;
+  }
+  .inAppConferenceMeta {
+    font-size: 0.68rem !important;
+    gap: 4px !important;
+  }
+  .inAppControlBar {
+    gap: 6px !important;
+    padding: 6px 8px !important;
+  }
+  .inAppControlBtn {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+  .inAppControlIcon {
+    font-size: 1.15rem !important;
+  }
+  .inAppEndCallBtn {
+    width: 44px !important;
+    height: 40px !important;
+    min-width: 44px !important;
+    min-height: 40px !important;
   }
 }

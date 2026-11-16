@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ChatMessage, ChatRoom } from '../../../api/chatApi';
 import { buildAttachmentUrl } from '../../../utils/attachmentUtils';
 import {
@@ -10,6 +10,15 @@ import {
   getMeetingEventStatus,
   getEffectiveConferenceUrl,
 } from '../types';
+import {
+  DocumentDuplicateIcon,
+  TrashIcon,
+  CheckIcon,
+  ArrowDownTrayIcon,
+  DocumentTextIcon,
+  EyeIcon,
+  ChatBubbleLeftRightIcon,
+} from '@heroicons/react/24/outline';
 import styles from '../ChatPage.module.css';
 
 interface ChatMessagesAreaProps {
@@ -25,6 +34,29 @@ interface ChatMessagesAreaProps {
   participants?: any[];
 }
 
+const getFileMeta = (fileName: string = '') => {
+  const ext = fileName.split('.').pop()?.toUpperCase() || 'FILE';
+  if (['PDF'].includes(ext)) {
+    return { ext, label: 'PDF Document', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' };
+  }
+  if (['DOC', 'DOCX'].includes(ext)) {
+    return { ext, label: 'Word Document', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' };
+  }
+  if (['XLS', 'XLSX', 'CSV'].includes(ext)) {
+    return { ext, label: 'Spreadsheet', color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' };
+  }
+  if (['PPT', 'PPTX'].includes(ext)) {
+    return { ext, label: 'Presentation', color: '#d97706', bg: '#fffbeb', border: '#fde68a' };
+  }
+  if (['ZIP', 'RAR', '7Z', 'TAR', 'GZ'].includes(ext)) {
+    return { ext, label: 'Archive', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' };
+  }
+  if (['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP', 'SVG'].includes(ext)) {
+    return { ext, label: 'Image', color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc' };
+  }
+  return { ext, label: 'Attachment', color: '#4b5563', bg: '#f3f4f6', border: '#e5e7eb' };
+};
+
 export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
   selectedRoom,
   currentUser,
@@ -37,16 +69,68 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
   isUserOnline,
   participants,
 }) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyMessage = (id: string, text: string) => {
+    if (!text) return;
+    copyToClipboard(text, 'Message copied to clipboard');
+    setCopiedId(id);
+    setTimeout(() => {
+      setCopiedId(null);
+    }, 2000);
+  };
+
+  const renderFormattedMessageText = (text: string, isOwn: boolean) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return lines.map((line, lineIdx) => {
+      const parts = line.split(/(https?:\/\/[^\s]+|`[^`]+`)/g);
+      return (
+        <React.Fragment key={lineIdx}>
+          {parts.map((part, partIdx) => {
+            if (/^https?:\/\//i.test(part)) {
+              return (
+                <a
+                  key={partIdx}
+                  href={part}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={isOwn ? styles.ownMessageLink : styles.otherMessageLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {part}
+                </a>
+              );
+            }
+            if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+              return (
+                <code key={partIdx} className={isOwn ? styles.ownInlineCode : styles.otherInlineCode}>
+                  {part.slice(1, -1)}
+                </code>
+              );
+            }
+            return part;
+          })}
+          {lineIdx < lines.length - 1 && <br />}
+        </React.Fragment>
+      );
+    });
+  };
   return (
     <div className={styles.messagesArea}>
       {messageGroups.length === 0 ? (
         <div className={styles.emptyMessagesArea}>
-          <div className={styles.emptyMessageGraphic}>👋</div>
-          <h3>Start the Conversation</h3>
-          <p>
-            This is the beginning of the discussion in <strong>{selectedRoom.name}</strong>.
-            Send a message, invite members, or start an in-app video conference below.
+          <div className={styles.emptyMessageIconWrapper}>
+            <ChatBubbleLeftRightIcon className={styles.emptyMessageSvg} />
+          </div>
+          <h3 className={styles.emptyMessagesTitle}>Start the Conversation</h3>
+          <p className={styles.emptyMessagesSubtitle}>
+            This is the beginning of the workspace discussion in <strong>{selectedRoom.name}</strong>.
+            Send a text message, attach relevant documents, or start a video conference.
           </p>
+          <div className={styles.emptyMessageBadge}>
+            <span>💬 Real-Time Workspace Communications</span>
+          </div>
         </div>
       ) : (
         messageGroups.map((group) => (
@@ -56,9 +140,63 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
             </div>
 
             {group.items.map((msg) => {
-              const isOwn = msg.sender_id === currentUser.id;
+              const isOwn = Boolean(
+                currentUser?.id &&
+                msg.sender_id &&
+                String(msg.sender_id).trim() === String(currentUser.id).trim()
+              );
               const roleStyle = getRoleColor(msg.sender_role || msg.role_name || '');
               const meetingInfo = parseMeetingMessage(msg.message);
+
+              if (msg.is_deleted || msg.is_deleted_for_me) {
+                let deletedText = '';
+                if (msg.is_deleted_for_me) {
+                  deletedText = 'the chat deleted for you';
+                } else if (isOwn) {
+                  deletedText = 'you deleted chat';
+                } else {
+                  deletedText = 'the creator deleted the chat created';
+                }
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`${styles.messageRow} ${
+                      isOwn ? styles.ownMessageRow : styles.otherMessageRow
+                    }`}
+                  >
+                    {!isOwn && (
+                      <div
+                        className={styles.senderAvatar}
+                        style={{
+                          background: getAvatarGradient(`${msg.first_name} ${msg.last_name}`),
+                        }}
+                      >
+                        {msg.first_name?.[0] || 'U'}
+                      </div>
+                    )}
+                    <div className={styles.messageBubbleWrapper}>
+                      <div
+                        className={`${styles.messageBubble} ${
+                          isOwn ? styles.ownBubble : styles.otherBubble
+                        } ${styles.deletedMessageBubble}`}
+                      >
+                        <div className={styles.deletedMessageContent}>
+                          <span className={styles.deletedMessageIcon}>🚫</span>
+                          <span className={styles.deletedMessageText}>
+                            {deletedText}
+                          </span>
+                        </div>
+                        <div className={styles.messageMeta}>
+                          <span className={styles.messageTimestamp}>
+                            {formatTimeOnly(msg.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -169,7 +307,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                   <span className={styles.meetTimestamp}>
                                     {formatTimeOnly(msg.created_at)}
                                   </span>
-                                  {isOwn && onDeleteMessage && (
+                                  {onDeleteMessage && (
                                     <button
                                       type="button"
                                       className={styles.messageDeleteIconBtn}
@@ -548,7 +686,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                   ↗ Open Tab
                                 </button>
 
-                                {isOwn && onDeleteMessage && (
+                                {onDeleteMessage && (
                                   <button
                                     type="button"
                                     className={styles.meetDeleteBtn}
@@ -569,7 +707,7 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                         return (
                           <>
                             {msg.attachment_path && msg.message_type === 'image' ? (
-                              <div className={styles.imageAttachment}>
+                              <div className={styles.imageAttachmentCard}>
                                 <img
                                   src={buildAttachmentUrl(msg.attachment_path)}
                                   alt={msg.attachment_name || 'Attached Image'}
@@ -581,51 +719,141 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                     )
                                   }
                                 />
+                                <div className={styles.imageHoverOverlay}>
+                                  <button
+                                    type="button"
+                                    className={styles.imageActionBtn}
+                                    onClick={() =>
+                                      window.open(buildAttachmentUrl(msg.attachment_path), '_blank')
+                                    }
+                                    title="View Full Size"
+                                  >
+                                    <EyeIcon className={styles.imageActionIcon} />
+                                    <span>View</span>
+                                  </button>
+                                </div>
                               </div>
                             ) : msg.attachment_path ? (
-                              <a
-                                href={buildAttachmentUrl(msg.attachment_path)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.fileAttachmentCard}
-                              >
-                                <span className={styles.fileIcon}>📄</span>
-                                <div className={styles.fileInfo}>
-                                  <span className={styles.fileName}>
-                                    {msg.attachment_name || 'Download File'}
-                                  </span>
-                                  <span className={styles.fileAction}>Click to open / download</span>
-                                </div>
-                                <span className={styles.downloadIcon}>⬇</span>
-                              </a>
+                              (() => {
+                                const fileMeta = getFileMeta(msg.attachment_name || '');
+                                return (
+                                  <a
+                                    href={buildAttachmentUrl(msg.attachment_path)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.fileAttachmentCard}
+                                    title={`Open or download ${msg.attachment_name || 'file'}`}
+                                  >
+                                    <div
+                                      className={styles.fileBadgeIcon}
+                                      style={{
+                                        background: fileMeta.bg,
+                                        borderColor: fileMeta.border,
+                                        color: fileMeta.color,
+                                      }}
+                                    >
+                                      <DocumentTextIcon className={styles.fileSvgIcon} />
+                                      <span className={styles.fileExtBadge}>{fileMeta.ext}</span>
+                                    </div>
+                                    <div className={styles.fileInfo}>
+                                      <span className={styles.fileName}>
+                                        {msg.attachment_name || 'Attached File'}
+                                      </span>
+                                      <span className={styles.fileAction}>
+                                        {fileMeta.label} • Click to open/download
+                                      </span>
+                                    </div>
+                                    <div className={styles.fileDownloadBtn} title="Download file">
+                                      <ArrowDownTrayIcon className={styles.downloadSvgIcon} />
+                                    </div>
+                                  </a>
+                                );
+                              })()
                             ) : null}
 
-                            <div className={styles.messageText}>{msg.message}</div>
+                            {msg.message && (
+                              <div className={styles.messageText}>
+                                {renderFormattedMessageText(msg.message, isOwn)}
+                              </div>
+                            )}
                           </>
                         );
                       })()}
 
-                      {/* Only render outer messageMeta if message is NOT a video conference card */}
+                      {/* Floating hover toolbar for text messages */}
+                      {!meetingInfo && (
+                        <div
+                          className={`${styles.messageHoverToolbar} ${
+                            isOwn ? styles.ownHoverToolbar : styles.otherHoverToolbar
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className={styles.messageActionBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyMessage(msg.id, msg.message);
+                            }}
+                            title={copiedId === msg.id ? 'Copied to clipboard!' : 'Copy message text'}
+                            aria-label="Copy message"
+                          >
+                            {copiedId === msg.id ? (
+                              <CheckIcon className={styles.actionBtnIconCopied} />
+                            ) : (
+                              <DocumentDuplicateIcon className={styles.actionBtnIcon} />
+                            )}
+                          </button>
+
+                          {onDeleteMessage && (
+                            <button
+                              type="button"
+                              className={`${styles.messageActionBtn} ${styles.messageActionBtnDelete}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteMessage(msg);
+                              }}
+                              title={
+                                isOwn
+                                  ? 'Delete message (For Everyone / For Me)'
+                                  : 'Delete message only for me'
+                              }
+                              aria-label="Delete message"
+                            >
+                              <TrashIcon className={styles.actionBtnIcon} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Message metadata (timestamp, edited flag, delivery checkmarks) */}
                       {!meetingInfo && (
                         <div className={styles.messageMeta}>
                           <span className={styles.messageTimestamp}>
                             {formatTimeOnly(msg.created_at)}
                           </span>
                           {msg.is_edited && <span className={styles.editedTag}>(edited)</span>}
-                          {isOwn && <span className={styles.checkmarks}>✓✓</span>}
-                          {onDeleteMessage && (
-                            <button
-                              type="button"
-                              className={styles.messageDeleteIconBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteMessage(msg);
-                              }}
-                              title={isOwn ? 'Delete message (For Everyone / For Me)' : 'Delete message only for me'}
-                              aria-label="Delete message"
-                            >
-                              🗑️
-                            </button>
+                          {isOwn && (
+                            <span className={styles.checkmarks} title="Delivered and read">
+                              <svg
+                                className={styles.doubleCheckSvg}
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2.4"
+                                  d="M3 13.5l4 4L17 7.5"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2.4"
+                                  d="M7 13.5l4 4L21 7.5"
+                                />
+                              </svg>
+                            </span>
                           )}
                         </div>
                       )}

@@ -44,18 +44,42 @@ const applyScopeToQuery = (scope, query) => {
 const canAccessTicket = async (user, ticket) => {
   if (!ticket) return false;
   if (user.role === 'admin' || user.role === 'ceo') return true;
-  if (user.role === 'tenant') return ticket.tenant_id === user.tenant_id;
-  if (user.role === 'staff') return ticket.assigned_to === user.id;
-  if (user.role === 'manager') {
-    const deptIds = await ticketRepo.getManagerDepartmentIds(user.id);
-    // Standard dept-based access
-    if (ticket.department_id && deptIds.includes(ticket.department_id)) return true;
-    // Direct assignment: allow if the ticket's dept is manager's (or unset) — not cross-dept
-    if (ticket.assigned_to === user.id) {
-      return !ticket.department_id || deptIds.includes(ticket.department_id);
-    }
-    return false;
+  if (user.role === 'tenant') {
+    return ticket.tenant_id === user.tenant_id || ticket.created_by === user.id;
   }
+
+  // 1. Direct assignment: if user is directly assigned to the ticket, allow access
+  if (
+    (ticket.assigned_to && ticket.assigned_to === user.id) ||
+    (ticket.current_assigned_user_id && ticket.current_assigned_user_id === user.id)
+  ) {
+    return true;
+  }
+
+  // 2. Active or historical assignment on this ticket in assignments table
+  try {
+    const [assignmentRows] = await pool.query(
+      'SELECT 1 FROM assignments WHERE ticket_id = ? AND (assigned_to = ? OR assigned_by = ?) LIMIT 1',
+      [ticket.id, user.id, user.id]
+    );
+    if (assignmentRows && assignmentRows.length > 0) return true;
+  } catch (err) {
+    console.error('[canAccessTicket] Error querying assignments:', err.message);
+  }
+
+  // 3. Department-based access for manager / staff
+  try {
+    const userDeptIds = await ticketRepo.getUserDepartmentIds(user.id);
+    const managerDeptIds = user.role === 'manager' ? await ticketRepo.getManagerDepartmentIds(user.id) : [];
+    const allDepts = Array.from(new Set([...userDeptIds, ...managerDeptIds]));
+
+    if (ticket.department_id && allDepts.includes(ticket.department_id)) return true;
+    if (ticket.auto_department_id && allDepts.includes(ticket.auto_department_id)) return true;
+    if (ticket.current_department_id && allDepts.includes(ticket.current_department_id)) return true;
+  } catch (err) {
+    console.error('[canAccessTicket] Error checking department access:', err.message);
+  }
+
   return false;
 };
 
@@ -223,19 +247,22 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
   const referenceNumber = await ticketRepo.generateReferenceNumber();
   const trackNumber = ticketRepo.generateTrackNumber();
   const priority = payload.priority || 'medium';
-  const effectivePolicy = await slaService.resolveEffectivePolicy(categoryId, priority, catInfo.sla_policy_id);
-  const dueDates = slaService.computeAllDueDates(
-    effectivePolicy || {
-      priority,
-      response_hours: 4,
-      resolution_hours: 24,
-      escalation_hours: 0,
-      working_hours: null,
-    },
-    new Date()
-  );
-  const dueDate = dueDates.resolutionDueDate;
-  const slaPolicyId = effectivePolicy?.id || catInfo.sla_policy_id || null;
+  const specificPolicy = await slaService.findSpecificPolicyForCategoryAndPriority(categoryId, priority);
+  let dueDates = null;
+  let dueDate = null;
+  let responseDueDate = null;
+  let escalationDueDate = null;
+  let slaPolicyId = null;
+  let slaAgreementAccepted = false;
+
+  if (specificPolicy) {
+    slaPolicyId = specificPolicy.id;
+    dueDates = slaService.computeAllDueDates(specificPolicy, new Date());
+    dueDate = dueDates.resolutionDueDate;
+    responseDueDate = dueDates.responseDueDate;
+    escalationDueDate = dueDates.escalationDueDate;
+    slaAgreementAccepted = true;
+  }
 
   await ticketRepo.create({
     id,
@@ -251,13 +278,13 @@ export const createTicket = async (user, payload, files = [], meta = {}) => {
     category: canonicalCategory,
     status: 'open',
     dueDate,
-    responseDueDate: dueDates.responseDueDate,
-    escalationDueDate: dueDates.escalationDueDate,
+    responseDueDate,
+    escalationDueDate,
     slaPolicyId,
     autoDepartmentId: departmentId,
     routingType,
-    slaAgreementAccepted: true,
-    slaAgreementAcceptedAt: new Date(),
+    slaAgreementAccepted,
+    slaAgreementAcceptedAt: slaAgreementAccepted ? new Date() : null,
   });
 
   const initialComment = payload.comment || payload.attachmentComment || 'Initial ticket attachment';

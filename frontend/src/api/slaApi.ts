@@ -17,17 +17,20 @@ export interface SLAPolicy {
 }
 
 export interface SLAPreview {
+  exists?: boolean;
+  hasPolicy?: boolean;
   policyId: string | null;
-  policyName: string;
+  policyName?: string | null;
   priority: string;
   category: string;
   categoryId: string | null;
-  responseHours: number;
-  resolutionHours: number;
+  responseHours?: number;
+  resolutionHours?: number;
   escalationHours?: number | null;
-  responseDueDate: string;
-  resolutionDueDate: string;
-  escalationDueDate: string | null;
+  responseDueDate?: string;
+  resolutionDueDate?: string;
+  escalationDueDate?: string | null;
+  message?: string;
 }
 
 export const fetchSLAPolicies = (params?: { includeInactive?: boolean; categoryId?: string }) =>
@@ -39,7 +42,7 @@ export const fetchSLAPolicy = (id: string) =>
 export const fetchSLAPolicyByCategoryAndPriority = (categoryId: string, priority: string) =>
   api.get<{ success: boolean; data: SLAPolicy }>(`/sla/find`, { params: { categoryId, priority } });
 
-export const previewSLA = (params: { categoryId?: string; priority: string; createdAt?: string }) =>
+export const previewSLA = (params: { categoryId?: string; category?: string; priority: string; createdAt?: string }) =>
   api.get<{ success: boolean; data: SLAPreview }>('/sla/preview', { params });
 
 export const createSLAPolicy = (payload: {

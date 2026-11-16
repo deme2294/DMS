@@ -764,27 +764,28 @@
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .inputLabel {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #1e293b;
-  letter-spacing: 0.01em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 
 [data-theme='dark'] .inputLabel {
-  color: #e2e8f0;
+  color: #94a3b8;
 }
 
 .requiredStar {
   color: #ef4444;
-  font-weight: 800;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 0.78rem;
   line-height: 1;
 }
 
@@ -792,11 +793,11 @@
 .inputWrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
-  border-radius: 12px;
+  border-radius: 10px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
@@ -830,8 +831,8 @@
 }
 
 .inputIcon {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   color: #64748b;
   flex-shrink: 0;
   transition: color 0.2s ease;
@@ -849,10 +850,10 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.94rem;
+  font-size: 0.88rem;
   color: var(--text-main, #0f172a);
   width: 100%;
-  font-weight: 600;
+  font-weight: 500;
   font-family: inherit;
 }
 
@@ -1305,11 +1306,13 @@
   align-items: center;
   gap: 14px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .resetBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 13px 24px;
   border: 1.5px solid #cbd5e1;
@@ -1321,6 +1324,9 @@
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
 }
 
 .resetBtn:hover:not(:disabled) {
@@ -1349,6 +1355,7 @@
 .saveProfileBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
   padding: 13px 32px;
   border: none;
@@ -1361,6 +1368,9 @@
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.32);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   font-family: inherit;
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
 }
 
 .saveProfileBtn:hover:not(:disabled) {
@@ -1418,6 +1428,13 @@
     padding: 16px 18px;
   }
 
+  .submitBar {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .resetBtn,
   .saveProfileBtn {
     width: 100%;
     justify-content: center;

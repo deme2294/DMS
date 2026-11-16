@@ -402,6 +402,74 @@
   font-weight: 700;
 }
 
+/* ── SLA Warning and Unconfigured Card ── */
+.slaWarningCard {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 1.5px solid rgba(245, 158, 11, 0.35) !important;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slaWarningHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slaWarningTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #b45309;
+  letter-spacing: -0.01em;
+}
+
+.slaWarningDesc {
+  margin: 2px 0 0 0;
+  font-size: 0.86rem;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.slaUnconfigured {
+  color: #d97706 !important;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slaNoteUnconfigured {
+  color: #92400e !important;
+  background: rgba(254, 243, 199, 0.6) !important;
+  border-color: #fde68a !important;
+}
+
+:global([data-theme="dark"]) .slaWarningCard {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .slaWarningTitle {
+  color: #fbbf24 !important;
+}
+
+:global([data-theme="dark"]) .slaWarningDesc {
+  color: #fde68a !important;
+}
+
+:global([data-theme="dark"]) .slaUnconfigured {
+  color: #fbbf24 !important;
+}
+
+:global([data-theme="dark"]) .slaNoteUnconfigured {
+  color: #fde68a !important;
+  background: rgba(120, 53, 15, 0.28) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
 .slaNote {
   margin: 16px 0 0 0;
   font-size: 0.82rem;

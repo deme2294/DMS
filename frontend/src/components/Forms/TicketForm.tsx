@@ -86,10 +86,18 @@ export default function TicketForm({
       try {
         const catObj = categories.find((c) => typeof c === 'string' ? c === watchedCategory : (c as any).name === watchedCategory);
         const categoryId = typeof catObj === 'object' && catObj ? catObj.id : undefined;
-        const res = await previewSLA({ categoryId, priority: watchedPriority });
+        const res = await previewSLA({ categoryId, category: watchedCategory, priority: watchedPriority });
         setSlaPreview(res.data.data);
       } catch {
-        setSlaPreview(null);
+        setSlaPreview({
+          exists: false,
+          hasPolicy: false,
+          policyId: null,
+          priority: watchedPriority,
+          category: watchedCategory,
+          categoryId: null,
+          message: 'SLA is not created for the ticket categories and priority given',
+        });
       } finally {
         setLoadingSla(false);
       }
@@ -255,58 +263,107 @@ export default function TicketForm({
             </svg>
             Service Level Agreement
           </h4>
-          <div className={styles.slaGrid}>
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>Category</span>
-              <span className={styles.slaValue}>{slaPreview.category}</span>
-            </div>
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>Priority</span>
-              <span className={styles.slaValue}>{slaPreview.priority}</span>
-            </div>
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>First Response</span>
-              <span className={styles.slaValue}>{slaPreview.responseHours} Hour(s)</span>
-            </div>
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>Resolution Time</span>
-              <span className={styles.slaValue}>{slaPreview.resolutionHours} Hour(s)</span>
-            </div>
-            {Boolean(slaPreview.escalationHours && slaPreview.escalationHours > 0) && (
-              <div className={styles.slaItem}>
-                <span className={styles.slaLabel}>Escalation After</span>
-                <span className={styles.slaValue}>{slaPreview.escalationHours} Hour(s)</span>
+
+          {slaPreview.hasPolicy !== false && slaPreview.policyId ? (
+            <>
+              <div className={styles.slaGrid}>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Category</span>
+                  <span className={styles.slaValue}>{slaPreview.category || watchedCategory}</span>
+                </div>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Priority</span>
+                  <span className={styles.slaValue} style={{ textTransform: 'capitalize' }}>{slaPreview.priority || watchedPriority}</span>
+                </div>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>First Response</span>
+                  <span className={styles.slaValue}>{slaPreview.responseHours ?? 4} Hour(s)</span>
+                </div>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Resolution Time</span>
+                  <span className={styles.slaValue}>{slaPreview.resolutionHours ?? 24} Hour(s)</span>
+                </div>
+                {Boolean(slaPreview.escalationHours && slaPreview.escalationHours > 0) && (
+                  <div className={styles.slaItem}>
+                    <span className={styles.slaLabel}>Escalation After</span>
+                    <span className={styles.slaValue}>{slaPreview.escalationHours} Hour(s)</span>
+                  </div>
+                )}
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Response Due</span>
+                  <span className={styles.slaValue}>{formatDate(slaPreview.responseDueDate || '')}</span>
+                </div>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Resolution Due</span>
+                  <span className={styles.slaValue}>{formatDate(slaPreview.resolutionDueDate || '')}</span>
+                </div>
+                {slaPreview.escalationDueDate && (
+                  <div className={styles.slaItem}>
+                    <span className={styles.slaLabel}>Escalation Due</span>
+                    <span className={styles.slaValue}>{formatDate(slaPreview.escalationDueDate)}</span>
+                  </div>
+                )}
+                <div className={`${styles.slaItem} ${styles.slaFullWidth}`}>
+                  <span className={styles.slaLabel}>Agreement Status</span>
+                  <span className={`${styles.slaValue} ${styles.slaAccepted}`}>
+                    ✓ Auto-accepted on submission
+                  </span>
+                </div>
               </div>
-            )}
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>Response Due</span>
-              <span className={styles.slaValue}>{formatDate(slaPreview.responseDueDate)}</span>
-            </div>
-            <div className={styles.slaItem}>
-              <span className={styles.slaLabel}>Resolution Due</span>
-              <span className={styles.slaValue}>{formatDate(slaPreview.resolutionDueDate)}</span>
-            </div>
-            {slaPreview.escalationDueDate && (
-              <div className={styles.slaItem}>
-                <span className={styles.slaLabel}>Escalation Due</span>
-                <span className={styles.slaValue}>{formatDate(slaPreview.escalationDueDate)}</span>
+              <p className={styles.slaNote}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                By submitting this ticket, you automatically accept the SLA terms for the selected category and priority. This ensures transparency and sets clear expectations for response and resolution times.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className={styles.slaGrid}>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Category</span>
+                  <span className={styles.slaValue}>{slaPreview.category || watchedCategory}</span>
+                </div>
+                <div className={styles.slaItem}>
+                  <span className={styles.slaLabel}>Priority</span>
+                  <span className={styles.slaValue} style={{ textTransform: 'capitalize' }}>{slaPreview.priority || watchedPriority}</span>
+                </div>
+
+                <div className={`${styles.slaItem} ${styles.slaFullWidth} ${styles.slaWarningCard}`}>
+                  <div className={styles.slaWarningHeader}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <span className={styles.slaWarningTitle}>
+                      SLA is not created for the ticket categories and priority given
+                    </span>
+                  </div>
+                  <p className={styles.slaWarningDesc}>
+                    No Service Level Agreement policy has been created for category &quot;<strong>{slaPreview.category || watchedCategory}</strong>&quot; with &quot;<strong>{slaPreview.priority || watchedPriority}</strong>&quot; priority.
+                  </p>
+                </div>
+
+                <div className={`${styles.slaItem} ${styles.slaFullWidth}`}>
+                  <span className={styles.slaLabel}>Agreement Status</span>
+                  <span className={`${styles.slaValue} ${styles.slaUnconfigured}`}>
+                    ⚠️ No SLA Configured for this Category & Priority
+                  </span>
+                </div>
               </div>
-            )}
-            <div className={`${styles.slaItem} ${styles.slaFullWidth}`}>
-              <span className={styles.slaLabel}>Agreement Status</span>
-              <span className={`${styles.slaValue} ${styles.slaAccepted}`}>
-                ✓ Auto-accepted on submission
-              </span>
-            </div>
-          </div>
-          <p className={styles.slaNote}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            By submitting this ticket, you automatically accept the SLA terms for the selected category and priority. This ensures transparency and sets clear expectations for response and resolution times.
-          </p>
+              <p className={`${styles.slaNote} ${styles.slaNoteUnconfigured}`}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                This ticket will be handled under standard department workflow because no specific SLA agreement is currently configured for this category and priority combination.
+              </p>
+            </>
+          )}
         </div>
       )}
 

@@ -29,7 +29,10 @@ router.get(
 router.post(
   '/rooms/ticket',
   [
-    body('ticketId').trim().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i).withMessage('ticketId must be a valid UUID'),
+    body('ticketId')
+      .trim()
+      .matches(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{1,36})$/i)
+      .withMessage('ticketId must be a valid identifier'),
     body('name').optional().trim(),
     validate
   ],
@@ -40,7 +43,7 @@ router.post(
 router.post(
   '/rooms/department',
   [
-    body('departmentId').trim().matches(/^[0-9a-zA-Z_-]{2,36}$/i).withMessage('departmentId must be a valid department identifier'),
+    body('departmentId').trim().matches(/^[0-9a-zA-Z_-]{1,36}$/i).withMessage('departmentId must be a valid department identifier'),
     body('name').optional().trim(),
     validate
   ],
@@ -51,8 +54,24 @@ router.post(
 router.post(
   '/rooms/direct',
   [
-    body('userId').trim().matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i).withMessage('userId must be a valid UUID'),
+    body('userId')
+      .optional()
+      .trim()
+      .matches(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{1,36})$/i)
+      .withMessage('userId must be a valid user identifier'),
+    body('targetRole').optional().trim().isString(),
+    body('initialMode').optional().trim().isIn(['chat', 'video']),
     body('name').optional().trim(),
+    (req, res, next) => {
+      if (!req.body.userId && !req.body.targetRole) {
+        return res.status(400).json({
+          success: false,
+          message: 'Either userId or targetRole is required',
+          errors: [{ msg: 'Either userId or targetRole is required' }]
+        });
+      }
+      next();
+    },
     validate
   ],
   chatController.createDirectRoom
@@ -70,7 +89,10 @@ router.post(
   '/rooms/:roomId/participants',
   [
     param('roomId').isUUID(),
-    body('userId').isUUID(),
+    body('userId')
+      .trim()
+      .matches(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{1,36})$/i)
+      .withMessage('userId must be a valid user identifier'),
     validate
   ],
   chatController.addParticipant
@@ -172,7 +194,13 @@ router.post(
 // Get user online status
 router.get(
   '/online-status/:userId',
-  [param('userId').isUUID(), validate],
+  [
+    param('userId')
+      .trim()
+      .matches(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{1,36})$/i)
+      .withMessage('userId must be a valid user identifier'),
+    validate
+  ],
   chatController.getUserOnlineStatus
 );
 
@@ -197,14 +225,20 @@ router.get(
 // Get members of a department with online status for chat
 router.get(
   '/departments/:departmentId/members',
-  [param('departmentId').trim().matches(/^[0-9a-zA-Z_-]{2,36}$/i), validate],
+  [param('departmentId').trim().matches(/^[0-9a-zA-Z_-]{1,36}$/i), validate],
   chatController.getDepartmentChatMembers
 );
 
 // Get members of a ticket with online status for chat
 router.get(
   '/tickets/:ticketId/members',
-  [param('ticketId').isUUID(), validate],
+  [
+    param('ticketId')
+      .trim()
+      .matches(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{1,36})$/i)
+      .withMessage('ticketId must be a valid identifier'),
+    validate
+  ],
   chatController.getTicketChatMembers
 );
 

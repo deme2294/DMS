@@ -53,6 +53,7 @@ export interface ChatMessage {
   is_edited: boolean;
   edited_at?: string;
   is_deleted: boolean;
+  is_deleted_for_me?: boolean;
   deleted_at?: string;
   created_at: string;
   first_name?: string;

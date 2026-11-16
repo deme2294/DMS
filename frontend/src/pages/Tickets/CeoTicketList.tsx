@@ -15,7 +15,7 @@ import type { Ticket, TicketStatus } from '../../types/ticket';
 import { STATUS_LABELS, TICKET_PRIORITIES, TICKET_STATUSES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { usePagination } from '../../hooks/usePagination';
 import { useAuth } from '../../context/AuthContext';
-import { io, Socket } from 'socket.io-client';
+import { useSocket } from '../../context/SocketContext';
 import {
   EyeIcon,
   BuildingOffice2Icon,
@@ -82,7 +82,7 @@ export default function CeoTicketList() {
   const [assignTicket, setAssignTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
-  const socketRef = useRef<Socket | null>(null);
+  const { socket } = useSocket();
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -102,15 +102,15 @@ export default function CeoTicketList() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('accessToken');
-    // Connect through Vite proxy instead of directly to localhost:5000
-    const socket = io(window.location.origin, { path: '/socket.io', withCredentials: true, auth: { token } });
-    socketRef.current = socket;
-    socket.on('connect', () => socket.emit('join', { userId: user.id }));
-    socket.on('ticket:updated', () => loadTickets());
-    return () => { socket.disconnect(); };
-  }, [user, loadTickets]);
+    if (!socket || !user) return;
+    const handleTicketUpdated = () => {
+      loadTickets();
+    };
+    socket.on('ticket:updated', handleTicketUpdated);
+    return () => {
+      socket.off('ticket:updated', handleTicketUpdated);
+    };
+  }, [socket, user, loadTickets]);
 
   useEffect(() => {
     if (deptModal) fetchActiveDepartments().then((res) => setDepartments(res.data.data));

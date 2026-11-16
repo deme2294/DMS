@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   CheckCircleIcon,
@@ -42,6 +42,7 @@ const AlertContext = createContext<AlertContextType | undefined>(undefined);
 export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const location = useLocation();
+  const recentAlertsRef = useRef<Map<string, number>>(new Map());
 
   const dismissAlert = useCallback((id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
@@ -53,6 +54,25 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 
   const showAlert = useCallback(
     ({ message, type = 'success', title, duration = 4500 }: ShowAlertOptions) => {
+      const cleanMessage = (message || '').trim();
+      const cleanTitle = (title || '').trim();
+      const dedupeKey = `${type}::${cleanTitle}::${cleanMessage}`;
+      const now = Date.now();
+
+      // Suppress duplicate identical alert within a 3-second window
+      const lastFired = recentAlertsRef.current.get(dedupeKey) || 0;
+      if (now - lastFired < 3000) {
+        return '';
+      }
+      recentAlertsRef.current.set(dedupeKey, now);
+
+      // Clean up aged entries
+      for (const [k, time] of recentAlertsRef.current.entries()) {
+        if (now - time > 10000) {
+          recentAlertsRef.current.delete(k);
+        }
+      }
+
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const newAlert: AlertItem = {
         id,
@@ -62,7 +82,20 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         duration,
       };
 
-      setAlerts((prev) => [...prev, newAlert]);
+      setAlerts((prev) => {
+        // Prevent duplicate alerts if already visibly displayed
+        if (
+          prev.some(
+            (a) =>
+              a.type === type &&
+              (a.title || '').trim() === cleanTitle &&
+              (a.message || '').trim() === cleanMessage
+          )
+        ) {
+          return prev;
+        }
+        return [...prev, newAlert];
+      });
 
       if (duration > 0) {
         setTimeout(() => {

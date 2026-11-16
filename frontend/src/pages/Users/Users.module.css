@@ -1209,9 +1209,10 @@
 }
 
 .inputLabel {
-  font-size: 0.86rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  color: var(--usr-text-primary);
+  color: var(--usr-text-secondary, #64748b);
+  letter-spacing: 0.01em;
 }
 
 .passwordInputWrapper {

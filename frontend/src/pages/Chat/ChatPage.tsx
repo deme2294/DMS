@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader/PageHeader';
 import * as chatApi from '../../api/chatApi';
@@ -33,8 +34,21 @@ import styles from './ChatPage.module.css';
 
 export default function ChatPage() {
   const { socket, connected } = useSocket();
+  const { showSuccess, showInfo, showError } = useAlert();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // In-Page Chat Deletion Notification State
+  const [deletedNotice, setDeletedNotice] = useState<{ text: string; timestamp: string } | null>(null);
+
+  useEffect(() => {
+    if (deletedNotice) {
+      const timer = setTimeout(() => {
+        setDeletedNotice(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [deletedNotice]);
 
   // Primary Conversation State
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -151,6 +165,7 @@ export default function ChatPage() {
 
   const hasLoadedRoomsOnce = useRef(false);
   const handledLocationTargetRef = useRef<string | null>(null);
+  const recentlyDeletedIdsRef = useRef<Set<string>>(new Set());
 
   // 1. Initial Rooms and Unread Counts (Stable callback, no infinite loop)
   const loadRooms = useCallback(async () => {
@@ -339,8 +354,44 @@ export default function ChatPage() {
       });
     };
 
-    const handleMessageDeleted = ({ messageId }: { messageId: string; roomId?: string }) => {
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    const handleMessageDeleted = ({
+      messageId,
+      deletedBy,
+      senderId,
+    }: {
+      messageId: string;
+      roomId?: string;
+      deletedBy?: string;
+      senderId?: string;
+    }) => {
+      // If deleted by this client locally, avoid duplicate alerts and work
+      if (recentlyDeletedIdsRef.current.has(messageId)) {
+        recentlyDeletedIdsRef.current.delete(messageId);
+        return;
+      }
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, is_deleted: true, message: '', attachment_path: undefined }
+            : m
+        )
+      );
+      const isCreator = Boolean(
+        (deletedBy && currentUser?.id && String(deletedBy).trim() === String(currentUser.id).trim()) ||
+        (senderId && currentUser?.id && String(senderId).trim() === String(currentUser.id).trim())
+      );
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const noticeText = isCreator ? 'you deleted chat' : 'the creator deleted the chat created';
+      setDeletedNotice({
+        text: noticeText,
+        timestamp: timeStr,
+      });
+      // The creator already receives a confirmation alert when deleting.
+      // Only display an alert for other room participants (the recipient) upon receiving socket broadcast.
+      if (!isCreator) {
+        showInfo(noticeText, 'Chat Deleted');
+      }
     };
 
     const handleUserOnline = ({ userId }: { userId: string }) => {
@@ -475,17 +526,51 @@ export default function ChatPage() {
 
   const handleConfirmDeleteMessage = async (deleteType: 'everyone' | 'for_me' = 'everyone') => {
     if (!messageToDelete) return;
+    const msgId = messageToDelete.id;
+    recentlyDeletedIdsRef.current.add(msgId);
     setDeletingMessage(true);
     try {
-      await chatApi.deleteMessage(messageToDelete.id, deleteType);
-      if (deleteType === 'everyone' && socket?.connected) {
-        socket.emit('delete-message', { messageId: messageToDelete.id, deleteType: 'everyone' });
+      await chatApi.deleteMessage(msgId, deleteType);
+
+      if (deleteType === 'for_me') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? {
+                  ...m,
+                  is_deleted: true,
+                  is_deleted_for_me: true,
+                  message: '',
+                  attachment_path: undefined,
+                }
+              : m
+          )
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msgId
+              ? { ...m, is_deleted: true, message: '', attachment_path: undefined }
+              : m
+          )
+        );
       }
-      setMessages((prev) => prev.filter((m) => m.id !== messageToDelete.id));
+
+      const noticeText =
+        deleteType === 'everyone'
+          ? 'you deleted chat'
+          : 'the chat deleted for you';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setDeletedNotice({
+        text: noticeText,
+        timestamp: timeStr,
+      });
+      showSuccess(noticeText, 'Chat Deleted');
       setMessageToDelete(null);
     } catch (err: any) {
+      recentlyDeletedIdsRef.current.delete(msgId);
       console.error('Failed to delete message:', err);
-      alert(err.response?.data?.message || 'Failed to delete message. Please try again.');
+      showError(err.response?.data?.message || 'Failed to delete message. Please try again.', 'Delete Failed');
     } finally {
       setDeletingMessage(false);
     }
@@ -1616,6 +1701,30 @@ export default function ChatPage() {
               {/* VIEW 1: Pure Text Chat Mode */}
               {activeViewMode === 'chat' && (
                 <div className={styles.chatMessagesWrapper}>
+                  {deletedNotice && (
+                    <div className={styles.chatDeletedAlertBanner}>
+                      <div className={styles.chatDeletedAlertLeft}>
+                        <span className={styles.chatDeletedAlertIcon}>🗑️</span>
+                        <div className={styles.chatDeletedAlertDetails}>
+                          <span className={styles.chatDeletedAlertTitle}>Chat Deleted</span>
+                          <span className={styles.chatDeletedAlertMsg}>{deletedNotice.text}</span>
+                        </div>
+                      </div>
+                      <div className={styles.chatDeletedAlertRight}>
+                        <span className={styles.chatDeletedAlertTime}>{deletedNotice.timestamp}</span>
+                        <button
+                          type="button"
+                          className={styles.chatDeletedAlertClose}
+                          onClick={() => setDeletedNotice(null)}
+                          title="Dismiss notice"
+                          aria-label="Dismiss notice"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <ChatMessagesArea
                     selectedRoom={selectedRoom}
                     currentUser={currentUser}
@@ -1673,6 +1782,30 @@ export default function ChatPage() {
                     />
                   </div>
                   <div className={styles.splitChatPane}>
+                    {deletedNotice && (
+                      <div className={styles.chatDeletedAlertBanner}>
+                        <div className={styles.chatDeletedAlertLeft}>
+                          <span className={styles.chatDeletedAlertIcon}>🗑️</span>
+                          <div className={styles.chatDeletedAlertDetails}>
+                            <span className={styles.chatDeletedAlertTitle}>Chat Deleted</span>
+                            <span className={styles.chatDeletedAlertMsg}>{deletedNotice.text}</span>
+                          </div>
+                        </div>
+                        <div className={styles.chatDeletedAlertRight}>
+                          <span className={styles.chatDeletedAlertTime}>{deletedNotice.timestamp}</span>
+                          <button
+                            type="button"
+                            className={styles.chatDeletedAlertClose}
+                            onClick={() => setDeletedNotice(null)}
+                            title="Dismiss notice"
+                            aria-label="Dismiss notice"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <ChatMessagesArea
                       selectedRoom={selectedRoom}
                       currentUser={currentUser}

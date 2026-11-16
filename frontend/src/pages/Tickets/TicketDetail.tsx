@@ -6,13 +6,13 @@ import ContactModal, { ContactTarget } from '../../components/ContactModal/Conta
 import { canNotifyTenant } from '../../utils/permissionUtils';
 import { toShortId } from '../../utils/idUtils';
 import {
-   changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
-   assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
-   escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
-   requestReopenTicket, approveReopenTicket, rejectReopenTicket,
-   markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments, updateTicketAttachment, deleteTicketAttachment,
-   overrideAssignment, remindStaff, fetchDepartmentManagers, type DepartmentManager,
- } from '../../api/ticketApi';
+  changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
+  assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
+  escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
+  requestReopenTicket, approveReopenTicket, rejectReopenTicket,
+  markResolved, changePriority, changeCategory, addInternalNote, uploadTicketAttachments, updateTicketAttachment, deleteTicketAttachment,
+  overrideAssignment, remindStaff, fetchDepartmentManagers, type DepartmentManager,
+} from '../../api/ticketApi';
 import { fetchActiveDepartments } from '../../api/departmentApi';
 import { fetchUsers } from '../../api/userApi';
 import { searchArticles } from '../../api/knowledgeApi';
@@ -21,6 +21,7 @@ import type { User } from '../../types/user';
 import type { Article } from '../../types/article';
 import { STATUS_LABELS, TICKET_STATUSES, TICKET_PRIORITIES, getStatusLabel, getStatusClassName } from '../../types/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { useAlert } from '../../context/AlertContext';
 import styles from './Tickets.module.css';
 import {
@@ -65,7 +66,6 @@ import {
   PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
 import { formatFileSize, buildAttachmentUrl } from '../../utils/attachmentUtils';
-import { io, Socket } from 'socket.io-client';
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
@@ -250,7 +250,7 @@ export default function TicketDetail() {
   const [tenantRating, setTenantRating] = useState<number>(5);
   const [tenantFeedback, setTenantFeedback] = useState<string>('');
   const [hoverRating, setHoverRating] = useState<number>(0);
-  const socketRef = useRef<Socket | null>(null);
+  const { socket } = useSocket();
 
   const loadTicket = async () => {
     if (!id) return;
@@ -319,16 +319,29 @@ export default function TicketDetail() {
   }, [ticket?.title, ticket?.description, id]);
 
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('accessToken');
-    // Connect through Vite proxy instead of directly to localhost:5000
-    const socket = io(window.location.origin, { path: '/socket.io', withCredentials: true, auth: { token } });
-    socketRef.current = socket;
-    socket.on('connect', () => { if (id) socket.emit('join-ticket', id); });
-    socket.on('ticket:updated', () => { loadTicket(); loadReplies(); loadTimeline(); });
-    return () => { socket.disconnect(); };
+    if (!socket || !user) return;
+    const joinRoom = () => {
+      if (id) socket.emit('join-ticket', id);
+    };
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on('connect', joinRoom);
+    const handleTicketUpdated = () => {
+      loadTicket();
+      loadReplies();
+      loadTimeline();
+    };
+    socket.on('ticket:updated', handleTicketUpdated);
+    return () => {
+      socket.off('connect', joinRoom);
+      socket.off('ticket:updated', handleTicketUpdated);
+      if (id) {
+        socket.emit('leave-ticket', id);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, id]);
+  }, [socket, user, id]);
 
   useEffect(() => {
     if (deptModal || noteModal) fetchActiveDepartments().then((r) => setDepartments(r.data.data));
@@ -404,8 +417,8 @@ export default function TicketDetail() {
     }
     const already = selectedMergeTickets.some(
       (t) => t.id.toLowerCase() === raw.toLowerCase() ||
-             (t.referenceNumber && t.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
-             (t.trackNumber && t.trackNumber.toLowerCase() === raw.toLowerCase())
+        (t.referenceNumber && t.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
+        (t.trackNumber && t.trackNumber.toLowerCase() === raw.toLowerCase())
     );
     if (already) {
       setManualMergeInput('');
@@ -413,8 +426,8 @@ export default function TicketDetail() {
     }
     const found = mergeCandidates.find(
       (c) => c.id.toLowerCase() === raw.toLowerCase() ||
-             (c.referenceNumber && c.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
-             (c.trackNumber && c.trackNumber.toLowerCase() === raw.toLowerCase())
+        (c.referenceNumber && c.referenceNumber.toLowerCase() === raw.toLowerCase()) ||
+        (c.trackNumber && c.trackNumber.toLowerCase() === raw.toLowerCase())
     );
     if (found) {
       toggleMergeCandidate(found);
@@ -1037,8 +1050,8 @@ export default function TicketDetail() {
                         ticket.isOverdue
                           ? styles.slaBadgeBreached
                           : ticket.remainingMs != null && ticket.remainingMs < 3.6e6
-                          ? styles.slaBadgeImminent
-                          : styles.slaBadgeOk
+                            ? styles.slaBadgeImminent
+                            : styles.slaBadgeOk
                       }
                     >
                       {ticket.isOverdue ? (
@@ -1515,8 +1528,8 @@ export default function TicketDetail() {
               {role === 'manager'
                 ? `Staff member ${ticket.assignedToName || 'assigned staff'} has resolved the issue and submitted it for your department approval. Please review the work and either approve it to forward to Admin verification, or request rework.`
                 : role === 'staff'
-                ? 'You have submitted this ticket for resolution. It is currently under review by your Department Manager.'
-                : 'Staff has resolved this ticket. Awaiting review and approval by the Department Manager.'}
+                  ? 'You have submitted this ticket for resolution. It is currently under review by your Department Manager.'
+                  : 'Staff has resolved this ticket. Awaiting review and approval by the Department Manager.'}
             </p>
             {role === 'manager' && (
               <div className={styles.btnRow} style={{ marginTop: '12px' }}>
@@ -1547,8 +1560,8 @@ export default function TicketDetail() {
               {role === 'admin'
                 ? 'Department Manager has approved the resolution for this ticket. Verify the solution and click "Verify & Resolve" to mark it Resolved for the department and notify the tenant for confirmation.'
                 : role === 'manager'
-                ? 'You approved this resolution. It is now awaiting final verification by an Administrator before the tenant is notified.'
-                : 'Department Manager approved the resolution. Awaiting Administrator verification.'}
+                  ? 'You approved this resolution. It is now awaiting final verification by an Administrator before the tenant is notified.'
+                  : 'Department Manager approved the resolution. Awaiting Administrator verification.'}
             </p>
             {role === 'admin' && (
               <div className={styles.btnRow} style={{ marginTop: '12px' }}>
@@ -2291,8 +2304,8 @@ export default function TicketDetail() {
                   const downloadUrl = ev.filePath
                     ? `${API_BASE}${ev.filePath}`
                     : matchedAttachment
-                    ? `${API_BASE}${matchedAttachment.filePath}`
-                    : null;
+                      ? `${API_BASE}${matchedAttachment.filePath}`
+                      : null;
                   const isImage = !!ev.message?.match(/\.(png|jpe?g|gif|webp|svg)$/i);
 
                   return (
@@ -2488,8 +2501,9 @@ export default function TicketDetail() {
         <div className={styles.modalForm}>
           {ticket?.assignedTo && (
             <div className={styles.assignmentCurrentBox}>
+              <UserIcon className={styles.assignmentCurrentIcon} />
               <span className={styles.assignmentCurrentLabel}>Currently Assigned:</span>
-              <span className={styles.assignmentCurrentValue}>{ticket.assignedToName || 'Assigned Staff'}</span>
+              <strong className={styles.assignmentCurrentValue}>{ticket.assignedToName || 'Assigned Staff'}</strong>
             </div>
           )}
 
@@ -2780,7 +2794,7 @@ export default function TicketDetail() {
                       type="checkbox"
                       className={styles.mergeCheckbox}
                       checked={isSelected}
-                      onChange={() => {}}
+                      onChange={() => { }}
                     />
                     <div className={styles.mergeCandidateMain}>
                       <div className={styles.mergeCandidateHeader}>
@@ -3588,9 +3602,8 @@ function ReplyForm({
       {/* Tenant: Clear category routing notice */}
       {isTenant && (
         <div
-          className={`${styles.replyTenantRoutingNotice} ${
-            isDirect ? styles.replyTenantRoutingNoticeDirect : styles.replyTenantRoutingNoticeGeneral
-          }`}
+          className={`${styles.replyTenantRoutingNotice} ${isDirect ? styles.replyTenantRoutingNoticeDirect : styles.replyTenantRoutingNoticeGeneral
+            }`}
         >
           <span className={styles.replyVisibilityIcon}>{isDirect ? '🏢' : '🛡️'}</span>
           <span>

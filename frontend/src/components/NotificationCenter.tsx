@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import { fetchNotifications, fetchUnreadCount, markNotificationRead, markAllNotificationsRead } from '../api/ticketApi';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import type { NotificationItem } from '../types/ticket';
 import styles from './NotificationCenter.module.css';
 
@@ -87,6 +87,7 @@ const getModuleBadge = (n: NotificationItem) => {
 
 export default function NotificationCenter() {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const basePath = basePaths[user?.role || 'admin'];
   const [unreadCount, setUnreadCount] = useState(0);
@@ -130,11 +131,9 @@ export default function NotificationCenter() {
 
   // Realtime: keep the unread badge and open alerts in sync when any notification arrives.
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('accessToken');
-    const socketOrigin = window.location.origin;
-    const socket = io(socketOrigin, { withCredentials: true, auth: { token }, path: '/socket.io' });
-    socket.on('notification', (payload) => {
+    if (!socket || !user) return;
+
+    const handleNotification = (payload: any) => {
       loadUnreadCount();
       window.dispatchEvent(new CustomEvent('notifications-updated'));
       if (payload && payload.title) {
@@ -156,11 +155,13 @@ export default function NotificationCenter() {
       } else {
         loadNotifications();
       }
-    });
-    return () => {
-      socket.disconnect();
     };
-  }, [user]);
+
+    socket.on('notification', handleNotification);
+    return () => {
+      socket.off('notification', handleNotification);
+    };
+  }, [socket, user]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {

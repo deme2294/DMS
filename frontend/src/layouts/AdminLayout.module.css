@@ -46,6 +46,7 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  flex-wrap: nowrap;
 }
 
 .topBarCenter {
@@ -114,11 +115,14 @@
 }
 
 .hamburgerBtn {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
   border-radius: 8px;
   border: 1.5px solid #cbd5e1;
   background: #f8fafc;
@@ -151,6 +155,9 @@
   justify-content: center;
   width: 36px;
   height: 36px;
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
   border-radius: 8px;
   border: 1.5px solid #cbd5e1;
   background: #f8fafc;
@@ -326,7 +333,9 @@
   }
 
   .topBarLeft {
-    gap: 4px;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
   }
 
   .topBarRight {
@@ -335,11 +344,12 @@
 
   .hamburgerBtn,
   .backBtn {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
     padding: 0;
+    flex-shrink: 0;
   }
 
   .content {

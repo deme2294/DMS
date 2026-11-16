@@ -758,10 +758,12 @@ function setupSocket(httpServer) {
             }
         });
 
-        socket.on('delete-message', async (messageId) => {
+        socket.on('delete-message', async (data) => {
             try {
                 const chatService = await import('./services/chatService.js');
-                await chatService.deleteMessage(messageId, user.id);
+                const messageId = typeof data === 'object' && data !== null ? data.messageId : data;
+                const deleteType = typeof data === 'object' && data !== null && data.deleteType ? data.deleteType : 'everyone';
+                await chatService.deleteMessage(messageId, user.id, deleteType);
             } catch (err) {
                 socket.emit('error', { message: err.message });
             }

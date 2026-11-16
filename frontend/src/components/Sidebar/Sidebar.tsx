@@ -140,40 +140,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return 0; // default to first section (e.g. 'Main')
   }, [sections, location.pathname, can]);
 
-  // Section expand state: all sections open by default so all elements are visible and scrollable
+  // Section expand state: accordion behavior where only one section is expanded at a time
+  // Default to the section containing the currently active route
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>(() => {
+    const activeIdx = getActiveSectionIndex();
     const init: Record<number, boolean> = {};
     sections.forEach((_, idx) => {
-      init[idx] = true;
+      init[idx] = idx === activeIdx;
     });
     return init;
   });
 
-  // Automatically ensure active route section is open on route change, avoiding unnecessary updates
+  // Automatically ensure active route section is open on route change and collapse others
   const previousPathRef = useRef(location.pathname);
   useEffect(() => {
     if (previousPathRef.current !== location.pathname) {
       previousPathRef.current = location.pathname;
       const activeIdx = getActiveSectionIndex();
-      setExpandedSections((prev) => {
-        if (prev[activeIdx]) return prev;
-        return {
-          ...prev,
-          [activeIdx]: true,
-        };
+      setExpandedSections(() => {
+        const next: Record<number, boolean> = {};
+        sections.forEach((_, idx) => {
+          next[idx] = idx === activeIdx;
+        });
+        return next;
       });
     }
-  }, [location.pathname, getActiveSectionIndex]);
+  }, [location.pathname, getActiveSectionIndex, sections]);
 
-  // When a navigation group heading is clicked, toggle that section's visibility
+  // When a navigation group heading is clicked (such as "Main"):
+  // If it is currently open, clicking it collapses it.
+  // If it is collapsed, expanding it collapses ALL other sections!
   const handleToggleSection = (sIdx: number) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [sIdx]: prev[sIdx] === false ? true : false,
-    }));
+    setExpandedSections((prev) => {
+      const isCurrentlyOpen = Boolean(prev[sIdx]);
+      if (isCurrentlyOpen) {
+        // Collapse it so this section closes
+        return {
+          ...prev,
+          [sIdx]: false,
+        };
+      }
+      // One expanded -> others should be collapsed!
+      const next: Record<number, boolean> = {};
+      sections.forEach((_, idx) => {
+        next[idx] = idx === sIdx;
+      });
+      return next;
+    });
   };
 
-  const allExpanded = sections.length > 0 && sections.every((_, idx) => expandedSections[idx] !== false);
+  const allExpanded = sections.length > 0 && sections.every((_, idx) => Boolean(expandedSections[idx]));
 
   const toggleAllSections = () => {
     const nextState = !allExpanded;
@@ -276,8 +292,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
           );
 
-          // All sections open by default so all elements are rendered and displayed; user can still toggle
-          const isOpen = isCollapsed ? true : (expandedSections[sIdx] !== false);
+          // In collapsed sidebar all icons are shown; in normal sidebar accordion only the expanded section is open
+          const isOpen = isCollapsed ? true : Boolean(expandedSections[sIdx]);
 
           return (
             <div key={sIdx} className={styles.section}>

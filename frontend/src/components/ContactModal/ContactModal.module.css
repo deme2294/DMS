@@ -142,9 +142,10 @@
 }
 
 .label {
-  font-size: 0.85rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  color: #334155;
+  color: #475569;
+  letter-spacing: 0.01em;
 }
 
 .input {

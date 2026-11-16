@@ -90,43 +90,67 @@ export const deletePolicy = async (req, res, next) => {
 
 export const previewSLA = async (req, res, next) => {
   try {
-    const { categoryId, priority } = req.query;
-    const catId = categoryId && categoryId !== 'null' && categoryId !== 'undefined' ? String(categoryId) : null;
+    const { categoryId, category, priority } = req.query;
+    let catId = categoryId && categoryId !== 'null' && categoryId !== 'undefined' ? String(categoryId) : null;
     const prio = String(priority || 'medium');
     const createdAt = req.query.createdAt ? new Date(String(req.query.createdAt)) : new Date();
-
-    const policy = await slaService.resolveEffectivePolicy(catId, prio);
-    const dueDates = slaService.computeAllDueDates(
-      policy || {
-        priority: prio,
-        response_hours: 4,
-        resolution_hours: 24,
-        escalation_hours: 0,
-        working_hours: null,
-      },
-      createdAt
-    );
 
     let categoryName = 'Global';
     if (catId) {
       const [catRows] = await pool.query(
-        'SELECT name FROM ticket_categories WHERE id = :id LIMIT 1',
+        'SELECT id, name FROM ticket_categories WHERE id = :id LIMIT 1',
         { id: catId }
       );
-      if (catRows.length) categoryName = catRows[0].name;
+      if (catRows.length) {
+        categoryName = catRows[0].name;
+      }
+    } else if (category && category !== 'null' && category !== 'undefined') {
+      const [catRows] = await pool.query(
+        'SELECT id, name FROM ticket_categories WHERE name = :name LIMIT 1',
+        { name: String(category) }
+      );
+      if (catRows.length) {
+        catId = catRows[0].id;
+        categoryName = catRows[0].name;
+      } else {
+        categoryName = String(category);
+      }
     }
+
+    // Resolve specific policy explicitly configured for this category and priority
+    const policy = await slaService.findSpecificPolicyForCategoryAndPriority(catId, prio);
+
+    if (!policy) {
+      return res.status(HTTP.OK).json({
+        success: true,
+        data: {
+          exists: false,
+          hasPolicy: false,
+          policyId: null,
+          policyName: null,
+          priority: prio,
+          category: categoryName,
+          categoryId: catId,
+          message: 'SLA is not created for the ticket categories and priority given',
+        },
+      });
+    }
+
+    const dueDates = slaService.computeAllDueDates(policy, createdAt);
 
     res.status(HTTP.OK).json({
       success: true,
       data: {
-        policyId: policy?.id || null,
-        policyName: policy?.name || 'Default SLA',
+        exists: true,
+        hasPolicy: true,
+        policyId: policy.id,
+        policyName: policy.name,
         priority: prio,
         category: categoryName,
         categoryId: catId,
-        responseHours: policy ? Number(policy.response_hours ?? 4) : 4,
-        resolutionHours: policy ? Number(policy.resolution_hours ?? 24) : 24,
-        escalationHours: policy?.escalation_hours !== null && policy?.escalation_hours !== undefined ? Number(policy.escalation_hours) : null,
+        responseHours: Number(policy.response_hours ?? 4),
+        resolutionHours: Number(policy.resolution_hours ?? 24),
+        escalationHours: policy.escalation_hours !== null && policy.escalation_hours !== undefined ? Number(policy.escalation_hours) : null,
         responseDueDate: dueDates.responseDueDate,
         resolutionDueDate: dueDates.resolutionDueDate,
         escalationDueDate: dueDates.escalationDueDate,

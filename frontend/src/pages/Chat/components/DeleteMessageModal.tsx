@@ -20,12 +20,21 @@ export const DeleteMessageModal: React.FC<DeleteMessageModalProps> = ({
   onClose,
   onConfirmDelete,
 }) => {
-  const isOwn = message?.sender_id === currentUserId;
+  const isOwn = Boolean(
+    message?.sender_id &&
+    currentUserId &&
+    String(message.sender_id).trim() === String(currentUserId).trim()
+  );
   const [deleteType, setDeleteType] = useState<'everyone' | 'for_me'>(isOwn ? 'everyone' : 'for_me');
 
   useEffect(() => {
     if (message) {
-      setDeleteType(message.sender_id === currentUserId ? 'everyone' : 'for_me');
+      const own = Boolean(
+        message.sender_id &&
+        currentUserId &&
+        String(message.sender_id).trim() === String(currentUserId).trim()
+      );
+      setDeleteType(own ? 'everyone' : 'for_me');
     }
   }, [message, currentUserId]);
 

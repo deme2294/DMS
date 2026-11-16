@@ -3030,6 +3030,7 @@
   justify-content: flex-end;
   gap: 12px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .modalCancelBtn {
@@ -3047,6 +3048,9 @@
   font-family: inherit;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
 }
 
 .modalCancelBtn:hover {
@@ -3082,8 +3086,11 @@
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
 
-:global([data-theme="dark"]) .modalTextarea::placeholder {
-  color: #64748b;
+:global([data-theme="dark"]) .modalTextarea::placeholder,
+:global([data-theme="dark"]) .modalForm textarea::placeholder,
+:global([data-theme="dark"]) .modalForm input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 0.85;
 }
 
 :global([data-theme="dark"]) .modalHint {
@@ -3091,23 +3098,26 @@
 }
 
 :global([data-theme="dark"]) .modalCancelBtn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
 }
 
 :global([data-theme="dark"]) .modalCancelBtn:hover {
-  background: #334155;
-  border-color: #475569;
-  color: #ffffff;
+  background: #283548 !important;
+  border-color: #475569 !important;
+  color: #ffffff !important;
 }
 
 :global([data-theme="dark"]) .modalSubmitBtn:disabled,
 :global([data-theme="dark"]) .modalForm button:disabled {
-  background: #1e293b !important;
-  color: #64748b !important;
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: #94a3b8 !important;
   border: 1px solid #334155 !important;
-  opacity: 0.6;
+  opacity: 0.9 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* ── ANNOUNCEMENT MODAL (PROFESSIONAL DUAL-THEME STYLING) ─────────────────── */
@@ -6111,37 +6121,53 @@
 .assignmentCurrentBox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 8px 12px;
+  gap: 10px;
+  background: var(--tk-primary-light, #eff6ff);
+  border: 1.5px solid var(--tk-primary-border, #bfdbfe);
+  border-radius: 8px;
+  padding: 10px 14px;
   margin-bottom: 14px;
   font-size: 0.88rem;
+  transition: all 0.2s ease;
+  color: var(--tk-text-main, #0f172a);
 }
 
 :global([data-theme="dark"]) .assignmentCurrentBox {
-  background: #1e293b;
-  border-color: #334155;
-  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.95) !important;
+  border-color: #3b82f6 !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.assignmentCurrentIcon {
+  width: 18px;
+  height: 18px;
+  color: var(--tk-primary, #2563eb);
+  flex-shrink: 0;
+}
+
+:global([data-theme="dark"]) .assignmentCurrentIcon {
+  color: #60a5fa !important;
 }
 
 .assignmentCurrentLabel {
   font-weight: 600;
-  color: #475569;
+  color: var(--tk-text-muted, #475569);
+  font-size: 0.84rem;
 }
 
 :global([data-theme="dark"]) .assignmentCurrentLabel {
-  color: #94a3b8;
+  color: #94a3b8 !important;
 }
 
 .assignmentCurrentValue {
   font-weight: 700;
-  color: #0284c7;
+  color: var(--tk-primary-hover, #1d4ed8);
+  font-size: 0.90rem;
 }
 
 :global([data-theme="dark"]) .assignmentCurrentValue {
-  color: #38bdf8;
+  color: #38bdf8 !important;
 }
 
 .duplicateAssignWarning {
