@@ -296,6 +296,11 @@ const isAllowedOrigin = (origin, req) => {
         return true;
     }
 
+    // Support standard IPv4 addresses (LAN, local, and VPS public IPs)
+    if (/^https?:\/\/(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(normalizedOrigin)) {
+        return true;
+    }
+
     // Check if origin matches Host or X-Forwarded-Host header (Nginx reverse proxy same-origin)
     if (req) {
         const host = req.headers['x-forwarded-host'] || req.headers.host;
@@ -559,11 +564,13 @@ app.use(
 // ─────────────────────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
     const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
-    app.use(express.static(frontendDist));
-    // Any non-API route falls through to the SPA shell
-    app.get(/^(?!\/(api|uploads)).*/, (_req, res) => {
-        res.sendFile(path.join(frontendDist, 'index.html'));
-    });
+    if (fs.existsSync(frontendDist)) {
+        app.use(express.static(frontendDist));
+        // Any non-API route falls through to the SPA shell
+        app.get(/^(?!\/(api|uploads)).*/, (_req, res) => {
+            res.sendFile(path.join(frontendDist, 'index.html'));
+        });
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -675,11 +682,18 @@ function setupSocket(httpServer) {
             const authToken = socket.handshake.auth?.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
             if (!authToken) return next(new Error('Authentication required'));
             const jwt = (await import('jsonwebtoken')).default;
-            const decoded = jwt.verify(authToken, process.env.JWT_ACCESS_SECRET || 'secret');
+            const jwtConfig = (await import('./config/jwt.js')).default;
+            const decoded = jwt.verify(authToken, jwtConfig.accessSecret);
             const [rows] = await pool.query(
                 `SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.status, u.tenant_id, r.name AS role
-                 FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = :id LIMIT 1`,
-                { id: decoded.sub }
+                 FROM users u JOIN roles r ON r.id = u.role_id
+                 WHERE u.id = :id
+                    OR (u.username = :username AND :username IS NOT NULL)
+                    OR (u.email = :username AND :username IS NOT NULL)
+                    OR (u.user_code = :id)
+                 ORDER BY (u.id = :id) DESC
+                 LIMIT 1`,
+                { id: decoded.sub || decoded.id, username: decoded.username || null }
             );
             if (!rows.length || rows[0].status !== 'active') return next(new Error('Invalid or inactive user'));
             socket.data.user = rows[0];
@@ -822,6 +836,7 @@ function setupSocket(httpServer) {
         // ===================== IN-APP WEBRTC VIDEO CONFERENCE =====================
         socket.on('video-join', ({ roomId, peerInfo }) => {
             const videoRoom = `video:${roomId}`;
+            socket.data.videoRoom = videoRoom;
             socket.join(videoRoom);
             console.log(`Video peer joined ${videoRoom}: ${user.username} (${socket.id})`);
             socket.to(videoRoom).emit('video-user-joined', {
@@ -865,6 +880,9 @@ function setupSocket(httpServer) {
         socket.on('video-leave', ({ roomId }) => {
             const videoRoom = `video:${roomId}`;
             socket.leave(videoRoom);
+            if (socket.data.videoRoom === videoRoom) {
+                socket.data.videoRoom = null;
+            }
             socket.to(videoRoom).emit('video-user-left', {
                 socketId: socket.id,
                 userId: user.id
@@ -874,6 +892,12 @@ function setupSocket(httpServer) {
 
         // ===================== DISCONNECT =====================
         socket.on('disconnect', async () => {
+            if (socket.data.videoRoom) {
+                socket.to(socket.data.videoRoom).emit('video-user-left', {
+                    socketId: socket.id,
+                    userId: user.id
+                });
+            }
             activeConnectionsCount = Math.max(0, activeConnectionsCount - 1);
             const ts = new Date().toLocaleTimeString();
             console.log(`  ${c.gray}○${c.reset} ${c.dim}[SOCKET]   Disconnected${c.reset} ${user.username} ${c.gray}• Active: ${activeConnectionsCount} • ${ts}${c.reset}`);

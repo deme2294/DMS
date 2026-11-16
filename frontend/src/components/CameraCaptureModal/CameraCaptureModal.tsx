@@ -54,6 +54,20 @@ export default function CameraCaptureModal({
       setCapturedBlob(null);
 
       try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          if (
+            typeof window !== 'undefined' &&
+            !window.isSecureContext &&
+            window.location.hostname !== 'localhost' &&
+            window.location.hostname !== '127.0.0.1'
+          ) {
+            throw new Error(
+              'Camera access requires an HTTPS connection. Please access DMS over HTTPS or upload an image instead.'
+            );
+          }
+          throw new Error('Webcam media access is not supported or blocked in this browser context.');
+        }
+
         const constraints: MediaStreamConstraints = {
           video: deviceId
             ? { deviceId: { exact: deviceId }, width: { ideal: 720 }, height: { ideal: 720 } }

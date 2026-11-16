@@ -32,11 +32,59 @@ interface PeerConnectionState {
   isScreenSharing?: boolean;
 }
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
+// Dynamic ICE Server Configuration with Google STUN + Cloudflare + Environment TURN Relay support
+const getIceServers = (): RTCConfiguration => {
+  try {
+    const customIce = (import.meta as any).env?.VITE_ICE_SERVERS;
+    if (customIce) {
+      const parsed = typeof customIce === 'string' ? JSON.parse(customIce) : customIce;
+      if (Array.isArray(parsed) && parsed.length) {
+        return { iceServers: parsed };
+      }
+    }
+  } catch (e) {
+    console.warn('[WebRTC] Custom VITE_ICE_SERVERS parse error, using default STUN:', e);
+  }
+
+  return {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+    ],
+  };
+};
+
+const getMediaErrorMessage = (err: any): string => {
+  if (
+    typeof window !== 'undefined' &&
+    !window.isSecureContext &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+  ) {
+    return 'Camera and microphone access requires an HTTPS connection. When accessing DMS on your VPS, an SSL/TLS certificate (HTTPS) must be configured in Nginx.';
+  }
+
+  const errName = err?.name || '';
+  switch (errName) {
+    case 'NotAllowedError':
+    case 'PermissionDeniedError':
+      return 'Camera or microphone access was blocked. Please click the camera/lock icon in your browser address bar and choose "Allow".';
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'No camera or microphone device was found. Please connect a webcam or headset and try again.';
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'Camera or microphone is already in use by another application (e.g. Zoom, Teams, or another browser tab). Please close other apps and retry.';
+    case 'OverconstrainedError':
+    case 'ConstraintNotSatisfiedError':
+      return 'The requested camera resolution or frame rate is not supported by your hardware device.';
+    case 'SecurityError':
+      return 'Media access was denied due to browser security restrictions or insecure HTTP origin.';
+    default:
+      return err?.message || 'Could not acquire local camera or microphone permissions.';
+  }
 };
 
 // High-Definition Studio Voice Audio Processing
@@ -291,10 +339,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
           }
         } catch (err2: any) {
           console.error('[InAppVideo] No camera or mic available:', err2);
-          const isHttp = window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-          const msg = isHttp
-            ? 'Camera and microphone require a secure HTTPS connection. Please access via HTTPS or enable secure origin in browser flags.'
-            : (err2?.message || 'Could not acquire local camera or microphone permissions.');
+          const msg = getMediaErrorMessage(err2 || err);
           setMediaError(msg);
           setIsCameraOff(true);
           setIsMicMuted(true);
@@ -419,7 +464,7 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
   // 3. WebRTC Peer Connection Helper with HD Audio & Transceiver Configuration
   const createPeerConnection = useCallback(
     (targetSocketId: string, peerUser: any): RTCPeerConnection => {
-      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const pc = new RTCPeerConnection(getIceServers());
 
       // 1. Audio: always attach microphone track if available, else ensure audio transceiver exists
       const audioTrack = localStreamRef.current?.getAudioTracks()[0];
@@ -479,6 +524,31 @@ export const InAppVideoConference: React.FC<InAppVideoConferenceProps> = ({
               isScreenSharing: isScreenSharingRef.current,
             },
           });
+        }
+      };
+
+      // 5. Monitor ICE connection state changes & handle restarts
+      pc.oniceconnectionstatechange = () => {
+        const iceState = pc.iceConnectionState;
+        console.log(`[WebRTC] ICE Connection State with ${targetSocketId}: ${iceState}`);
+        if (iceState === 'failed') {
+          console.warn(`[WebRTC] ICE failed with ${targetSocketId}, attempting restartIce...`);
+          try {
+            pc.restartIce();
+          } catch {
+            // ignore
+          }
+        }
+      };
+
+      // 6. Monitor overall PeerConnection state
+      pc.onconnectionstatechange = () => {
+        const connState = pc.connectionState;
+        console.log(`[WebRTC] Peer Connection State with ${targetSocketId}: ${connState}`);
+        if (connState === 'failed') {
+          setMediaError(
+            'Direct peer connection between devices failed. If participants are on different restricted networks, a TURN relay server is required.'
+          );
         }
       };
 

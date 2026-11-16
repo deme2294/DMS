@@ -140,7 +140,7 @@ export const dispatchNotification = async ({
   if (!user) return;
 
   // 1. In-app database record
-  await notificationRepo.createNotification(
+  const notifRecord = await notificationRepo.createNotification(
     user.id,
     title,
     message,
@@ -149,10 +149,14 @@ export const dispatchNotification = async ({
     noticeId,
     roomId,
     articleId
-  ).catch((err) => console.error('[Notification] DB record error:', err.message));
+  ).catch((err) => {
+    console.error('[Notification] DB record error:', err.message);
+    return null;
+  });
 
-  // 2. Web application live alert (socket event)
+  // 2. Web application live alert (socket event with persistent DB ID)
   emitToUser(user.id, 'notification', {
+    id: notifRecord?.id || undefined,
     title,
     message,
     type,
@@ -160,7 +164,7 @@ export const dispatchNotification = async ({
     noticeId,
     roomId,
     articleId,
-    createdAt: new Date().toISOString(),
+    createdAt: notifRecord?.created_at || new Date().toISOString(),
     ...extraPayload,
   });
 
@@ -189,7 +193,7 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
     const email = (p.email && p.email.trim()) || (p.tenant_email && p.tenant_email.trim());
 
     // 1. In-app database record
-    await notificationRepo.createNotification(
+    const notif = await notificationRepo.createNotification(
       p.user_id,
       'New Chat Message',
       `${senderName}: "${truncate(snippet, 80)}" in "${roomTitle}"`,
@@ -197,14 +201,16 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
       null,
       null,
       message.room_id
-    ).catch(() => {});
+    ).catch(() => null);
 
     // 2. Real-time socket event
     emitToUser(p.user_id, 'notification', {
+      id: notif?.id,
       title: 'New Chat Message',
       message: `${senderName}: "${truncate(snippet, 80)}" in "${roomTitle}"`,
       type: 'chat',
       roomId: message.room_id,
+      createdAt: notif?.created_at || new Date().toISOString(),
     });
 
     // 3. Email notification with secure login redirect
@@ -229,14 +235,21 @@ export const notifyTicketCreated = async (ticket, createdByUserId) => {
   );
   for (const admin of admins) {
     if (admin.id === createdByUserId) continue;
-    await notificationRepo.createNotification(
+    const notif = await notificationRepo.createNotification(
       admin.id,
       'New Ticket Created',
       `Ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted.`,
       'ticket',
       ticket.id
     );
-    emitToUser(admin.id, 'notification', { title: 'New Ticket Created', message: `Ticket ${ref} has been submitted.`, type: 'ticket', ticketId: ticket.id });
+    emitToUser(admin.id, 'notification', {
+      id: notif?.id,
+      title: 'New Ticket Created',
+      message: `Ticket ${ref} has been submitted.`,
+      type: 'ticket',
+      ticketId: ticket.id,
+      createdAt: notif?.created_at || new Date().toISOString(),
+    });
   }
 
   // Ensure external ticket notification reaches the created system email (demshuterefe94@gmail.com)
@@ -282,7 +295,7 @@ export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUse
   if (assignedUserId === assignedByUserId) return;
   const actualUserId = (await resolveUserId(assignedUserId)) || assignedUserId;
   const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
-  await notificationRepo.createNotification(
+  const notif = await notificationRepo.createNotification(
     actualUserId,
     'Ticket Assigned to You',
     `You have been assigned ticket ${ref} "${truncate(ticket.title, 60)}".`,
@@ -290,12 +303,14 @@ export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUse
     ticket.id
   );
   emitToUser(actualUserId, 'notification', {
+    id: notif?.id,
     title: 'Ticket Assigned to You',
     message: `Ticket ${ref} has been assigned to you.`,
     type: 'assignment',
     ticketId: ticket.id,
     ticketReferenceNumber: ref,
     ticketNum: ticket.ticket_num || ticket.ticketNum,
+    createdAt: notif?.created_at || new Date().toISOString(),
   });
 
   const [userRows] = await pool.query(
@@ -328,7 +343,7 @@ export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => 
     { actualDeptId }
   );
   for (const mgr of managers) {
-    await notificationRepo.createNotification(
+    const notif = await notificationRepo.createNotification(
       mgr.id,
       'Ticket Assigned to Department',
       `Ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been assigned to your department.`,
@@ -336,12 +351,14 @@ export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => 
       ticket.id
     );
     emitToUser(mgr.id, 'notification', {
+      id: notif?.id,
       title: 'Ticket Assigned to Department',
       message: `Ticket ${ticket.reference_number || ticket.referenceNumber} has been assigned to your department.`,
       type: 'assignment',
       ticketId: ticket.id,
       ticketReferenceNumber: ticket.reference_number || ticket.referenceNumber,
       ticketNum: ticket.ticket_num || ticket.ticketNum,
+      createdAt: notif?.created_at || new Date().toISOString(),
     });
     sendTicketAssignedEmail({
       email: mgr.email,

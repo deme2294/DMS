@@ -3,26 +3,27 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const createNotification = async (userId, title, message, type = 'ticket', ticketId = null, noticeId = null, roomId = null, articleId = null) => {
   const id = uuidv4();
+  const now = new Date();
   try {
     await pool.query(
-      `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, article_id)
-       VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :articleId)`,
-      { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, articleId: articleId || null }
+      `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, article_id, created_at)
+       VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :articleId, :now)`,
+      { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, articleId: articleId || null, now }
     );
   } catch (err) {
     if (err.code === 'ER_BAD_FIELD_ERROR' || err.errno === 1054) {
       try {
         await pool.query(
-          `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id)
-           VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId)`,
-          { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null }
+          `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, notice_id, room_id, created_at)
+           VALUES (:id, :userId, :title, :message, :type, :ticketId, :noticeId, :roomId, :now)`,
+          { id, userId, title, message, type, ticketId: ticketId || null, noticeId: noticeId || null, roomId: roomId || null, now }
         );
       } catch (innerErr) {
         if (innerErr.code === 'ER_BAD_FIELD_ERROR' || innerErr.errno === 1054) {
           await pool.query(
-            `INSERT INTO notifications (id, user_id, title, message, type, ticket_id)
-             VALUES (:id, :userId, :title, :message, :type, :ticketId)`,
-            { id, userId, title, message, type, ticketId: ticketId || null }
+            `INSERT INTO notifications (id, user_id, title, message, type, ticket_id, created_at)
+             VALUES (:id, :userId, :title, :message, :type, :ticketId, :now)`,
+            { id, userId, title, message, type, ticketId: ticketId || null, now }
           );
         } else {
           throw innerErr;
@@ -32,6 +33,20 @@ export const createNotification = async (userId, title, message, type = 'ticket'
       throw err;
     }
   }
+
+  return {
+    id,
+    user_id: userId,
+    title,
+    message,
+    type,
+    ticket_id: ticketId || null,
+    notice_id: noticeId || null,
+    room_id: roomId || null,
+    article_id: articleId || null,
+    read_at: null,
+    created_at: now.toISOString(),
+  };
 };
 
 export const getUnreadCount = async (userId) => {
