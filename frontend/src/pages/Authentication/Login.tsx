@@ -12,12 +12,6 @@ import {
   CpuChipIcon,
   CloudIcon,
 } from '@heroicons/react/24/solid';
-import {
-  Cog6ToothIcon,
-  ClipboardDocumentCheckIcon,
-  BuildingOffice2Icon,
-  KeyIcon,
-} from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_DASHBOARD } from '../../config/routes';
 import { resolveRoleRedirect } from '../../utils/redirectUtils';
@@ -29,71 +23,7 @@ type LoginApiError = {
   message?: string;
 };
 
-// Sleek vector crown icon for CEO
-const CrownIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 18h18M4 18l2-9.5 4.5 4.5 3.5-6 3.5 6 4.5-4.5 2 9.5H4z" />
-    <circle cx="6" cy="8.5" r="0.75" fill="currentColor" />
-    <circle cx="12" cy="7" r="0.75" fill="currentColor" />
-    <circle cx="18" cy="8.5" r="0.75" fill="currentColor" />
-  </svg>
-);
 
-// Sleek headset / support icon for Staff
-const HeadsetIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-  </svg>
-);
-
-const DEMO_ACCOUNTS = [
-  {
-    role: 'CEO',
-    username: 'ceo',
-    Icon: CrownIcon,
-    accent: '#f59e0b',
-    glow: 'rgba(245, 158, 11, 0.28)',
-    bg: 'rgba(245, 158, 11, 0.12)',
-    border: 'rgba(245, 158, 11, 0.3)',
-  },
-  {
-    role: 'Admin',
-    username: 'admin',
-    Icon: Cog6ToothIcon,
-    accent: '#f43f5e',
-    glow: 'rgba(244, 63, 94, 0.28)',
-    bg: 'rgba(244, 63, 94, 0.12)',
-    border: 'rgba(244, 63, 94, 0.3)',
-  },
-  {
-    role: 'Manager',
-    username: 'manager',
-    Icon: ClipboardDocumentCheckIcon,
-    accent: '#fb923c',
-    glow: 'rgba(251, 146, 60, 0.28)',
-    bg: 'rgba(251, 146, 60, 0.12)',
-    border: 'rgba(251, 146, 60, 0.3)',
-  },
-  {
-    role: 'Staff',
-    username: 'staff',
-    Icon: HeadsetIcon,
-    accent: '#10b981',
-    glow: 'rgba(16, 185, 129, 0.28)',
-    bg: 'rgba(16, 185, 129, 0.12)',
-    border: 'rgba(16, 185, 129, 0.3)',
-  },
-  {
-    role: 'Tenant',
-    username: 'tenant',
-    Icon: BuildingOffice2Icon,
-    accent: '#8b5cf6',
-    glow: 'rgba(139, 92, 246, 0.28)',
-    bg: 'rgba(139, 92, 246, 0.12)',
-    border: 'rgba(139, 92, 246, 0.3)',
-  },
-];
 
 const FEATURES = [
   { icon: ShieldCheckIcon, color: 'from-blue-500 to-blue-600', title: 'Enterprise Security', sub: 'JWT auth, role-based access & audit logging' },
@@ -183,10 +113,6 @@ export default function Login() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const quickFill = (username: string) => {
-    setIdentifier(username); setPassword('password'); setError(''); setIsLocked(false);
   };
 
   return (
@@ -400,59 +326,12 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="login-divider">
-              <div className="login-divider-line" />
-              <span className="login-divider-text">
-                <span className="login-divider-dot" />
-                Quick demo access
-              </span>
-              <div className="login-divider-line" />
-            </div>
-
-            {/* Demo accounts — compact, elegant 5-column row */}
-            <div className="login-demo-grid">
-              {DEMO_ACCOUNTS.map(({ role, username, Icon, accent, glow, bg, border }) => {
-                const isSelected = identifier.toLowerCase() === username.toLowerCase();
-                return (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => quickFill(username)}
-                    className={`login-demo-btn ${isSelected ? 'login-demo-btn-active' : ''}`}
-                    style={{
-                      '--demo-accent': accent,
-                      '--demo-glow': glow,
-                      '--demo-bg': bg,
-                      '--demo-border': border,
-                    } as React.CSSProperties}
-                    title={`Click to fill ${role} demo credentials`}
-                  >
-                    {/* Compact Icon Badge */}
-                    <div className="login-demo-icon">
-                      <Icon className="login-demo-svg" />
-                    </div>
-                    {/* Role name */}
-                    <span className="login-demo-role">{role}</span>
-                    {/* Username tag */}
-                    <span className="login-demo-username">{username}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="login-demo-hint">
-              <KeyIcon className="login-demo-hint-key" />
-              <span>Password for all demo accounts:</span>
-              <code className="login-demo-pwd-pill">password</code>
-            </div>
-
-            {/* Security notice */}
-            <div className="login-security-notice">
+            {/* Enterprise Security Notice */}
+            <div className="login-security-notice" style={{ marginTop: '1.5rem' }}>
               <ShieldCheckIcon className="login-security-icon" />
               <div className="login-security-content">
-                <span className="login-security-title">Secure Demo Environment</span>
-                <span className="login-security-sub">Enterprise RBAC active • Audit logging enabled</span>
+                <span className="login-security-title">Secure Enterprise Authentication</span>
+                <span className="login-security-sub">Role-Based Access Control • End-to-End Audit Logging</span>
               </div>
             </div>
           </div>
