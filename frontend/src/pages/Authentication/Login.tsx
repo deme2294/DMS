@@ -162,8 +162,8 @@ export default function Login() {
           </div>
 
           <p className="login-desc">
-            Streamline government service delivery with a unified platform for ticket management,
-            department coordination, and citizen support.
+            Streamline ITPC service delivery with a unified platform for ticket management,
+            department coordination, and tenant support.
           </p>
 
           {/* Feature cards */}
