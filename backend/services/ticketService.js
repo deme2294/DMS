@@ -155,8 +155,48 @@ export const getTicket = async (user, id) => {
   }
   const history = await ticketRepo.getStatusHistory(ticket.id);
   const assignments = await ticketRepo.getAssignments(ticket.id);
+
+  const cooldownMinutes = parseInt(process.env.ASSIGNMENT_LOCK_MINUTES || '30', 10);
+  const now = Date.now();
+
+  // Active department assignment lock
+  const activeDeptAssignment = [...assignments].reverse().find(
+    (a) => a.role === 'department_manager' && ['pending', 'accepted'].includes(a.status)
+  );
+  let deptAssignmentLock = null;
+  if (activeDeptAssignment && activeDeptAssignment.created_at) {
+    const elapsedMinutes = Math.floor((now - new Date(activeDeptAssignment.created_at).getTime()) / 60000);
+    const remainingMinutes = Math.max(0, cooldownMinutes - elapsedMinutes);
+    deptAssignmentLock = {
+      isLocked: remainingMinutes > 0,
+      remainingMinutes,
+      lockDurationMinutes: cooldownMinutes,
+      assignedAt: activeDeptAssignment.created_at,
+      assignedToName: activeDeptAssignment.assigned_to_name || 'Department Manager',
+    };
+  }
+
+  // Active staff assignment lock
+  const activeStaffAssignment = [...assignments].reverse().find(
+    (a) => a.role === 'staff' && ['pending', 'accepted'].includes(a.status)
+  );
+  let staffAssignmentLock = null;
+  if (activeStaffAssignment && activeStaffAssignment.created_at) {
+    const elapsedMinutes = Math.floor((now - new Date(activeStaffAssignment.created_at).getTime()) / 60000);
+    const remainingMinutes = Math.max(0, cooldownMinutes - elapsedMinutes);
+    staffAssignmentLock = {
+      isLocked: remainingMinutes > 0,
+      remainingMinutes,
+      lockDurationMinutes: cooldownMinutes,
+      assignedAt: activeStaffAssignment.created_at,
+      assignedToName: activeStaffAssignment.assigned_to_name || 'Staff Member',
+    };
+  }
+
   return {
     ...sanitizeTicket(ticket),
+    deptAssignmentLock,
+    staffAssignmentLock,
     statusHistory: history.map((h) => ({
       id: h.id, fromStatus: h.from_status, toStatus: h.to_status, changedBy: h.changed_by,
       changedByName: h.changed_by_name, notes: h.notes, role: h.role, createdAt: h.created_at,
@@ -563,8 +603,21 @@ export const assignDepartment = async (user, id, departmentId, notes, managerId 
     targetManagerId = resolvedManager?.id || null;
   }
 
-  // Close previous active assignments if reassigned
+  // Verify department stay duration before allowing reassignment
+  const cooldownMinutes = parseInt(process.env.ASSIGNMENT_LOCK_MINUTES || '30', 10);
   const activeDept = await ticketRepo.findActiveAssignment(id, 'department_manager');
+  if (activeDept && activeDept.created_at) {
+    const elapsedMinutes = Math.floor((Date.now() - new Date(activeDept.created_at).getTime()) / 60000);
+    if (elapsedMinutes < cooldownMinutes) {
+      const remainingMinutes = cooldownMinutes - elapsedMinutes;
+      throw Object.assign(
+        new Error(`Department assignment locked: The ticket was assigned to this department ${elapsedMinutes} minute(s) ago. It must stay with the department for at least ${cooldownMinutes} minutes before reassignment (${remainingMinutes} minute(s) remaining).`),
+        { statusCode: 400 }
+      );
+    }
+  }
+
+  // Close previous active assignments if reassigned
   if (activeDept) {
     await ticketRepo.reassignAssignment(activeDept.id);
   }
@@ -649,7 +702,20 @@ export const assignStaff = async (user, id, staffId, notes, meta = {}) => {
     await ticketRepo.acceptAssignment(activeDeptMgr.id);
   }
 
+  // Verify staff stay duration before allowing reassignment
   const active = await ticketRepo.findActiveAssignment(id, 'staff');
+  if (active && active.created_at) {
+    const cooldownMinutes = parseInt(process.env.ASSIGNMENT_LOCK_MINUTES || '30', 10);
+    const elapsedMinutes = Math.floor((Date.now() - new Date(active.created_at).getTime()) / 60000);
+    if (elapsedMinutes < cooldownMinutes) {
+      const remainingMinutes = cooldownMinutes - elapsedMinutes;
+      throw Object.assign(
+        new Error(`Staff assignment locked: The ticket was assigned to staff ${elapsedMinutes} minute(s) ago. Staff must be given at least ${cooldownMinutes} minutes before reassignment (${remainingMinutes} minute(s) remaining).`),
+        { statusCode: 400 }
+      );
+    }
+  }
+
   if (active) {
     await ticketRepo.reassignAssignment(active.id);
   }

@@ -27,6 +27,7 @@ import styles from './Tickets.module.css';
 import {
   ArrowPathIcon,
   BuildingOffice2Icon,
+  LockClosedIcon,
   UserPlusIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -818,6 +819,12 @@ export default function TicketDetail() {
                   <span className={styles.deptChip}>
                     <BuildingOffice2Icon />
                     {ticket.departmentName}
+                    {ticket.deptAssignmentLock?.isLocked && (
+                      <span className={styles.lockBadge} title={`Department assignment locked: ${ticket.deptAssignmentLock.remainingMinutes}m remaining`}>
+                        <LockClosedIcon style={{ width: 11, height: 11 }} />
+                        {`${ticket.deptAssignmentLock.remainingMinutes}m lock`}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className={styles.unassignedChip}>Unassigned</span>
@@ -838,6 +845,12 @@ export default function TicketDetail() {
                         <UserCircleIcon />
                         {ticket.assignedToName}
                         {isAssignedToMe && <span className={styles.youBadge}>You</span>}
+                        {ticket.staffAssignmentLock?.isLocked && (
+                          <span className={styles.lockBadge} title={`Staff assignment locked: ${ticket.staffAssignmentLock.remainingMinutes}m remaining`}>
+                            <LockClosedIcon style={{ width: 11, height: 11 }} />
+                            {`${ticket.staffAssignmentLock.remainingMinutes}m lock`}
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span className={styles.unassignedChip}>Unassigned</span>
@@ -1252,13 +1265,36 @@ export default function TicketDetail() {
                                 flash('Cannot assign department: Ticket is waiting for tenant response/confirmation.', true);
                                 return;
                               }
+                              if (ticket.deptAssignmentLock?.isLocked) {
+                                flash(
+                                  `Department reassignment locked: Ticket was assigned to ${ticket.deptAssignmentLock.assignedToName || 'the department'} and must stay for at least ${ticket.deptAssignmentLock.lockDurationMinutes}m (${ticket.deptAssignmentLock.remainingMinutes}m remaining).`,
+                                  true
+                                );
+                                return;
+                              }
                               setDeptModal(true);
                             }}
-                            disabled={isWaitingTenant}
-                            title={isWaitingTenant ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation' : 'Assign Department'}
+                            disabled={isWaitingTenant || ticket.deptAssignmentLock?.isLocked}
+                            title={
+                              isWaitingTenant
+                                ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation'
+                                : ticket.deptAssignmentLock?.isLocked
+                                ? `Department reassignment locked: ${ticket.deptAssignmentLock.remainingMinutes}m remaining`
+                                : ticket.departmentId
+                                ? 'Reassign Department'
+                                : 'Assign Department'
+                            }
                           >
-                            <BuildingOffice2Icon className={styles.btnIcon} />
-                            Assign Dept
+                            {ticket.deptAssignmentLock?.isLocked ? (
+                              <LockClosedIcon className={styles.btnIcon} />
+                            ) : (
+                              <BuildingOffice2Icon className={styles.btnIcon} />
+                            )}
+                            {ticket.deptAssignmentLock?.isLocked
+                              ? `Dept Locked (${ticket.deptAssignmentLock.remainingMinutes}m)`
+                              : ticket.departmentId
+                              ? 'Reassign Dept'
+                              : 'Assign Dept'}
                           </button>
                         )}
                         {role === 'manager' && ticket.departmentId && (
@@ -1266,11 +1302,27 @@ export default function TicketDetail() {
                             <button
                               className={styles.btnInfo}
                               onClick={openStaffModal}
-                              disabled={isWaitingTenant}
-                              title={isWaitingTenant ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation' : (ticket.assignedTo ? 'Reassign Staff to Another Department Member' : 'Assign Staff to Department Member')}
+                              disabled={isWaitingTenant || (!!ticket.assignedTo && ticket.staffAssignmentLock?.isLocked)}
+                              title={
+                                isWaitingTenant
+                                  ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation'
+                                  : ticket.assignedTo && ticket.staffAssignmentLock?.isLocked
+                                  ? `Staff reassignment locked: ${ticket.staffAssignmentLock.remainingMinutes}m remaining`
+                                  : ticket.assignedTo
+                                  ? 'Reassign Staff to Another Department Member'
+                                  : 'Assign Staff to Department Member'
+                              }
                             >
-                              <UserPlusIcon className={styles.btnIcon} />
-                              {ticket.assignedTo ? 'Reassign Staff' : 'Assign Staff'}
+                              {ticket.assignedTo && ticket.staffAssignmentLock?.isLocked ? (
+                                <LockClosedIcon className={styles.btnIcon} />
+                              ) : (
+                                <UserPlusIcon className={styles.btnIcon} />
+                              )}
+                              {ticket.assignedTo && ticket.staffAssignmentLock?.isLocked
+                                ? `Staff Locked (${ticket.staffAssignmentLock.remainingMinutes}m)`
+                                : ticket.assignedTo
+                                ? 'Reassign Staff'
+                                : 'Assign Staff'}
                             </button>
                             {ticket.assignedTo && ['open', 'assigned', 'in_progress', 'reopened'].includes(ticket.status) && (
                               <button
@@ -2530,7 +2582,7 @@ export default function TicketDetail() {
             </button>
             <button
               type="button"
-              disabled={!selectedDept || assigningDept}
+              disabled={!selectedDept || assigningDept || ticket?.deptAssignmentLock?.isLocked}
               onClick={handleAssignDepartmentSubmit}
               style={{
                 background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
@@ -2627,7 +2679,7 @@ export default function TicketDetail() {
             </button>
             <button
               type="button"
-              disabled={!selectedStaff || selectedStaff === ticket?.assignedTo || assigningStaff}
+              disabled={!selectedStaff || selectedStaff === ticket?.assignedTo || assigningStaff || (!!ticket?.assignedTo && ticket?.staffAssignmentLock?.isLocked)}
               onClick={handleAssignStaffSubmit}
               className={styles.modalSubmitBtn}
             >

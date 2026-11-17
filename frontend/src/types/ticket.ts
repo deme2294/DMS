@@ -24,6 +24,14 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type TenantConfirmationStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
 
+export interface AssignmentLockInfo {
+  isLocked: boolean;
+  remainingMinutes: number;
+  lockDurationMinutes: number;
+  assignedAt?: string | null;
+  assignedToName?: string | null;
+}
+
 export interface TicketAttachment {
   id: string;
   ticketId: string;
@@ -176,6 +184,8 @@ export interface Ticket {
   cancelledAt?: string | null;
    mergedInto?: string | null;
    routingType?: 'general' | 'direct';
+  deptAssignmentLock?: AssignmentLockInfo | null;
+  staffAssignmentLock?: AssignmentLockInfo | null;
    attachments?: TicketAttachment[];
   statusHistory?: StatusHistoryItem[];
   assignments?: AssignmentItem[];
