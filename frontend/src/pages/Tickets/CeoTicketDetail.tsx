@@ -1611,14 +1611,17 @@ export default function CeoTicketDetail() {
                     </div>
                   </div>
 
-                  {/* Bottom: Why the file was uploaded (Comment / Reason) */}
-                  <div className={styles.attachmentCommentBox}>
-                    <div className={styles.commentBoxLabel}>
-                      <ChatBubbleBottomCenterTextIcon className={styles.commentBoxIcon} />
-                      <span>Why uploaded / Comment:</span>
+                  {/* Bottom: Why the file was uploaded (Warning Alert / Reason) */}
+                  <div className={styles.attachmentCommentBox} role="alert">
+                    <div className={styles.commentBoxHeader}>
+                      <div className={styles.commentBoxLabel}>
+                        <ExclamationTriangleIcon className={styles.commentBoxIcon} />
+                        <span>Why Uploaded / Comment:</span>
+                      </div>
+                      <span className={styles.commentBoxNoticeBadge}>Uploader Note</span>
                     </div>
                     <p className={styles.commentBoxText}>
-                      {comment || <span className={styles.commentBoxMuted}>No comment provided</span>}
+                      {comment || <span className={styles.commentBoxMuted}>No reason or explanation provided with this file</span>}
                     </p>
                   </div>
                 </div>
