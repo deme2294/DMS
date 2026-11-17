@@ -277,36 +277,37 @@ interface MetricItem {
   icon: any;
   tone: 'gold' | 'blue' | 'green' | 'amber' | 'red' | 'purple' | 'slate';
   tooltip?: string;
+  hint?: string;
 }
 
 const ALL_METRIC_CARDS: MetricItem[] = [
   // Tickets & SLA Pulse
-  { key: 'totalTickets', label: 'Total Tickets', category: 'tickets', icon: TicketIcon, tone: 'blue', tooltip: 'All tickets submitted across all tenants' },
-  { key: 'openTickets', label: 'Open Tickets', category: 'tickets', icon: ArrowTrendingUpIcon, tone: 'blue', tooltip: 'Tickets awaiting assignment or review' },
-  { key: 'pendingTickets', label: 'Pending Action', category: 'tickets', icon: ClockIcon, tone: 'amber', tooltip: 'Tickets pending response or approval' },
-  { key: 'inProgressTickets', label: 'In Progress', category: 'tickets', icon: ClockIcon, tone: 'amber', tooltip: 'Tickets actively being worked on by staff' },
-  { key: 'resolvedTickets', label: 'Resolved Tickets', category: 'tickets', icon: CheckCircleIcon, tone: 'green', tooltip: 'Tickets successfully solved' },
-  { key: 'closedTickets', label: 'Closed Tickets', category: 'tickets', icon: CheckCircleIcon, tone: 'slate', tooltip: 'Completed and archived tickets' },
-  { key: 'overdueTickets', label: 'Overdue Tickets', category: 'tickets', icon: ExclamationTriangleIcon, tone: 'red', tooltip: 'Tickets that breached resolution SLA' },
-  { key: 'withinSla', label: 'Within SLA', category: 'tickets', icon: ShieldCheckIcon, tone: 'green', tooltip: 'Tickets complying with SLA targets' },
-  { key: 'nearDeadline', label: 'Near Deadline', category: 'tickets', icon: ClockIcon, tone: 'amber', tooltip: 'Tickets within 24h of SLA breach' },
-  { key: 'escalatedTickets', label: 'Escalated', category: 'tickets', icon: ArrowTrendingUpIcon, tone: 'red', tooltip: 'Tickets escalated for higher review' },
+  { key: 'totalTickets', label: 'Total Tickets', category: 'tickets', icon: TicketIcon, tone: 'blue', hint: '100% of pipeline', tooltip: 'All tickets submitted across all tenants' },
+  { key: 'openTickets', label: 'Open Tickets', category: 'tickets', icon: ArrowTrendingUpIcon, tone: 'blue', hint: 'Needs triage & dispatch', tooltip: 'Tickets awaiting assignment or review' },
+  { key: 'pendingTickets', label: 'Pending Action', category: 'tickets', icon: ClockIcon, tone: 'amber', hint: 'Awaiting feedback / approval', tooltip: 'Tickets pending response or approval' },
+  { key: 'inProgressTickets', label: 'In Progress', category: 'tickets', icon: ClockIcon, tone: 'amber', hint: 'Active technician work', tooltip: 'Tickets actively being worked on by staff' },
+  { key: 'resolvedTickets', label: 'Resolved Tickets', category: 'tickets', icon: CheckCircleIcon, tone: 'green', hint: 'Target achieved', tooltip: 'Tickets successfully solved' },
+  { key: 'closedTickets', label: 'Closed Tickets', category: 'tickets', icon: CheckCircleIcon, tone: 'slate', hint: 'Archived & verified', tooltip: 'Completed and archived tickets' },
+  { key: 'overdueTickets', label: 'Overdue Tickets', category: 'tickets', icon: ExclamationTriangleIcon, tone: 'red', hint: '⚠️ SLA Breached', tooltip: 'Tickets that breached resolution SLA' },
+  { key: 'withinSla', label: 'Within SLA', category: 'tickets', icon: ShieldCheckIcon, tone: 'green', hint: '✓ Compliant with target', tooltip: 'Tickets complying with SLA targets' },
+  { key: 'nearDeadline', label: 'Near Deadline', category: 'tickets', icon: ClockIcon, tone: 'amber', hint: 'Approaching breach window', tooltip: 'Tickets within 24h of SLA breach' },
+  { key: 'escalatedTickets', label: 'Escalated', category: 'tickets', icon: ArrowTrendingUpIcon, tone: 'red', hint: 'Executive attention', tooltip: 'Tickets escalated for higher review' },
 
   // Organization & Workforce
-  { key: 'totalTenants', label: 'Active Tenants', category: 'org', icon: BuildingOfficeIcon, tone: 'blue', tooltip: 'Registered client organizations' },
-  { key: 'totalUsers', label: 'Total Accounts', category: 'org', icon: UserGroupIcon, tone: 'blue', tooltip: 'Total user profiles across all roles' },
-  { key: 'activeUsers', label: 'Active Users', category: 'org', icon: UserGroupIcon, tone: 'green', tooltip: 'Active accounts currently enabled' },
-  { key: 'inactiveUsers', label: 'Inactive Users', category: 'org', icon: UserGroupIcon, tone: 'slate', tooltip: 'Disabled or suspended accounts' },
-  { key: 'totalDepartments', label: 'Departments', category: 'org', icon: BuildingOffice2Icon, tone: 'purple', tooltip: 'ITPC service departments' },
-  { key: 'totalDepartmentManagers', label: 'Dept Managers', category: 'org', icon: UserIcon, tone: 'purple', tooltip: 'Active department head managers' },
-  { key: 'totalGeneralManagers', label: 'General Managers', category: 'org', icon: UserIcon, tone: 'purple', tooltip: 'General operations managers' },
-  { key: 'totalStaff', label: 'Technical Staff', category: 'org', icon: UserIcon, tone: 'blue', tooltip: 'Field technicians and support staff' },
-  { key: 'totalAdmins', label: 'System Admins', category: 'org', icon: ShieldCheckIcon, tone: 'gold', tooltip: 'Full administrative access users' },
+  { key: 'totalTenants', label: 'Active Tenants', category: 'org', icon: BuildingOfficeIcon, tone: 'blue', hint: 'Registered client orgs', tooltip: 'Registered client organizations' },
+  { key: 'totalUsers', label: 'Total Accounts', category: 'org', icon: UserGroupIcon, tone: 'blue', hint: 'System-wide user base', tooltip: 'Total user profiles across all roles' },
+  { key: 'activeUsers', label: 'Active Users', category: 'org', icon: UserGroupIcon, tone: 'green', hint: 'Enabled & authorized', tooltip: 'Active accounts currently enabled' },
+  { key: 'inactiveUsers', label: 'Inactive Users', category: 'org', icon: UserGroupIcon, tone: 'slate', hint: 'Suspended profiles', tooltip: 'Disabled or suspended accounts' },
+  { key: 'totalDepartments', label: 'Departments', category: 'org', icon: BuildingOffice2Icon, tone: 'purple', hint: 'ITPC service units', tooltip: 'ITPC service departments' },
+  { key: 'totalDepartmentManagers', label: 'Dept Managers', category: 'org', icon: UserIcon, tone: 'purple', hint: 'Department supervisors', tooltip: 'Active department head managers' },
+  { key: 'totalGeneralManagers', label: 'General Managers', category: 'org', icon: UserIcon, tone: 'purple', hint: 'Executive leadership', tooltip: 'General operations managers' },
+  { key: 'totalStaff', label: 'Technical Staff', category: 'org', icon: UserIcon, tone: 'blue', hint: 'Support & field engineers', tooltip: 'Field technicians and support staff' },
+  { key: 'totalAdmins', label: 'System Admins', category: 'org', icon: ShieldCheckIcon, tone: 'gold', hint: 'Full security access', tooltip: 'Full administrative access users' },
 
   // Knowledge & Engagement
-  { key: 'knowledgeArticles', label: 'KB Articles', category: 'engagement', icon: BookOpenIcon, tone: 'gold', tooltip: 'Published self-service help articles' },
-  { key: 'feedbackReceived', label: 'Tenant Feedback', category: 'engagement', icon: ChatBubbleLeftRightIcon, tone: 'blue', tooltip: 'Feedback reviews submitted by tenants' },
-  { key: 'noticesPublished', label: 'System Notices', category: 'engagement', icon: MegaphoneIcon, tone: 'gold', tooltip: 'Official announcements and notices' },
+  { key: 'knowledgeArticles', label: 'KB Articles', category: 'engagement', icon: BookOpenIcon, tone: 'gold', hint: 'Self-service repository', tooltip: 'Published self-service help articles' },
+  { key: 'feedbackReceived', label: 'Tenant Feedback', category: 'engagement', icon: ChatBubbleLeftRightIcon, tone: 'blue', hint: 'Reviews & satisfaction', tooltip: 'Feedback reviews submitted by tenants' },
+  { key: 'noticesPublished', label: 'System Notices', category: 'engagement', icon: MegaphoneIcon, tone: 'gold', hint: 'Official broadcasts', tooltip: 'Official announcements and notices' },
 ];
 
 export default function CeoDashboard() {
@@ -482,12 +483,15 @@ export default function CeoDashboard() {
       <div className={styles.metricsSection}>
         <div className={styles.metricsHeaderRow}>
           <div className={styles.metricsTitleGroup}>
+            <div className={styles.sectionBadge}>
+              <SparklesIcon className={styles.sectionBadgeIcon} />
+              <span>TELEMETRY & OPERATIONS</span>
+            </div>
             <h3 className={styles.sectionTitle}>
-              <SparklesIcon className={styles.sectionIcon} />
               Operational Key Performance Indicators
             </h3>
             <span className={styles.sectionSubtitle}>
-              Comprehensive live metrics across ticket lifecycle, organizational capacity, and engagement
+              Live telemetric tracking across ticket lifecycles, workforce capacity, and engagement
             </span>
           </div>
           <div className={styles.tabCluster}>
@@ -496,28 +500,32 @@ export default function CeoDashboard() {
               className={`${styles.tabBtn} ${metricTab === 'all' ? styles.tabActive : ''}`}
               onClick={() => setMetricTab('all')}
             >
-              All Metrics ({ALL_METRIC_CARDS.length})
+              <SparklesIcon className={styles.tabBtnIcon} />
+              <span>All ({ALL_METRIC_CARDS.length})</span>
             </button>
             <button
               type="button"
               className={`${styles.tabBtn} ${metricTab === 'tickets' ? styles.tabActive : ''}`}
               onClick={() => setMetricTab('tickets')}
             >
-              Ticket & SLA Pulse
+              <TicketIcon className={styles.tabBtnIcon} />
+              <span>Ticket & SLA</span>
             </button>
             <button
               type="button"
               className={`${styles.tabBtn} ${metricTab === 'org' ? styles.tabActive : ''}`}
               onClick={() => setMetricTab('org')}
             >
-              Workforce & Org
+              <BuildingOffice2Icon className={styles.tabBtnIcon} />
+              <span>Workforce & Org</span>
             </button>
             <button
               type="button"
               className={`${styles.tabBtn} ${metricTab === 'engagement' ? styles.tabActive : ''}`}
               onClick={() => setMetricTab('engagement')}
             >
-              Engagement & KB
+              <ChatBubbleLeftRightIcon className={styles.tabBtnIcon} />
+              <span>Engagement</span>
             </button>
           </div>
         </div>
@@ -526,6 +534,8 @@ export default function CeoDashboard() {
           {visibleCards.map((c) => {
             const Icon = c.icon;
             const val = stats ? stats[c.key] : '—';
+            const catLabel =
+              c.category === 'tickets' ? 'Tickets' : c.category === 'org' ? 'Workforce' : 'Engagement';
             return (
               <div
                 key={c.key}
@@ -536,10 +546,11 @@ export default function CeoDashboard() {
                   <div className={styles.summaryIconWrapper}>
                     <Icon className={styles.summaryCardIcon} />
                   </div>
-                  <span className={styles.summaryCategoryBadge}>{c.category}</span>
+                  <span className={styles.summaryCategoryBadge}>{catLabel}</span>
                 </div>
                 <div className={styles.summaryValue}>{val}</div>
                 <div className={styles.summaryLabel}>{c.label}</div>
+                {c.hint && <div className={styles.summaryHint}>{c.hint}</div>}
               </div>
             );
           })}
@@ -551,8 +562,11 @@ export default function CeoDashboard() {
         <div className={styles.section}>
           <div className={styles.sectionHeaderRow}>
             <div>
+              <div className={styles.sectionBadge}>
+                <ChartBarIcon className={styles.sectionBadgeIcon} />
+                <span>VISUAL INTELLIGENCE</span>
+              </div>
               <h3 className={styles.sectionTitle}>
-                <ChartBarIcon className={styles.sectionIcon} />
                 Ticket Analytics & Visual Intelligence
               </h3>
               <span className={styles.sectionSubtitle}>
@@ -651,8 +665,11 @@ export default function CeoDashboard() {
       <div className={styles.section}>
         <div className={styles.sectionHeaderRow}>
           <div>
+            <div className={styles.sectionBadge}>
+              <BuildingOffice2Icon className={styles.sectionBadgeIcon} />
+              <span>DEPARTMENT RANKINGS</span>
+            </div>
             <h3 className={styles.sectionTitle}>
-              <BuildingOffice2Icon className={styles.sectionIcon} />
               Department Operational Performance
             </h3>
             <span className={styles.sectionSubtitle}>
@@ -744,8 +761,11 @@ export default function CeoDashboard() {
       <div className={styles.section}>
         <div className={styles.sectionHeaderRow}>
           <div>
+            <div className={styles.sectionBadge}>
+              <UserIcon className={styles.sectionBadgeIcon} />
+              <span>STAFF EFFICIENCY</span>
+            </div>
             <h3 className={styles.sectionTitle}>
-              <UserIcon className={styles.sectionIcon} />
               Technical Staff Efficiency & Output
             </h3>
             <span className={styles.sectionSubtitle}>
@@ -815,8 +835,11 @@ export default function CeoDashboard() {
         <div className={styles.section}>
           <div className={styles.sectionHeaderRow}>
             <div>
+              <div className={styles.sectionBadge}>
+                <BuildingOfficeIcon className={styles.sectionBadgeIcon} />
+                <span>TENANT METRICS</span>
+              </div>
               <h3 className={styles.sectionTitle}>
-                <BuildingOfficeIcon className={styles.sectionIcon} />
                 Client Tenant Statistics
               </h3>
               <span className={styles.sectionSubtitle}>Account status and volume</span>
@@ -870,8 +893,11 @@ export default function CeoDashboard() {
           <div className={styles.section}>
             <div className={styles.sectionHeaderRow}>
               <div>
+                <div className={styles.sectionBadge}>
+                  <SparklesIcon className={styles.sectionBadgeIcon} />
+                  <span>ACTIVITY TRENDS</span>
+                </div>
                 <h3 className={styles.sectionTitle}>
-                  <SparklesIcon className={styles.sectionIcon} />
                   System Activity & Cadence
                 </h3>
                 <span className={styles.sectionSubtitle}>Audit logging and cadence trends</span>
