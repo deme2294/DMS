@@ -526,6 +526,29 @@
   flex-shrink: 0;
 }
 
+.youBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  margin-left: 6px;
+  line-height: 1.2;
+}
+
+:global([data-theme="dark"]) .youBadge,
+:global(.dark) .youBadge {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
+
 :global([data-theme="dark"]) .categoryChip {
   background: rgba(51, 65, 85, 0.55);
   color: #cbd5e1;

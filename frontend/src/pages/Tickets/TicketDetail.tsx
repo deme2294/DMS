@@ -167,6 +167,22 @@ export default function TicketDetail() {
   const [error, setError] = useState('');
   const [accessDenied, setAccessDenied] = useState(false);
 
+  const isMe = (targetId?: string | number | null, targetEmail?: string | null, targetName?: string | null) => {
+    if (!user) return false;
+    if (targetId && user.id && String(targetId) === String(user.id)) return true;
+    if (targetEmail && user.email && targetEmail.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
+    if (targetName) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+      const uname = (user.username || '').toLowerCase();
+      const tName = targetName.trim().toLowerCase();
+      if (tName && (tName === fullName || tName === uname)) return true;
+    }
+    return false;
+  };
+
+  const isTenantUser = (user?.role && String(user.role).toLowerCase() === 'tenant') || false;
+  const isMyTenantTicket = isTenantUser || Boolean(user?.tenantId && ticket?.tenantId && String(user.tenantId) === String(ticket.tenantId));
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -808,38 +824,47 @@ export default function TicketDetail() {
                 )}
               </span>
             </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <UserCircleIcon className={styles.detailLabelIcon} />
-                Assigned To
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.assignedToName ? (
-                  <span className={styles.userChip}>
-                    <UserCircleIcon />
-                    {ticket.assignedToName}
+            {(() => {
+              const isAssignedToMe = isMe(ticket.assignedTo, (ticket as any).assignedToEmail, ticket.assignedToName);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserCircleIcon className={styles.detailLabelIcon} />
+                    {isAssignedToMe ? 'Assigned To You' : 'Assigned To'}
                   </span>
-                ) : (
-                  <span className={styles.unassignedChip}>Unassigned</span>
-                )}
-              </span>
-            </div>
+                  <span className={styles.detailValue}>
+                    {ticket.assignedToName ? (
+                      <span className={styles.userChip}>
+                        <UserCircleIcon />
+                        {ticket.assignedToName}
+                        {isAssignedToMe && <span className={styles.youBadge}>You</span>}
+                      </span>
+                    ) : (
+                      <span className={styles.unassignedChip}>Unassigned</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
             {role === 'admin' && (() => {
               const staffAssignments = (ticket.assignments || []).filter((a) => a.role === 'staff') || [];
               const latestStaff = staffAssignments.length ? staffAssignments[staffAssignments.length - 1] : null;
               const latestHistory = (ticket.statusHistory || []).slice().reverse()[0];
+              const isAssignedByMe = isMe(latestStaff?.assignedBy, null, latestStaff?.assignedByName);
+              const isChangedByMe = isMe(latestHistory?.changedBy, null, latestHistory?.changedByName);
               return (
                 <>
                   <div className={styles.detailItem}>
                     <span className={styles.detailLabel}>
                       <UserPlusIcon className={styles.detailLabelIcon} />
-                      Assigned By
+                      {isAssignedByMe ? 'Assigned By You' : 'Assigned By'}
                     </span>
                     <span className={styles.detailValue}>
                       {latestStaff?.assignedByName ? (
                         <span className={styles.userChip}>
                           <UserPlusIcon />
                           {latestStaff.assignedByName}
+                          {isAssignedByMe && <span className={styles.youBadge}>You</span>}
                         </span>
                       ) : (
                         <span className={styles.unassignedChip}>—</span>
@@ -849,13 +874,14 @@ export default function TicketDetail() {
                   <div className={styles.detailItem}>
                     <span className={styles.detailLabel}>
                       <ArrowPathIcon className={styles.detailLabelIcon} />
-                      Changed By
+                      {isChangedByMe ? 'Changed By You' : 'Changed By'}
                     </span>
                     <span className={styles.detailValue}>
                       {latestHistory?.changedByName ? (
                         <span className={styles.userChip}>
                           <UserCircleIcon />
                           {latestHistory.changedByName}
+                          {isChangedByMe && <span className={styles.youBadge}>You</span>}
                         </span>
                       ) : (
                         <span className={styles.unassignedChip}>—</span>
@@ -868,118 +894,145 @@ export default function TicketDetail() {
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <BuildingOfficeIcon className={styles.detailLabelIcon} />
-                Tenant
+                {isTenantUser ? 'Your Organization' : 'Tenant'}
               </span>
               <span className={styles.detailValue}>
                 {ticket.tenantName ? (
                   <span className={styles.tenantChip}>
                     <BuildingOfficeIcon />
                     {ticket.tenantName}
+                    {isMyTenantTicket && <span className={styles.youBadge}>You</span>}
                   </span>
                 ) : (
                   <span className={styles.unassignedChip}>—</span>
                 )}
               </span>
             </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <UserCircleIcon className={styles.detailLabelIcon} />
-                Created By
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.createdByName ? (
-                  <span className={styles.userChip}>
-                    <UserCircleIcon />
-                    {ticket.createdByName}
+            {(() => {
+              const isCreatedByMe = isMe(ticket.createdBy, ticket.createdByEmail, ticket.createdByName);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserCircleIcon className={styles.detailLabelIcon} />
+                    {isCreatedByMe ? 'Created By You' : 'Created By'}
                   </span>
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <EnvelopeIcon className={styles.detailLabelIcon} />
-                Tenant Email
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.tenantEmail || ticket.createdByEmail ? (
-                  canNotifyTenant(user, ticket) ? (
-                    <button
-                      type="button"
-                      className={styles.tenantEmailLink}
-                      title={`Send official notification to ${ticket.tenantEmail || ticket.createdByEmail}`}
-                      onClick={() => {
-                        setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
-                        setContactTarget({
-                          email: (ticket.tenantEmail || ticket.createdByEmail)!,
-                          name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
-                          roleOrType: 'Ticket Submitter',
-                          ticketId: ticket.id,
-                        });
-                      }}
-                    >
-                      <EnvelopeIcon className={styles.contactIconSmall} />
-                      <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
-                    </button>
-                  ) : (
-                    <span
-                      className={styles.tenantEmailReadOnly}
-                      title="Official email notifications to tenants are restricted to Administrators and the assigned Department Manager"
-                    >
-                      <EnvelopeIcon className={styles.contactIconSmall} />
-                      <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
+                  <span className={styles.detailValue}>
+                    {ticket.createdByName ? (
+                      <span className={styles.userChip}>
+                        <UserCircleIcon />
+                        {ticket.createdByName}
+                        {isCreatedByMe && <span className={styles.youBadge}>You</span>}
+                      </span>
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+            {(() => {
+              const emailVal = ticket.tenantEmail || ticket.createdByEmail;
+              const isEmailMine = isTenantUser || isMe(null, emailVal, null);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <EnvelopeIcon className={styles.detailLabelIcon} />
+                    {isEmailMine ? 'Your Email' : 'Tenant Email'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    {emailVal ? (
+                      canNotifyTenant(user, ticket) ? (
+                        <button
+                          type="button"
+                          className={styles.tenantEmailLink}
+                          title={`Send official notification to ${emailVal}`}
+                          onClick={() => {
+                            setContactSubject(`Regarding Ticket #${ticket.referenceNumber}: ${ticket.title}`);
+                            setContactTarget({
+                              email: emailVal,
+                              name: ticket.tenantName || ticket.createdByName || ticket.tenantContactPerson || 'Ticket Submitter',
+                              roleOrType: 'Ticket Submitter',
+                              ticketId: ticket.id,
+                            });
+                          }}
+                        >
+                          <EnvelopeIcon className={styles.contactIconSmall} />
+                          <span className={styles.emailText}>{emailVal}</span>
+                          {isEmailMine && <span className={styles.youBadge}>You</span>}
+                        </button>
+                      ) : (
+                        <span
+                          className={styles.tenantEmailReadOnly}
+                          title="Official email notifications to tenants are restricted to Administrators and the assigned Department Manager"
+                        >
+                          <EnvelopeIcon className={styles.contactIconSmall} />
+                          <span className={styles.emailText}>{emailVal}</span>
+                          {isEmailMine && <span className={styles.youBadge}>You</span>}
+                        </span>
+                      )
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+            {(() => {
+              const phoneVal = ticket.tenantPhone || ticket.createdByPhone;
+              const isPhoneMine = isTenantUser || (Boolean(user?.phone && phoneVal && user.phone.trim() === phoneVal.trim()));
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <PhoneIcon className={styles.detailLabelIcon} />
+                    {isPhoneMine ? 'Your Contact' : 'Tenant Contact'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    {phoneVal ? (
+                      canNotifyTenant(user, ticket) ? (
+                        <a
+                          href={`tel:${phoneVal}`}
+                          className={styles.tenantPhoneLink}
+                          title={`Call ${phoneVal}`}
+                        >
+                          <PhoneIcon className={styles.contactIconSmall} />
+                          <span>{phoneVal}</span>
+                          {isPhoneMine && <span className={styles.youBadge}>You</span>}
+                        </a>
+                      ) : (
+                        <span
+                          className={styles.tenantPhoneReadOnly}
+                          title="Direct calls to tenants are restricted to Administrators and the assigned Department Manager"
+                        >
+                          <PhoneIcon className={styles.contactIconSmall} />
+                          <span>{phoneVal}</span>
+                          {isPhoneMine && <span className={styles.youBadge}>You</span>}
+                        </span>
+                      )
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+            {ticket.tenantContactPerson && (() => {
+              const isPrimaryMine = isTenantUser || isMe(null, null, ticket.tenantContactPerson);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserIcon className={styles.detailLabelIcon} />
+                    {isPrimaryMine ? 'Your Name' : 'Primary Contact'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    <span className={styles.userChip}>
+                      <UserIcon />
+                      {ticket.tenantContactPerson}
+                      {isPrimaryMine && <span className={styles.youBadge}>You</span>}
                     </span>
-                  )
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <PhoneIcon className={styles.detailLabelIcon} />
-                Tenant Contact
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.tenantPhone || ticket.createdByPhone ? (
-                  canNotifyTenant(user, ticket) ? (
-                    <a
-                      href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
-                      className={styles.tenantPhoneLink}
-                      title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
-                    >
-                      <PhoneIcon className={styles.contactIconSmall} />
-                      <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
-                    </a>
-                  ) : (
-                    <span
-                      className={styles.tenantPhoneReadOnly}
-                      title="Direct calls to tenants are restricted to Administrators and the assigned Department Manager"
-                    >
-                      <PhoneIcon className={styles.contactIconSmall} />
-                      <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
-                    </span>
-                  )
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            {ticket.tenantContactPerson && (
-              <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>
-                  <UserIcon className={styles.detailLabelIcon} />
-                  Primary Contact
-                </span>
-                <span className={styles.detailValue}>
-                  <span className={styles.userChip}>
-                    <UserIcon />
-                    {ticket.tenantContactPerson}
                   </span>
-                </span>
-              </div>
-            )}
+                </div>
+              );
+            })()}
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <CalendarDaysIcon className={styles.detailLabelIcon} />
@@ -2129,7 +2182,10 @@ export default function TicketDetail() {
                   <div className={styles.attachmentUploaderRow}>
                     <div className={styles.attachmentUploaderUser}>
                       <UserCircleIcon className={styles.uploaderAvatarIcon} />
-                      <span className={styles.uploaderName}>{uploaderName}</span>
+                      <span className={styles.uploaderName}>
+                        {uploaderName}
+                        {(isUploader || isMe(uploaderId, (file as any).uploaderEmail, uploaderName)) && <span className={styles.youBadge}>You</span>}
+                      </span>
                       {uploaderRole && (
                         <span className={`${styles.uploaderRoleBadge} ${styles['role_' + uploaderRole.toLowerCase()] || styles.role_default}`}>
                           {uploaderRole.toUpperCase()}

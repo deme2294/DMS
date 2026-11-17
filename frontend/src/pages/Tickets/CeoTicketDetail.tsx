@@ -178,6 +178,22 @@ export default function CeoTicketDetail() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const isMe = (targetId?: string | number | null, targetEmail?: string | null, targetName?: string | null) => {
+    if (!user) return false;
+    if (targetId && user.id && String(targetId) === String(user.id)) return true;
+    if (targetEmail && user.email && targetEmail.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
+    if (targetName) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+      const uname = (user.username || '').toLowerCase();
+      const tName = targetName.trim().toLowerCase();
+      if (tName && (tName === fullName || tName === uname)) return true;
+    }
+    return false;
+  };
+
+  const isTenantUser = (user?.role && String(user.role).toLowerCase() === 'tenant') || false;
+  const isMyTenantTicket = isTenantUser || Boolean(user?.tenantId && ticket?.tenantId && String(user.tenantId) === String(ticket.tenantId));
+
   const [statusModal, setStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState<TicketStatus>('assigned');
   const [notes, setNotes] = useState('');
@@ -598,38 +614,47 @@ export default function CeoTicketDetail() {
                 )}
               </span>
             </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <UserCircleIcon className={styles.detailLabelIcon} />
-                Assigned To
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.assignedToName ? (
-                  <span className={styles.userChip}>
-                    <UserCircleIcon />
-                    {ticket.assignedToName}
+            {(() => {
+              const isAssignedToMe = isMe(ticket.assignedTo, (ticket as any).assignedToEmail, ticket.assignedToName);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserCircleIcon className={styles.detailLabelIcon} />
+                    {isAssignedToMe ? 'Assigned To You' : 'Assigned To'}
                   </span>
-                ) : (
-                  <span className={styles.unassignedChip}>Unassigned</span>
-                )}
-              </span>
-            </div>
+                  <span className={styles.detailValue}>
+                    {ticket.assignedToName ? (
+                      <span className={styles.userChip}>
+                        <UserCircleIcon />
+                        {ticket.assignedToName}
+                        {isAssignedToMe && <span className={styles.youBadge}>You</span>}
+                      </span>
+                    ) : (
+                      <span className={styles.unassignedChip}>Unassigned</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const staffAssignments = (ticket.assignments || []).filter((a) => a.role === 'staff') || [];
               const latestStaff = staffAssignments.length ? staffAssignments[staffAssignments.length - 1] : null;
               const latestHistory = (ticket.statusHistory || []).slice().reverse()[0];
+              const isAssignedByMe = isMe(latestStaff?.assignedBy, null, latestStaff?.assignedByName);
+              const isChangedByMe = isMe(latestHistory?.changedBy, null, latestHistory?.changedByName);
               return (
                 <>
                   {latestStaff?.assignedByName && (
                     <div className={styles.detailItem}>
                       <span className={styles.detailLabel}>
                         <UserPlusIcon className={styles.detailLabelIcon} />
-                        Assigned By
+                        {isAssignedByMe ? 'Assigned By You' : 'Assigned By'}
                       </span>
                       <span className={styles.detailValue}>
                         <span className={styles.userChip}>
                           <UserPlusIcon />
                           {latestStaff.assignedByName}
+                          {isAssignedByMe && <span className={styles.youBadge}>You</span>}
                         </span>
                       </span>
                     </div>
@@ -638,12 +663,13 @@ export default function CeoTicketDetail() {
                     <div className={styles.detailItem}>
                       <span className={styles.detailLabel}>
                         <ArrowPathIcon className={styles.detailLabelIcon} />
-                        Changed By
+                        {isChangedByMe ? 'Changed By You' : 'Changed By'}
                       </span>
                       <span className={styles.detailValue}>
                         <span className={styles.userChip}>
                           <UserCircleIcon />
                           {latestHistory.changedByName}
+                          {isChangedByMe && <span className={styles.youBadge}>You</span>}
                         </span>
                       </span>
                     </div>
@@ -654,89 +680,114 @@ export default function CeoTicketDetail() {
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <BuildingOfficeIcon className={styles.detailLabelIcon} />
-                Tenant
+                {isTenantUser ? 'Your Organization' : 'Tenant'}
               </span>
               <span className={styles.detailValue}>
                 {ticket.tenantName ? (
                   <span className={styles.tenantChip}>
                     <BuildingOfficeIcon />
                     {ticket.tenantName}
+                    {isMyTenantTicket && <span className={styles.youBadge}>You</span>}
                   </span>
                 ) : (
                   <span className={styles.unassignedChip}>—</span>
                 )}
               </span>
             </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <UserCircleIcon className={styles.detailLabelIcon} />
-                Created By
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.createdByName ? (
-                  <span className={styles.userChip}>
-                    <UserCircleIcon />
-                    {ticket.createdByName}
+            {(() => {
+              const isCreatedByMe = isMe(ticket.createdBy, ticket.createdByEmail, ticket.createdByName);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserCircleIcon className={styles.detailLabelIcon} />
+                    {isCreatedByMe ? 'Created By You' : 'Created By'}
                   </span>
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <EnvelopeIcon className={styles.detailLabelIcon} />
-                Tenant Email
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.tenantEmail || ticket.createdByEmail ? (
-                  <a
-                    href={`mailto:${ticket.tenantEmail || ticket.createdByEmail}`}
-                    className={styles.tenantEmailLink}
-                    title={`Send email to ${ticket.tenantEmail || ticket.createdByEmail}`}
-                  >
-                    <EnvelopeIcon className={styles.contactIconSmall} />
-                    <span className={styles.emailText}>{ticket.tenantEmail || ticket.createdByEmail}</span>
-                  </a>
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>
-                <PhoneIcon className={styles.detailLabelIcon} />
-                Tenant Contact
-              </span>
-              <span className={styles.detailValue}>
-                {ticket.tenantPhone || ticket.createdByPhone ? (
-                  <a
-                    href={`tel:${ticket.tenantPhone || ticket.createdByPhone}`}
-                    className={styles.tenantPhoneLink}
-                    title={`Call ${ticket.tenantPhone || ticket.createdByPhone}`}
-                  >
-                    <PhoneIcon className={styles.contactIconSmall} />
-                    <span>{ticket.tenantPhone || ticket.createdByPhone}</span>
-                  </a>
-                ) : (
-                  <span className={styles.unassignedChip}>—</span>
-                )}
-              </span>
-            </div>
-            {ticket.tenantContactPerson && (
-              <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>
-                  <UserIcon className={styles.detailLabelIcon} />
-                  Primary Contact
-                </span>
-                <span className={styles.detailValue}>
-                  <span className={styles.userChip}>
-                    <UserIcon />
-                    {ticket.tenantContactPerson}
+                  <span className={styles.detailValue}>
+                    {ticket.createdByName ? (
+                      <span className={styles.userChip}>
+                        <UserCircleIcon />
+                        {ticket.createdByName}
+                        {isCreatedByMe && <span className={styles.youBadge}>You</span>}
+                      </span>
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
                   </span>
-                </span>
-              </div>
-            )}
+                </div>
+              );
+            })()}
+            {(() => {
+              const emailVal = ticket.tenantEmail || ticket.createdByEmail;
+              const isEmailMine = isTenantUser || isMe(null, emailVal, null);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <EnvelopeIcon className={styles.detailLabelIcon} />
+                    {isEmailMine ? 'Your Email' : 'Tenant Email'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    {emailVal ? (
+                      <a
+                        href={`mailto:${emailVal}`}
+                        className={styles.tenantEmailLink}
+                        title={`Send email to ${emailVal}`}
+                      >
+                        <EnvelopeIcon className={styles.contactIconSmall} />
+                        <span className={styles.emailText}>{emailVal}</span>
+                        {isEmailMine && <span className={styles.youBadge}>You</span>}
+                      </a>
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+            {(() => {
+              const phoneVal = ticket.tenantPhone || ticket.createdByPhone;
+              const isPhoneMine = isTenantUser || (Boolean(user?.phone && phoneVal && user.phone.trim() === phoneVal.trim()));
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <PhoneIcon className={styles.detailLabelIcon} />
+                    {isPhoneMine ? 'Your Contact' : 'Tenant Contact'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    {phoneVal ? (
+                      <a
+                        href={`tel:${phoneVal}`}
+                        className={styles.tenantPhoneLink}
+                        title={`Call ${phoneVal}`}
+                      >
+                        <PhoneIcon className={styles.contactIconSmall} />
+                        <span>{phoneVal}</span>
+                        {isPhoneMine && <span className={styles.youBadge}>You</span>}
+                      </a>
+                    ) : (
+                      <span className={styles.unassignedChip}>—</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
+            {ticket.tenantContactPerson && (() => {
+              const isPrimaryMine = isTenantUser || isMe(null, null, ticket.tenantContactPerson);
+              return (
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>
+                    <UserIcon className={styles.detailLabelIcon} />
+                    {isPrimaryMine ? 'Your Name' : 'Primary Contact'}
+                  </span>
+                  <span className={styles.detailValue}>
+                    <span className={styles.userChip}>
+                      <UserIcon />
+                      {ticket.tenantContactPerson}
+                      {isPrimaryMine && <span className={styles.youBadge}>You</span>}
+                    </span>
+                  </span>
+                </div>
+              );
+            })()}
             <div className={styles.detailItem}>
               <span className={styles.detailLabel}>
                 <CalendarDaysIcon className={styles.detailLabelIcon} />
@@ -1602,7 +1653,10 @@ export default function CeoTicketDetail() {
                   <div className={styles.attachmentUploaderRow}>
                     <div className={styles.attachmentUploaderUser}>
                       <UserCircleIcon className={styles.uploaderAvatarIcon} />
-                      <span className={styles.uploaderName}>{uploaderName}</span>
+                      <span className={styles.uploaderName}>
+                        {uploaderName}
+                        {isMe(file.uploadedBy || (file as any).uploaded_by, (file as any).uploaderEmail, uploaderName) && <span className={styles.youBadge}>You</span>}
+                      </span>
                       {uploaderRole && (
                         <span className={`${styles.uploaderRoleBadge} ${styles['role_' + uploaderRole.toLowerCase()] || styles.role_default}`}>
                           {uploaderRole.toUpperCase()}
