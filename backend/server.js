@@ -574,6 +574,18 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 6.5. Favicon handler (prevent 404 in browser console)
+// ─────────────────────────────────────────────────────────────────────────────
+app.get('/favicon.ico', (_req, res) => {
+    const faviconPath = path.join(__dirname, '..', 'frontend', 'public', 'favicon.ico');
+    if (fs.existsSync(faviconPath)) {
+        res.setHeader('Content-Type', 'image/x-icon');
+        return res.sendFile(faviconPath);
+    }
+    return res.status(204).end();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 7. Unknown route → 404
 // ─────────────────────────────────────────────────────────────────────────────
 app.use(notFound);
