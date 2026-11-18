@@ -153,7 +153,502 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* Card Header Component */
+.cardHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.cardHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardHeaderIcon {
+  font-size: 1.35rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cardHeading {
+  margin: 0 !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: var(--text-main, #0f172a) !important;
+  letter-spacing: -0.01em;
+}
+
+.cardHeading::before {
+  display: none !important;
+}
+
+.cardHeaderSub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* Overview Structured Grid */
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overviewFieldCard {
+  background: var(--bg-app, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  transition: all 0.15s ease;
+}
+
+.overviewFieldCard:hover {
+  border-color: #cbd5e1;
+}
+
+.fullWidthField {
+  grid-column: 1 / -1;
+}
+
+.fieldLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fieldValue {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fieldValueWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Category, Service & Feedback Type Badges */
+.categoryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.servicePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.feedbackTypePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.84rem;
+}
+
+.deptPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 8px;
+  background: #e0e7ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.unassignedPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.pendingPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.managerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.managerName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+}
+
+.managerEmail {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 400;
+}
+
+.submittedDate {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-main, #0f172a);
+}
+
+/* Scope Banners */
+.scopeBannerGeneral {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scopeBannerDirect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  color: #5b21b6;
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scopeBannerPending {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scopeIcon {
+  font-size: 1.15rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.scopeContent {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Ticket Link Badge */
+.ticketLinkBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  text-decoration: none;
+  font-size: 0.88rem;
+  transition: all 0.15s ease;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ticketRefBadge {
+  font-weight: 700;
+  color: #1e40af;
+  flex-shrink: 0;
+}
+
+.ticketTitleText {
+  color: #1d4ed8;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticketLinkArrow {
+  font-size: 0.9rem;
+  color: #2563eb;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ticketLinkBadge:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.ticketLinkBadge:hover .ticketLinkArrow {
+  transform: translate(2px, -2px);
+}
+
+/* Original Message Box */
+.originalMessageBox {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-left: 4px solid #3b82f6;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.messageQuoteIcon {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #94a3b8;
+  font-family: Georgia, serif;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.messageContentText {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-main, #0f172a);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Detailed Assessment Grid */
+.assessmentGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.assessmentCard {
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.assessCardGood {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-left: 4px solid #10b981;
+}
+
+.assessCardChange {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+}
+
+.assessCardWrong {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #ef4444;
+}
+
+.assessCardGuide {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #3b82f6;
+}
+
+.assessCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.assessCardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assessTitleText {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.assessCardGood .assessTitleText {
+  color: #15803d;
+}
+
+.assessCardChange .assessTitleText {
+  color: #b45309;
+}
+
+.assessCardWrong .assessTitleText {
+  color: #b91c1c;
+}
+
+.assessCardGuide .assessTitleText {
+  color: #1d4ed8;
+}
+
+.assessDotGood { color: #10b981; font-size: 0.9rem; }
+.assessDotChange { color: #f59e0b; font-size: 0.9rem; }
+.assessDotWrong { color: #ef4444; font-size: 0.9rem; }
+.assessDotGuide { color: #3b82f6; font-size: 0.9rem; }
+
+.assessTagGood {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.assessTagChange {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.assessTagWrong {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.assessTagGuide {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.assessCardBody {
+  min-width: 0;
+}
+
+.assessText {
+  margin: 0 !important;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-main, #0f172a);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.assessEmptyState {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+}
+
+.assessEmptyIcon {
+  opacity: 0.6;
+  font-style: normal;
 }
 
 /* Details Card Content */
@@ -162,9 +657,6 @@
   font-size: 0.95rem;
   color: var(--text-main, #0f172a);
   line-height: 1.6;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
 }
 
 .card p:last-child {
@@ -174,9 +666,6 @@
 .card strong {
   font-weight: 600;
   color: var(--text-main, #0f172a);
-  white-space: nowrap;
-  min-width: 80px;
-  display: inline-block;
 }
 
 .description {
@@ -1587,5 +2076,211 @@
 :global([data-theme="dark"]) .assignmentForm select::placeholder,
 :global([data-theme="dark"]) .assignmentForm textarea::placeholder,
 :global([data-theme="dark"]) .replyForm textarea::placeholder {
+  color: #64748b;
+}
+
+/* ─── Feedback Overview & Assessment Breakdown Dark Theme Styling ─── */
+:global([data-theme="dark"]) .cardHeaderRow {
+  border-bottom-color: #263248;
+}
+
+:global([data-theme="dark"]) .cardHeaderIcon {
+  background: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+}
+
+:global([data-theme="dark"]) .cardHeading {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .cardHeaderSub {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .overviewFieldCard {
+  background: #131927;
+  border-color: #232d42;
+}
+
+:global([data-theme="dark"]) .overviewFieldCard:hover {
+  border-color: #334155;
+}
+
+:global([data-theme="dark"]) .fieldLabel {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .fieldValue {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .categoryPill {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+}
+
+:global([data-theme="dark"]) .servicePill {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
+}
+
+:global([data-theme="dark"]) .feedbackTypePill {
+  background: #1a2234;
+  border-color: #2f3e5c;
+  color: #cbd5e1;
+}
+
+:global([data-theme="dark"]) .deptPill {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(129, 140, 248, 0.4);
+  color: #c7d2fe;
+}
+
+:global([data-theme="dark"]) .unassignedPill {
+  background: #151b29;
+  border-color: #2d3850;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .pendingPill {
+  background: rgba(234, 88, 12, 0.18);
+  border-color: rgba(249, 115, 22, 0.35);
+  color: #fdba74;
+}
+
+:global([data-theme="dark"]) .managerName {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .managerEmail {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .submittedDate {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .scopeBannerGeneral {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .scopeBannerDirect {
+  background: rgba(147, 51, 234, 0.16);
+  border-color: rgba(168, 85, 247, 0.35);
+  color: #d8b4fe;
+}
+
+:global([data-theme="dark"]) .scopeBannerPending {
+  background: #131927;
+  border-color: #263248;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .ticketLinkBadge {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #93c5fd;
+}
+
+:global([data-theme="dark"]) .ticketLinkBadge:hover {
+  background: rgba(59, 130, 246, 0.26);
+  border-color: #60a5fa;
+}
+
+:global([data-theme="dark"]) .ticketRefBadge {
+  color: #60a5fa;
+}
+
+:global([data-theme="dark"]) .ticketTitleText {
+  color: #bfdbfe;
+}
+
+:global([data-theme="dark"]) .originalMessageBox {
+  background: #101522;
+  border-color: #242f44;
+  border-left-color: #3b82f6;
+}
+
+:global([data-theme="dark"]) .messageQuoteIcon {
+  color: #475569;
+}
+
+:global([data-theme="dark"]) .messageContentText {
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .assessCardGood {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(52, 211, 153, 0.28);
+  border-left-color: #10b981;
+}
+
+:global([data-theme="dark"]) .assessCardGood .assessTitleText {
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .assessTagGood {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+:global([data-theme="dark"]) .assessCardChange {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(251, 191, 36, 0.28);
+  border-left-color: #f59e0b;
+}
+
+:global([data-theme="dark"]) .assessCardChange .assessTitleText {
+  color: #fcd34d;
+}
+
+:global([data-theme="dark"]) .assessTagChange {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fde68a;
+}
+
+:global([data-theme="dark"]) .assessCardWrong {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(248, 113, 113, 0.28);
+  border-left-color: #ef4444;
+}
+
+:global([data-theme="dark"]) .assessCardWrong .assessTitleText {
+  color: #fca5a5;
+}
+
+:global([data-theme="dark"]) .assessTagWrong {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fecaca;
+}
+
+:global([data-theme="dark"]) .assessCardGuide {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(96, 165, 250, 0.28);
+  border-left-color: #3b82f6;
+}
+
+:global([data-theme="dark"]) .assessCardGuide .assessTitleText {
+  color: #93c5fd;
+}
+
+:global([data-theme="dark"]) .assessTagGuide {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #bfdbfe;
+}
+
+:global([data-theme="dark"]) .assessText {
+  color: #f1f5f9;
+}
+
+:global([data-theme="dark"]) .assessEmptyState {
   color: #64748b;
 }

@@ -486,135 +486,282 @@ export default function FeedbackDetail() {
       )}
 
       <div className={styles.detailGrid}>
-        {/* Left Card: Details */}
+        {/* Left Card: Feedback Overview */}
         <div className={styles.card}>
-          <h3>Feedback Overview</h3>
-          <p>
-            <strong>Status:</strong>{' '}
+          <div className={styles.cardHeaderRow}>
+            <div className={styles.cardHeaderTitle}>
+              <span className={styles.cardHeaderIcon}>📋</span>
+              <div>
+                <h3 className={styles.cardHeading}>Feedback Overview</h3>
+                <span className={styles.cardHeaderSub}>Tenant feedback details, ratings & operational routing</span>
+              </div>
+            </div>
             <span className={`${styles.badge} ${styles[feedback.status]}`}>
               {STATUS_LABELS[feedback.status] || feedback.status}
             </span>
-          </p>
-          <p>
-            <strong>Ticket Category:</strong>{' '}
-            {feedback.categoryName ? (
-              <span style={{ background: '#eff6ff', color: '#1d4ed8', padding: '3px 8px', borderRadius: '6px', fontWeight: 600 }}>
-                🏷️ {feedback.categoryName}
-              </span>
-            ) : (
-              <span className={styles.valueMuted}>General</span>
-            )}
-          </p>
-          {feedback.serviceName && (
-            <p>
-              <strong>Service Context:</strong>{' '}
-              <span className={styles.valueService}>⚡ {feedback.serviceName}</span>
-            </p>
-          )}
-          <p>
-            <strong>Feedback Type:</strong>{' '}
-            <span style={{ textTransform: 'capitalize' }}>{feedback.feedbackType || 'Suggestion'}</span>
-          </p>
-          <p>
-            <strong>Tenant Rating:</strong>{' '}
-            {feedback.rating ? (
-              <span className={styles.ratingGroup}>
-                <span className={styles.ratingStarsRow} aria-label={`${feedback.rating} out of 5 stars`}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <span
-                      key={star}
-                      className={star <= (feedback.rating || 0) ? styles.starFilled : styles.starEmpty}
-                    >
-                      {star <= (feedback.rating || 0) ? '★' : '☆'}
-                    </span>
-                  ))}
+          </div>
+
+          <div className={styles.overviewGrid}>
+            {/* Top row: Rating & Submission Time */}
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Tenant Rating</span>
+              <div className={styles.fieldValue}>
+                {feedback.rating ? (
+                  <div className={styles.ratingGroup}>
+                    <div className={styles.ratingStarsRow} aria-label={`${feedback.rating} out of 5 stars`}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className={star <= (feedback.rating || 0) ? styles.starFilled : styles.starEmpty}
+                        >
+                          {star <= (feedback.rating || 0) ? '★' : '☆'}
+                        </span>
+                      ))}
+                    </div>
+                    <span className={styles.ratingNumeric}>({feedback.rating} / 5)</span>
+                  </div>
+                ) : (
+                  <span className={styles.valueMuted}>Not Rated</span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Submitted On</span>
+              <div className={styles.fieldValue}>
+                <span className={styles.submittedDate}>
+                  📅 {feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : '—'}
                 </span>
-                <span className={styles.ratingNumeric}>({feedback.rating} / 5)</span>
-              </span>
-            ) : (
-              <span className={styles.valueMuted}>—</span>
+              </div>
+            </div>
+
+            {/* Category & Feedback Type */}
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Ticket Category & Service</span>
+              <div className={styles.fieldValueWrap}>
+                {feedback.categoryName ? (
+                  <span className={styles.categoryPill}>
+                    🏷️ {feedback.categoryName}
+                  </span>
+                ) : (
+                  <span className={styles.valueMuted}>General</span>
+                )}
+                {feedback.serviceName && (
+                  <span className={styles.servicePill}>⚡ {feedback.serviceName}</span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Feedback Type</span>
+              <div className={styles.fieldValue}>
+                <span className={styles.feedbackTypePill}>
+                  💡 {feedback.feedbackType ? feedback.feedbackType.charAt(0).toUpperCase() + feedback.feedbackType.slice(1) : 'Suggestion'}
+                </span>
+              </div>
+            </div>
+
+            {/* Assigned Department */}
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Assigned Department</span>
+              <div className={styles.fieldValue}>
+                {feedback.departmentName ? (
+                  <span className={styles.deptPill}>
+                    🏛️ {feedback.departmentName}
+                  </span>
+                ) : (
+                  <span className={styles.unassignedPill}>Unassigned</span>
+                )}
+              </div>
+            </div>
+
+            {/* Department Head / Manager */}
+            <div className={styles.overviewFieldCard}>
+              <span className={styles.fieldLabel}>Department Head (Manager)</span>
+              <div className={styles.fieldValue}>
+                {feedback.departmentHeadName ? (
+                  <div className={styles.managerInfo}>
+                    <span className={styles.managerName}>👤 {feedback.departmentHeadName}</span>
+                    {feedback.departmentHeadEmail && (
+                      <span className={styles.managerEmail}>{feedback.departmentHeadEmail}</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className={styles.pendingPill}>⏳ Pending manager designation</span>
+                )}
+              </div>
+            </div>
+
+            {/* Assigned Staff / Sharing Scope (Full width card) */}
+            <div className={`${styles.overviewFieldCard} ${styles.fullWidthField}`}>
+              <span className={styles.fieldLabel}>Assigned Staff / Sharing Scope</span>
+              <div className={styles.fieldValue}>
+                {feedback.assignmentScope === 'department_general' ? (
+                  <div className={styles.scopeBannerGeneral}>
+                    <span className={styles.scopeIcon}>📢</span>
+                    <div className={styles.scopeContent}>
+                      <strong>General Broadcast:</strong> All Staff in {feedback.departmentName || 'Department'}
+                    </div>
+                  </div>
+                ) : feedback.assignmentScope === 'direct_user' && feedback.assignedToName ? (
+                  <div className={styles.scopeBannerDirect}>
+                    <span className={styles.scopeIcon}>👤</span>
+                    <div className={styles.scopeContent}>
+                      <strong>Direct Assignee:</strong> {feedback.assignedToName}
+                      {feedback.assignedToEmail ? ` (${feedback.assignedToEmail})` : ''}
+                    </div>
+                  </div>
+                ) : feedback.assignedUserIds && feedback.assignedUserIds.length > 0 ? (
+                  <div className={styles.scopeBannerDirect}>
+                    <span className={styles.scopeIcon}>👥</span>
+                    <div className={styles.scopeContent}>
+                      <strong>One by One Sharing ({feedback.assignedUserIds.length} staff):</strong>{' '}
+                      {feedback.assignedUserIds
+                        .map((uid) => {
+                          const m = deptStaff.find((s) => s.id === uid);
+                          return m ? `${m.firstName} ${m.lastName}` : null;
+                        })
+                        .filter(Boolean)
+                        .join(', ') || feedback.assignedToName || 'Selected Staff'}
+                    </div>
+                  </div>
+                ) : feedback.assignedToName ? (
+                  <div className={styles.scopeBannerDirect}>
+                    <span className={styles.scopeIcon}>👤</span>
+                    <div className={styles.scopeContent}>
+                      <strong>Direct Assignee:</strong> {feedback.assignedToName}
+                      {feedback.assignedToEmail ? ` (${feedback.assignedToEmail})` : ''}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.scopeBannerPending}>
+                    <span className={styles.scopeIcon}>⏳</span>
+                    <div className={styles.scopeContent}>Pending sharing to staff (General broadcast or One by One)</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Associated Ticket (Full width if present) */}
+            {ticketPortalUrl && (
+              <div className={`${styles.overviewFieldCard} ${styles.fullWidthField}`}>
+                <span className={styles.fieldLabel}>Associated Ticket</span>
+                <div className={styles.fieldValue}>
+                  <Link to={ticketPortalUrl} className={styles.ticketLinkBadge}>
+                    <span className={styles.ticketRefBadge}>[{feedback.ticketReference}]</span>
+                    <span className={styles.ticketTitleText}>{feedback.ticketTitle || 'View Ticket'}</span>
+                    <span className={styles.ticketLinkArrow}>↗</span>
+                  </Link>
+                </div>
+              </div>
             )}
-          </p>
-          <p>
-            <strong>Assigned Department:</strong>{' '}
-            {feedback.departmentName ? (
-              <strong className={styles.valueDept}>🏛️ {feedback.departmentName}</strong>
-            ) : (
-              <span className={styles.valueMuted}>Unassigned</span>
-            )}
-          </p>
-          <p>
-            <strong>Department Head (Manager):</strong>{' '}
-            {feedback.departmentHeadName ? (
-              <strong className={styles.valueManager}>👤 {feedback.departmentHeadName} {feedback.departmentHeadEmail ? `(${feedback.departmentHeadEmail})` : ''}</strong>
-            ) : (
-              <span className={styles.valueMuted}>Pending manager designation</span>
-            )}
-          </p>
-          <p>
-            <strong>Assigned Staff / Sharing Scope:</strong>{' '}
-            {feedback.assignmentScope === 'department_general' ? (
-              <strong className={styles.valueStaffGeneral}>
-                📢 General — All Staff in {feedback.departmentName || 'Department'}
-              </strong>
-            ) : feedback.assignmentScope === 'direct_user' && feedback.assignedToName ? (
-              <strong className={styles.valueStaffDirect}>
-                👤 Direct User: {feedback.assignedToName} {feedback.assignedToEmail ? `(${feedback.assignedToEmail})` : ''}
-              </strong>
-            ) : feedback.assignedUserIds && feedback.assignedUserIds.length > 0 ? (
-              <strong className={styles.valueStaffDirect}>
-                👥 One by One ({feedback.assignedUserIds.length}):{' '}
-                {feedback.assignedUserIds
-                  .map((uid) => {
-                    const m = deptStaff.find((s) => s.id === uid);
-                    return m ? `${m.firstName} ${m.lastName}` : null;
-                  })
-                  .filter(Boolean)
-                  .join(', ') || feedback.assignedToName || 'Selected Staff'}
-              </strong>
-            ) : feedback.assignedToName ? (
-              <strong className={styles.valueStaffDirect}>👤 {feedback.assignedToName} {feedback.assignedToEmail ? `(${feedback.assignedToEmail})` : ''}</strong>
-            ) : (
-              <span className={styles.valueMuted}>Pending sharing to staff (General or One by One)</span>
-            )}
-          </p>
-          {ticketPortalUrl && (
-            <p>
-              <strong>Associated Ticket:</strong>{' '}
-              <Link to={ticketPortalUrl} className={styles.ticketLink}>
-                [{feedback.ticketReference}] {feedback.ticketTitle || 'View Ticket'}
-              </Link>
-            </p>
-          )}
-          <p>
-            <strong>Original Message:</strong>
-          </p>
-          <p className={styles.description}>{feedback.message}</p>
-          <p>
-            <strong>Submitted:</strong>{' '}
-            {feedback.createdAt ? new Date(feedback.createdAt).toLocaleString() : '—'}
-          </p>
+
+            {/* Original Message (Full width) */}
+            <div className={`${styles.overviewFieldCard} ${styles.fullWidthField}`}>
+              <span className={styles.fieldLabel}>Original Tenant Message</span>
+              <div className={styles.originalMessageBox}>
+                <div className={styles.messageQuoteIcon}>“</div>
+                <div className={styles.messageContentText}>{feedback.message || 'No additional message provided.'}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Right Card: Detailed Assessment */}
+        {/* Right Card: Detailed Assessment Breakdown */}
         <div className={styles.card}>
-          <h3>Detailed Assessment Breakdown</h3>
-          <div className={styles.assessmentSection}>
-            <div className={styles.assessmentItem}>
-              <strong className={styles.assessGood}>🟢 What is Working Well / Continue:</strong>
-              <p>{feedback.whatIsCorrect || '—'}</p>
+          <div className={styles.cardHeaderRow}>
+            <div className={styles.cardHeaderTitle}>
+              <span className={styles.cardHeaderIcon}>🔍</span>
+              <div>
+                <h3 className={styles.cardHeading}>Detailed Assessment Breakdown</h3>
+                <span className={styles.cardHeaderSub}>Structured 4-pillar tenant review breakdown</span>
+              </div>
             </div>
-            <div className={styles.assessmentItem}>
-              <strong className={styles.assessChange}>🟠 What Should Change / Improve:</strong>
-              <p>{feedback.whatShouldChange || '—'}</p>
+          </div>
+
+          <div className={styles.assessmentGrid}>
+            {/* Pillar 1: Working Well */}
+            <div className={`${styles.assessmentCard} ${styles.assessCardGood}`}>
+              <div className={styles.assessCardHeader}>
+                <div className={styles.assessCardTitle}>
+                  <span className={styles.assessDotGood}>●</span>
+                  <span className={styles.assessTitleText}>What is Working Well / Continue</span>
+                </div>
+                <span className={styles.assessTagGood}>STRENGTH</span>
+              </div>
+              <div className={styles.assessCardBody}>
+                {feedback.whatIsCorrect ? (
+                  <p className={styles.assessText}>{feedback.whatIsCorrect}</p>
+                ) : (
+                  <div className={styles.assessEmptyState}>
+                    <span className={styles.assessEmptyIcon}>✓</span>
+                    <span>No specific highlights entered by tenant</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className={styles.assessmentItem}>
-              <strong className={styles.assessWrong}>🔴 What is Wrong:</strong>
-              <p>{feedback.whatIsWrong || '—'}</p>
+
+            {/* Pillar 2: Should Change */}
+            <div className={`${styles.assessmentCard} ${styles.assessCardChange}`}>
+              <div className={styles.assessCardHeader}>
+                <div className={styles.assessCardTitle}>
+                  <span className={styles.assessDotChange}>●</span>
+                  <span className={styles.assessTitleText}>What Should Change / Improve</span>
+                </div>
+                <span className={styles.assessTagChange}>IMPROVEMENT</span>
+              </div>
+              <div className={styles.assessCardBody}>
+                {feedback.whatShouldChange ? (
+                  <p className={styles.assessText}>{feedback.whatShouldChange}</p>
+                ) : (
+                  <div className={styles.assessEmptyState}>
+                    <span className={styles.assessEmptyIcon}>⚡</span>
+                    <span>No change requests entered by tenant</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className={styles.assessmentItem}>
-              <strong className={styles.assessGuide}>🔵 How It Should Go:</strong>
-              <p>{feedback.howItShouldGo || '—'}</p>
+
+            {/* Pillar 3: What is Wrong */}
+            <div className={`${styles.assessmentCard} ${styles.assessCardWrong}`}>
+              <div className={styles.assessCardHeader}>
+                <div className={styles.assessCardTitle}>
+                  <span className={styles.assessDotWrong}>●</span>
+                  <span className={styles.assessTitleText}>What is Wrong</span>
+                </div>
+                <span className={styles.assessTagWrong}>DEFECT / ISSUE</span>
+              </div>
+              <div className={styles.assessCardBody}>
+                {feedback.whatIsWrong ? (
+                  <p className={styles.assessText}>{feedback.whatIsWrong}</p>
+                ) : (
+                  <div className={styles.assessEmptyState}>
+                    <span className={styles.assessEmptyIcon}>—</span>
+                    <span>No defects reported in this review</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pillar 4: How It Should Go */}
+            <div className={`${styles.assessmentCard} ${styles.assessCardGuide}`}>
+              <div className={styles.assessCardHeader}>
+                <div className={styles.assessCardTitle}>
+                  <span className={styles.assessDotGuide}>●</span>
+                  <span className={styles.assessTitleText}>How It Should Go</span>
+                </div>
+                <span className={styles.assessTagGuide}>TARGET FLOW</span>
+              </div>
+              <div className={styles.assessCardBody}>
+                {feedback.howItShouldGo ? (
+                  <p className={styles.assessText}>{feedback.howItShouldGo}</p>
+                ) : (
+                  <div className={styles.assessEmptyState}>
+                    <span className={styles.assessEmptyIcon}>🎯</span>
+                    <span>No target process requested in this review</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
