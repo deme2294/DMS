@@ -192,13 +192,153 @@
   font-size: 0.85rem;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   DARK THEME SYSTEM
+   ══════════════════════════════════════════════════════════════════════════ */
+:global([data-theme="dark"]) .page {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .header {
+  border-bottom-color: #243049;
+}
+
+:global([data-theme="dark"]) .header h1 {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .header p,
+:global([data-theme="dark"]) .author,
+:global([data-theme="dark"]) .date {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .card {
+  background: #151b28;
+  border-color: #243049;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+:global([data-theme="dark"]) .filters input,
+:global([data-theme="dark"]) .filters select,
+:global([data-theme="dark"]) .form input,
+:global([data-theme="dark"]) .form select,
+:global([data-theme="dark"]) .form textarea {
+  background: #0f172a;
+  border-color: #243049;
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .filters input:focus,
+:global([data-theme="dark"]) .filters select:focus,
+:global([data-theme="dark"]) .form input:focus,
+:global([data-theme="dark"]) .form select:focus,
+:global([data-theme="dark"]) .form textarea:focus {
+  background: #141f36;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+:global([data-theme="dark"]) .badge.draft {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .badge.in_review {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+:global([data-theme="dark"]) .badge.approved {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+:global([data-theme="dark"]) .badge.published {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+:global([data-theme="dark"]) .badge.archived {
+  background: #1e293b;
+  color: #64748b;
+}
+
+:global([data-theme="dark"]) .toast {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+:global([data-theme="dark"]) .toast.error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+:global([data-theme="dark"]) .pagination button {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+:global([data-theme="dark"]) .pagination button:hover:not(:disabled) {
+  background: #27354f;
+  border-color: #3b82f6;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE QUERIES (Mobile, Tablet, Desktop)
+   ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
+  .page {
+    padding: 14px 12px;
+  }
+
   .filters {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+
+  .actions {
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px;
+  }
+
+  .header h1 {
+    font-size: 1.25rem;
+  }
+
+  .actions button,
+  .pagination button,
+  .header button {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .pagination {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px;
   }
 }

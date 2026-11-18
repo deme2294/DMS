@@ -479,6 +479,11 @@
     align-items: flex-start;
     gap: 12px;
   }
+
+  .actions {
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -488,6 +493,18 @@
 
   .header h1 {
     font-size: 1.25rem;
+  }
+
+  .actions button,
+  .pagination button,
+  .header button {
+    padding: 8px 12px;
+    font-size: 0.82rem;
+  }
+
+  .pagination {
+    gap: 8px;
+    flex-wrap: wrap;
   }
 }
 

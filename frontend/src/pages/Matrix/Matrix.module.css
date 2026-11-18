@@ -1278,3 +1278,36 @@
     width: 100%;
   }
 }
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 8px 30px;
+  }
+
+  .headerCard {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .sectionCard {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .matrixTable th,
+  .matrixTable td {
+    padding: 10px 12px;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px 24px;
+  }
+
+  .matrixTable th,
+  .matrixTable td {
+    padding: 8px 10px;
+  }
+}

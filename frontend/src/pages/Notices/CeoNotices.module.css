@@ -561,6 +561,10 @@
 }
 
 @media (max-width: 768px) {
+  .page {
+    padding: 14px 12px;
+  }
+
   .formRow {
     grid-template-columns: 1fr;
   }
@@ -581,6 +585,28 @@
   .header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px;
+  }
+
+  .header h1 {
+    font-size: 1.25rem;
+  }
+
+  .header button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px;
   }
 }
 

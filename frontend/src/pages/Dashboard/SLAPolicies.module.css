@@ -1496,7 +1496,14 @@
 }
 
 @media (max-width: 480px) {
+  .section { padding: 12px 10px; }
   .statsRow { grid-template-columns: 1fr; }
   .detailHeroTop { flex-direction: column; align-items: flex-start; }
+  .table th, .table td { padding: 8px 10px; font-size: 12px; }
+}
+
+@media (max-width: 360px) {
+  .section { padding: 10px 6px; }
+  .table th, .table td { padding: 6px 8px; font-size: 11px; }
 }
 
