@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as notificationService from './notificationService.js';
 import * as auditService from './auditService.js';
 import * as ticketRepo from '../repository/ticketRepository.js';
+import * as slaEscalationRepo from '../repository/slaEscalationRepository.js';
 import { sendSLANearDeadlineEmail } from './emailService.js';
 import { broadcastTicketEvent } from './socketService.js';
 
@@ -67,7 +68,7 @@ const processNearDeadlineWarnings = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, escalation_due_date
       FROM tickets
       WHERE escalation_due_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 2 HOUR)
-        AND status IN ('open', 'assigned')
+        AND status IN ('open', 'assigned', 'in_progress')
         AND (escalation_sla_breached IS NULL OR escalation_sla_breached = 0)
         AND (last_sla_warning_at IS NULL OR last_sla_warning_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE))`
   );
@@ -98,7 +99,7 @@ const processNearDeadlineWarnings = async () => {
     const remainingHours = Math.max(0, remainingMs / (1000 * 60 * 60)).toFixed(1);
 
     await pool.query(
-      'UPDATE tickets SET last_sla_warning_at = NOW(), updated_at = NOW() WHERE id = :id',
+      `UPDATE tickets SET last_sla_warning_at = NOW(), sla_status = CASE WHEN sla_status = 'within_target' THEN 'approaching_deadline' ELSE sla_status END, updated_at = NOW() WHERE id = :id`,
       { id: ticket.id }
     );
 
@@ -160,9 +161,20 @@ const processResponseBreaches = async () => {
 
   for (const ticket of rows) {
     await pool.query(
-      'UPDATE tickets SET response_sla_breached = 1, updated_at = NOW() WHERE id = :id',
+      "UPDATE tickets SET response_sla_breached = 1, sla_status = 'response_breached', updated_at = NOW() WHERE id = :id",
       { id: ticket.id }
     );
+    await slaEscalationRepo.create({
+      ticketId: ticket.id,
+      slaPolicyId: ticket.sla_policy_id || null,
+      slaThreshold: 'first_response',
+      escalationLevel: 'staff',
+      responsibleRecipientId: ticket.assigned_to || ticket.department_id || null,
+      notificationStatus: 'sent',
+      resolutionDeadline: ticket.response_due_date,
+      breachStatus: 'response_breached',
+      notes: 'First response SLA deadline breached',
+    }).catch(() => {});
     await auditService.logAction(
       null, 'sla_breach', 'ticket', ticket.id, null,
       { type: 'response', field: 'response_sla_breached', dueDate: ticket.response_due_date },
@@ -178,7 +190,7 @@ const processEscalationBreaches = async () => {
     `SELECT id, reference_number, title, priority, status, assigned_to, created_by, department_id, escalation_due_date
       FROM tickets
       WHERE escalation_due_date < NOW()
-        AND status IN ('open', 'assigned')
+        AND status IN ('open', 'assigned', 'in_progress')
         AND (escalation_sla_breached IS NULL OR escalation_sla_breached = 0)`
   );
 
@@ -186,10 +198,21 @@ const processEscalationBreaches = async () => {
     const prevStatus = ticket.status;
     await pool.query(
       `UPDATE tickets
-       SET status = 'escalated', escalation_sla_breached = 1, is_escalated = 1, escalated_at = NOW(), updated_at = NOW()
+       SET escalation_sla_breached = 1, sla_status = 'escalation_triggered', is_escalated = 1, escalated_at = COALESCE(escalated_at, NOW()), updated_at = NOW()
        WHERE id = :id`,
       { id: ticket.id }
     );
+    await slaEscalationRepo.create({
+      ticketId: ticket.id,
+      slaPolicyId: ticket.sla_policy_id || null,
+      slaThreshold: 'escalation_threshold',
+      escalationLevel: 'department_manager',
+      responsibleRecipientId: ticket.assigned_to || ticket.department_id || null,
+      notificationStatus: 'sent',
+      resolutionDeadline: ticket.due_date,
+      breachStatus: 'escalation_triggered',
+      notes: 'Automatic SLA escalation threshold reached',
+    }).catch(() => {});
     await ticketRepo.logStatusHistory({
       id: uuidv4(),
       ticketId: ticket.id,
@@ -222,10 +245,21 @@ const processOverdueTickets = async () => {
     const prevStatus = ticket.status;
     await pool.query(
       `UPDATE tickets
-       SET status = 'escalated', is_overdue = 1, is_escalated = 1, escalated_at = NOW(), updated_at = NOW()
+       SET is_overdue = 1, sla_status = 'resolution_breached', updated_at = NOW()
        WHERE id = :id`,
       { id: ticket.id }
     );
+    await slaEscalationRepo.create({
+      ticketId: ticket.id,
+      slaPolicyId: ticket.sla_policy_id || null,
+      slaThreshold: 'resolution_deadline',
+      escalationLevel: 'manager',
+      responsibleRecipientId: ticket.assigned_to || ticket.department_id || null,
+      notificationStatus: 'sent',
+      resolutionDeadline: ticket.due_date,
+      breachStatus: 'resolution_breached',
+      notes: 'Resolution SLA deadline breached without completion',
+    }).catch(() => {});
     await ticketRepo.logStatusHistory({
       id: uuidv4(),
       ticketId: ticket.id,

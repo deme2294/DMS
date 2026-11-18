@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as ticketController from '../controllers/ticketController.js';
+import * as operationalController from '../controllers/operationalEscalationController.js';
+import * as collaborationController from '../controllers/collaborationController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { authorize, requireRole } from '../middleware/roleMiddleware.js';
 import { validate, idParam } from '../middleware/validationMiddleware.js';
@@ -193,6 +195,96 @@ router.post(
   authorize('tickets.escalate', 'tickets.assign'),
   [idParam(), body('notes').optional({ nullable: true }).trim(), validate],
   ticketController.escalateTicket
+);
+
+// Operational Escalation & SLA Escalation Routes
+router.post(
+  '/:id/operational-escalation',
+  requireRole('staff', 'manager', 'admin', 'ceo'),
+  [
+    idParam(),
+    body('escalationReason').notEmpty().withMessage('Escalation reason is required'),
+    body('problemDescription').notEmpty().withMessage('Problem description is required'),
+    body('actionsAttempted').notEmpty().withMessage('Actions attempted is required'),
+    body('assistanceRequired').notEmpty().withMessage('Assistance required is required'),
+    validate,
+  ],
+  operationalController.requestEscalation
+);
+
+router.get(
+  '/:id/operational-escalations',
+  authorize('tickets.read'),
+  [idParam(), validate],
+  operationalController.getEscalations
+);
+
+router.post(
+  '/:id/operational-escalation/:escalationId/manager-review',
+  requireRole('manager', 'admin', 'ceo'),
+  [
+    idParam(),
+    param('escalationId').notEmpty(),
+    body('decision').isIn(['guidance', 'reassign', 'collaborate', 'investigate', 'escalate_to_admin']),
+    validate,
+  ],
+  operationalController.managerReview
+);
+
+router.post(
+  '/:id/operational-escalation/:escalationId/admin-review',
+  requireRole('admin', 'ceo'),
+  [
+    idParam(),
+    param('escalationId').notEmpty(),
+    body('decision').isIn(['approved', 'guidance', 'reassign', 'resource_allocated', 'rejected']),
+    validate,
+  ],
+  operationalController.adminReview
+);
+
+router.get(
+  '/:id/sla-escalations',
+  authorize('tickets.read'),
+  [idParam(), validate],
+  operationalController.getSlaEscalations
+);
+
+// Team Collaboration Routes
+router.get(
+  '/:id/collaborators',
+  authorize('tickets.read'),
+  [idParam(), validate],
+  collaborationController.getCollaborators
+);
+
+router.post(
+  '/:id/collaborators',
+  requireRole('staff', 'manager', 'admin', 'ceo'),
+  [
+    idParam(),
+    body('userIds').isArray({ min: 1 }).withMessage('userIds array is required'),
+    validate,
+  ],
+  collaborationController.addCollaborators
+);
+
+router.delete(
+  '/:id/collaborators/:userId',
+  requireRole('staff', 'manager', 'admin', 'ceo'),
+  [idParam(), param('userId').notEmpty(), validate],
+  collaborationController.removeCollaborator
+);
+
+router.post(
+  '/:id/collaborators/contribution',
+  requireRole('staff', 'manager', 'admin', 'ceo'),
+  [
+    idParam(),
+    body().custom((b) => b.contributionNotes || b.inPersonNotes).withMessage('Either contributionNotes or inPersonNotes is required'),
+    validate,
+  ],
+  collaborationController.recordContribution
 );
 
 // Merge duplicates

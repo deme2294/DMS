@@ -268,6 +268,9 @@ CREATE TABLE tickets (
   approved_by CHAR(36) NULL,
   reopened_by CHAR(36) NULL,
   reopen_reason TEXT NULL,
+  sla_status ENUM('within_target','approaching_deadline','response_breached','escalation_triggered','resolution_breached','completed_successfully') DEFAULT 'within_target',
+  operational_escalation_status ENUM('none','pending_manager','pending_admin','guidance_provided','reassigned','collaborative','resolved') DEFAULT 'none',
+  operational_escalation_reason VARCHAR(255) NULL,
   merged_into CHAR(36) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -309,6 +312,67 @@ CREATE TABLE ticket_replies (
   is_internal TINYINT(1) NOT NULL DEFAULT 0,
   department_ids VARCHAR(500) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ticket_operational_escalations (
+  id VARCHAR(36) PRIMARY KEY,
+  ticket_id VARCHAR(36) NOT NULL,
+  requesting_user_id VARCHAR(36) NOT NULL,
+  department_id VARCHAR(36) NULL,
+  escalation_reason VARCHAR(255) NOT NULL,
+  problem_description TEXT NOT NULL,
+  actions_attempted TEXT NOT NULL,
+  assistance_required TEXT NOT NULL,
+  destination ENUM('manager', 'admin') DEFAULT 'manager',
+  manager_id VARCHAR(36) NULL,
+  manager_decision ENUM('guidance', 'reassign', 'collaborate', 'investigate', 'escalate_to_admin', 'pending') DEFAULT 'pending',
+  manager_notes TEXT NULL,
+  manager_decided_at DATETIME NULL,
+  admin_id VARCHAR(36) NULL,
+  admin_decision ENUM('approved', 'guidance', 'reassign', 'resource_allocated', 'rejected', 'pending') DEFAULT 'pending',
+  admin_notes TEXT NULL,
+  admin_decided_at DATETIME NULL,
+  status ENUM('pending_manager', 'pending_admin', 'guidance_provided', 'reassigned', 'collaborative', 'resolved', 'closed') DEFAULT 'pending_manager',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_toe_ticket (ticket_id),
+  INDEX idx_toe_status (status),
+  INDEX idx_toe_dept (department_id),
+  INDEX idx_toe_req_user (requesting_user_id)
+);
+
+CREATE TABLE ticket_collaborators (
+  id VARCHAR(36) PRIMARY KEY,
+  ticket_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
+  assigned_by VARCHAR(36) NOT NULL,
+  role VARCHAR(100) DEFAULT 'collaborator',
+  notes TEXT NULL,
+  contribution_notes TEXT NULL,
+  in_person_notes TEXT NULL,
+  status ENUM('active', 'completed', 'removed') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tc_ticket (ticket_id),
+  INDEX idx_tc_user (user_id),
+  UNIQUE KEY uq_ticket_user (ticket_id, user_id)
+);
+
+CREATE TABLE ticket_sla_escalations (
+  id VARCHAR(36) PRIMARY KEY,
+  ticket_id VARCHAR(36) NOT NULL,
+  sla_policy_id VARCHAR(36) NULL,
+  sla_threshold VARCHAR(100) NOT NULL,
+  trigger_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  escalation_level VARCHAR(50) DEFAULT 'manager',
+  responsible_recipient_id VARCHAR(36) NULL,
+  notification_status VARCHAR(50) DEFAULT 'sent',
+  resolution_deadline DATETIME NULL,
+  breach_status VARCHAR(50) NOT NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_tse_ticket (ticket_id),
+  INDEX idx_tse_trigger (trigger_time)
 );
 
 CREATE TABLE notifications (

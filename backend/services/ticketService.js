@@ -1,5 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as ticketRepo from '../repository/ticketRepository.js';
+import * as operationalRepo from '../repository/operationalEscalationRepository.js';
+import * as collaboratorRepo from '../repository/collaboratorRepository.js';
+import * as slaEscalationRepo from '../repository/slaEscalationRepository.js';
 import { sanitizeTicket } from '../models/Ticket.js';
 import { TICKET_STATUS_TRANSITIONS, TICKET_PRIORITIES } from '../config/constants.js';
 import * as auditService from './auditService.js';
@@ -41,7 +44,7 @@ const applyScopeToQuery = (scope, query) => {
   return query;
 };
 
-const canAccessTicket = async (user, ticket) => {
+export const canAccessTicket = async (user, ticket) => {
   if (!ticket) return false;
   if (user.role === 'admin' || user.role === 'ceo') return true;
   if (user.role === 'tenant') {
@@ -193,10 +196,17 @@ export const getTicket = async (user, id) => {
     };
   }
 
+  const operationalEscalations = await operationalRepo.findByTicketId(ticket.id).catch(() => []);
+  const slaEscalations = await slaEscalationRepo.findByTicketId(ticket.id).catch(() => []);
+  const collaborators = await collaboratorRepo.findByTicketId(ticket.id).catch(() => []);
+
   return {
     ...sanitizeTicket(ticket),
     deptAssignmentLock,
     staffAssignmentLock,
+    operationalEscalations,
+    slaEscalations,
+    collaborators,
     statusHistory: history.map((h) => ({
       id: h.id, fromStatus: h.from_status, toStatus: h.to_status, changedBy: h.changed_by,
       changedByName: h.changed_by_name, notes: h.notes, role: h.role, createdAt: h.created_at,
@@ -1438,6 +1448,7 @@ export const approveResolution = async (user, id, notes, meta = {}, feedbackData
       };
       if (ticket.due_date) updateFields.is_overdue = slaAchieved ? 0 : 1;
       updateFields.sla_achieved = slaAchieved ? 1 : 0;
+      updateFields.sla_status = slaAchieved ? 'completed_successfully' : 'resolution_breached';
 
       await ticketRepo.update(id, updateFields);
       await logStatus(id, ticket.status, targetStatus, user, notes || 'Admin verified and approved resolution; routed to tenant for confirmation', meta);
@@ -1617,6 +1628,7 @@ export const markResolved = async (user, id, notes, meta = {}) => {
     };
     if (ticket.due_date) updateFields.is_overdue = slaAchieved ? 0 : 1;
     updateFields.sla_achieved = slaAchieved ? 1 : 0;
+    updateFields.sla_status = slaAchieved ? 'completed_successfully' : 'resolution_breached';
 
     await ticketRepo.update(id, updateFields);
     await logStatus(id, ticket.status, targetStatus, user, notes || 'Admin verified and marked resolved; awaiting tenant confirmation', meta);

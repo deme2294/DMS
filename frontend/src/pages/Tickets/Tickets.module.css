@@ -6398,3 +6398,425 @@
   border-left-color: #f59e0b;
   color: #fde68a;
 }
+
+/* ==========================================================================
+   Two-Tier Escalation (SLA Automatic vs Manual Operational) & Collaboration
+   ========================================================================== */
+
+/* Badges for SLA Status */
+.slaBadge_within_target,
+.slaBadge_completed_successfully {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.slaBadge_approaching_deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.slaBadge_escalation_triggered {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.slaBadge_response_breached,
+.slaBadge_resolution_breached {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+:global([data-theme="dark"]) .slaBadge_within_target,
+:global([data-theme="dark"]) .slaBadge_completed_successfully {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+:global([data-theme="dark"]) .slaBadge_approaching_deadline {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+:global([data-theme="dark"]) .slaBadge_escalation_triggered {
+  background: rgba(234, 88, 12, 0.18);
+  color: #fdba74;
+  border-color: rgba(234, 88, 12, 0.4);
+}
+:global([data-theme="dark"]) .slaBadge_response_breached,
+:global([data-theme="dark"]) .slaBadge_resolution_breached {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Badges for Operational Escalation Status */
+.opBadge_none {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.opBadge_pending_manager {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fdf4ff;
+  color: #86198f;
+  border: 1px solid #f0abfc;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.opBadge_pending_admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #faf5ff;
+  color: #6b21a8;
+  border: 1px solid #d8b4fe;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.opBadge_guidance_provided {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.opBadge_collaborative {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ecfeff;
+  color: #0e7490;
+  border: 1px solid #a5f3fc;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.opBadge_resolved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+:global([data-theme="dark"]) .opBadge_none {
+  background: rgba(100, 116, 139, 0.18);
+  color: #cbd5e1;
+  border-color: rgba(100, 116, 139, 0.4);
+}
+:global([data-theme="dark"]) .opBadge_pending_manager {
+  background: rgba(217, 70, 239, 0.18);
+  color: #f5d0fe;
+  border-color: rgba(217, 70, 239, 0.4);
+}
+:global([data-theme="dark"]) .opBadge_pending_admin {
+  background: rgba(168, 85, 247, 0.18);
+  color: #e9d5ff;
+  border-color: rgba(168, 85, 247, 0.4);
+}
+:global([data-theme="dark"]) .opBadge_guidance_provided {
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+:global([data-theme="dark"]) .opBadge_collaborative {
+  background: rgba(6, 182, 212, 0.18);
+  color: #a5f3fc;
+  border-color: rgba(6, 182, 212, 0.4);
+}
+:global([data-theme="dark"]) .opBadge_resolved {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+/* Operational Escalation Card Banner */
+.opEscalationBanner {
+  background: #fdf4ff;
+  border: 1px solid #f0abfc;
+  border-left: 5px solid #c026d3;
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #4a044e;
+}
+:global([data-theme="dark"]) .opEscalationBanner {
+  background: rgba(192, 38, 211, 0.12);
+  border-color: rgba(192, 38, 211, 0.35);
+  border-left-color: #d946ef;
+  color: #fae8ff;
+}
+
+.opBannerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.opBannerTitle {
+  font-size: 1.05rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.opBannerMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  border: 1px solid rgba(192, 38, 211, 0.15);
+}
+:global([data-theme="dark"]) .opBannerMetaGrid {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(192, 38, 211, 0.25);
+}
+
+.opMetaItemLabel {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #701a75;
+  margin-bottom: 3px;
+}
+:global([data-theme="dark"]) .opMetaItemLabel {
+  color: #f0abfc;
+}
+
+.opMetaItemVal {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: inherit;
+  line-height: 1.4;
+}
+
+/* Action button for Requesting Operational Escalation */
+.btnOperationalEscalate {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.86rem;
+  padding: 8px 16px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+  transition: all 0.2s ease;
+}
+.btnOperationalEscalate:hover {
+  background: linear-gradient(135deg, #6d28d9, #7e22ce);
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Button for Manager/Admin review */
+.btnOperationalReview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #9333ea;
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.84rem;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.btnOperationalReview:hover {
+  background: #7e22ce;
+}
+
+/* Team Collaboration Card & List */
+.collaboratorsCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
+}
+:global([data-theme="dark"]) .collaboratorsCard {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+.collaboratorsCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.collaboratorsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.collaboratorItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+:global([data-theme="dark"]) .collaboratorItem {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.collaboratorInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collaboratorAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #4338ca;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+:global([data-theme="dark"]) .collaboratorAvatar {
+  background: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+}
+
+.collaboratorRoleChip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+:global([data-theme="dark"]) .collaboratorRoleChip {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.collaboratorNotesBox {
+  margin-top: 8px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+:global([data-theme="dark"]) .collaboratorNotesBox {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+/* Escalation History Audit Tables */
+.escalationHistoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  margin-top: 10px;
+}
+.escalationHistoryTable th {
+  text-align: left;
+  padding: 9px 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  border-bottom: 2px solid #e2e8f0;
+}
+.escalationHistoryTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: inherit;
+  vertical-align: top;
+}
+:global([data-theme="dark"]) .escalationHistoryTable th {
+  background: #1e293b;
+  color: #94a3b8;
+  border-bottom-color: #334155;
+}
+:global([data-theme="dark"]) .escalationHistoryTable td {
+  border-bottom-color: #1e293b;
+}
+

@@ -6,6 +6,8 @@ import ContactModal, { ContactTarget } from '../../components/ContactModal/Conta
 import { canNotifyTenant } from '../../utils/permissionUtils';
 import { toShortId } from '../../utils/idUtils';
 import {
+  requestOperationalEscalation, reviewOperationalEscalationManager, reviewOperationalEscalationAdmin,
+  addTicketCollaborators, removeTicketCollaborator, recordCollaboratorContribution,
   changeTicketStatus, fetchTicket, fetchTicketReplies, addTicketReply, fetchTicketTimeline,
   assignDepartment, assignStaff, reassignStaff, acceptAssignment, rejectAssignment,
   escalateTicket, mergeTickets, fetchMergeCandidates, closeTicket, reopenTicket, approveResolution, rejectResolution,
@@ -265,6 +267,38 @@ export default function TicketDetail() {
   const [attachFiles, setAttachFiles] = useState<FileList | null>(null);
   const [attachComment, setAttachComment] = useState('');
   const [tenantRating, setTenantRating] = useState<number>(5);
+  // Operational Escalation & Collaboration states
+  const [opEscalateModal, setOpEscalateModal] = useState(false);
+  const [opReason, setOpReason] = useState('Specialized Technical Expertise Required');
+  const [opCustomReason, setOpCustomReason] = useState('');
+  const [opProblemDescription, setOpProblemDescription] = useState('');
+  const [opActionsAttempted, setOpActionsAttempted] = useState('');
+  const [opAssistanceRequired, setOpAssistanceRequired] = useState('');
+  const [opDestination, setOpDestination] = useState<'manager' | 'admin'>('manager');
+  const [opSubmitting, setOpSubmitting] = useState(false);
+
+  const [managerReviewModal, setManagerReviewModal] = useState(false);
+  const [managerDecision, setManagerDecision] = useState<'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'escalate_to_admin'>('guidance');
+  const [managerReviewNotes, setManagerReviewNotes] = useState('');
+  const [managerNewAssigneeId, setManagerNewAssigneeId] = useState('');
+  const [managerCollaboratorIds, setManagerCollaboratorIds] = useState<string[]>([]);
+  const [managerReviewSubmitting, setManagerReviewSubmitting] = useState(false);
+
+  const [adminReviewModal, setAdminReviewModal] = useState(false);
+  const [adminDecision, setAdminDecision] = useState<'approved' | 'guidance' | 'reassign' | 'resource_allocated' | 'rejected'>('approved');
+  const [adminReviewNotes, setAdminReviewNotes] = useState('');
+  const [adminReviewSubmitting, setAdminReviewSubmitting] = useState(false);
+
+  const [collaboratorModal, setCollaboratorModal] = useState(false);
+  const [collaboratorUserIds, setCollaboratorUserIds] = useState<string[]>([]);
+  const [collaboratorRole, setCollaboratorRole] = useState('Hardware Specialist');
+  const [collaboratorNotes, setCollaboratorNotes] = useState('');
+  const [collaboratorSubmitting, setCollaboratorSubmitting] = useState(false);
+
+  const [contributionModal, setContributionModal] = useState(false);
+  const [contributionNotes, setContributionNotes] = useState('');
+  const [inPersonNotes, setInPersonNotes] = useState('');
+  const [contributionSubmitting, setContributionSubmitting] = useState(false);
   const [tenantFeedback, setTenantFeedback] = useState<string>('');
   const [hoverRating, setHoverRating] = useState<number>(0);
   const { socket } = useSocket();
@@ -526,6 +560,153 @@ export default function TicketDetail() {
     setStaffModal(false);
     setSelectedStaff('');
     setNotes('');
+  };
+
+  const handleRequestOperationalEscalation = async () => {
+    if (!ticket) return;
+    const finalReason = opReason === 'Other' ? opCustomReason.trim() : opReason;
+    if (!finalReason) {
+      flash('Please select or specify an escalation reason', true);
+      return;
+    }
+    if (!opProblemDescription.trim()) {
+      flash('Please describe the unresolved problem', true);
+      return;
+    }
+    if (!opActionsAttempted.trim()) {
+      flash('Please specify the actions already attempted', true);
+      return;
+    }
+    if (!opAssistanceRequired.trim()) {
+      flash('Please state the assistance or decision required', true);
+      return;
+    }
+
+    setOpSubmitting(true);
+    try {
+      await requestOperationalEscalation(ticket.id, {
+        escalationReason: finalReason,
+        problemDescription: opProblemDescription.trim(),
+        actionsAttempted: opActionsAttempted.trim(),
+        assistanceRequired: opAssistanceRequired.trim(),
+        destination: opDestination,
+      });
+      flash('✓ Operational escalation submitted to Department Management successfully!');
+      setOpEscalateModal(false);
+      setOpProblemDescription('');
+      setOpActionsAttempted('');
+      setOpAssistanceRequired('');
+      loadTicket();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || e.message || 'Failed to submit escalation', true);
+    } finally {
+      setOpSubmitting(false);
+    }
+  };
+
+  const handleManagerReviewSubmit = async () => {
+    if (!ticket || !ticket.operationalEscalations?.length) return;
+    const activeEsc = ticket.operationalEscalations.find(e => e.status === 'pending_manager') || ticket.operationalEscalations[0];
+    if (!activeEsc) return;
+
+    if (managerDecision === 'reassign' && !managerNewAssigneeId) {
+      flash('Please select a new staff member to reassign', true);
+      return;
+    }
+
+    setManagerReviewSubmitting(true);
+    try {
+      await reviewOperationalEscalationManager(ticket.id, activeEsc.id, {
+        decision: managerDecision,
+        notes: managerReviewNotes.trim(),
+        newAssigneeId: managerNewAssigneeId || undefined,
+        collaboratorIds: managerCollaboratorIds.length ? managerCollaboratorIds : undefined,
+      });
+      flash('✓ Department Manager review and action recorded successfully!');
+      setManagerReviewModal(false);
+      setManagerReviewNotes('');
+      setManagerNewAssigneeId('');
+      setManagerCollaboratorIds([]);
+      loadTicket();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || e.message || 'Failed to record manager review', true);
+    } finally {
+      setManagerReviewSubmitting(false);
+    }
+  };
+
+  const handleAdminReviewSubmit = async () => {
+    if (!ticket || !ticket.operationalEscalations?.length) return;
+    const activeEsc = ticket.operationalEscalations.find(e => e.status === 'pending_admin') || ticket.operationalEscalations[0];
+    if (!activeEsc) return;
+
+    setAdminReviewSubmitting(true);
+    try {
+      await reviewOperationalEscalationAdmin(ticket.id, activeEsc.id, {
+        decision: adminDecision,
+        notes: adminReviewNotes.trim(),
+      });
+      flash('✓ Admin decision recorded. Ticket returned to team for execution!');
+      setAdminReviewModal(false);
+      setAdminReviewNotes('');
+      loadTicket();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || e.message || 'Failed to record admin decision', true);
+    } finally {
+      setAdminReviewSubmitting(false);
+    }
+  };
+
+  const handleAddCollaboratorsSubmit = async () => {
+    if (!ticket) return;
+    if (!collaboratorUserIds.length) {
+      flash('Please select at least one staff member to add as collaborator', true);
+      return;
+    }
+
+    setCollaboratorSubmitting(true);
+    try {
+      await addTicketCollaborators(ticket.id, {
+        userIds: collaboratorUserIds,
+        role: collaboratorRole,
+        notes: collaboratorNotes.trim() || undefined,
+      });
+      flash('✓ Collaborator(s) successfully assigned to collaborative work group!');
+      setCollaboratorModal(false);
+      setCollaboratorUserIds([]);
+      setCollaboratorNotes('');
+      loadTicket();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || e.message || 'Failed to add collaborator', true);
+    } finally {
+      setCollaboratorSubmitting(false);
+    }
+  };
+
+  const handleRecordContributionSubmit = async () => {
+    if (!ticket) return;
+    if (!contributionNotes.trim() && !inPersonNotes.trim()) {
+      flash('Please provide technical progress or in-person collaboration notes', true);
+      return;
+    }
+
+    setContributionSubmitting(true);
+    try {
+      await recordCollaboratorContribution(ticket.id, {
+        contributionNotes: contributionNotes.trim() || undefined,
+        inPersonNotes: inPersonNotes.trim() || undefined,
+      });
+      flash('✓ Technical findings and collaboration progress recorded successfully!');
+      setContributionModal(false);
+      setContributionNotes('');
+      setInPersonNotes('');
+      loadTicket();
+      loadReplies();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || e.message || 'Failed to record contribution', true);
+    } finally {
+      setContributionSubmitting(false);
+    }
   };
 
   const closeDeptModal = () => {
@@ -1170,6 +1351,61 @@ export default function TicketDetail() {
                 </span>
               </div>
             )}
+
+            {/* SLA Status (Independent Time-Based SLA Metric) */}
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <BoltIcon className={styles.detailLabelIcon} />
+                SLA Status
+              </span>
+              <span className={styles.detailValue}>
+                {(() => {
+                  const s = ticket.slaStatus || (ticket.isOverdue ? 'resolution_breached' : (ticket.escalationSlaBreached ? 'escalation_triggered' : (ticket.responseSlaBreached ? 'response_breached' : 'within_target')));
+                  const labels: Record<string, string> = {
+                    within_target: 'Within Target',
+                    approaching_deadline: 'Approaching Deadline',
+                    response_breached: 'First Response Breached',
+                    escalation_triggered: 'SLA Escalation Triggered',
+                    resolution_breached: 'Resolution Deadline Breached',
+                    completed_successfully: 'SLA Met Successfully',
+                  };
+                  return (
+                    <span className={styles['slaBadge_' + s] || styles.slaBadge_within_target}>
+                      {s === 'within_target' || s === 'completed_successfully' ? '✓ ' : s.includes('breached') ? '⚠️ ' : '⏳ '}
+                      {labels[s] || s}
+                    </span>
+                  );
+                })()}
+              </span>
+            </div>
+
+            {/* Operational Escalation Status (Independent Issue-Based Metric) */}
+            <div className={styles.detailItem}>
+              <span className={styles.detailLabel}>
+                <ArrowTrendingUpIcon className={styles.detailLabelIcon} />
+                Operational Escalation
+              </span>
+              <span className={styles.detailValue}>
+                {(() => {
+                  const op = ticket.operationalEscalationStatus || 'none';
+                  const opLabels: Record<string, string> = {
+                    none: 'Standard Workflow',
+                    pending_manager: 'Pending Manager Review',
+                    pending_admin: 'Pending Admin Review',
+                    guidance_provided: 'Guidance Provided',
+                    reassigned: 'Reassigned Following Escalation',
+                    collaborative: 'Collaborative Group Active',
+                    resolved: 'Operational Resolved',
+                  };
+                  return (
+                    <span className={styles['opBadge_' + op] || styles.opBadge_none}>
+                      {op === 'none' ? '📋 ' : op.startsWith('pending') ? '🚨 ' : '✨ '}
+                      {opLabels[op] || op}
+                    </span>
+                  );
+                })()}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1515,6 +1751,22 @@ export default function TicketDetail() {
                       <span className={styles.clusterLabel}>Collaboration & Updates</span>
                     </div>
                     <div className={styles.btnClusterRow}>
+                      {(role === 'staff' || role === 'manager' || role === 'admin') && (
+                        <button
+                          className={styles.btnOperationalEscalate}
+                          onClick={() => {
+                            setOpProblemDescription('');
+                            setOpActionsAttempted('');
+                            setOpAssistanceRequired('');
+                            setOpCustomReason('');
+                            setOpDestination(role === 'manager' ? 'admin' : 'manager');
+                            setOpEscalateModal(true);
+                          }}
+                          title="Initiate issue-based operational escalation to Management"
+                        >
+                          ⚡ Request Operational Escalation
+                        </button>
+                      )}
                       <button
                         className={styles.btnSlate}
                         onClick={() => setNoteModal(true)}
@@ -1622,6 +1874,206 @@ export default function TicketDetail() {
           }
           return banners;
         })()}
+
+        {/* Operational Escalation Banner (Issue-based escalation) */}
+        {ticket.operationalEscalationStatus && ticket.operationalEscalationStatus !== 'none' && (() => {
+          const activeEsc = (ticket.operationalEscalations || [])[0];
+          const isPendingMgr = ticket.operationalEscalationStatus === 'pending_manager';
+          const isPendingAdm = ticket.operationalEscalationStatus === 'pending_admin';
+          const canManagerReview = (role === 'manager' || role === 'admin') && isPendingMgr;
+          const canAdminReview = (role === 'admin' || role === 'ceo') && isPendingAdm;
+
+          return (
+            <div className={styles.opEscalationBanner}>
+              <div className={styles.opBannerHeader}>
+                <div className={styles.opBannerTitle}>
+                  <span>🚨</span> Operational Problem Escalation Active
+                  <span className={styles['opBadge_' + ticket.operationalEscalationStatus]}>
+                    {ticket.operationalEscalationStatus === 'pending_manager' ? 'Awaiting Department Manager' :
+                     ticket.operationalEscalationStatus === 'pending_admin' ? 'Awaiting Administrative Intervention' :
+                     ticket.operationalEscalationStatus === 'guidance_provided' ? 'Guidance Provided by Manager' :
+                     ticket.operationalEscalationStatus === 'collaborative' ? 'Under Collaborative Resolution' : 'Resolved'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {canManagerReview && (
+                    <button
+                      type="button"
+                      className={styles.btnOperationalReview}
+                      onClick={() => {
+                        setManagerDecision('guidance');
+                        setManagerReviewNotes('');
+                        setManagerReviewModal(true);
+                      }}
+                    >
+                      ⚡ Manager Review & Take Action
+                    </button>
+                  )}
+                  {canAdminReview && (
+                    <button
+                      type="button"
+                      className={styles.btnOperationalReview}
+                      onClick={() => {
+                        setAdminDecision('resource_allocated');
+                        setAdminReviewNotes('');
+                        setAdminReviewModal(true);
+                      }}
+                    >
+                      🛡️ Admin Review & Decision
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {activeEsc && (
+                <div className={styles.opBannerMetaGrid}>
+                  <div>
+                    <div className={styles.opMetaItemLabel}>Escalation Reason</div>
+                    <div className={styles.opMetaItemVal}><strong>{activeEsc.escalation_reason}</strong></div>
+                  </div>
+                  <div>
+                    <div className={styles.opMetaItemLabel}>Requested By</div>
+                    <div className={styles.opMetaItemVal}>{activeEsc.requesting_user_name || 'Staff Member'} ({activeEsc.department_name || 'Department'})</div>
+                  </div>
+                  <div>
+                    <div className={styles.opMetaItemLabel}>Unresolved Issue</div>
+                    <div className={styles.opMetaItemVal}>{activeEsc.problem_description}</div>
+                  </div>
+                  <div>
+                    <div className={styles.opMetaItemLabel}>Actions Attempted</div>
+                    <div className={styles.opMetaItemVal}>{activeEsc.actions_attempted}</div>
+                  </div>
+                  <div>
+                    <div className={styles.opMetaItemLabel}>Assistance / Decision Needed</div>
+                    <div className={styles.opMetaItemVal}>{activeEsc.assistance_required}</div>
+                  </div>
+                  {activeEsc.manager_notes && (
+                    <div>
+                      <div className={styles.opMetaItemLabel}>Manager Decision ({activeEsc.manager_decision})</div>
+                      <div className={styles.opMetaItemVal}>{activeEsc.manager_notes}</div>
+                    </div>
+                  )}
+                  {activeEsc.admin_notes && (
+                    <div>
+                      <div className={styles.opMetaItemLabel}>Admin Decision ({activeEsc.admin_decision})</div>
+                      <div className={styles.opMetaItemVal}>{activeEsc.admin_notes}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Team Collaboration Work Group Card */}
+        {((ticket.collaborators && ticket.collaborators.length > 0) || role === 'manager' || role === 'admin' || (role === 'staff' && ticket.assignedTo === user?.id)) && (
+          <div className={styles.collaboratorsCard}>
+            <div className={styles.collaboratorsCardHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.2rem' }}>👥</span>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>
+                  Team Collaboration & Joint Resolution
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  ({ticket.collaborators?.length || 0} active collaborator{ticket.collaborators?.length === 1 ? '' : 's'})
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {(role === 'manager' || role === 'admin' || (role === 'staff' && ticket.assignedTo === user?.id)) && (
+                  <button
+                    type="button"
+                    className={styles.btnSlate}
+                    style={{ fontSize: '0.82rem', padding: '5px 11px' }}
+                    onClick={() => {
+                      setCollaboratorRole('Specialist');
+                      setCollaboratorNotes('');
+                      setCollaboratorUserIds([]);
+                      setCollaboratorModal(true);
+                    }}
+                  >
+                    + Add Staff Collaborator
+                  </button>
+                )}
+                {(role === 'staff' || role === 'manager' || role === 'admin') && (
+                  <button
+                    type="button"
+                    className={styles.btnInfoOutline}
+                    style={{ fontSize: '0.82rem', padding: '5px 11px' }}
+                    onClick={() => {
+                      setContributionNotes('');
+                      setInPersonNotes('');
+                      setContributionModal(true);
+                    }}
+                  >
+                    📝 Record Work & In-Person Notes
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {ticket.collaborators && ticket.collaborators.length > 0 ? (
+              <div className={styles.collaboratorsList}>
+                {ticket.collaborators.map((c) => (
+                  <div key={c.id} className={styles.collaboratorItem}>
+                    <div>
+                      <div className={styles.collaboratorInfo}>
+                        <div className={styles.collaboratorAvatar}>
+                          {(c.first_name || 'U')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <strong>{c.first_name} {c.last_name}</strong>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b', marginLeft: '6px' }}>({c.email})</span>
+                          <span className={styles.collaboratorRoleChip}>{c.role || 'Collaborator'}</span>
+                          {c.department_name && (
+                            <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>• {c.department_name}</span>
+                          )}
+                        </div>
+                      </div>
+                      {c.notes && (
+                        <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '6px', marginLeft: '46px' }}>
+                          Assignment Note: {c.notes}
+                        </div>
+                      )}
+                      {(c.contribution_notes || c.in_person_notes) && (
+                        <div className={styles.collaboratorNotesBox} style={{ marginLeft: '46px' }}>
+                          {c.contribution_notes && (
+                            <div style={{ marginBottom: c.in_person_notes ? '4px' : '0' }}>
+                              <strong>Technical Contribution:</strong> {c.contribution_notes}
+                            </div>
+                          )}
+                          {c.in_person_notes && (
+                            <div style={{ color: '#0e7490' }}>
+                              <strong>In-Person / Offline Work:</strong> {c.in_person_notes}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {(role === 'manager' || role === 'admin' || (role === 'staff' && ticket.assignedTo === user?.id)) && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`Remove ${c.first_name} ${c.last_name} from ticket collaborators?`)) {
+                            await removeTicketCollaborator(ticket.id, c.user_id).catch(() => {});
+                            loadTicket();
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.78rem' }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
+                No additional staff collaborators have been assigned yet. Managers and assigned staff can involve colleagues for multi-discipline resolution.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Under Review Banner (Staff submitted -> Pending Dept Manager Approval) */}
         {((ticket.status || '').replace(/^escalated\./, '') === 'under_review') && (

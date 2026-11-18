@@ -100,6 +100,12 @@ export const sanitizeTicket = (row) => {
     lastSlaWarningAt: row.last_sla_warning_at || null,
     slaAgreementAccepted: row.sla_agreement_accepted ? true : false,
     slaAgreementAcceptedAt: row.sla_agreement_accepted_at || null,
+    slaStatus: row.sla_status || (row.is_overdue ? 'resolution_breached' : (row.escalation_sla_breached ? 'escalation_triggered' : (row.response_sla_breached ? 'response_breached' : (row.sla_achieved ? 'completed_successfully' : 'within_target')))),
+    sla_status: row.sla_status || (row.is_overdue ? 'resolution_breached' : (row.escalation_sla_breached ? 'escalation_triggered' : (row.response_sla_breached ? 'response_breached' : (row.sla_achieved ? 'completed_successfully' : 'within_target')))),
+    operationalEscalationStatus: row.operational_escalation_status || 'none',
+    operational_escalation_status: row.operational_escalation_status || 'none',
+    operationalEscalationReason: row.operational_escalation_reason || null,
+    operational_escalation_reason: row.operational_escalation_reason || null,
   };
 };
 

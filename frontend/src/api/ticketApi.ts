@@ -186,3 +186,78 @@ export const deleteTicketAttachment = (
     throw err;
   });
 };
+
+// Operational Escalation API
+export const requestOperationalEscalation = (
+  id: string,
+  payload: {
+    escalationReason: string;
+    problemDescription: string;
+    actionsAttempted: string;
+    assistanceRequired: string;
+    destination?: 'manager' | 'admin';
+  }
+) => api.post(`/tickets/${encodeURIComponent(id)}/operational-escalation`, payload);
+
+export const fetchOperationalEscalations = (id: string) =>
+  api.get<{ success: boolean; data: any[] }>(`/tickets/${encodeURIComponent(id)}/operational-escalations`);
+
+export const reviewOperationalEscalationManager = (
+  id: string,
+  escalationId: string,
+  payload: {
+    decision: 'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'escalate_to_admin';
+    notes?: string;
+    newAssigneeId?: string;
+    collaboratorIds?: string[];
+    role?: string;
+  }
+) =>
+  api.post(
+    `/tickets/${encodeURIComponent(id)}/operational-escalation/${encodeURIComponent(escalationId)}/manager-review`,
+    payload
+  );
+
+export const reviewOperationalEscalationAdmin = (
+  id: string,
+  escalationId: string,
+  payload: {
+    decision: 'approved' | 'guidance' | 'reassign' | 'resource_allocated' | 'rejected';
+    notes?: string;
+    newAssigneeId?: string;
+    departmentId?: string;
+  }
+) =>
+  api.post(
+    `/tickets/${encodeURIComponent(id)}/operational-escalation/${encodeURIComponent(escalationId)}/admin-review`,
+    payload
+  );
+
+export const fetchSlaEscalations = (id: string) =>
+  api.get<{ success: boolean; data: any[] }>(`/tickets/${encodeURIComponent(id)}/sla-escalations`);
+
+// Collaboration API
+export const fetchTicketCollaborators = (id: string) =>
+  api.get<{ success: boolean; data: any[] }>(`/tickets/${encodeURIComponent(id)}/collaborators`);
+
+export const addTicketCollaborators = (
+  id: string,
+  payload: {
+    userIds: string[];
+    role?: string;
+    notes?: string;
+    inPersonNotes?: string;
+  }
+) => api.post(`/tickets/${encodeURIComponent(id)}/collaborators`, payload);
+
+export const removeTicketCollaborator = (id: string, userId: string) =>
+  api.delete(`/tickets/${encodeURIComponent(id)}/collaborators/${encodeURIComponent(userId)}`);
+
+export const recordCollaboratorContribution = (
+  id: string,
+  payload: {
+    contributionNotes?: string;
+    inPersonNotes?: string;
+  }
+) => api.post(`/tickets/${encodeURIComponent(id)}/collaborators/contribution`, payload);
+

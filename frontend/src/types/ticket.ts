@@ -24,6 +24,89 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type TenantConfirmationStatus = 'not_required' | 'pending' | 'approved' | 'rejected';
 
+export type SLAStatus =
+  | 'within_target'
+  | 'approaching_deadline'
+  | 'response_breached'
+  | 'escalation_triggered'
+  | 'resolution_breached'
+  | 'completed_successfully';
+
+export type OperationalEscalationStatus =
+  | 'none'
+  | 'pending_manager'
+  | 'pending_admin'
+  | 'guidance_provided'
+  | 'reassigned'
+  | 'collaborative'
+  | 'resolved';
+
+export interface OperationalEscalation {
+  id: string;
+  ticket_id: string;
+  requesting_user_id: string;
+  requesting_user_name?: string;
+  requesting_user_email?: string;
+  department_id?: string | null;
+  department_name?: string | null;
+  escalation_reason: string;
+  problem_description: string;
+  actions_attempted: string;
+  assistance_required: string;
+  destination: 'manager' | 'admin';
+  manager_id?: string | null;
+  manager_name?: string | null;
+  manager_decision?: 'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'escalate_to_admin' | 'pending';
+  manager_notes?: string | null;
+  manager_decided_at?: string | null;
+  admin_id?: string | null;
+  admin_name?: string | null;
+  admin_decision?: 'approved' | 'guidance' | 'reassign' | 'resource_allocated' | 'rejected' | 'pending';
+  admin_notes?: string | null;
+  admin_decided_at?: string | null;
+  status: OperationalEscalationStatus;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TicketCollaborator {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  user_role?: string;
+  department_name?: string;
+  assigned_by: string;
+  assigned_by_name?: string;
+  role: string;
+  notes?: string | null;
+  contribution_notes?: string | null;
+  in_person_notes?: string | null;
+  status: 'active' | 'completed' | 'removed';
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface TicketSLAEscalation {
+  id: string;
+  ticket_id: string;
+  sla_policy_id?: string | null;
+  policy_name?: string | null;
+  policy_priority?: string | null;
+  sla_threshold: string;
+  trigger_time: string;
+  escalation_level: string;
+  responsible_recipient_id?: string | null;
+  recipient_name?: string | null;
+  notification_status: string;
+  resolution_deadline?: string | null;
+  breach_status: string;
+  notes?: string | null;
+  created_at: string;
+}
+
 export interface AssignmentLockInfo {
   isLocked: boolean;
   remainingMinutes: number;
@@ -184,6 +267,15 @@ export interface Ticket {
   cancelledAt?: string | null;
    mergedInto?: string | null;
    routingType?: 'general' | 'direct';
+  slaStatus?: SLAStatus;
+  sla_status?: SLAStatus;
+  operationalEscalationStatus?: OperationalEscalationStatus;
+  operational_escalation_status?: OperationalEscalationStatus;
+  operationalEscalationReason?: string | null;
+  operational_escalation_reason?: string | null;
+  operationalEscalations?: OperationalEscalation[];
+  slaEscalations?: TicketSLAEscalation[];
+  collaborators?: TicketCollaborator[];
   deptAssignmentLock?: AssignmentLockInfo | null;
   staffAssignmentLock?: AssignmentLockInfo | null;
    attachments?: TicketAttachment[];

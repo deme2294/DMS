@@ -279,6 +279,8 @@ export const update = async (id, fields) => {
     'reopen_requested_at', 'reopen_requested_by', 'reopen_request_reason', 'reopen_status',
     'first_response_at',
     'routing_type', 'sla_agreement_accepted', 'sla_agreement_accepted_at',
+    'is_overdue', 'response_sla_breached', 'escalation_sla_breached', 'sla_achieved',
+    'sla_status', 'operational_escalation_status', 'operational_escalation_reason',
   ];
   const sets = [];
   const params = { id: actualId };

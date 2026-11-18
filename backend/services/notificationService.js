@@ -1974,3 +1974,114 @@ export const notifyFeedbackAssignedToStaff = async (feedback, staffUserIds, depa
     }
   }
 };
+
+export const notifyOperationalEscalationRequested = async (ticket, requestingUser, escalationRecord) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
+  const staffName = `${requestingUser.first_name || ''} ${requestingUser.last_name || ''}`.trim() || 'Assigned Staff';
+  
+  // Find Department Managers for ticket department
+  const deptId = ticket.department_id || ticket.current_department_id;
+  const targetUserIds = [];
+
+  if (escalationRecord.destination === 'admin' || !deptId) {
+    const [admins] = await pool.query(
+      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+    );
+    targetUserIds.push(...admins.map(a => a.id));
+  } else {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
+      { deptId }
+    );
+    targetUserIds.push(...managers.map(m => m.id));
+    if (!targetUserIds.length) {
+      const [admins] = await pool.query(
+        `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+      );
+      targetUserIds.push(...admins.map(a => a.id));
+    }
+  }
+
+  const title = 'Operational Escalation Requested';
+  const message = `Staff ${staffName} requested operational escalation on Ticket ${ref}: "${escalationRecord.escalation_reason || 'Needs Assistance'}".`;
+
+  for (const uid of targetUserIds) {
+    if (uid === requestingUser.id) continue;
+    await notificationRepo.createNotification(uid, title, message, 'escalation', ticket.id).catch(() => {});
+    emitToUser(uid, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+  }
+};
+
+export const notifyOperationalEscalationReviewed = async (ticket, managerUser, decision, notes) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
+  const managerName = `${managerUser.first_name || ''} ${managerUser.last_name || ''}`.trim() || 'Department Manager';
+  const assignedUserId = ticket.assigned_to || ticket.current_assigned_user_id;
+
+  if (assignedUserId) {
+    const title = 'Operational Escalation Update';
+    const message = `Manager ${managerName} reviewed your escalation on Ticket ${ref}. Decision: ${decision}.${notes ? ` Guidance: ${truncate(notes, 80)}` : ''}`;
+    await notificationRepo.createNotification(assignedUserId, title, message, 'escalation', ticket.id).catch(() => {});
+    emitToUser(assignedUserId, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+  }
+};
+
+export const notifyOperationalEscalationToAdmin = async (ticket, managerUser, escalationRecord) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
+  const managerName = `${managerUser.first_name || ''} ${managerUser.last_name || ''}`.trim() || 'Department Manager';
+
+  const [admins] = await pool.query(
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+  );
+
+  const title = 'Operational Escalation to Admin';
+  const message = `Manager ${managerName} escalated Ticket ${ref} to Admin for review/intervention. Reason: ${escalationRecord.escalation_reason || 'Assistance Needed'}.`;
+
+  for (const admin of admins) {
+    await notificationRepo.createNotification(admin.id, title, message, 'escalation', ticket.id).catch(() => {});
+    emitToUser(admin.id, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+  }
+};
+
+export const notifyOperationalEscalationAdminDecision = async (ticket, adminUser, decision, notes) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
+  const adminName = `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || 'Admin';
+
+  const recipients = new Set();
+  if (ticket.assigned_to) recipients.add(ticket.assigned_to);
+
+  const deptId = ticket.department_id || ticket.current_department_id;
+  if (deptId) {
+    const [managers] = await pool.query(
+      `SELECT u.id FROM users u
+       JOIN user_departments ud ON ud.user_id = u.id
+       JOIN roles r ON r.id = u.role_id
+       WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
+      { deptId }
+    );
+    for (const m of managers) recipients.add(m.id);
+  }
+
+  const title = 'Admin Decision on Operational Escalation';
+  const message = `Admin ${adminName} issued decision (${decision}) on Ticket ${ref}.${notes ? ` Notes: ${truncate(notes, 80)}` : ''}`;
+
+  for (const uid of recipients) {
+    if (uid === adminUser.id) continue;
+    await notificationRepo.createNotification(uid, title, message, 'escalation', ticket.id).catch(() => {});
+    emitToUser(uid, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+  }
+};
+
+export const notifyCollaboratorAdded = async (ticket, collaboratorUserId, assignedByUser, role, notes) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
+  const assignerName = `${assignedByUser.first_name || ''} ${assignedByUser.last_name || ''}`.trim() || 'Team Lead';
+
+  const title = 'Assigned as Collaborator';
+  const message = `${assignerName} added you as a ${role || 'collaborator'} to resolve Ticket ${ref}: "${truncate(ticket.title, 50)}".`;
+
+  await notificationRepo.createNotification(collaboratorUserId, title, message, 'assignment', ticket.id).catch(() => {});
+  emitToUser(collaboratorUserId, 'notification', { title, message, type: 'assignment', ticketId: ticket.id });
+};
+
