@@ -544,7 +544,7 @@ export default function FeedbackDetail() {
                     🏷️ {feedback.categoryName}
                   </span>
                 ) : (
-                  <span className={styles.valueMuted}>General</span>
+                  <span className={styles.categoryPillGeneral}>🏷️ General</span>
                 )}
                 {feedback.serviceName && (
                   <span className={styles.servicePill}>⚡ {feedback.serviceName}</span>
@@ -570,7 +570,7 @@ export default function FeedbackDetail() {
                     🏛️ {feedback.departmentName}
                   </span>
                 ) : (
-                  <span className={styles.unassignedPill}>Unassigned</span>
+                  <span className={styles.unassignedPill}>🏛️ Unassigned</span>
                 )}
               </div>
             </div>
@@ -685,7 +685,7 @@ export default function FeedbackDetail() {
               <div className={styles.assessCardHeader}>
                 <div className={styles.assessCardTitle}>
                   <span className={styles.assessDotGood}>●</span>
-                  <span className={styles.assessTitleText}>What is Working Well / Continue</span>
+                  <span className={`${styles.assessTitleText} ${styles.assessTitleGood}`}>What is Working Well / Continue</span>
                 </div>
                 <span className={styles.assessTagGood}>STRENGTH</span>
               </div>
@@ -693,7 +693,7 @@ export default function FeedbackDetail() {
                 {feedback.whatIsCorrect ? (
                   <p className={styles.assessText}>{feedback.whatIsCorrect}</p>
                 ) : (
-                  <div className={styles.assessEmptyState}>
+                  <div className={`${styles.assessEmptyState} ${styles.assessEmptyGood}`}>
                     <span className={styles.assessEmptyIcon}>✓</span>
                     <span>No specific highlights entered by tenant</span>
                   </div>
@@ -706,7 +706,7 @@ export default function FeedbackDetail() {
               <div className={styles.assessCardHeader}>
                 <div className={styles.assessCardTitle}>
                   <span className={styles.assessDotChange}>●</span>
-                  <span className={styles.assessTitleText}>What Should Change / Improve</span>
+                  <span className={`${styles.assessTitleText} ${styles.assessTitleChange}`}>What Should Change / Improve</span>
                 </div>
                 <span className={styles.assessTagChange}>IMPROVEMENT</span>
               </div>
@@ -714,7 +714,7 @@ export default function FeedbackDetail() {
                 {feedback.whatShouldChange ? (
                   <p className={styles.assessText}>{feedback.whatShouldChange}</p>
                 ) : (
-                  <div className={styles.assessEmptyState}>
+                  <div className={`${styles.assessEmptyState} ${styles.assessEmptyChange}`}>
                     <span className={styles.assessEmptyIcon}>⚡</span>
                     <span>No change requests entered by tenant</span>
                   </div>
@@ -727,7 +727,7 @@ export default function FeedbackDetail() {
               <div className={styles.assessCardHeader}>
                 <div className={styles.assessCardTitle}>
                   <span className={styles.assessDotWrong}>●</span>
-                  <span className={styles.assessTitleText}>What is Wrong</span>
+                  <span className={`${styles.assessTitleText} ${styles.assessTitleWrong}`}>What is Wrong</span>
                 </div>
                 <span className={styles.assessTagWrong}>DEFECT / ISSUE</span>
               </div>
@@ -735,7 +735,7 @@ export default function FeedbackDetail() {
                 {feedback.whatIsWrong ? (
                   <p className={styles.assessText}>{feedback.whatIsWrong}</p>
                 ) : (
-                  <div className={styles.assessEmptyState}>
+                  <div className={`${styles.assessEmptyState} ${styles.assessEmptyWrong}`}>
                     <span className={styles.assessEmptyIcon}>—</span>
                     <span>No defects reported in this review</span>
                   </div>
@@ -748,7 +748,7 @@ export default function FeedbackDetail() {
               <div className={styles.assessCardHeader}>
                 <div className={styles.assessCardTitle}>
                   <span className={styles.assessDotGuide}>●</span>
-                  <span className={styles.assessTitleText}>How It Should Go</span>
+                  <span className={`${styles.assessTitleText} ${styles.assessTitleGuide}`}>How It Should Go</span>
                 </div>
                 <span className={styles.assessTagGuide}>TARGET FLOW</span>
               </div>
@@ -756,7 +756,7 @@ export default function FeedbackDetail() {
                 {feedback.howItShouldGo ? (
                   <p className={styles.assessText}>{feedback.howItShouldGo}</p>
                 ) : (
-                  <div className={styles.assessEmptyState}>
+                  <div className={`${styles.assessEmptyState} ${styles.assessEmptyGuide}`}>
                     <span className={styles.assessEmptyIcon}>🎯</span>
                     <span>No target process requested in this review</span>
                   </div>

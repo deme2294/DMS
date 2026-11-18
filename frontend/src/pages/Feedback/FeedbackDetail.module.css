@@ -2284,3 +2284,252 @@
 :global([data-theme="dark"]) .assessEmptyState {
   color: #64748b;
 }
+
+.categoryPillGeneral {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.assessTitleGood {
+  color: #15803d !important;
+}
+
+.assessTitleChange {
+  color: #b45309 !important;
+}
+
+.assessTitleWrong {
+  color: #b91c1c !important;
+}
+
+.assessTitleGuide {
+  color: #1d4ed8 !important;
+}
+
+.assessEmptyGood {
+  color: #166534;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 7px 12px;
+  border-radius: 8px;
+}
+
+.assessEmptyChange {
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  padding: 7px 12px;
+  border-radius: 8px;
+}
+
+.assessEmptyWrong {
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 7px 12px;
+  border-radius: 8px;
+}
+
+.assessEmptyGuide {
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 7px 12px;
+  border-radius: 8px;
+}
+
+/* ── High-Contrast Vibrant Dual-Theme Overrides for Feedback & Assessment ── */
+:global([data-theme="dark"]) .categoryPillGeneral {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #93c5fd;
+}
+
+:global([data-theme="dark"]) .unassignedPill {
+  background: rgba(148, 163, 184, 0.16) !important;
+  border: 1px dashed rgba(148, 163, 184, 0.45) !important;
+  color: #e2e8f0 !important;
+}
+
+:global([data-theme="dark"]) .pendingPill {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border: 1px solid rgba(251, 191, 36, 0.5) !important;
+  color: #fef08a !important;
+}
+
+:global([data-theme="dark"]) .scopeBannerPending {
+  background: rgba(168, 85, 247, 0.18) !important;
+  border: 1px solid rgba(192, 132, 252, 0.45) !important;
+  color: #f3e8ff !important;
+}
+
+:global([data-theme="dark"]) .scopeBannerGeneral {
+  background: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+  color: #6ee7b7 !important;
+}
+
+:global([data-theme="dark"]) .scopeBannerDirect {
+  background: rgba(147, 51, 234, 0.2) !important;
+  border-color: rgba(168, 85, 247, 0.45) !important;
+  color: #e9d5ff !important;
+}
+
+:global([data-theme="dark"]) .feedbackTypePill {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border: 1px solid rgba(96, 165, 250, 0.4) !important;
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .ticketLinkBadge {
+  background: rgba(59, 130, 246, 0.22) !important;
+  border: 1px solid rgba(96, 165, 250, 0.5) !important;
+  color: #93c5fd !important;
+}
+
+:global([data-theme="dark"]) .assessCardGood {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border: 1px solid rgba(52, 211, 153, 0.45) !important;
+  border-left: 5px solid #10b981 !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .assessCardChange {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border: 1px solid rgba(251, 191, 36, 0.45) !important;
+  border-left: 5px solid #f59e0b !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .assessCardWrong {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+  border-left: 5px solid #ef4444 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .assessCardGuide {
+  background: rgba(59, 130, 246, 0.12) !important;
+  border: 1px solid rgba(96, 165, 250, 0.45) !important;
+  border-left: 5px solid #3b82f6 !important;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .assessTitleGood {
+  color: #34d399 !important;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.35);
+}
+
+:global([data-theme="dark"]) .assessTitleChange {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+}
+
+:global([data-theme="dark"]) .assessTitleWrong {
+  color: #f87171 !important;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.35);
+}
+
+:global([data-theme="dark"]) .assessTitleGuide {
+  color: #60a5fa !important;
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.35);
+}
+
+:global([data-theme="dark"]) .assessDotGood {
+  color: #34d399 !important;
+  text-shadow: 0 0 8px rgba(52, 211, 153, 0.8) !important;
+}
+
+:global([data-theme="dark"]) .assessDotChange {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.8) !important;
+}
+
+:global([data-theme="dark"]) .assessDotWrong {
+  color: #f87171 !important;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.8) !important;
+}
+
+:global([data-theme="dark"]) .assessDotGuide {
+  color: #60a5fa !important;
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.8) !important;
+}
+
+:global([data-theme="dark"]) .assessTagGood {
+  background: rgba(16, 185, 129, 0.28) !important;
+  color: #6ee7b7 !important;
+  border: 1px solid rgba(52, 211, 153, 0.55) !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="dark"]) .assessTagChange {
+  background: rgba(245, 158, 11, 0.28) !important;
+  color: #fde68a !important;
+  border: 1px solid rgba(251, 191, 36, 0.55) !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="dark"]) .assessTagWrong {
+  background: rgba(239, 68, 68, 0.28) !important;
+  color: #fca5a5 !important;
+  border: 1px solid rgba(248, 113, 113, 0.55) !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="dark"]) .assessTagGuide {
+  background: rgba(59, 130, 246, 0.28) !important;
+  color: #bfdbfe !important;
+  border: 1px solid rgba(96, 165, 250, 0.55) !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="dark"]) .assessEmptyGood {
+  color: #a7f3d0 !important;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border: 1px solid rgba(52, 211, 153, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .assessEmptyChange {
+  color: #fde68a !important;
+  background: rgba(245, 158, 11, 0.16) !important;
+  border: 1px solid rgba(251, 191, 36, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .assessEmptyWrong {
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.16) !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .assessEmptyGuide {
+  color: #bfdbfe !important;
+  background: rgba(59, 130, 246, 0.16) !important;
+  border: 1px solid rgba(96, 165, 250, 0.45) !important;
+}
+
+:global([data-theme="dark"]) .ratingStarsRow {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(251, 191, 36, 0.4) !important;
+}
+
+:global([data-theme="dark"]) .starFilled {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.7);
+}
+
+:global([data-theme="dark"]) .ratingNumeric {
+  color: #fde68a !important;
+  background: rgba(245, 158, 11, 0.25) !important;
+  border: 1px solid rgba(251, 191, 36, 0.45) !important;
+  padding: 2px 8px !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+}
