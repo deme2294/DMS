@@ -3324,70 +3324,70 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 :global([data-theme="dark"]) .actionBtnView,
 [data-theme="dark"] .actionBtnView {
-  background: rgba(30, 64, 175, 0.45) !important;
-  color: #bfdbfe !important;
+  background: #172554 !important;
+  color: #93c5fd !important;
   border: 1.5px solid #3b82f6 !important;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnView:hover,
 [data-theme="dark"] .actionBtnView:hover {
   background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
   color: #ffffff !important;
-  border-color: #93c5fd !important;
+  border-color: #bfdbfe !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 0 18px rgba(59, 130, 246, 0.65) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnDept,
 [data-theme="dark"] .actionBtnDept {
-  background: rgba(4, 120, 87, 0.45) !important;
-  color: #a7f3d0 !important;
+  background: #064e3b !important;
+  color: #6ee7b7 !important;
   border: 1.5px solid #10b981 !important;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnDept:hover,
 [data-theme="dark"] .actionBtnDept:hover {
   background: linear-gradient(135deg, #059669, #047857) !important;
   color: #ffffff !important;
-  border-color: #6ee7b7 !important;
+  border-color: #a7f3d0 !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 0 18px rgba(16, 185, 129, 0.65) !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.5) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnStaff,
 [data-theme="dark"] .actionBtnStaff {
-  background: rgba(109, 40, 217, 0.45) !important;
-  color: #e9d5ff !important;
+  background: #3b0764 !important;
+  color: #c4b5fd !important;
   border: 1.5px solid #8b5cf6 !important;
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnStaff:hover,
 [data-theme="dark"] .actionBtnStaff:hover {
   background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
   color: #ffffff !important;
-  border-color: #d8b4fe !important;
+  border-color: #e9d5ff !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 0 18px rgba(139, 92, 246, 0.65) !important;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.5) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnDelete,
 [data-theme="dark"] .actionBtnDelete {
-  background: rgba(190, 18, 60, 0.45) !important;
-  color: #fecdd3 !important;
+  background: #4c0519 !important;
+  color: #fca5a5 !important;
   border: 1.5px solid #f43f5e !important;
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 :global([data-theme="dark"]) .actionBtnDelete:hover,
 [data-theme="dark"] .actionBtnDelete:hover {
   background: linear-gradient(135deg, #e11d48, #be123c) !important;
   color: #ffffff !important;
-  border-color: #fda4af !important;
+  border-color: #fecdd3 !important;
   transform: translateY(-1.5px);
-  box-shadow: 0 0 18px rgba(244, 63, 94, 0.65) !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.5) !important;
 }
 
 
