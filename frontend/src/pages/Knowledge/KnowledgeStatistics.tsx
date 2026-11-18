@@ -1071,15 +1071,15 @@ export default function KnowledgeStatistics() {
 
             {/* Direct Tenant Knowledge Base Feedback Section */}
             {(feedbackFilter === 'tenant_kb' || (feedbackFilter === 'all' && filteredKbFeedback.length > 0)) && (
-              <div style={{ marginTop: '28px', borderTop: feedbackFilter === 'all' ? '1px dashed #e2e8f0' : 'none', paddingTop: feedbackFilter === 'all' ? '20px' : '0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <div className={styles.tenantFeedbackSectionWrap} style={{ borderTopStyle: feedbackFilter === 'all' ? 'dashed' : 'none', paddingTop: feedbackFilter === 'all' ? '20px' : '0' }}>
+                <div className={styles.tenantFeedbackHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '1.25rem' }}>💬</span>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 700, color: '#0f172a' }}>
-                        Tenant Knowledge Base & Documentation Feedback
+                      <h4 className={styles.tenantFeedbackTitle}>
+                        Tenant Knowledge Base &amp; Documentation Feedback
                       </h4>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+                      <p className={styles.tenantFeedbackSubtitle}>
                         Direct evaluations submitted by tenants on articles and knowledge base resources
                       </p>
                     </div>

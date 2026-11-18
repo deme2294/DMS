@@ -785,27 +785,33 @@
 
 .feedbackArticlesTitle {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 800;
   color: #0f172a;
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .feedbackArticlesCountBadge {
   font-size: 0.72rem;
   font-weight: 700;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  background: #f1f5f9;
-  color: #475569;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
 .feedbackArticlesSubtitle {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: #64748b;
+  line-height: 1.45;
 }
 
 .feedbackFilterBar {
@@ -813,13 +819,16 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
 }
 
 .feedbackFilterTabs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
 }
 
 .feedbackFilterTab {
@@ -833,6 +842,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .feedbackFilterTab:hover {
@@ -863,8 +873,11 @@
 
 .searchWrapper {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  flex: 1 1 260px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .searchIcon {
@@ -877,14 +890,16 @@
 }
 
 .feedbackSearchInput {
-  padding: 6px 30px 6px 32px;
-  font-size: 0.8rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  padding: 8px 32px 8px 34px;
+  font-size: 0.82rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
   outline: none;
   background: #ffffff;
   color: #0f172a;
-  min-width: 220px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   font-family: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -911,6 +926,35 @@
 
 .clearSearchBtn:hover {
   color: #0f172a;
+}
+
+/* Tenant Knowledge Base Feedback sub-section headers */
+.tenantFeedbackSectionWrap {
+  margin-top: 28px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 20px;
+}
+
+.tenantFeedbackHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tenantFeedbackTitle {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tenantFeedbackSubtitle {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .feedbackArticlesList {
@@ -1773,6 +1817,65 @@
   color: #f8fafc !important;
 }
 
+:global([data-theme="dark"]) .feedbackSearchInput::placeholder {
+  color: #64748b !important;
+}
+
+:global([data-theme="dark"]) .feedbackSearchInput:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2) !important;
+}
+
+:global([data-theme="dark"]) .searchIcon {
+  color: #64748b !important;
+}
+
+:global([data-theme="dark"]) .clearSearchBtn {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .clearSearchBtn:hover {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticlesSection {
+  border-top-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticlesTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticlesSubtitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .feedbackArticlesCountBadge {
+  background: rgba(37, 99, 235, 0.16) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .tenantFeedbackSectionWrap {
+  border-top-color: #1e293b !important;
+}
+
+:global([data-theme="dark"]) .tenantFeedbackTitle {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .tenantFeedbackSubtitle {
+  color: #94a3b8 !important;
+}
+
+:global([data-theme="dark"]) .emptyState h4 {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .emptyState p {
+  color: #94a3b8 !important;
+}
+
 :global([data-theme="dark"]) .viewModeSwitcher {
   background: rgba(15, 23, 42, 0.8) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
@@ -1941,9 +2044,63 @@
   color: #60a5fa;
 }
 
+/* Split view adaptation for filter bar */
+.panelCardSplit .feedbackFilterBar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.panelCardSplit .feedbackFilterTabs {
+  width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.panelCardSplit .feedbackFilterTab {
+  flex-shrink: 0;
+}
+
+.panelCardSplit .searchWrapper {
+  width: 100%;
+  flex: 1 1 100%;
+}
+
+@media (max-width: 992px) {
+  .feedbackFilterBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .feedbackFilterTabs {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .feedbackFilterTab {
+    flex-shrink: 0;
+  }
+
+  .searchWrapper {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .page {
-    padding: 20px 16px;
+    padding: 16px 12px;
+  }
+  .panelCard {
+    padding: 16px;
   }
   .kpiGrid {
     grid-template-columns: 1fr;
@@ -1964,5 +2121,29 @@
   }
   .feedbackTiles {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 10px 6px;
+  }
+  .panelCard {
+    padding: 14px 10px;
+  }
+  .sectionTitle {
+    font-size: 1.15rem;
+  }
+  .feedbackArticlesTitle {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding: 8px 4px;
+  }
+  .panelCard {
+    padding: 12px 8px;
   }
 }
