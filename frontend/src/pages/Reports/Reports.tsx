@@ -407,7 +407,7 @@ export default function Reports() {
               <TicketIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>{totalTickets.toLocaleString()}</div>
+          <div className={`${styles.statValue} ${styles.statValueBlue}`}>{totalTickets.toLocaleString()}</div>
           <div className={styles.statSubtext}>
             {totalTickets === 0 && hasActiveFilters ? (
               <span className={styles.statSubMuted}>0 in progress • 0 pending</span>
@@ -448,14 +448,14 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.statCardEmerald}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>{isManager ? 'Active Sections' : 'Active Departments'}</span>
             <div className={`${styles.statIconBox} ${styles.iconBoxEmerald}`}>
               <BuildingOffice2Icon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>
+          <div className={`${styles.statValue} ${styles.statValueEmerald}`}>
             {hasActiveFilters && totalTickets === 0 ? 0 : (departmentReport?.activeDepartments ?? departmentReport?.departmentPerformance?.length ?? 0)}
           </div>
           <div className={styles.statSubtext}>
@@ -463,14 +463,14 @@ export default function Reports() {
           </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.statCardPurple}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Active Staff</span>
             <div className={`${styles.statIconBox} ${styles.iconBoxPurple}`}>
               <UserGroupIcon className={styles.statIcon} />
             </div>
           </div>
-          <div className={styles.statValue}>
+          <div className={`${styles.statValue} ${styles.statValuePurple}`}>
             {hasActiveFilters && totalTickets === 0 ? 0 : (staffReport?.activeStaff ?? staffReport?.staffPerformance?.length ?? 0)}
           </div>
           <div className={styles.statSubtext}>
@@ -479,14 +479,14 @@ export default function Reports() {
         </div>
 
         {!isManager && (
-          <div className={styles.statCard}>
+          <div className={`${styles.statCard} ${styles.statCardPink}`}>
             <div className={styles.statTop}>
               <span className={styles.statLabel}>Active Tenants</span>
               <div className={`${styles.statIconBox} ${styles.iconBoxPink}`}>
                 <BuildingStorefrontIcon className={styles.statIcon} />
               </div>
             </div>
-            <div className={styles.statValue}>
+            <div className={`${styles.statValue} ${styles.statValuePink}`}>
               {hasActiveFilters && totalTickets === 0 ? 0 : (tenantReport?.activeTenants ?? tenantReport?.tenantActivity?.length ?? 0)}
             </div>
             <div className={styles.statSubtext}>

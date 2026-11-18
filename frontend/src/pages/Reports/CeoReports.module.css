@@ -807,3 +807,66 @@
 }
 
 
+
+/* ── High-Contrast Vibrant Dual-Theme Overrides for CeoReports ── */
+:global([data-theme="dark"]) .statCardPrimary {
+  border-left: 5px solid #3b82f6 !important;
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .statCardSuccess {
+  border-left: 5px solid #10b981 !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .statCardAmber {
+  border-left: 5px solid #f59e0b !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.12) !important;
+}
+
+:global([data-theme="dark"]) .statValueGreen {
+  color: #4ade80 !important;
+  text-shadow: 0 0 14px rgba(74, 222, 128, 0.45);
+}
+
+:global([data-theme="dark"]) .statValueAmber {
+  color: #fbbf24 !important;
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.45);
+}
+
+:global([data-theme="dark"]) .statLabel {
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+:global([data-theme="dark"]) .statSubtext {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+:global([data-theme="dark"]) .statSubHighlight {
+  color: #93c5fd !important;
+  font-weight: 700 !important;
+}
+
+:global([data-theme="dark"]) .progressBar {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  height: 9px !important;
+}
+
+:global([data-theme="dark"]) .distCount {
+  color: #f8fafc !important;
+  font-weight: 800 !important;
+}
+
+:global([data-theme="dark"]) .distPct {
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
