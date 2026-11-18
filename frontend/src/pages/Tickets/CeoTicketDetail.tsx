@@ -1390,16 +1390,16 @@ export default function CeoTicketDetail() {
 
       {/* Closed & Inactive Status Card */}
       {(ticket.status === 'closed' || ticket.status === 'completed') && (
-        <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
-              <span>🔒</span> Ticket Closed (Inactive)
+        <div className={styles.closedCard}>
+          <div className={styles.closedCardHeader}>
+            <h3 className={styles.closedCardTitle}>
+              <span className={styles.closedCardIconWrapper}>🔒</span> Ticket Closed (Inactive)
             </h3>
-            <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '12px', background: '#f1f5f9', color: '#475569', textTransform: 'uppercase' }}>
+            <span className={styles.closedCardBadge}>
               Read-Only
             </span>
           </div>
-          <p style={{ color: '#475569', fontSize: '14px', margin: '6px 0 14px' }}>
+          <p className={styles.closedCardText}>
             All work has been completed and verified. This ticket is closed and inactive. Normal processing, assignments, and status modifications are disabled.
           </p>
 

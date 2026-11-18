@@ -1417,11 +1417,14 @@ export default function TicketDetail() {
           const isClosed = normalizedStatus === 'closed';
           if (isClosed) {
             return (
-              <div className={styles.card} style={{ borderLeft: '4px solid #64748b' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
-                  <span>🔒</span> Ticket Actions Locked
-                </h3>
-                <p style={{ color: '#64748b', fontSize: '14px', margin: '8px 0 0' }}>
+              <div className={styles.closedCard}>
+                <div className={styles.closedCardHeader}>
+                  <h3 className={styles.closedCardTitle}>
+                    <span className={styles.closedCardIconWrapper}>🔒</span> Ticket Actions Locked
+                  </h3>
+                  <span className={styles.closedCardBadge}>Read-Only</span>
+                </div>
+                <p className={styles.closedCardText}>
                   This ticket is <strong>Closed (Inactive)</strong>. Normal processing, assignments, reassignments, and status modifications are disabled.
                   {(ticket.reopenStatus === 'requested' || ticket.reopen_status === 'requested') ? ' A tenant reopening request is currently pending review below.' : ''}
                 </p>
