@@ -180,7 +180,7 @@ export default function CeoAudit() {
     const jsonStr = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
     if (!jsonStr) return null;
 
-    const regex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+    const regex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|(\[|\]|\{|\}))/g;
     const tokens: React.ReactNode[] = [];
     let lastIdx = 0;
     let match: RegExpExecArray | null;
@@ -226,6 +226,18 @@ export default function CeoAudit() {
             {token}
           </span>
         );
+      } else if (token === '[' || token === ']') {
+        tokens.push(
+          <span key={idx++} className={styles.jsonBracket}>
+            {token}
+          </span>
+        );
+      } else if (token === '{' || token === '}') {
+        tokens.push(
+          <span key={idx++} className={styles.jsonBrace}>
+            {token}
+          </span>
+        );
       } else {
         tokens.push(
           <span key={idx++} className={styles.jsonNumber}>
@@ -252,9 +264,22 @@ export default function CeoAudit() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const downloadDetailsJson = () => {
+    const jsonStr = JSON.stringify(resolvedPayloadData.displayJson, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-actions-${selectedLog?.id || 'record'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // Resolve formatted payload and post-login activities for the inspection modal
   const resolvedPayloadData = (() => {
-    if (!selectedLog) return { displayJson: {}, activities: [] as any[], isLogin: false };
+    if (!selectedLog) return { displayJson: [], activities: [] as any[], isLogin: false };
 
     let parsed: any = {};
     try {
@@ -265,12 +290,16 @@ export default function CeoAudit() {
       parsed = { raw: selectedLog.details };
     }
 
+    // If details were stored as an array in brackets [ ... ], unwrap first element for property extraction
+    const unwrapped = Array.isArray(parsed) ? (parsed[0] || {}) : parsed;
     const isLogin = (selectedLog.action || '').toLowerCase() === 'login';
 
     if (isLogin) {
-      let activities: any[] = Array.isArray(parsed?.what_user_did_after_login)
-        ? parsed.what_user_did_after_login
-        : (Array.isArray(parsed?.what_user_is_doing_after_login) ? parsed.what_user_is_doing_after_login : []);
+      let activities: any[] = Array.isArray(unwrapped?.what_user_did_after_login)
+        ? unwrapped.what_user_did_after_login
+        : (Array.isArray(unwrapped?.what_user_is_doing_after_login)
+            ? unwrapped.what_user_is_doing_after_login
+            : (Array.isArray(unwrapped?.actions_recorded) ? unwrapped.actions_recorded : []));
 
       // If not yet present in payload, scan loaded logs for subsequent actions by this user
       if (activities.length === 0) {
@@ -284,13 +313,14 @@ export default function CeoAudit() {
           activities = subsequentLogs.map((l, idx) => {
             let p: any = {};
             try { p = typeof l.details === 'string' ? JSON.parse(l.details) : (l.details || {}); } catch { p = {}; }
+            const unwrappedP = Array.isArray(p) ? (p[0] || {}) : p;
             return {
               step: idx + 1,
               time: new Date(l.createdAt).toLocaleTimeString(),
               action: l.action,
               entity: l.entity || 'system',
               entity_id: l.entityId,
-              activity_description: p?.what_user_did || p?.what_user_is_doing || `User performed '${l.action}' on ${l.entity || 'system'}${l.entityId ? ` #${l.entityId}` : ''}`,
+              activity_description: unwrappedP?.what_user_did || unwrappedP?.what_user_is_doing || `User performed '${l.action}' on ${l.entity || 'system'}${l.entityId ? ` #${l.entityId}` : ''}`,
             };
           });
         }
@@ -319,47 +349,51 @@ export default function CeoAudit() {
 
       const lastActivity = activities[activities.length - 1]?.activity_description || activities[activities.length - 1]?.what_user_did || 'Monitoring workspace';
 
-      // Clean, clear, highly readable JSON structure
-      const formattedJson = {
-        user: selectedLog.username || parsed.user || parsed.username || 'System',
-        user_code: selectedLog.userId || parsed.user_code || 'N/A',
+      // Clean, structured actions recorded list
+      const recordedActionsList = activities.map((act) => {
+        const item: any = {
+          step: act.step,
+          time: act.time || (act.timestamp ? new Date(act.timestamp).toLocaleTimeString() : undefined),
+          action: act.action,
+          entity: act.entity || act.target_entity,
+          entity_id: act.entity_id,
+          activity_description: act.activity_description || act.what_user_did || act.activity,
+        };
+        if (act.audited_details && typeof act.audited_details === 'object' && Object.keys(act.audited_details).length > 0) {
+          item.audited_details = act.audited_details;
+        } else if (act.parameters && typeof act.parameters === 'object' && Object.keys(act.parameters).length > 0) {
+          item.audited_details = act.parameters;
+        }
+        return item;
+      });
+
+      const formattedLoginRecord = {
+        user: selectedLog.username || unwrapped.user || unwrapped.username || 'System',
+        user_code: selectedLog.userId || unwrapped.user_code || 'N/A',
         action: 'LOGIN',
         session_status: 'ACTIVE_SESSION',
         login_time: new Date(selectedLog.createdAt).toLocaleString(),
         total_actions_performed: activities.length,
         current_status: `Active — Last action: ${lastActivity}`,
-        what_user_did_after_login: activities.map((act) => {
-          const item: any = {
-            step: act.step,
-            time: act.time || (act.timestamp ? new Date(act.timestamp).toLocaleTimeString() : undefined),
-            action: act.action,
-            entity: act.entity || act.target_entity,
-            entity_id: act.entity_id,
-            activity_description: act.activity_description || act.what_user_did || act.activity,
-          };
-          if (act.audited_details && typeof act.audited_details === 'object' && Object.keys(act.audited_details).length > 0) {
-            item.audited_details = act.audited_details;
-          } else if (act.parameters && typeof act.parameters === 'object' && Object.keys(act.parameters).length > 0) {
-            item.audited_details = act.parameters;
-          }
-          return item;
-        }),
+        actions_recorded: recordedActionsList,
+        what_user_did_after_login: recordedActionsList,
         session_details: {
-          ip_address: selectedLog.ipAddress || parsed.ip_address || parsed.session_details?.ip_address || '127.0.0.1',
+          ip_address: selectedLog.ipAddress || unwrapped.ip_address || unwrapped.session_details?.ip_address || '127.0.0.1',
           timestamp_iso: selectedLog.createdAt,
         }
       };
 
+      // Stored in brackets [ ... ] end to end to be displayed
       return {
-        displayJson: formattedJson,
+        displayJson: [formattedLoginRecord],
         activities,
         isLogin: true
       };
     }
 
-    // Non-login action
-    const formattedActionJson = {
-      what_user_did: parsed?.what_user_did || parsed?.what_user_is_doing || `User performed action '${selectedLog.action}' on ${selectedLog.entity || 'system'}${selectedLog.entityId ? ` #${selectedLog.entityId}` : ''}`,
+    // Non-login action: recorded in brackets [ ... ] end to end
+    const singleActionItem = {
+      action_id: selectedLog.id,
       action: selectedLog.action,
       entity: selectedLog.entity,
       entity_id: selectedLog.entityId,
@@ -367,11 +401,26 @@ export default function CeoAudit() {
       user_code: selectedLog.userId,
       timestamp: new Date(selectedLog.createdAt).toLocaleString(),
       timestamp_iso: selectedLog.createdAt,
-      parameters_and_changes: parsed?.parameters_and_changes || parsed?.activity_payload || parsed
+      what_user_did: unwrapped?.what_user_did || unwrapped?.what_user_is_doing || `User performed action '${selectedLog.action}' on ${selectedLog.entity || 'system'}${selectedLog.entityId ? ` #${selectedLog.entityId}` : ''}`,
+      parameters_and_changes: unwrapped?.parameters_and_changes || unwrapped?.activity_payload || unwrapped
     };
 
+    const formattedActionRecord = {
+      what_user_did: singleActionItem.what_user_did,
+      action: selectedLog.action,
+      entity: selectedLog.entity,
+      entity_id: selectedLog.entityId,
+      actor: selectedLog.username || 'System',
+      user_code: selectedLog.userId,
+      timestamp: new Date(selectedLog.createdAt).toLocaleString(),
+      timestamp_iso: selectedLog.createdAt,
+      actions_recorded: [singleActionItem],
+      parameters_and_changes: singleActionItem.parameters_and_changes
+    };
+
+    // Stored in brackets [ ... ] end to end to be displayed
     return {
-      displayJson: formattedActionJson,
+      displayJson: [formattedActionRecord],
       activities: [] as any[],
       isLogin: false
     };
@@ -859,10 +908,20 @@ export default function CeoAudit() {
                       type="button"
                       className={styles.copyBtn}
                       onClick={() => copyDetailsJson(JSON.stringify(resolvedPayloadData.displayJson, null, 2))}
-                      title="Copy complete JSON payload"
+                      title="Copy complete JSON payload (stored in brackets [ ... ])"
                     >
                       <ClipboardDocumentCheckIcon className={styles.btnMiniIcon} />
                       <span>{copied ? 'Copied!' : 'Copy JSON'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={downloadDetailsJson}
+                      title="Download actions JSON file (stored in brackets [ ... ] end to end)"
+                    >
+                      <ArrowDownTrayIcon className={styles.btnMiniIcon} />
+                      <span>Download JSON</span>
                     </button>
                   </div>
                 </div>
@@ -924,7 +983,7 @@ export default function CeoAudit() {
                       </pre>
                       <div className={styles.jsonFooter}>
                         <CheckCircleIcon className={styles.endBannerIcon} />
-                        <span>End of Audited JSON Payload • Output Complete</span>
+                        <span>End of Audited JSON Payload • Actions Stored in Brackets [ ... ] Complete Record</span>
                       </div>
                     </div>
                   </div>
@@ -977,7 +1036,7 @@ export default function CeoAudit() {
                   <div className={`${styles.payloadContentFull} ${expandFull ? styles.payloadContentFullExpanded : ''}`}>
                     <div className={styles.jsonToolbar}>
                       <span>FORMATTED ACTIVITY JSON PAYLOAD</span>
-                      <span>STRUCTURED COMPLIANCE RECORD</span>
+                      <span>[ {Array.isArray(resolvedPayloadData.displayJson) ? resolvedPayloadData.displayJson.length : 1} RECORD(S) STORED IN BRACKETS ]</span>
                     </div>
                     <pre className={styles.jsonCode}>
                       {JSON.stringify(resolvedPayloadData.displayJson, null, 2)}

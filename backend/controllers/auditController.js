@@ -236,7 +236,7 @@ export const getAuditLogs = async (req, res, next) => {
             entity: r.entity,
             entityId: r.entity_id,
             ipAddress: r.ip_address,
-            details: JSON.stringify(enrichedLoginDetails),
+            details: JSON.stringify([enrichedLoginDetails]),
             createdAt: r.created_at,
           };
         }
@@ -385,6 +385,12 @@ export const exportAuditLogs = async (req, res, next) => {
       'ISO Date',
       'Details',
     ];
+
+    if (req.query.format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="audit-logs-export.json"');
+      return res.send(JSON.stringify(data, null, 2));
+    }
 
     if (req.query.format !== 'csv') {
       const workbook = await generateDomainWorkbook('ENTERPRISE AUDIT TRAIL & SYSTEM ACTIVITY LOG', headers, data);

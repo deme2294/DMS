@@ -1162,6 +1162,18 @@
   font-weight: 700;
 }
 
+
+.jsonBracket {
+  color: #2563eb;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.jsonBrace {
+  color: #0284c7;
+  font-weight: 700;
+}
+
 .jsonPunctuation {
   color: #475569;
 }
@@ -1708,6 +1720,19 @@
 
 :global([data-theme="dark"]) .jsonNull {
   color: #f87171;
+}
+
+
+:global([data-theme="dark"]) .jsonBracket {
+  color: #60a5fa;
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-shadow: 0 0 6px rgba(96, 165, 250, 0.4);
+}
+
+:global([data-theme="dark"]) .jsonBrace {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 :global([data-theme="dark"]) .jsonPunctuation {
