@@ -1,3 +1,4 @@
+import pool from '../config/db.js';
 import * as auditRepo from '../repository/auditRepository.js';
 
 /**

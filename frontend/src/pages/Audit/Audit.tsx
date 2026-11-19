@@ -156,6 +156,15 @@ export default function Audit() {
     filter.endDate
   );
 
+  const getRoleBadgeClass = (role: string) => {
+    const r = (role || '').toLowerCase();
+    if (r === 'admin' || r === 'ceo') return styles.badgeIndigo;
+    if (r === 'manager') return styles.badgePrimary;
+    if (r === 'staff') return styles.badgeSuccess;
+    if (r === 'tenant') return styles.badgeWarning;
+    return styles.badgeSecondary;
+  };
+
   const getActionBadgeClass = (action: string) => {
     const act = (action || '').toLowerCase();
     if (act.includes('create') || act.includes('add') || act.includes('approve') || act.includes('resolve')) return styles.badgeSuccess;
@@ -280,7 +289,7 @@ export default function Audit() {
 
   // Resolve formatted payload and post-login activities for the inspection modal
   const resolvedPayloadData = (() => {
-    if (!selectedLog) return { displayJson: [], activities: [] as any[], isLogin: false, resolvedUserId: 'SYSTEM', resolvedUsername: 'System' };
+    if (!selectedLog) return { displayJson: [], activities: [] as any[], isLogin: false, resolvedUserId: 'SYSTEM', resolvedUsername: 'System', resolvedRole: 'system' };
 
     let parsed: any = {};
     try {
@@ -295,9 +304,24 @@ export default function Audit() {
     const unwrapped = Array.isArray(parsed) ? (parsed[0] || {}) : parsed;
     const isLogin = (selectedLog.action || '').toLowerCase() === 'login';
 
-    // Resolve user ID and user Name reliably (never null)
-    const resolvedUserId = selectedLog.userId || unwrapped?.user_id || unwrapped?.user_code || (selectedLog.username && selectedLog.username !== 'System' ? selectedLog.username : 'SYSTEM');
-    const resolvedUsername = selectedLog.username || unwrapped?.user_name || unwrapped?.actor || (resolvedUserId !== 'SYSTEM' ? resolvedUserId : 'System');
+    // 1. Resolve user_name: MUST be the created username from users table (never a user ID)
+    const resolvedUsername =
+      selectedLog.username ||
+      unwrapped?.user_name ||
+      selectedLog.ticketCreatorUsername ||
+      unwrapped?.username ||
+      'System';
+
+    // 2. Resolve user_id: MUST be the user ID, NOT the username!
+    // Never fall back to username!
+    let rawUserId = selectedLog.userId || unwrapped?.user_id || unwrapped?.user_code || selectedLog.ticketCreatorId;
+    if (rawUserId === resolvedUsername) {
+      rawUserId = selectedLog.ticketCreatorId || 'SYSTEM';
+    }
+    const resolvedUserId = rawUserId || 'SYSTEM';
+
+    // 3. Resolve role: accepted from users table (joined via roles table)
+    const resolvedRole = selectedLog.role || unwrapped?.role || selectedLog.ticketCreatorRole || 'user';
 
     const filesHandled = unwrapped?.files || unwrapped?.attachments || unwrapped?.documents || unwrapped?.file_changes || unwrapped?.files_and_documents || [];
     const parametersAndChanges = unwrapped?.parameters_and_changes || unwrapped?.activity_payload || unwrapped;
@@ -379,6 +403,7 @@ export default function Audit() {
         user_name: resolvedUsername,
         user_code: resolvedUserId,
         user_id: resolvedUserId,
+        role: resolvedRole,
         actor: resolvedUsername,
         action: 'LOGIN',
         session_status: 'ACTIVE_SESSION',
@@ -399,7 +424,8 @@ export default function Audit() {
         activities,
         isLogin: true,
         resolvedUserId,
-        resolvedUsername
+        resolvedUsername,
+        resolvedRole
       };
     }
 
@@ -411,10 +437,11 @@ export default function Audit() {
       action: selectedLog.action,
       entity: selectedLog.entity,
       entity_id: selectedLog.entityId,
-      actor: resolvedUsername,
+      actor: selectedLog.username || 'System',
       user_name: resolvedUsername,
       user_code: resolvedUserId,
       user_id: resolvedUserId,
+      role: resolvedRole,
       timestamp: new Date(selectedLog.createdAt).toLocaleString(),
       timestamp_iso: selectedLog.createdAt,
       what_user_did: whatUserDid,
@@ -427,10 +454,11 @@ export default function Audit() {
       action: selectedLog.action,
       entity: selectedLog.entity,
       entity_id: selectedLog.entityId,
-      actor: resolvedUsername,
+      actor: selectedLog.username || 'System',
       user_name: resolvedUsername,
       user_code: resolvedUserId,
       user_id: resolvedUserId,
+      role: resolvedRole,
       timestamp: new Date(selectedLog.createdAt).toLocaleString(),
       timestamp_iso: selectedLog.createdAt,
       files_and_documents: filesHandled,
@@ -443,7 +471,8 @@ export default function Audit() {
       activities: [] as any[],
       isLogin: false,
       resolvedUserId,
-      resolvedUsername
+      resolvedUsername,
+      resolvedRole
     };
   })();
 
@@ -873,7 +902,12 @@ export default function Audit() {
 
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Actor / User Name</span>
-                  <span className={styles.metaValueBold}>{resolvedPayloadData.resolvedUsername || selectedLog.username || 'System'}</span>
+                  <div className={styles.userRoleGroup}>
+                    <span className={styles.metaValueBold}>{resolvedPayloadData.resolvedUsername || selectedLog.username || 'System'}</span>
+                    <span className={`${styles.roleBadge} ${getRoleBadgeClass(resolvedPayloadData.resolvedRole || selectedLog.role || 'system')}`}>
+                      {resolvedPayloadData.resolvedRole || selectedLog.role || 'system'}
+                    </span>
+                  </div>
                   <span className={styles.metaSub}>User ID (Code): {toShortUserId(resolvedPayloadData.resolvedUserId || selectedLog.userId || 'SYSTEM')}</span>
                 </div>
 

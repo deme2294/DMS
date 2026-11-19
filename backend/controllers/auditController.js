@@ -114,10 +114,23 @@ export const getAuditLogs = async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT al.id, al.user_id, al.action, al.entity_type AS entity,
               al.entity_id, al.ip_address, al.role, al.browser, al.details, al.created_at,
-              u.username, u.first_name, u.last_name, u.user_code, r.name AS user_role
+              u.username, u.first_name, u.last_name, u.user_code, r.name AS user_role,
+              tc.id AS ticket_creator_id,
+              tc.username AS ticket_creator_username,
+              tc.user_code AS ticket_creator_code,
+              tcr.name AS ticket_creator_role,
+              ta.id AS ticket_assignee_id,
+              ta.username AS ticket_assignee_username,
+              ta.user_code AS ticket_assignee_code,
+              tar.name AS ticket_assignee_role
        FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
        LEFT JOIN roles r ON r.id = u.role_id
+       LEFT JOIN tickets t ON (al.entity_type = 'ticket' AND t.id = al.entity_id)
+       LEFT JOIN users tc ON tc.id = t.created_by
+       LEFT JOIN roles tcr ON tcr.id = tc.role_id
+       LEFT JOIN users ta ON ta.id = t.assigned_to
+       LEFT JOIN roles tar ON tar.id = ta.role_id
        ${where}
        ORDER BY al.created_at DESC
        LIMIT ? OFFSET ?`,

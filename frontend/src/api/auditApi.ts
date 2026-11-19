@@ -4,12 +4,16 @@ export interface AuditLog {
   id: string;
   userId: string;
   username: string;
+  role?: string;
   action: string;
   entity: string;
   entityId?: string;
   ipAddress?: string;
   details?: string;
   createdAt: string;
+  ticketCreatorUsername?: string;
+  ticketCreatorId?: string;
+  ticketCreatorRole?: string;
 }
 
 export interface AuditFilter {
