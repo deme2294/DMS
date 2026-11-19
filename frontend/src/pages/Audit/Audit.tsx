@@ -280,7 +280,7 @@ export default function Audit() {
 
   // Resolve formatted payload and post-login activities for the inspection modal
   const resolvedPayloadData = (() => {
-    if (!selectedLog) return { displayJson: [], activities: [] as any[], isLogin: false };
+    if (!selectedLog) return { displayJson: [], activities: [] as any[], isLogin: false, resolvedUserId: 'SYSTEM', resolvedUsername: 'System' };
 
     let parsed: any = {};
     try {
@@ -295,6 +295,13 @@ export default function Audit() {
     const unwrapped = Array.isArray(parsed) ? (parsed[0] || {}) : parsed;
     const isLogin = (selectedLog.action || '').toLowerCase() === 'login';
 
+    // Resolve user ID and user Name reliably (never null)
+    const resolvedUserId = selectedLog.userId || unwrapped?.user_id || unwrapped?.user_code || (selectedLog.username && selectedLog.username !== 'System' ? selectedLog.username : 'SYSTEM');
+    const resolvedUsername = selectedLog.username || unwrapped?.user_name || unwrapped?.actor || (resolvedUserId !== 'SYSTEM' ? resolvedUserId : 'System');
+
+    const filesHandled = unwrapped?.files || unwrapped?.attachments || unwrapped?.documents || unwrapped?.file_changes || unwrapped?.files_and_documents || [];
+    const parametersAndChanges = unwrapped?.parameters_and_changes || unwrapped?.activity_payload || unwrapped;
+
     if (isLogin) {
       let activities: any[] = Array.isArray(unwrapped?.what_user_did_after_login)
         ? unwrapped.what_user_did_after_login
@@ -302,7 +309,6 @@ export default function Audit() {
             ? unwrapped.what_user_is_doing_after_login
             : (Array.isArray(unwrapped?.actions_recorded) ? unwrapped.actions_recorded : []));
 
-      // If not yet present in payload, scan loaded logs for subsequent actions by this user
       if (activities.length === 0) {
         const subsequentLogs = logs.filter(
           (l) => (l.userId === selectedLog.userId || l.username === selectedLog.username) &&
@@ -334,8 +340,8 @@ export default function Audit() {
             time: new Date(selectedLog.createdAt).toLocaleTimeString(),
             action: 'login',
             entity: 'user',
-            entity_id: selectedLog.userId,
-            activity_description: `User '${selectedLog.username || 'user'}' authenticated via credentials and opened active session`,
+            entity_id: resolvedUserId,
+            activity_description: `User '${resolvedUsername}' authenticated via credentials and opened active session`,
           },
           {
             step: 2,
@@ -350,7 +356,6 @@ export default function Audit() {
 
       const lastActivity = activities[activities.length - 1]?.activity_description || activities[activities.length - 1]?.what_user_did || 'Monitoring workspace';
 
-      // Clean, structured actions recorded list
       const recordedActionsList = activities.map((act) => {
         const item: any = {
           step: act.step,
@@ -369,13 +374,18 @@ export default function Audit() {
       });
 
       const formattedLoginRecord = {
-        user: selectedLog.username || unwrapped.user || unwrapped.username || 'System',
-        user_code: selectedLog.userId || unwrapped.user_code || 'N/A',
+        what_user_did: `User '${resolvedUsername}' completed session login and workspace initialization`,
+        user: resolvedUsername,
+        user_name: resolvedUsername,
+        user_code: resolvedUserId,
+        user_id: resolvedUserId,
+        actor: resolvedUsername,
         action: 'LOGIN',
         session_status: 'ACTIVE_SESSION',
         login_time: new Date(selectedLog.createdAt).toLocaleString(),
         total_actions_performed: activities.length,
         current_status: `Active — Last action: ${lastActivity}`,
+        files_and_documents: filesHandled,
         actions_recorded: recordedActionsList,
         what_user_did_after_login: recordedActionsList,
         session_details: {
@@ -384,46 +394,56 @@ export default function Audit() {
         }
       };
 
-      // Stored in brackets [ ... ] end to end to be displayed
       return {
         displayJson: [formattedLoginRecord],
         activities,
-        isLogin: true
+        isLogin: true,
+        resolvedUserId,
+        resolvedUsername
       };
     }
 
     // Non-login action: recorded in brackets [ ... ] end to end
+    const whatUserDid = unwrapped?.what_user_did || unwrapped?.what_user_is_doing || `User performed action '${selectedLog.action}' on ${selectedLog.entity || 'system'}${selectedLog.entityId ? ` #${selectedLog.entityId}` : ''}`;
+
     const singleActionItem = {
       action_id: selectedLog.id,
       action: selectedLog.action,
       entity: selectedLog.entity,
       entity_id: selectedLog.entityId,
-      actor: selectedLog.username || 'System',
-      user_code: selectedLog.userId,
+      actor: resolvedUsername,
+      user_name: resolvedUsername,
+      user_code: resolvedUserId,
+      user_id: resolvedUserId,
       timestamp: new Date(selectedLog.createdAt).toLocaleString(),
       timestamp_iso: selectedLog.createdAt,
-      what_user_did: unwrapped?.what_user_did || unwrapped?.what_user_is_doing || `User performed action '${selectedLog.action}' on ${selectedLog.entity || 'system'}${selectedLog.entityId ? ` #${selectedLog.entityId}` : ''}`,
-      parameters_and_changes: unwrapped?.parameters_and_changes || unwrapped?.activity_payload || unwrapped
+      what_user_did: whatUserDid,
+      files_handled: filesHandled,
+      parameters_and_changes: parametersAndChanges
     };
 
     const formattedActionRecord = {
-      what_user_did: singleActionItem.what_user_did,
+      what_user_did: whatUserDid,
       action: selectedLog.action,
       entity: selectedLog.entity,
       entity_id: selectedLog.entityId,
-      actor: selectedLog.username || 'System',
-      user_code: selectedLog.userId,
+      actor: resolvedUsername,
+      user_name: resolvedUsername,
+      user_code: resolvedUserId,
+      user_id: resolvedUserId,
       timestamp: new Date(selectedLog.createdAt).toLocaleString(),
       timestamp_iso: selectedLog.createdAt,
-      actions_recorded: [singleActionItem],
-      parameters_and_changes: singleActionItem.parameters_and_changes
+      files_and_documents: filesHandled,
+      parameters_and_changes: parametersAndChanges,
+      actions_recorded: [singleActionItem]
     };
 
-    // Stored in brackets [ ... ] end to end to be displayed
     return {
       displayJson: [formattedActionRecord],
       activities: [] as any[],
-      isLogin: false
+      isLogin: false,
+      resolvedUserId,
+      resolvedUsername
     };
   })();
 
@@ -852,9 +872,9 @@ export default function Audit() {
                 </div>
 
                 <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>Actor (User)</span>
-                  <span className={styles.metaValueBold}>{selectedLog.username || 'System'}</span>
-                  {selectedLog.userId && <span className={styles.metaSub}>User ID: {toShortUserId(selectedLog.userId)}</span>}
+                  <span className={styles.metaLabel}>Actor / User Name</span>
+                  <span className={styles.metaValueBold}>{resolvedPayloadData.resolvedUsername || selectedLog.username || 'System'}</span>
+                  <span className={styles.metaSub}>User ID (Code): {toShortUserId(resolvedPayloadData.resolvedUserId || selectedLog.userId || 'SYSTEM')}</span>
                 </div>
 
                 <div className={styles.metaItem}>

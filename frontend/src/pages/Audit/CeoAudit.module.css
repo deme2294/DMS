@@ -941,11 +941,12 @@
 .modalBody {
   padding: 22px 24px;
   overflow-y: auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 20px;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: #3b82f6 rgba(15, 23, 42, 0.4);
 }
 
 .modalBody::-webkit-scrollbar {
@@ -1994,37 +1995,21 @@
   border-color: rgba(59, 130, 246, 0.4);
 }
 
-/* ── Full Height JSON View (Visible, Unclipped, Sleek Scroller) ── */
+/* ── Full Height JSON View ── */
 .payloadContentFull {
-  background: #090d16;
-  padding: 16px 20px;
+  background: #ffffff;
+  padding: 22px 26px;
   min-height: 340px;
-  max-height: 520px;
-  overflow-y: auto;
-  border-top: 1px solid #1e293b;
-  scrollbar-width: thin;
-  scrollbar-color: #2563eb rgba(15, 23, 42, 0.7);
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  border-top: none;
 }
 
-.payloadContentFull::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.payloadContentFull::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.7);
-  border-radius: 999px;
-}
-
-.payloadContentFull::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #1d4ed8 0%, #0284c7 100%);
-  border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
-}
-
-.payloadContentFull::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #2563eb 0%, #38bdf8 100%);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+:global([data-theme="dark"]) .payloadContentFull {
+  background: #080c14;
+  max-height: none;
+  overflow-y: visible;
 }
 
 .payloadContentFullExpanded {
