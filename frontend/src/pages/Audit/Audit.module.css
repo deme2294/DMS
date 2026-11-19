@@ -837,10 +837,10 @@
 .modalContainer {
   background: #ffffff;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  width: 96%;
-  max-width: 1040px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid #cbd5e1;
+  width: 95%;
+  max-width: 1080px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   max-height: 94vh;
@@ -858,24 +858,33 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 20px 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border-bottom: 1px solid #e2e8f0;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  gap: 16px;
 }
 
 .modalHeaderTitleGroup {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .modalBadge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #2563eb;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 999px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  width: fit-content;
 }
 
 .modalBadgeIcon {
@@ -885,88 +894,161 @@
 
 .modalTitle {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.28rem;
   font-weight: 800;
   color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modalTitleId {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  word-break: break-all;
 }
 
 .modalCloseBtn {
-  background: transparent;
-  border: none;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   color: #64748b;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  transition: all 0.15s ease;
+  padding: 6px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
 }
 
 .modalCloseBtn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  transform: scale(1.05);
 }
 
 .modalBody {
-  padding: 20px 24px;
+  padding: 22px 24px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
+.modalBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modalBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modalBody::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+/* ── Modal Metadata Grid ── */
 .modalMetaGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+@media (max-width: 960px) {
+  .modalMetaGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .modalMetaGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .metaItem {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
 }
 
 .metaLabel {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .metaValueBold {
   font-weight: 700;
   color: #0f172a;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
 }
 
 .metaValue {
-  color: #334155;
+  color: #1e293b;
   font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .metaSub {
   font-size: 0.72rem;
-  color: #94a3b8;
-  font-family: monospace;
+  color: #64748b;
+  font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
 }
 
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+/* ── Payload Section ── */
 .payloadSection {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .payloadHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
+  padding: 12px 18px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .payloadTitle {
@@ -974,44 +1056,124 @@
   font-weight: 700;
   color: #334155;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .copyBtn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #334155;
   font-size: 0.76rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .copyBtn:hover {
   background: #f1f5f9;
+  border-color: #94a3b8;
   color: #0f172a;
 }
 
 .payloadContent {
-  padding: 14px 16px;
+  padding: 16px 20px;
   background: #0f172a;
   max-height: 280px;
   overflow-y: auto;
 }
 
+.jsonToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #475569;
+  flex-shrink: 0;
+}
+
+.payloadContentFull {
+  background: #ffffff;
+  padding: 20px 24px;
+  min-height: 320px;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+  border-top: none;
+  scrollbar-width: thin;
+  scrollbar-color: #2563eb rgba(15, 23, 42, 0.7);
+}
+
+.payloadContentFullFit {
+  max-height: 520px !important;
+  overflow-y: auto !important;
+}
+
+.payloadContentFullExpanded {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
 .jsonCode {
   margin: 0;
   font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
-  font-size: 0.82rem;
-  color: #38bdf8;
+  font-size: 0.84rem;
+  color: #0f172a;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Syntax Highlighting Tokens (Light Mode) */
+.jsonKey {
+  color: #0284c7;
+  font-weight: 600;
+}
+
+.jsonColon {
+  color: #64748b;
+}
+
+.jsonString {
+  color: #059669;
+}
+
+.jsonNumber {
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.jsonBoolean {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.jsonNull {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.jsonPunctuation {
+  color: #475569;
+}
+
+.auditedDetailsCode {
+  margin: 0;
+  font-family: 'JetBrains Mono', Consolas, Monaco, monospace;
+  font-size: 0.8rem;
   line-height: 1.5;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+  color: #0f172a;
 }
 
 .modalFooter {
@@ -1019,20 +1181,32 @@
   border-top: 1px solid #e2e8f0;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   background: #f8fafc;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
 
 .modalClosePrimaryBtn {
-  padding: 9px 20px;
-  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
-  border: none;
-  font-weight: 600;
+  border: 1px solid #1d4ed8;
+  border-radius: 10px;
   font-size: 0.88rem;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
-  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+  transition: all 0.2s ease;
+}
+
+.modalClosePrimaryBtn:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
 }
 
 .modalClosePrimaryBtn:hover {
@@ -1399,35 +1573,56 @@
 
 /* Dark Mode Modal */
 :global([data-theme="dark"]) .modalContainer {
-  background: #151b28;
-  border: 1px solid #252e3e;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  background: #111827;
+  border-color: #1f293d;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.85);
 }
 
 :global([data-theme="dark"]) .modalHeader {
-  border-bottom-color: #252e3e;
+  background: linear-gradient(180deg, #182236 0%, #111827 100%);
+  border-bottom-color: #1f293d;
+}
+
+:global([data-theme="dark"]) .modalBadge {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
 }
 
 :global([data-theme="dark"]) .modalTitle {
   color: #f8fafc;
 }
 
-:global([data-theme="dark"]) .modalBadge {
-  color: #60a5fa;
+:global([data-theme="dark"]) .modalTitleId {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
 }
 
 :global([data-theme="dark"]) .modalCloseBtn {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
   color: #94a3b8;
 }
 
 :global([data-theme="dark"]) .modalCloseBtn:hover {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
 }
 
-:global([data-theme="dark"]) .modalMetaGrid {
-  background: #111726;
-  border-color: #252e3e;
+:global([data-theme="dark"]) .modalBody {
+  scrollbar-color: #334155 transparent;
+}
+
+:global([data-theme="dark"]) .modalBody::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+:global([data-theme="dark"]) .metaItem {
+  background: #172033;
+  border-color: #233047;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 :global([data-theme="dark"]) .metaLabel {
@@ -1439,20 +1634,22 @@
 }
 
 :global([data-theme="dark"]) .metaValue {
-  color: #cbd5e1;
+  color: #e2e8f0;
 }
 
 :global([data-theme="dark"]) .metaSub {
-  color: #64748b;
+  color: #8195af;
 }
 
 :global([data-theme="dark"]) .payloadSection {
-  border-color: #252e3e;
+  border-color: #222f46;
+  background: #0c111d;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 :global([data-theme="dark"]) .payloadHeader {
-  background: #111726;
-  border-bottom-color: #252e3e;
+  background: #151d2e;
+  border-bottom-color: #222f46;
 }
 
 :global([data-theme="dark"]) .payloadTitle {
@@ -1474,9 +1671,67 @@
   background: #0a0e17;
 }
 
+:global([data-theme="dark"]) .jsonToolbar {
+  background: #090e18;
+  border-bottom-color: #1c273a;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .payloadContentFull {
+  background: #080c14;
+}
+
+:global([data-theme="dark"]) .jsonCode {
+  color: #e2e8f0;
+}
+
+/* Syntax Highlighting Tokens (Dark Mode) */
+:global([data-theme="dark"]) .jsonKey {
+  color: #38bdf8;
+}
+
+:global([data-theme="dark"]) .jsonColon {
+  color: #64748b;
+}
+
+:global([data-theme="dark"]) .jsonString {
+  color: #34d399;
+}
+
+:global([data-theme="dark"]) .jsonNumber {
+  color: #f59e0b;
+}
+
+:global([data-theme="dark"]) .jsonBoolean {
+  color: #c084fc;
+}
+
+:global([data-theme="dark"]) .jsonNull {
+  color: #f87171;
+}
+
+:global([data-theme="dark"]) .jsonPunctuation {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .auditedDetailsCode {
+  color: #e2e8f0;
+}
+
 :global([data-theme="dark"]) .modalFooter {
-  background: #111726;
-  border-top-color: #252e3e;
+  background: #111827;
+  border-top-color: #1f293d;
+}
+
+:global([data-theme="dark"]) .modalClosePrimaryBtn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+:global([data-theme="dark"]) .modalClosePrimaryBtn:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.6);
 }
 
 /* ── Responsive Queries ──────────────────────────────────────────────────── */

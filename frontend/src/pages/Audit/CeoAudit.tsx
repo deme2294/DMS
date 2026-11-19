@@ -46,7 +46,7 @@ export default function CeoAudit() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [copied, setCopied] = useState(false);
   const [payloadViewMode, setPayloadViewMode] = useState<'json' | 'split' | 'timeline'>('json');
-  const [expandFull, setExpandFull] = useState(false);
+  const [expandFull, setExpandFull] = useState(true);
 
   const actions = [
     'create',
@@ -156,13 +156,13 @@ export default function CeoAudit() {
   );
 
   const getActionBadgeClass = (action: string) => {
-    const act = action.toLowerCase();
-    if (act.includes('create') || act.includes('add') || act.includes('approve')) return styles.badgeSuccess;
-    if (act.includes('delete') || act.includes('remove') || act.includes('reject')) return styles.badgeDanger;
+    const act = (action || '').toLowerCase();
+    if (act.includes('create') || act.includes('add') || act.includes('approve') || act.includes('resolve')) return styles.badgeSuccess;
+    if (act.includes('delete') || act.includes('remove') || act.includes('reject') || act.includes('breach')) return styles.badgeDanger;
     if (act.includes('update') || act.includes('edit') || act.includes('change')) return styles.badgePrimary;
     if (act.includes('login') || act.includes('auth')) return styles.badgeIndigo;
     if (act.includes('logout')) return styles.badgeMuted;
-    if (act.includes('assign') || act.includes('escalat')) return styles.badgeWarning;
+    if (act.includes('assign') || act.includes('escalat') || act.includes('overdue')) return styles.badgeWarning;
     return styles.badgeSecondary;
   };
 
@@ -174,6 +174,75 @@ export default function CeoAudit() {
     if (ent.includes('tenant')) return styles.entityTenant;
     if (ent.includes('knowledge') || ent.includes('notice')) return styles.entityKnowledge;
     return styles.entityDefault;
+  };
+
+  const renderHighlightedJson = (obj: any) => {
+    const jsonStr = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    if (!jsonStr) return null;
+
+    const regex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+    const tokens: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((match = regex.exec(jsonStr)) !== null) {
+      if (match.index > lastIdx) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonPunctuation}>
+            {jsonStr.slice(lastIdx, match.index)}
+          </span>
+        );
+      }
+      const token = match[0];
+      if (/^"/.test(token)) {
+        if (/:$/.test(token)) {
+          tokens.push(
+            <span key={idx++} className={styles.jsonKey}>
+              {token.slice(0, -1)}
+            </span>
+          );
+          tokens.push(
+            <span key={idx++} className={styles.jsonColon}>
+              :
+            </span>
+          );
+        } else {
+          tokens.push(
+            <span key={idx++} className={styles.jsonString}>
+              {token}
+            </span>
+          );
+        }
+      } else if (/true|false/.test(token)) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonBoolean}>
+            {token}
+          </span>
+        );
+      } else if (/null/.test(token)) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonNull}>
+            {token}
+          </span>
+        );
+      } else {
+        tokens.push(
+          <span key={idx++} className={styles.jsonNumber}>
+            {token}
+          </span>
+        );
+      }
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < jsonStr.length) {
+      tokens.push(
+        <span key={idx++} className={styles.jsonPunctuation}>
+          {jsonStr.slice(lastIdx)}
+        </span>
+      );
+    }
+    return tokens;
   };
 
   const copyDetailsJson = (details: string | undefined) => {

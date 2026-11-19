@@ -47,7 +47,7 @@ export default function Audit() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [copied, setCopied] = useState(false);
   const [payloadViewMode, setPayloadViewMode] = useState<'json' | 'split' | 'timeline'>('json');
-  const [expandFull, setExpandFull] = useState(false);
+  const [expandFull, setExpandFull] = useState(true);
 
   const actions = [
     'create',
@@ -157,13 +157,13 @@ export default function Audit() {
   );
 
   const getActionBadgeClass = (action: string) => {
-    const act = action.toLowerCase();
-    if (act.includes('create') || act.includes('add') || act.includes('approve')) return styles.badgeSuccess;
-    if (act.includes('delete') || act.includes('remove') || act.includes('reject')) return styles.badgeDanger;
+    const act = (action || '').toLowerCase();
+    if (act.includes('create') || act.includes('add') || act.includes('approve') || act.includes('resolve')) return styles.badgeSuccess;
+    if (act.includes('delete') || act.includes('remove') || act.includes('reject') || act.includes('breach')) return styles.badgeDanger;
     if (act.includes('update') || act.includes('edit') || act.includes('change')) return styles.badgePrimary;
     if (act.includes('login') || act.includes('auth')) return styles.badgeIndigo;
     if (act.includes('logout')) return styles.badgeMuted;
-    if (act.includes('assign') || act.includes('escalat')) return styles.badgeWarning;
+    if (act.includes('assign') || act.includes('escalat') || act.includes('overdue')) return styles.badgeWarning;
     return styles.badgeSecondary;
   };
 
@@ -175,6 +175,75 @@ export default function Audit() {
     if (ent.includes('tenant')) return styles.entityTenant;
     if (ent.includes('knowledge') || ent.includes('notice')) return styles.entityKnowledge;
     return styles.entityDefault;
+  };
+
+  const renderHighlightedJson = (obj: any) => {
+    const jsonStr = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+    if (!jsonStr) return null;
+
+    const regex = /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+    const tokens: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((match = regex.exec(jsonStr)) !== null) {
+      if (match.index > lastIdx) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonPunctuation}>
+            {jsonStr.slice(lastIdx, match.index)}
+          </span>
+        );
+      }
+      const token = match[0];
+      if (/^"/.test(token)) {
+        if (/:$/.test(token)) {
+          tokens.push(
+            <span key={idx++} className={styles.jsonKey}>
+              {token.slice(0, -1)}
+            </span>
+          );
+          tokens.push(
+            <span key={idx++} className={styles.jsonColon}>
+              :
+            </span>
+          );
+        } else {
+          tokens.push(
+            <span key={idx++} className={styles.jsonString}>
+              {token}
+            </span>
+          );
+        }
+      } else if (/true|false/.test(token)) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonBoolean}>
+            {token}
+          </span>
+        );
+      } else if (/null/.test(token)) {
+        tokens.push(
+          <span key={idx++} className={styles.jsonNull}>
+            {token}
+          </span>
+        );
+      } else {
+        tokens.push(
+          <span key={idx++} className={styles.jsonNumber}>
+            {token}
+          </span>
+        );
+      }
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < jsonStr.length) {
+      tokens.push(
+        <span key={idx++} className={styles.jsonPunctuation}>
+          {jsonStr.slice(lastIdx)}
+        </span>
+      );
+    }
+    return tokens;
   };
 
   const copyDetailsJson = (details: string | undefined) => {
@@ -695,12 +764,17 @@ export default function Audit() {
                   <DocumentTextIcon className={styles.modalBadgeIcon} />
                   <span>Audit Record Inspection</span>
                 </div>
-                <h2 className={styles.modalTitle}>Event Log #{selectedLog.id}</h2>
+                <h2 className={styles.modalTitle}>
+                  <span>Event Log</span>
+                  <span className={styles.modalTitleId}>#{selectedLog.id}</span>
+                </h2>
               </div>
               <button
                 type="button"
                 className={styles.modalCloseBtn}
                 onClick={() => setSelectedLog(null)}
+                title="Close Inspector"
+                aria-label="Close Inspector"
               >
                 <XMarkIcon className={styles.btnIcon} />
               </button>
@@ -711,6 +785,7 @@ export default function Audit() {
                 <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Action Type</span>
                   <span className={`${styles.actionBadge} ${getActionBadgeClass(selectedLog.action)}`}>
+                    <span className={styles.badgeDot} />
                     {selectedLog.action}
                   </span>
                 </div>
@@ -846,7 +921,7 @@ export default function Audit() {
                               <div className={styles.timelineAuditedDetails}>
                                 <span className={styles.auditedDetailsTitle}>Audited Parameters:</span>
                                 <pre className={styles.auditedDetailsCode}>
-                                  {JSON.stringify(act.audited_details, null, 2)}
+                                  {renderHighlightedJson(act.audited_details)}
                                 </pre>
                               </div>
                             )}
@@ -865,7 +940,7 @@ export default function Audit() {
                         <span>{Object.keys(resolvedPayloadData.displayJson).length} ROOT PROPERTIES</span>
                       </div>
                       <pre className={styles.jsonCode}>
-                        {JSON.stringify(resolvedPayloadData.displayJson, null, 2)}
+                        {renderHighlightedJson(resolvedPayloadData.displayJson)}
                       </pre>
                       <div className={styles.jsonFooter}>
                         <CheckCircleIcon className={styles.endBannerIcon} />
@@ -905,7 +980,7 @@ export default function Audit() {
                             <div className={styles.timelineAuditedDetails}>
                               <span className={styles.auditedDetailsTitle}>Audited Parameters:</span>
                               <pre className={styles.auditedDetailsCode}>
-                                {JSON.stringify(act.audited_details, null, 2)}
+                                {renderHighlightedJson(act.audited_details)}
                               </pre>
                             </div>
                           )}
@@ -919,13 +994,13 @@ export default function Audit() {
                     </div>
                   </div>
                 ) : (
-                  <div className={`${styles.payloadContentFull} ${expandFull ? styles.payloadContentFullExpanded : ''}`}>
+                  <div className={`${styles.payloadContentFull} ${expandFull ? styles.payloadContentFullExpanded : styles.payloadContentFullFit}`}>
                     <div className={styles.jsonToolbar}>
                       <span>FORMATTED ACTIVITY JSON PAYLOAD</span>
                       <span>STRUCTURED COMPLIANCE RECORD</span>
                     </div>
                     <pre className={styles.jsonCode}>
-                      {JSON.stringify(resolvedPayloadData.displayJson, null, 2)}
+                      {renderHighlightedJson(resolvedPayloadData.displayJson)}
                     </pre>
                     <div className={styles.jsonFooter}>
                       <CheckCircleIcon className={styles.endBannerIcon} />
