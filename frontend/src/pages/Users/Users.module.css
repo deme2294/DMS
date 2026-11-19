@@ -1433,3 +1433,33 @@
     padding: 10px 8px;
   }
 }
+/* ── Centered & Highly Visible Alert Banner in Users Page ── */
+:global([data-theme="dark"]) .alertCardSuccess {
+  background: #131f37 !important;
+  border: 1.5px solid rgba(52, 211, 153, 0.6) !important;
+  border-left: 5px solid #10b981 !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(16, 185, 129, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .alertCardError {
+  background: #24141d !important;
+  border: 1.5px solid rgba(248, 113, 113, 0.6) !important;
+  border-left: 5px solid #ef4444 !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65), 0 0 24px rgba(239, 68, 68, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .alertHeadline {
+  color: #f8fafc !important;
+  font-weight: 700 !important;
+}
+
+:global([data-theme="dark"]) .alertDescription {
+  color: #e2e8f0 !important;
+}
+
+:global([data-theme="dark"]) .alertCategoryBadge {
+  background: rgba(16, 185, 129, 0.25) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(52, 211, 153, 0.5) !important;
+  font-weight: 700 !important;
+}
