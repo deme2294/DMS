@@ -62,7 +62,275 @@
   white-space: nowrap !important;
 }
 
-.actions button,
+.actionIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.actionBtnContact,
+.actionBtnView,
+.actionBtnEdit,
+.actionBtnDeactivate,
+.actionBtnActivate,
+.actionBtnReset,
+.actionBtnDelete {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  border: 1.5px solid transparent !important;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  line-height: 1 !important;
+  text-decoration: none;
+}
+
+.actionBtnContact:disabled,
+.actionBtnView:disabled,
+.actionBtnEdit:disabled,
+.actionBtnDeactivate:disabled,
+.actionBtnActivate:disabled,
+.actionBtnReset:disabled,
+.actionBtnDelete:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.actionBtnContact span,
+.actionBtnView span,
+.actionBtnEdit span,
+.actionBtnDeactivate span,
+.actionBtnActivate span,
+.actionBtnReset span,
+.actionBtnDelete span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Contact: Crisp Slate */
+.actionBtnContact {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnContact:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.2) !important;
+  transform: translateY(-1px);
+}
+
+/* View: Royal Blue */
+.actionBtnView {
+  background: rgba(37, 99, 235, 0.08) !important;
+  color: #1d4ed8 !important;
+  border: 2px solid #3b82f6 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnView:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* Edit: Cyan / Sky Blue */
+.actionBtnEdit {
+  background: rgba(14, 165, 233, 0.08) !important;
+  color: #0284c7 !important;
+  border: 2px solid #0ea5e9 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnEdit:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0369a1 !important;
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* Deactivate: Amber Warning */
+.actionBtnDeactivate {
+  background: rgba(245, 158, 11, 0.08) !important;
+  color: #b45309 !important;
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnDeactivate:hover {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #b45309 !important;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* Activate: Soft Emerald */
+.actionBtnActivate {
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: #047857 !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnActivate:hover {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* Reset Password: Soft Violet */
+.actionBtnReset {
+  background: rgba(139, 92, 246, 0.08) !important;
+  color: #6d28d9 !important;
+  border: 2px solid #8b5cf6 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnReset:hover {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border-color: #6d28d9 !important;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* Delete: Soft Red Danger */
+.actionBtnDelete {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #dc2626 !important;
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.actionBtnDelete:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+  box-shadow: 0 2px 10px rgba(220, 38, 38, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* ── Night / Dark Theme High-Visibility Overrides ── */
+:global([data-theme="dark"]) .actionBtnContact {
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: #f8fafc !important;
+  border: 1.5px solid #475569 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnContact:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+  box-shadow: 0 0 10px rgba(148, 163, 184, 0.35) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnView {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #60a5fa !important;
+  border: 2px solid #2563eb !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnView:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnEdit {
+  background: rgba(14, 165, 233, 0.22) !important;
+  color: #38bdf8 !important;
+  border: 2px solid #0284c7 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(14, 165, 233, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnEdit:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnDeactivate {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 2px solid #d97706 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(245, 158, 11, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnDeactivate:hover {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnActivate {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 2px solid #059669 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(16, 185, 129, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnActivate:hover {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnReset {
+  background: rgba(168, 85, 247, 0.22) !important;
+  color: #c084fc !important;
+  border: 2px solid #7c3aed !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(168, 85, 247, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnReset:hover {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 14px rgba(192, 132, 252, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnDelete {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 2px solid #dc2626 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+:global([data-theme="dark"]) .actionBtnDelete:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #f87171 !important;
+  box-shadow: 0 0 14px rgba(248, 113, 113, 0.6) !important;
+}
+
 .pagination button,
 .header button {
   display: inline-flex;
@@ -84,7 +352,6 @@
   flex-shrink: 0 !important;
 }
 
-.actions button:hover,
 .pagination button:hover,
 .header button:hover {
   background: linear-gradient(135deg, #1e40af, #1d4ed8);
@@ -92,21 +359,10 @@
   transform: translateY(-1px);
 }
 
-.actions button:active,
 .pagination button:active,
 .header button:active {
   transform: translateY(0);
   box-shadow: 0 1px 4px rgba(29, 78, 216, 0.25);
-}
-
-.actions .danger {
-  background: linear-gradient(135deg, #dc2626, #ef4444);
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
-}
-
-.actions .danger:hover {
-  background: linear-gradient(135deg, #b91c1c, #dc2626);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
 }
 
 .actions button:disabled,

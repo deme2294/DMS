@@ -17,6 +17,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: all 0.2s ease;
 }
 
 .metaRow {
@@ -38,9 +39,10 @@
 }
 
 .metaLabelIcon {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   color: #3b82f6;
+  flex-shrink: 0;
 }
 
 .metaValue {
@@ -62,10 +64,17 @@
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+}
+
+.recipientName {
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 500;
 }
 
 .senderPill {
@@ -75,17 +84,18 @@
   background: #ecfdf5;
   color: #047857;
   border: 1px solid #a7f3d0;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 185, 129, 0.08);
 }
 
 .copyBtn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  color: #94a3b8;
+  color: #64748b;
   padding: 4px;
   border-radius: 6px;
   display: flex;
@@ -97,6 +107,7 @@
 .copyBtn:hover {
   color: #2563eb;
   background: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
 /* ── TEMPLATES / CHIPS ─────────────────────────────────────────────────────── */
@@ -108,23 +119,24 @@
 }
 
 .templatesLabel {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  color: #64748b;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .templateChip {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  padding: 4px 10px;
+  border: 1.5px solid #cbd5e1;
+  color: #1e293b;
+  padding: 5px 12px;
   border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .templateChip:hover {
@@ -132,6 +144,7 @@
   border-color: #3b82f6;
   color: #1d4ed8;
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
 }
 
 /* ── FORM FIELDS ──────────────────────────────────────────────────────────── */
@@ -142,9 +155,9 @@
 }
 
 .label {
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: #475569;
+  color: #334155;
   letter-spacing: 0.01em;
 }
 
@@ -152,7 +165,7 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1.5px solid #cbd5e1;
   background: #ffffff;
   font-size: 0.92rem;
   color: #0f172a;
@@ -171,7 +184,7 @@
   min-height: 140px;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1.5px solid #cbd5e1;
   background: #ffffff;
   font-size: 0.92rem;
   line-height: 1.5;
@@ -241,6 +254,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .secondaryOptions {
@@ -250,25 +265,26 @@
 }
 
 .externalLinkBtn {
-  background: transparent;
-  border: 1px solid #cbd5e1;
-  color: #64748b;
-  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+  padding: 8px 14px;
   border-radius: 8px;
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   transition: all 0.15s ease;
   text-decoration: none;
 }
 
 .externalLinkBtn:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-  border-color: #94a3b8;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
 }
 
 .primaryButtons {
@@ -278,10 +294,10 @@
 }
 
 .cancelBtn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
-  padding: 9px 16px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  color: #334155;
+  padding: 9px 18px;
   border-radius: 8px;
   font-size: 0.88rem;
   font-weight: 600;
@@ -289,15 +305,16 @@
   transition: all 0.15s ease;
 }
 
-.cancelBtn:hover {
-  background: #f1f5f9;
+.cancelBtn:hover:not(:disabled) {
+  background: #e2e8f0;
   color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .sendBtn {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   color: #ffffff;
-  border: none;
+  border: 1px solid #1d4ed8;
   padding: 9px 20px;
   border-radius: 8px;
   font-size: 0.88rem;
@@ -306,19 +323,23 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
   transition: all 0.18s ease;
 }
 
 .sendBtn:hover:not(:disabled) {
   background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
   transform: translateY(-1px);
 }
 
 .sendBtn:disabled {
-  opacity: 0.65;
+  background: #e2e8f0;
+  border: 1.5px solid #cbd5e1;
+  color: #64748b;
   cursor: not-allowed;
+  opacity: 0.95;
+  box-shadow: none;
   transform: none;
 }
 
@@ -340,40 +361,158 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── DARK THEME ───────────────────────────────────────────────────────────── */
+/* ── NIGHT / DARK THEME HIGH CONTRAST & VISIBILITY ─────────────────────────── */
 :global([data-theme="dark"]) .metaCard {
-  background: #1e293b;
-  border-color: #334155;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 :global([data-theme="dark"]) .metaLabel {
   color: #94a3b8;
 }
 
+:global([data-theme="dark"]) .metaLabelIcon {
+  color: #60a5fa;
+}
+
 :global([data-theme="dark"]) .metaValue {
+  color: #f8fafc;
+}
+
+:global([data-theme="dark"]) .recipientPill {
+  background: rgba(37, 99, 235, 0.22);
+  color: #93c5fd;
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+:global([data-theme="dark"]) .recipientName {
+  color: #cbd5e1;
+}
+
+:global([data-theme="dark"]) .senderPill {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+  border: 1px solid rgba(110, 231, 183, 0.45);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+}
+
+:global([data-theme="dark"]) .copyBtn {
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .copyBtn:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+:global([data-theme="dark"]) .templatesLabel {
+  color: #cbd5e1;
+}
+
+:global([data-theme="dark"]) .templateChip {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1.5px solid #475569;
   color: #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+:global([data-theme="dark"]) .templateChip:hover {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+:global([data-theme="dark"]) .label {
+  color: #e2e8f0;
 }
 
 :global([data-theme="dark"]) .input,
 :global([data-theme="dark"]) .textarea {
   background: #0f172a;
   border-color: #334155;
-  color: #f1f5f9;
+  color: #f8fafc;
 }
 
-:global([data-theme="dark"]) .templateChip {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+:global([data-theme="dark"]) .input::placeholder,
+:global([data-theme="dark"]) .textarea::placeholder {
+  color: #64748b;
 }
 
-:global([data-theme="dark"]) .templateChip:hover {
-  background: #2563eb;
-  color: #ffffff;
+:global([data-theme="dark"]) .input:focus,
+:global([data-theme="dark"]) .textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+:global([data-theme="dark"]) .externalLinkBtn {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid #475569;
+  color: #e2e8f0;
+}
+
+:global([data-theme="dark"]) .externalLinkBtn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
 }
 
 :global([data-theme="dark"]) .cancelBtn {
-  background: #1e293b;
-  border-color: #334155;
-  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1.5px solid #475569;
+  color: #f1f5f9;
+}
+
+:global([data-theme="dark"]) .cancelBtn:hover:not(:disabled) {
+  background: #334155;
+  border-color: #64748b;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(100, 116, 139, 0.3);
+}
+
+:global([data-theme="dark"]) .sendBtn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  border: 1px solid #60a5fa;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.4);
+}
+
+:global([data-theme="dark"]) .sendBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.6);
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+
+:global([data-theme="dark"]) .sendBtn:disabled {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+  opacity: 0.95;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+:global([data-theme="dark"]) .successAlert {
+  background: rgba(6, 95, 70, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  color: #6ee7b7;
+}
+
+:global([data-theme="dark"]) .warningAlert {
+  background: rgba(146, 64, 14, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fde68a;
+}
+
+:global([data-theme="dark"]) .errorAlert {
+  background: rgba(153, 27, 27, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
 }

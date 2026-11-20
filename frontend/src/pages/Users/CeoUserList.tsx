@@ -18,7 +18,17 @@ import { usePagination } from '../../hooks/usePagination';
 import { usePermission } from '../../hooks/usePermission';
 import { useAuth } from '../../context/AuthContext';
 import { useAlert } from '../../context/AlertContext';
-import { CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  NoSymbolIcon,
+  KeyIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import styles from './CeoUsers.module.css';
 
 export default function CeoUserList() {
@@ -305,44 +315,83 @@ export default function CeoUserList() {
               <div className={styles.actions}>
                 <button
                   type="button"
-                  style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}
-                  onClick={() => setViewUser(row)}
-                  title="View user profile & manage avatar image"
-                >
-                  View
-                </button>
-                <button
-                  type="button"
-                  style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+                  className={styles.actionBtnContact}
                   onClick={() => setContactTarget({
                     email: row.email,
                     name: `${row.firstName} ${row.lastName}`.trim() || row.username,
                     roleOrType: row.role,
                   })}
+                  title={`Send email to ${row.email}`}
                 >
-                  Contact
+                  <EnvelopeIcon className={styles.actionIcon} />
+                  <span>Contact</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.actionBtnView}
+                  onClick={() => setViewUser(row)}
+                  title="View user profile & manage avatar image"
+                >
+                  <EyeIcon className={styles.actionIcon} />
+                  <span>View</span>
                 </button>
                 {can('users.update') && (
                   <>
-                    <button onClick={() => navigate(`/ceo/users/${toShortUserId(row)}/edit`)}>Edit</button>
                     <button
-                      disabled={row.id === currentUser?.id}
-                      onClick={() => handleToggleStatus(row)}
-                      title={row.id === currentUser?.id ? 'You cannot deactivate your own account' : undefined}
+                      type="button"
+                      className={styles.actionBtnEdit}
+                      onClick={() => navigate(`/ceo/users/${toShortUserId(row)}/edit`)}
+                      title="Edit user profile and permissions"
                     >
-                      {row.status === 'active' ? 'Deactivate' : 'Activate'}
+                      <PencilSquareIcon className={styles.actionIcon} />
+                      <span>Edit</span>
                     </button>
-                    <button onClick={() => setResetModal(row)}>Reset Password</button>
+                    <button
+                      type="button"
+                      disabled={row.id === currentUser?.id}
+                      className={row.status === 'active' ? styles.actionBtnDeactivate : styles.actionBtnActivate}
+                      onClick={() => handleToggleStatus(row)}
+                      title={
+                        row.id === currentUser?.id
+                          ? 'You cannot deactivate your own account'
+                          : row.status === 'active'
+                            ? 'Deactivate account access'
+                            : 'Activate account access'
+                      }
+                    >
+                      {row.status === 'active' ? (
+                        <>
+                          <NoSymbolIcon className={styles.actionIcon} />
+                          <span>Deactivate</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircleIcon className={styles.actionIcon} />
+                          <span>Activate</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.actionBtnReset}
+                      onClick={() => setResetModal(row)}
+                      title="Reset account password"
+                    >
+                      <KeyIcon className={styles.actionIcon} />
+                      <span>Reset PW</span>
+                    </button>
                   </>
                 )}
                 {can('users.delete') && (
                   <button
-                    className={styles.danger}
+                    type="button"
+                    className={styles.actionBtnDelete}
                     disabled={row.id === currentUser?.id}
                     onClick={() => handleDelete(row)}
-                    title={row.id === currentUser?.id ? 'You cannot delete your own account' : undefined}
+                    title={row.id === currentUser?.id ? 'You cannot delete your own account' : 'Delete user account'}
                   >
-                    Delete
+                    <TrashIcon className={styles.actionIcon} />
+                    <span>Delete</span>
                   </button>
                 )}
               </div>

@@ -142,7 +142,7 @@ export default function ContactModal({ open, onClose, target, defaultSubject = '
                 <span>{target.email}</span>
               </span>
               {target.name && (
-                <span style={{ color: '#475569', fontSize: '0.85rem' }}>
+                <span className={styles.recipientName}>
                   ({target.name})
                 </span>
               )}

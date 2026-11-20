@@ -657,18 +657,7 @@ export default function UserList() {
               <div className={styles.actionGroup}>
                 <button
                   type="button"
-                  className={styles.actionBtnView}
-                  onClick={() => setViewUser(row)}
-                  title="View user profile & manage avatar image"
-                >
-                  <EyeIcon className={styles.actionIcon} />
-                  <span>View</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={styles.actionBtnEdit}
-                  style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                  className={styles.actionBtnContact}
                   onClick={() => setContactTarget({
                     email: row.email,
                     name: `${row.firstName} ${row.lastName}`.trim() || row.username,
@@ -678,6 +667,16 @@ export default function UserList() {
                 >
                   <EnvelopeIcon className={styles.actionIcon} />
                   <span>Contact</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={styles.actionBtnView}
+                  onClick={() => setViewUser(row)}
+                  title="View user profile & manage avatar image"
+                >
+                  <EyeIcon className={styles.actionIcon} />
+                  <span>View</span>
                 </button>
 
                 {can('users.update') && (
