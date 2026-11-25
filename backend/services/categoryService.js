@@ -24,7 +24,7 @@ export const getCategory = async (id) => {
 };
 
 // Admin/CEO creates an approved category immediately
-export const createCategory = async (user, { name, description, departmentId, slaPolicyId, routingType }) => {
+export const createCategory = async (user, { name, description, departmentId, slaPolicyId, routingType, reassignTimeMinutes }) => {
   if (!['admin', 'ceo'].includes(user.role)) {
     throw Object.assign(new Error('Only admin or executive can create approved categories directly'), { statusCode: 403 });
   }
@@ -44,13 +44,16 @@ export const createCategory = async (user, { name, description, departmentId, sl
     status: 'approved',
     slaPolicyId,
     routingType: effectiveRouting,
+    reassignTimeMinutes: payload.reassignTimeMinutes,
+    reassignTimeMinutes: Number(reassignTimeMinutes) || 30,
+    reassignTimeMinutes: Number(reassignTimeMinutes) || 30,
   });
   auditService.logAction(user.id, 'create', 'ticket_category', cat.id, { role: user.role, new: cat }).catch(() => { });
   return cat;
 };
 
 // Manager creates a category that becomes PENDING admin approval
-export const requestCategory = async (user, { name, description, slaPolicyId, routingType }) => {
+export const requestCategory = async (user, { name, description, slaPolicyId, routingType, reassignTimeMinutes }) => {
   if (user.role !== 'manager') {
     throw Object.assign(new Error('Only managers can request new categories'), { statusCode: 403 });
   }
@@ -70,6 +73,8 @@ export const requestCategory = async (user, { name, description, slaPolicyId, ro
     requestedBy: user.id,
     slaPolicyId,
     routingType: effectiveRouting,
+    reassignTimeMinutes: payload.reassignTimeMinutes,
+    reassignTimeMinutes: Number(reassignTimeMinutes) || 30,
   });
 
   await categoryRepo.createRequest({
@@ -110,6 +115,7 @@ export const updateCategory = async (user, id, payload) => {
     isActive: payload.isActive,
     slaPolicyId: payload.slaPolicyId,
     routingType: effectiveRouting,
+    reassignTimeMinutes: payload.reassignTimeMinutes,
   });
 
   auditService.logAction(user.id, 'update', 'ticket_category', id, { role: user.role, old: cat, new: updated }).catch(() => { });

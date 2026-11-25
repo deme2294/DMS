@@ -122,8 +122,9 @@ export default function NotificationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchNotifications({ limit: 100 });
-      setNotifications(res.data.data);
+      const res = await fetchNotifications({ limit: 200 });
+      const items = Array.isArray(res.data?.data) ? res.data.data : [];
+      setNotifications(items);
     } catch (err: any) {
       if (err?.response?.status === 401) {
         setError('Session expired. Please log in again.');
@@ -180,10 +181,30 @@ export default function NotificationsPage() {
       n.type === 'chat' ||
       n.type === 'message' ||
       Boolean(n.roomId) ||
-      Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
-      Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message))
+      Boolean(n.title && /\b(chat|video conference|video call|meeting invitation|screen share)\b/i.test(n.title))
     );
   }, []);
+
+  const extractTicketTarget = (n: NotificationItem): string | null => {
+    if (n.ticketId) {
+      return (n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId;
+    }
+    if ((n as any).ticketReferenceNumber) return (n as any).ticketReferenceNumber;
+    if ((n as any).referenceNumber) return (n as any).referenceNumber;
+
+    // Check message or title for ticket reference, e.g. "ticket HD-TEST-53899" or "test-esc-18haurj" or "#HD-2026-00014"
+    const text = `${n.title || ''} ${n.message || ''}`;
+    const stdMatch = text.match(/\b(HD-[A-Za-z0-9]+-\d+)\b/i);
+    if (stdMatch && stdMatch[1]) return stdMatch[1];
+
+    const ticketWordMatch = text.match(/ticket\s+#?([A-Za-z0-9_-]{3,36})/i);
+    if (ticketWordMatch && ticketWordMatch[1]) return ticketWordMatch[1];
+
+    const uuidMatch = text.match(/\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b/i);
+    if (uuidMatch && uuidMatch[1]) return uuidMatch[1];
+
+    return null;
+  };
 
   const handleNotificationClick = (n: NotificationItem) => {
     // Non-blocking mark read so navigation is triggered immediately
@@ -194,6 +215,14 @@ export default function NotificationsPage() {
     setUnreadCount((c) => Math.max(0, c - 1));
 
     const role = user?.role || 'admin';
+    const ticketBase = basePaths[role] || '/admin/tickets';
+
+    // 1. First priority: Check if this notification is associated with a specific ticket
+    const ticketTarget = extractTicketTarget(n);
+    if (ticketTarget) {
+      navigate(`${ticketBase}/${ticketTarget}`);
+      return;
+    }
 
     if (isKnowledgeNotification(n)) {
       const kbBase = knowledgePaths[role] || '/admin/knowledge';
@@ -214,10 +243,8 @@ export default function NotificationsPage() {
       navigate(noticePaths[role] || '/admin/notices');
     } else if (isFeedbackNotification(n)) {
       navigate(feedbackPaths[role] || '/admin/feedback');
-    } else if (n.ticketId) {
-      navigate(`${basePaths[role] || '/admin/tickets'}/${(n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId}`);
     } else {
-      navigate(basePaths[role] || '/admin/tickets');
+      navigate(ticketBase);
     }
   };
 
@@ -415,6 +442,11 @@ export default function NotificationsPage() {
                     <span className={`${styles.typeBadge} ${styles[cfg.colorClass + 'Badge']}`}>
                       {cfg.label}
                     </span>
+                    {isUnread ? (
+                      <span className={styles.unreadStatusBadge}>● Unread</span>
+                    ) : (
+                      <span className={styles.readStatusBadge}>✓ Read</span>
+                    )}
                     <time className={styles.time}>
                       {n.createdAt ? getRelativeTime(n.createdAt) : ''}
                     </time>

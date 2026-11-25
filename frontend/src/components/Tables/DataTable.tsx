@@ -3,6 +3,8 @@ import styles from './DataTable.module.css';
 type Column<T> = {
   key: string;
   label: string;
+  width?: string | number;
+  minWidth?: string | number;
   render?: (row: T) => React.ReactNode;
 };
 
@@ -45,7 +47,14 @@ export default function DataTable<T extends { id: string }>({
                 col.label.toLowerCase().includes('operation');
 
               return (
-                <th key={col.key} className={isAction ? styles.actionCell : undefined}>
+                <th
+                  key={col.key}
+                  className={isAction ? styles.actionCell : undefined}
+                  style={{
+                    ...(col.minWidth ? { minWidth: col.minWidth } : {}),
+                    ...(col.width ? { width: col.width } : {}),
+                  }}
+                >
                   {col.label}
                 </th>
               );
@@ -92,7 +101,14 @@ export default function DataTable<T extends { id: string }>({
                     col.label.toLowerCase().includes('operation');
 
                   return (
-                    <td key={col.key} className={isAction ? styles.actionCell : undefined}>
+                    <td
+                      key={col.key}
+                      className={isAction ? styles.actionCell : undefined}
+                      style={{
+                        ...(col.minWidth ? { minWidth: col.minWidth } : {}),
+                        ...(col.width ? { width: col.width } : {}),
+                      }}
+                    >
                       {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as React.ReactNode}
                     </td>
                   );

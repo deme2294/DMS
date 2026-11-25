@@ -39,7 +39,8 @@ export const createTicketRoom = async (req, res, next) => {
 
 export const createDepartmentRoom = async (req, res, next) => {
   try {
-    const room = await chatService.createDepartmentRoom(req.body.departmentId, req.user.id);
+    const io = req.app?.get('io');
+    const room = await chatService.createDepartmentRoom(req.body.departmentId, req.user.id, io);
     res.status(HTTP.CREATED).json({ success: true, data: room });
   } catch (err) {
     next(err);

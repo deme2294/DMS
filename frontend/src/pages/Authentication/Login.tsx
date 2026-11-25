@@ -6,12 +6,17 @@ import {
   LockClosedIcon,
   EyeIcon,
   EyeSlashIcon,
-  UserIcon,
   ArrowRightIcon,
   WifiIcon,
   CpuChipIcon,
   CloudIcon,
 } from '@heroicons/react/24/solid';
+import {
+  Cog6ToothIcon,
+  ClipboardDocumentCheckIcon,
+  BuildingOffice2Icon,
+  KeyIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { ROLE_DASHBOARD } from '../../config/routes';
 import { resolveRoleRedirect } from '../../utils/redirectUtils';
@@ -23,7 +28,71 @@ type LoginApiError = {
   message?: string;
 };
 
+// Sleek vector crown icon for CEO
+const CrownIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 18h18M4 18l2-9.5 4.5 4.5 3.5-6 3.5 6 4.5-4.5 2 9.5H4z" />
+    <circle cx="6" cy="8.5" r="0.75" fill="currentColor" />
+    <circle cx="12" cy="7" r="0.75" fill="currentColor" />
+    <circle cx="18" cy="8.5" r="0.75" fill="currentColor" />
+  </svg>
+);
 
+// Sleek headset / support icon for Staff
+const HeadsetIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+  </svg>
+);
+
+const DEMO_ACCOUNTS = [
+  {
+    role: 'CEO',
+    username: 'ceo',
+    Icon: CrownIcon,
+    accent: '#f59e0b',
+    glow: 'rgba(245, 158, 11, 0.28)',
+    bg: 'rgba(245, 158, 11, 0.12)',
+    border: 'rgba(245, 158, 11, 0.3)',
+  },
+  {
+    role: 'Admin',
+    username: 'admin',
+    Icon: Cog6ToothIcon,
+    accent: '#f43f5e',
+    glow: 'rgba(244, 63, 94, 0.28)',
+    bg: 'rgba(244, 63, 94, 0.12)',
+    border: 'rgba(244, 63, 94, 0.3)',
+  },
+  {
+    role: 'Manager',
+    username: 'manager',
+    Icon: ClipboardDocumentCheckIcon,
+    accent: '#fb923c',
+    glow: 'rgba(251, 146, 60, 0.28)',
+    bg: 'rgba(251, 146, 60, 0.12)',
+    border: 'rgba(251, 146, 60, 0.3)',
+  },
+  {
+    role: 'Staff',
+    username: 'staff',
+    Icon: HeadsetIcon,
+    accent: '#10b981',
+    glow: 'rgba(16, 185, 129, 0.28)',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    border: 'rgba(16, 185, 129, 0.3)',
+  },
+  {
+    role: 'Tenant',
+    username: 'tenant',
+    Icon: BuildingOffice2Icon,
+    accent: '#8b5cf6',
+    glow: 'rgba(139, 92, 246, 0.28)',
+    bg: 'rgba(139, 92, 246, 0.12)',
+    border: 'rgba(139, 92, 246, 0.3)',
+  },
+];
 
 const FEATURES = [
   { icon: ShieldCheckIcon, color: 'from-blue-500 to-blue-600', title: 'Enterprise Security', sub: 'JWT auth, role-based access & audit logging' },
@@ -115,6 +184,16 @@ export default function Login() {
     }
   };
 
+  const quickFill = (user: string) => {
+    setIdentifier(user);
+    setPassword('password');
+    setError('');
+    setTimeout(() => {
+      const pwdInput = document.getElementById('password') as HTMLInputElement | null;
+      pwdInput?.focus();
+    }, 50);
+  };
+
   return (
     <div className="login-root">
       {/* ── Background ── */}
@@ -143,7 +222,7 @@ export default function Login() {
             <div className="login-badges">
               <span className="badge-secure">
                 <ShieldCheckIcon style={{ width: 15, height: 15, marginRight: 5, verticalAlign: 'middle', display: 'inline' }} />
-                Secure Gateway
+                SECURE GATEWAY
               </span>
               <span className="badge-online">
                 <span className="dot-pulse" /> Operational
@@ -162,8 +241,8 @@ export default function Login() {
           </div>
 
           <p className="login-desc">
-            Streamline ITPC service delivery with a unified platform for ticket management,
-            department coordination, and tenant support.
+            Streamline government service delivery with a unified platform for ticket management,
+            department coordination, and citizen support.
           </p>
 
           {/* Feature cards */}
@@ -203,141 +282,185 @@ export default function Login() {
           </div>
         </motion.div>
 
-      {/* ════════════════════════════════════
+        {/* ════════════════════════════════════
           RIGHT PANEL — Login Form
       ════════════════════════════════════ */}
-      <div className="login-right">
-        <motion.div
-          className="login-card-wrap"
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
-        >
-          {/* Mobile-only brand header */}
-          <div className="login-mobile-brand">
-            <div className="login-brand-logo" style={{ margin: '0 auto 14px' }}>
-              <img src="/logo-white.png?v=3" alt="Ethiopian IT Park" className="login-logo-img" />
-            </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', textAlign: 'center', margin: 0 }}>
-              ITPC <span style={{ background: 'linear-gradient(to right, #60a5fa, #67e8f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELP DESK</span>
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: 4 }}>Management System</p>
-          </div>
-
-          {/* Glass card */}
-          <div className={`login-card ${isFocused ? 'login-card-focused' : ''}`}>
-            {/* Card header */}
-            <div className="login-card-top">
-              <div className="login-card-icon">
-                <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
+        <div className="login-right">
+          <motion.div
+            className="login-card-wrap"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: 'easeOut' }}
+          >
+            {/* Mobile-only brand header */}
+            <div className="login-mobile-brand">
+              <div className="login-brand-logo" style={{ margin: '0 auto 14px' }}>
+                <img src="/logo-white.png?v=3" alt="Ethiopian IT Park" className="login-logo-img" />
               </div>
-              <h2 className="login-card-title">Welcome Back</h2>
-              <p className="login-card-sub">Sign in to your account to continue</p>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'white', textAlign: 'center', margin: 0 }}>
+                ITPC <span style={{ background: 'linear-gradient(to right, #60a5fa, #67e8f9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>HELP DESK</span>
+              </h1>
+              <p style={{ color: '#94a3b8', fontSize: '0.75rem', marginTop: 4 }}>Management System</p>
             </div>
 
-            {/* Error banner */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`login-error ${isLocked ? 'login-error-locked' : ''}`}
-              >
-                <LockClosedIcon style={{ width: 16, height: 16, color: '#f87171', flexShrink: 0, marginTop: 2 }} />
-                <span>{error}</span>
-              </motion.div>
-            )}
+            {/* Glass card */}
+            <div className={`login-card ${isFocused ? 'login-card-focused' : ''}`}>
+              {/* Card header */}
+              <div className="login-card-top">
+                <div className="login-card-icon">
+                  <ShieldCheckIcon style={{ width: 22, height: 22, color: 'white' }} />
+                </div>
+                <h2 className="login-card-title">Welcome Back</h2>
+                <p className="login-card-sub">Sign in to your account to continue</p>
+              </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} noValidate className="login-form">
-              <div className="login-field">
-                <label htmlFor="identifier" className="login-label">Username or Email</label>
-                <div className="login-input-wrap">
-                  <UserIcon className="login-input-icon" />
+              {/* Error banner */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`login-error ${isLocked ? 'login-error-locked' : ''}`}
+                >
+                  <LockClosedIcon style={{ width: 16, height: 16, color: '#f87171', flexShrink: 0, marginTop: 2 }} />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} noValidate className="login-form">
+                <div className="login-field">
+                  <div className="login-input-wrap">
+                    <input
+                      ref={identifierRef}
+                      id="identifier"
+                      type="text"
+                      autoComplete="username"
+                      value={identifier}
+                      onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      disabled={isLoading || isLocked}
+                      placeholder="Username or email"
+                      aria-label="Username or Email"
+                      className="login-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="login-field">
+                  <div className="login-input-wrap">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      disabled={isLoading || isLocked}
+                      placeholder="Password"
+                      aria-label="Password"
+                      className="login-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility}
+                      disabled={isLoading || isLocked}
+                      className="login-eye-btn"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeSlashIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
+                      ) : (
+                        <EyeIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <label className="login-remember">
                   <input
-                    ref={identifierRef}
-                    id="identifier"
-                    type="text"
-                    autoComplete="username"
-                    value={identifier}
-                    onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    disabled={isLoading || isLocked}
-                    placeholder="Enter your username or email"
-                    className="login-input"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={isLoading}
+                    style={{ width: 15, height: 15, accentColor: '#3b82f6', cursor: 'pointer' }}
                   />
+                  <span style={{ fontSize: '0.8125rem', color: '#cbd5e1' }}>Remember me for 7 days</span>
+                </label>
+
+                <button type="submit" disabled={isLoading || isLocked} className="login-submit-btn">
+                  {isLoading ? (
+                    <><span className="login-spinner" />Authenticating…</>
+                  ) : isLocked ? (
+                    <><LockClosedIcon style={{ width: 16, height: 16 }} />Account Locked</>
+                  ) : (
+                    <>Sign In <ArrowRightIcon style={{ width: 16, height: 16 }} /></>
+                  )}
+                </button>
+              </form>
+
+              {/* Divider */}
+              <div className="login-divider">
+                <div className="login-divider-line" />
+                <span className="login-divider-text">
+                  <span className="login-divider-dot" />
+                  QUICK DEMO ACCESS
+                </span>
+                <div className="login-divider-line" />
+              </div>
+
+              {/* Demo accounts — compact, elegant 5-column row */}
+              <div className="login-demo-grid">
+                {DEMO_ACCOUNTS.map(({ role, username, Icon, accent, glow, bg, border }) => {
+                  const isSelected = identifier.toLowerCase() === username.toLowerCase();
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => quickFill(username)}
+                      className={`login-demo-btn ${isSelected ? 'login-demo-btn-active' : ''}`}
+                      style={{
+                        '--demo-accent': accent,
+                        '--demo-glow': glow,
+                        '--demo-bg': bg,
+                        '--demo-border': border,
+                      } as React.CSSProperties}
+                      title={`Click to fill ${role} demo credentials`}
+                    >
+                      {/* Compact Icon Badge */}
+                      <div className="login-demo-icon">
+                        <Icon className="login-demo-svg" />
+                      </div>
+                      {/* Role name */}
+                      <span className="login-demo-role">{role}</span>
+                      {/* Username tag */}
+                      <span className="login-demo-username">{username}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="login-demo-hint">
+                <KeyIcon className="login-demo-hint-key" />
+                <span>Password for all demo accounts:</span>
+                <code className="login-demo-pwd-pill">password</code>
+              </div>
+
+              {/* Security notice */}
+              <div className="login-security-notice">
+                <ShieldCheckIcon className="login-security-icon" />
+                <div className="login-security-content">
+                  <span className="login-security-title">Secure Demo Environment</span>
+                  <span className="login-security-sub">Enterprise RBAC active • Audit logging enabled</span>
                 </div>
               </div>
-
-              <div className="login-field">
-                <label htmlFor="password" className="login-label">Password</label>
-                <div className="login-input-wrap">
-                  <LockClosedIcon className="login-input-icon" />
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    disabled={isLoading || isLocked}
-                    placeholder="Enter your password"
-                    className="login-input"
-                    style={{ paddingRight: '2.75rem' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={togglePasswordVisibility}
-                    disabled={isLoading || isLocked}
-                    className="login-eye-btn"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    title={showPassword ? 'Hide password' : 'Show password'}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeSlashIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
-                    ) : (
-                      <EyeIcon style={{ width: 19, height: 19, pointerEvents: 'none' }} />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <label className="login-remember">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={isLoading}
-                  style={{ width: 15, height: 15, accentColor: '#3b82f6', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.8125rem', color: '#cbd5e1' }}>Remember me for 7 days</span>
-              </label>
-
-              <button type="submit" disabled={isLoading || isLocked} className="login-submit-btn">
-                {isLoading ? (
-                  <><span className="login-spinner" />Authenticating…</>
-                ) : isLocked ? (
-                  <><LockClosedIcon style={{ width: 16, height: 16 }} />Account Locked</>
-                ) : (
-                  <>Sign In <ArrowRightIcon style={{ width: 16, height: 16 }} /></>
-                )}
-              </button>
-            </form>
-
-            {/* Enterprise Security Notice */}
-            <div className="login-security-notice" style={{ marginTop: '1.5rem' }}>
-              <ShieldCheckIcon className="login-security-icon" />
-              <div className="login-security-content">
-                <span className="login-security-title">Secure Enterprise Authentication</span>
-                <span className="login-security-sub">Role-Based Access Control • End-to-End Audit Logging</span>
-              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </div>
 
       {/* ════════════════════════════════════
           BOTTOM BAR — Centered & Seamless

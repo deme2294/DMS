@@ -189,17 +189,92 @@ export const createTicketRoom = async (ticketId, createdBy, timing = 'now', io =
 
   const enrichedRoom = await getEnrichedRoomForUser(roomId, createdBy);
 
+  // Get creator info for notification attribution
+  const [creatorRows] = await pool.query(
+    `SELECT u.first_name, u.last_name, r.name AS role
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? LIMIT 1`,
+    [createdBy]
+  );
+  const creator = creatorRows[0] || { first_name: 'Team', last_name: 'Member', role: 'Staff' };
+  const creatorName = `${creator.first_name} ${creator.last_name}`.trim();
+  const creatorRole = creator.role || 'Member';
+  const ticketRef = ticket.reference_number || ticket.id.substring(0, 8);
+
+  const notifTitle = `💬 New Ticket Chat: #${ticketRef}`;
+  const notifMsg = `${creatorName} (${creatorRole}) opened a chat room for ticket #${ticketRef}: "${ticket.title}". You are connected as a participant.`;
+
+  for (const userId of participants) {
+    if (userId !== createdBy) {
+      await notificationRepo.createNotification(
+        userId,
+        notifTitle,
+        notifMsg,
+        'chat',
+        ticketId,
+        null,
+        roomId
+      ).catch((err) => console.warn(`[createTicketRoom] Notification error for ${userId}:`, err.message));
+
+      emitToUser(userId, 'notification', {
+        title: notifTitle,
+        message: notifMsg,
+        type: 'chat',
+        roomId,
+        ticketId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
   // Broadcast to all participants via socket
   if (io) {
     for (const userId of participants) {
-      io.to(`user:${userId}`).emit('ticket-room-created', enrichedRoom);
+      try {
+        const userRoom = await getEnrichedRoomForUser(roomId, userId);
+        io.to(`user:${userId}`).emit('ticket-room-created', userRoom || enrichedRoom);
+        io.to(`user:${userId}`).emit('room-created', userRoom || enrichedRoom);
+      } catch (_) {
+        io.to(`user:${userId}`).emit('ticket-room-created', enrichedRoom);
+        io.to(`user:${userId}`).emit('room-created', enrichedRoom);
+      }
     }
+  }
+
+  // Send email to participants who have registered emails
+  try {
+    const participantList = Array.from(participants).filter((id) => id !== createdBy);
+    if (participantList.length > 0) {
+      const [participantUsers] = await pool.query(
+        `SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE u.id IN (?) AND u.status = 'active'`,
+        [participantList]
+      );
+      for (const pu of participantUsers) {
+        if (pu.email && pu.email.trim()) {
+          sendChatMessageEmail({
+            email: pu.email.trim(),
+            recipientName: `${pu.first_name} ${pu.last_name || ''}`.trim(),
+            senderName: creatorName,
+            senderRole: creatorRole,
+            roomName: `Ticket #${ticketRef}`,
+            messageSnippet: `Opened chat for ticket "${ticket.title}". You are connected for direct collaboration.`,
+            roomId,
+          }).catch((err) => console.warn(`[createTicketRoom] Email error for ${pu.email}:`, err.message));
+        }
+      }
+    }
+  } catch (emailErr) {
+    console.warn('[createTicketRoom] Email dispatch error:', emailErr.message);
   }
 
   return enrichedRoom;
 };
 
-export const createDepartmentRoom = async (departmentId, createdBy) => {
+export const createDepartmentRoom = async (departmentId, createdBy, io = null) => {
   // Check if room already exists
   const existing = await chatRepo.findRoomByDepartment(departmentId);
   if (existing) {
@@ -228,7 +303,9 @@ export const createDepartmentRoom = async (departmentId, createdBy) => {
   
   // Add all department members
   const [members] = await pool.query(
-    `SELECT DISTINCT u.id FROM users u
+    `SELECT DISTINCT u.id, u.email, u.first_name, u.last_name, r.name AS role
+     FROM users u
+     INNER JOIN roles r ON r.id = u.role_id
      INNER JOIN user_departments ud ON ud.user_id = u.id
      WHERE ud.department_id = ? AND u.status = 'active'`,
     [departmentId]
@@ -244,7 +321,70 @@ export const createDepartmentRoom = async (departmentId, createdBy) => {
   
   await chatRepo.addParticipant({ id: uuidv4(), roomId, userId: createdBy });
   
-  return chatRepo.findRoomById(roomId);
+  const createdRoom = await chatRepo.findRoomById(roomId);
+
+  // Get creator info
+  const [creatorRows] = await pool.query(
+    `SELECT u.first_name, u.last_name, r.name AS role
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? LIMIT 1`,
+    [createdBy]
+  );
+  const creator = creatorRows[0] || { first_name: 'Department', last_name: 'Manager', role: 'Manager' };
+  const creatorName = `${creator.first_name} ${creator.last_name}`.trim();
+  const creatorRole = creator.role || 'Manager';
+  const deptName = dept[0].name;
+
+  const notifTitle = `💬 New Department Chat: ${deptName}`;
+  const notifMsg = `${creatorName} (${creatorRole}) opened the official department chat for ${deptName}.`;
+
+  for (const member of members) {
+    if (member.id !== createdBy) {
+      await notificationRepo.createNotification(
+        member.id,
+        notifTitle,
+        notifMsg,
+        'chat',
+        null,
+        null,
+        roomId
+      ).catch((err) => console.warn(`[createDepartmentRoom] Notification error for ${member.id}:`, err.message));
+
+      emitToUser(member.id, 'notification', {
+        title: notifTitle,
+        message: notifMsg,
+        type: 'chat',
+        roomId,
+        createdAt: new Date().toISOString(),
+      });
+
+      if (member.email && member.email.trim()) {
+        sendChatMessageEmail({
+          email: member.email.trim(),
+          recipientName: `${member.first_name} ${member.last_name || ''}`.trim(),
+          senderName: creatorName,
+          senderRole: creatorRole,
+          roomName: `${deptName} Department`,
+          messageSnippet: `Opened department chat room. You are connected as a department team member.`,
+          roomId,
+        }).catch((err) => console.warn(`[createDepartmentRoom] Email error for ${member.email}:`, err.message));
+      }
+
+      if (io) {
+        try {
+          const memberRoom = await getEnrichedRoomForUser(roomId, member.id);
+          io.to(`user:${member.id}`).emit('department-room-created', memberRoom || createdRoom);
+          io.to(`user:${member.id}`).emit('room-created', memberRoom || createdRoom);
+        } catch (_) {
+          io.to(`user:${member.id}`).emit('department-room-created', createdRoom);
+          io.to(`user:${member.id}`).emit('room-created', createdRoom);
+        }
+      }
+    }
+  }
+
+  return createdRoom;
 };
 
 export const getEnrichedRoomForUser = async (roomId, userId) => {
@@ -404,6 +544,7 @@ export const createDirectRoom = async (user1Id, user2Id, initiatorRole, initialM
       const recipientRoom = await getEnrichedRoomForUser(roomId, targetUser2Id);
       if (recipientRoom) {
         io.to(`user:${targetUser2Id}`).emit('direct-room-created', recipientRoom);
+        io.to(`user:${targetUser2Id}`).emit('room-created', recipientRoom);
       }
     } catch (socketErr) {
       console.warn('[createDirectRoom] Error notifying recipient socket:', socketErr);
@@ -513,11 +654,13 @@ export const sendMessage = async (data, userId) => {
   await chatRepo.updateRoom(roomId, { updated_at: new Date() });
   
   // Notify other participants
-  const [room] = await pool.query(`SELECT name FROM chat_rooms WHERE id = ? LIMIT 1`, [roomId]);
-  const [sender] = await pool.query(`SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1`, [userId]);
-  if (room.length && sender.length) {
-    const senderName = `${sender[0].first_name} ${sender[0].last_name}`;
-    notificationService.notifyNewChatMessage({ room_id: roomId, sender_id: userId, message, messageType, attachmentName }, { name: room[0].name }, senderName).catch(() => {});
+  if (!data.skipNotification) {
+    const [room] = await pool.query(`SELECT name FROM chat_rooms WHERE id = ? LIMIT 1`, [roomId]);
+    const [sender] = await pool.query(`SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1`, [userId]);
+    if (room.length && sender.length) {
+      const senderName = `${sender[0].first_name} ${sender[0].last_name}`;
+      notificationService.notifyNewChatMessage({ room_id: roomId, sender_id: userId, message, messageType, attachmentName }, { name: room[0].name }, senderName).catch(() => {});
+    }
   }
   
   return chatRepo.findMessageById(messageId);
@@ -957,12 +1100,15 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
       roomId: targetRoomId,
       message: meetingMessageText,
       messageType: 'text',
+      skipNotification: true,
     },
     senderId
   );
 
   // 7. Send personalized invitation email and create in-app web notifications for each registered recipient
   for (const rec of recipients) {
+    if (rec.id === senderId) continue; // Skip sender so they are not notified of their own action
+
     // 7a. Web Application Notification
     const notifTitle = isScreenShare
       ? `🖥️ Screen Share & Video Event: ${meetingTitle}`
@@ -985,6 +1131,7 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
       message: notifMsg,
       type: 'chat',
       roomId: targetRoomId,
+      autoJoinVideo: true,
       scheduledTime: sessionDate.toISOString(),
       formattedScheduledTime: dateDisplay,
       isToday: isTodaySession,
@@ -1017,6 +1164,8 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
 
     // Direct real-time invitation notification to each online recipient
     for (const rec of recipients) {
+      if (rec.id === senderId) continue;
+
       io.to(`user:${rec.id}`).emit('meeting-invite-received', {
         id: uuidv4(),
         senderId,
@@ -1034,6 +1183,14 @@ export const sendMeetingInvite = async (data, senderId, io = null) => {
         durationMinutes: durationMinutes ? Number(durationMinutes) : 30,
         createdAt: new Date().toISOString(),
       });
+
+      try {
+        getEnrichedRoomForUser(targetRoomId, rec.id).then((enrichedRecRoom) => {
+          if (enrichedRecRoom) {
+            io.to(`user:${rec.id}`).emit('room-created', enrichedRecRoom);
+          }
+        }).catch(() => {});
+      } catch (_) {}
     }
   }
 

@@ -21,18 +21,34 @@
 }
 
 .searchBox {
+  position: relative;
   display: flex;
   gap: 8px;
   max-width: 600px;
   margin: 0 auto;
 }
 
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.05rem;
+  pointer-events: none;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .searchBox input {
   flex: 1;
-  padding: 12px 16px;
+  padding: 12px 16px 12px 46px !important;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
+  min-height: 48px;
+  box-sizing: border-box;
 }
 
 .searchBox button {

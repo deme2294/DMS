@@ -327,6 +327,26 @@ export default function ChatPage() {
 
     const handleMeetingInvite = (data: any) => {
       setIncomingMeetingInvite(data);
+      showInfo(
+        `${data.senderName} (${data.senderRole}) invited you to: ${data.meetingTitle}`,
+        'Video Conference Invite'
+      );
+      loadRooms();
+    };
+
+    const handleRoomCreated = (newRoom: any) => {
+      setRooms((prev) => {
+        if (prev.some((r) => r.id === newRoom.id)) return prev;
+        return [newRoom, ...prev];
+      });
+      showInfo(`New chat room opened: ${newRoom.name || 'Conversation'}`, 'Chat Created');
+    };
+
+    const handleRealtimeNotification = (notif: any) => {
+      if (notif?.type === 'chat' || notif?.roomId) {
+        showInfo(notif.message || notif.title, notif.title || 'Chat Notification');
+        loadRooms();
+      }
     };
 
     const handleUserTyping = ({ roomId, firstName, lastName }: any) => {
@@ -352,6 +372,7 @@ export default function ChatPage() {
         if (prev.some((r) => r.id === newRoom.id)) return prev;
         return [newRoom, ...prev];
       });
+      showInfo(`New direct chat started: ${newRoom.name || 'Direct Conversation'}`, 'Chat Created');
     };
 
     const handleMessageDeleted = ({
@@ -430,6 +451,10 @@ export default function ChatPage() {
     socket.on('message-deleted', handleMessageDeleted);
     socket.on('meeting-invite-received', handleMeetingInvite);
     socket.on('direct-room-created', handleDirectRoomCreated);
+    socket.on('ticket-room-created', handleRoomCreated);
+    socket.on('department-room-created', handleRoomCreated);
+    socket.on('room-created', handleRoomCreated);
+    socket.on('notification', handleRealtimeNotification);
     socket.on('user-typing', handleUserTyping);
     socket.on('user-stopped-typing', handleUserStoppedTyping);
     socket.on('user-online', handleUserOnline);
@@ -440,6 +465,10 @@ export default function ChatPage() {
       socket.off('message-deleted', handleMessageDeleted);
       socket.off('meeting-invite-received', handleMeetingInvite);
       socket.off('direct-room-created', handleDirectRoomCreated);
+      socket.off('ticket-room-created', handleRoomCreated);
+      socket.off('department-room-created', handleRoomCreated);
+      socket.off('room-created', handleRoomCreated);
+      socket.off('notification', handleRealtimeNotification);
       socket.off('user-typing', handleUserTyping);
       socket.off('user-stopped-typing', handleUserStoppedTyping);
       socket.off('user-online', handleUserOnline);
@@ -1026,7 +1055,17 @@ export default function ChatPage() {
         try {
           const membersRes = await chatApi.fetchTicketChatMembers(selectedTicketId);
           const members = membersRes.data.data || [];
-          targetEmails = members.map((m: any) => m.email).filter(Boolean);
+          const ticketEmails = members.map((m: any) => m.email?.toLowerCase()).filter(Boolean);
+
+          let roomEmails: string[] = [];
+          if (targetRoomId) {
+            try {
+              const partRes = await chatApi.fetchRoomParticipants(targetRoomId);
+              const parts = partRes.data?.data || [];
+              roomEmails = parts.map((p: any) => p.email?.toLowerCase()).filter(Boolean);
+            } catch (_) {}
+          }
+          targetEmails = Array.from(new Set([...ticketEmails, ...roomEmails]));
         } catch {}
         if (targetEmails.length === 0 && currentUser.email) {
           targetEmails = [currentUser.email];

@@ -1,5 +1,5 @@
 import api from './axios';
-import type { Ticket, TicketTrackInfo, TicketReply, NotificationItem, PaginationMeta, TimelineEvent } from '../types/ticket';
+import type { Ticket, TicketTrackInfo, TicketReply, NotificationItem, PaginationMeta, TimelineEvent, MergeCandidateWithSimilarity, GlobalDuplicateSuggestion, MergedTicketRecord } from '../types/ticket';
 import { toShortId } from '../utils/idUtils';
 
 export interface TicketListParams {
@@ -63,20 +63,25 @@ export interface DepartmentManager {
 
 export const assignDepartment = (
   id: string,
-  payload: { departmentId: string; notes?: string; managerId?: string; assignedTo?: string }
+  payload: { departmentId: string; notes?: string; managerId?: string; assignedTo?: string; reassignTimeMinutes?: number; overrideLock?: boolean }
 ) => api.post(`/tickets/${id}/assign-department`, payload);
 
 export const fetchDepartmentManagers = (departmentId: string) =>
   api.get<{ success: boolean; data: DepartmentManager[] }>(`/tickets/departments/${departmentId}/managers`);
 
 
-export const assignStaff = (id: string, payload: { staffId: string; notes?: string }) =>
+export const assignStaff = (id: string, payload: { staffId: string; notes?: string; reassignTimeMinutes?: number; overrideLock?: boolean }) =>
   api.post(`/tickets/${id}/assign-staff`, payload);
+
+export const updateTicketReassignTime = (
+  id: string,
+  payload: { reassignTimeMinutes: number; target?: 'department' | 'staff' }
+) => api.patch<{ success: boolean; data: Ticket }>(`/tickets/${id}/reassign-time`, payload);
 
 export const reassignStaff = (id: string, payload: { staffId: string; notes?: string }) =>
   api.post(`/tickets/${id}/reassign`, payload);
 
-export const remindStaff = (id: string, payload?: { notes?: string }) =>
+export const remindStaff = (id: string, payload?: { notes?: string; targetUserId?: string; targetRole?: string; departmentId?: string }) =>
   api.post<{ success: boolean; message: string; data?: any }>(`/tickets/${id}/remind-staff`, payload || {});
 
 export const overrideAssignment = (
@@ -93,8 +98,18 @@ export const escalateTicket = (id: string, notes?: string) =>
   api.post(`/tickets/${id}/escalate`, { notes });
 
 export const fetchMergeCandidates = (id: string, search?: string) =>
-  api.get<{ success: boolean; data: Ticket[] }>(`/tickets/${id}/merge-candidates`, {
+  api.get<{ success: boolean; data: MergeCandidateWithSimilarity[] }>(`/tickets/${id}/merge-candidates`, {
     params: search?.trim() ? { search: search.trim() } : {},
+  });
+
+export const fetchGlobalDuplicateSuggestions = (departmentId?: string) =>
+  api.get<{ success: boolean; data: GlobalDuplicateSuggestion[] }>('/tickets/duplicate-suggestions', {
+    params: departmentId ? { departmentId } : {},
+  });
+
+export const fetchMergedTicketsLedger = (departmentId?: string) =>
+  api.get<{ success: boolean; data: MergedTicketRecord[] }>('/tickets/merged-ledger', {
+    params: departmentId ? { departmentId } : {},
   });
 
 export const mergeTickets = (id: string, sourceIds: string[], notes?: string) =>
@@ -206,7 +221,7 @@ export const reviewOperationalEscalationManager = (
   id: string,
   escalationId: string,
   payload: {
-    decision: 'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'escalate_to_admin';
+    decision: 'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'solve_in_person' | 'escalate_to_admin';
     notes?: string;
     newAssigneeId?: string;
     collaboratorIds?: string[];
@@ -222,8 +237,10 @@ export const reviewOperationalEscalationAdmin = (
   id: string,
   escalationId: string,
   payload: {
-    decision: 'approved' | 'guidance' | 'reassign' | 'resource_allocated' | 'rejected';
+    decision: 'approved' | 'guidance' | 'reassign' | 'resource_allocated' | 'reforward_to_manager' | 'rejected';
     notes?: string;
+    finalIdea?: string;
+    tenantDecisionNote?: string;
     newAssigneeId?: string;
     departmentId?: string;
   }

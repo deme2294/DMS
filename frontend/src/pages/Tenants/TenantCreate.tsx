@@ -26,13 +26,13 @@ export default function TenantCreate() {
     try {
       const response = await createTenant(values as unknown as Record<string, unknown>);
       if (response.data?.success) {
-        const msg = response.data.message || `Tenant "${values.organizationName}" created successfully`;
+        const msg = response.data.message || `Tenant "${values.organizationName}" created successfully! Login credentials and dashboard task link have been dispatched to ${values.email}.`;
         setToast({ type: 'success', message: msg });
         setTimeout(() => {
           navigate('/admin/tenants', {
             state: { alert: { type: 'success', message: msg, title: 'Tenant Created' } },
           });
-        }, 500);
+        }, 600);
       } else {
         setToast({ type: 'error', message: response.data?.message || 'Failed to create tenant' });
       }

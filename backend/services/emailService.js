@@ -208,8 +208,9 @@ const wrap = (title, bodyHtml, ticket = null, targetRole = 'tenant', customActio
 // ────────────────────────────────────────────────────────────────────────────
 
 /**
- * Notify a user that their account was created with their login credentials and role-based access link.
- * @param {object} p  { email, firstName, lastName?, username, tempPassword?, role?, departmentName?, loginUrl? }
+ * Notify a user or tenant that their account was created with their login credentials,
+ * direct dashboard link to follow their tasks, and instructions to update their profile.
+ * @param {object} p  { email, firstName, lastName?, username, tempPassword?, role?, departmentName?, loginUrl?, organizationName? }
  */
 export const sendWelcomeEmail = async ({
   email,
@@ -220,6 +221,7 @@ export const sendWelcomeEmail = async ({
   role = 'user',
   departmentName = null,
   loginUrl = null,
+  organizationName = null,
 }) => {
   const appUrl = getAppUrl();
   const effectiveLoginUrl = loginUrl || `${appUrl}/login?username=${encodeURIComponent(username)}`;
@@ -260,10 +262,15 @@ export const sendWelcomeEmail = async ({
 
   const passwordLine = tempPassword
     ? `
-      <div style="margin: 12px 0 6px 0; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px;">
-        <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Temporary Password</span>
-        <code style="font-size: 16px; font-weight: 700; color: #0f172a; letter-spacing: 0.05em; font-family: 'Courier New', Courier, monospace; background: #e2e8f0; padding: 4px 10px; border-radius: 4px; display: inline-block;">${tempPassword}</code>
+      <div style="margin: 14px 0 8px 0; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 14px 18px;">
+        <span style="font-size: 11.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px;">Your Login Password</span>
+        <code style="font-size: 17px; font-weight: 700; color: #0f172a; letter-spacing: 0.06em; font-family: 'Courier New', Courier, monospace; background: #e2e8f0; padding: 5px 12px; border-radius: 6px; display: inline-block;">${tempPassword}</code>
+        <span style="display: block; font-size: 11.5px; color: #64748b; margin-top: 6px;">Use this password along with your username or email to log in.</span>
       </div>`
+    : '';
+
+  const organizationLine = organizationName
+    ? `<div style="margin: 8px 0; font-size: 13.5px; color: #334155;"><strong style="color: #64748b; width: 140px; display: inline-block;">Organization:</strong> <strong>${organizationName}</strong></div>`
     : '';
 
   const departmentLine = departmentName
@@ -273,11 +280,11 @@ export const sendWelcomeEmail = async ({
   const bodyHtml = `
     <div style="font-size: 14.5px; color: #1e293b; line-height: 1.6;">
       <p style="margin-top: 0;">Hello <strong>${firstName}${lastName ? ' ' + lastName : ''}</strong>,</p>
-      <p>Welcome to the <strong>${COMPANY_NAME}</strong>. An account has been created for you with the following credentials and role permissions:</p>
+      <p>Welcome to the <strong>${COMPANY_NAME}</strong>. An account has been created for you with the credentials below. You can use these details to access your dashboard, follow your tasks, and collaborate across the system.</p>
 
       <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 18px 20px; margin: 18px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <div style="margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Access Credentials</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Your Login Credentials</span>
           <span style="display: inline-block; background: ${roleBg}; color: ${roleColor}; border: 1px solid ${roleBorder}; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 12px;">
             ${formattedRole}
           </span>
@@ -289,8 +296,8 @@ export const sendWelcomeEmail = async ({
         </div>
 
         <div style="margin: 8px 0; font-size: 13.5px; color: #334155;">
-          <strong style="color: #64748b; width: 140px; display: inline-block;">Registered Email:</strong>
-          <span>${email}</span>
+          <strong style="color: #64748b; width: 140px; display: inline-block;">Email:</strong>
+          <span style="color: #0f172a; font-weight: 600;">${email}</span>
         </div>
 
         <div style="margin: 8px 0; font-size: 13.5px; color: #334155;">
@@ -298,25 +305,59 @@ export const sendWelcomeEmail = async ({
           <strong style="color: ${roleColor}; font-size: 14px;">${formattedRole}</strong>
         </div>
 
+        ${organizationLine}
         ${departmentLine}
-
         ${passwordLine}
       </div>
 
-      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin: 18px 0; font-size: 13px; color: #1e40af; line-height: 1.5;">
-        <strong>🚀 Role-Based Access:</strong> Based on your role (<strong>${formattedRole}</strong>), logging in with your credentials will automatically route you directly to your dedicated <strong>${formattedRole} Portal & Dashboard</strong>.
+      <!-- Follow Tasks Guidance -->
+      <div style="background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 13.5px; color: #166534; line-height: 1.5;">
+        <strong style="font-size: 14px;">🎯 Log In to Your Dashboard to Follow Your Tasks:</strong>
+        <p style="margin: 6px 0 0 0;">
+          Signing in with your credentials automatically opens your dedicated <strong>${formattedRole} Dashboard</strong>. From there, you can track and manage your tasks, submit requests, monitor ticket resolution timelines, and receive real-time notifications.
+        </p>
+      </div>
+
+      <!-- Profile Update Guidance -->
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 14px 18px; margin: 18px 0; font-size: 13.5px; color: #1e40af; line-height: 1.5;">
+        <strong style="font-size: 14px;">👤 Update Your Profile & Password:</strong>
+        <p style="margin: 6px 0 0 0;">
+          You can update your personal profile information (name, contact phone, avatar) and customize your password at any time by navigating to <strong>Profile Settings</strong> in the top-right menu once logged in.
+        </p>
       </div>
 
       <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 6px; padding: 10px 14px; margin: 14px 0; font-size: 12.5px; color: #854d0e;">
-        💡 <strong>Security Notice:</strong> Please keep your credentials confidential. For security reasons, we recommend updating your password after logging in for the first time.
+        💡 <strong>Security Notice:</strong> Please keep your login credentials secure. We recommend changing your initial password upon your first login.
       </div>
     </div>
   `;
 
   await sendMail({
     to: email,
-    subject: `🔐 [Help Desk] Your Account Credentials & Login Details (${formattedRole})`,
-    text: `Hello ${firstName}${lastName ? ' ' + lastName : ''},\n\nYour user account has been created in the Help Desk Management System.\n\nUsername: ${username}\nEmail: ${email}\nAssigned Role: ${formattedRole}${departmentName ? `\nDepartment: ${departmentName}` : ''}${tempPassword ? `\nTemporary Password: ${tempPassword}` : ''}\n\nSign in to your ${formattedRole} account at:\n${effectiveLoginUrl}\n\nPlease keep your credentials confidential.`,
+    subject: `🔐 [Help Desk] Your Account Credentials & Dashboard Login Details (${formattedRole})`,
+    text: `Hello ${firstName}${lastName ? ' ' + lastName : ''},
+
+Welcome to the ${COMPANY_NAME}. Your account has been created successfully.
+
+--------------------------------------------------
+YOUR ACCOUNT CREDENTIALS:
+--------------------------------------------------
+Username: ${username}
+Email: ${email}
+${tempPassword ? `Password: ${tempPassword}\n` : ''}Assigned Role: ${formattedRole}${organizationName ? `\nOrganization: ${organizationName}` : ''}${departmentName ? `\nDepartment: ${departmentName}` : ''}
+
+--------------------------------------------------
+LOG IN TO YOUR DASHBOARD & FOLLOW TASKS:
+--------------------------------------------------
+Sign in to your dashboard to follow your tasks, track tickets, and receive real-time updates:
+${effectiveLoginUrl}
+
+--------------------------------------------------
+UPDATE YOUR PROFILE:
+--------------------------------------------------
+You can update your profile details and change your password at any time via Profile Settings after logging in.
+
+Please keep your credentials confidential.`,
     html: wrap(
       'Account Created Successfully',
       bodyHtml,
@@ -324,7 +365,7 @@ export const sendWelcomeEmail = async ({
       'tenant',
       {
         url: effectiveLoginUrl,
-        label: `Sign In to Your ${formattedRole} Account`,
+        label: `Log In to Your Dashboard (${formattedRole})`,
       }
     ),
   });
@@ -1379,27 +1420,46 @@ export const sendTenantRegistrationAdminAlert = async ({ adminEmail, tenant }) =
 
 /**
  * Notify external tenant that their account has been approved and activated.
- * @param {object} p { email, organizationName, contactPerson }
+ * @param {object} p { email, organizationName, contactPerson, username }
  */
-export const sendTenantApprovedEmail = async ({ email, organizationName, contactPerson }) => {
+export const sendTenantApprovedEmail = async ({ email, organizationName, contactPerson, username = null }) => {
   const appUrl = getAppUrl();
-  const loginUrl = `${appUrl}/login`;
+  const effectiveLoginUrl = username
+    ? `${appUrl}/login?username=${encodeURIComponent(username)}`
+    : `${appUrl}/login`;
 
   await sendMail({
     to: email,
     subject: `✅ [HDMS] Organization Approved & Activated – ${organizationName}`,
-    text: `Hello ${contactPerson},\n\nYour organization "${organizationName}" has been approved. You may now log in to the Help Desk Management System at: ${loginUrl}`,
+    text: `Hello ${contactPerson},\n\nGreat news! Your organization account for "${organizationName}" has been approved and activated.\n\n${username ? `Login Username: ${username}\n` : ''}Registered Email: ${email}\n\nSign in to your dashboard to follow your tasks, submit support tickets, and manage services at:\n${effectiveLoginUrl}\n\nProfile & Password: You can update your profile details and change your password at any time via Profile Settings after logging in.`,
     html: wrap('Organization Account Activated', `
       <p>Hello <strong>${contactPerson}</strong>,</p>
-      <p>Great news! Your organization account for <strong>${organizationName}</strong> has been approved and activated.</p>
-      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 16px; margin: 18px 0; color: #065f46;">
-        <span style="font-weight: 700; font-size: 15px;">✓ Account Active & Ready to Use</span>
-        <p style="margin: 6px 0 0; font-size: 13.5px;">You can now log in, submit support tickets, communicate with departments, and access all tenant services.</p>
+      <p>Great news! Your organization account for <strong>${organizationName}</strong> has been officially approved and activated.</p>
+
+      <div style="background: #ffffff; border: 1.5px solid #a7f3d0; border-radius: 8px; padding: 16px 20px; margin: 18px 0;">
+        <span style="font-weight: 700; font-size: 15px; color: #065f46; display: block; margin-bottom: 8px;">✓ Account Active & Ready to Use</span>
+        ${username ? `<div style="font-size: 13.5px; color: #334155; margin-bottom: 6px;"><strong>Login Username:</strong> <code style="font-size: 14.5px; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">${username}</code></div>` : ''}
+        <div style="font-size: 13.5px; color: #334155; margin-bottom: 6px;"><strong>Registered Email:</strong> ${email}</div>
+        <div style="font-size: 13.5px; color: #334155;"><strong>Role:</strong> Tenant Organization</div>
       </div>
-      <div style="text-align: center; margin: 24px 0 10px 0;">
-        <a href="${loginUrl}" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; display: inline-block;">Log in to HDMS</a>
+
+      <div style="background: #f0fdf4; border-left: 4px solid #16a34a; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #166534; line-height: 1.5;">
+        <strong>🎯 Log In to Your Dashboard to Follow Your Tasks:</strong>
+        <p style="margin: 4px 0 0 0;">
+          You can now log in to your tenant dashboard to follow and submit support requests, track ticket resolutions in real time, communicate with departments, and access all helpdesk services.
+        </p>
       </div>
-    `),
+
+      <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #1e40af; line-height: 1.5;">
+        <strong>👤 Profile & Password Management:</strong>
+        <p style="margin: 4px 0 0 0;">
+          You can update your personal contact info and customize your password at any time by navigating to <strong>Profile Settings</strong> in the top-right menu once logged in.
+        </p>
+      </div>
+    `, null, 'tenant', {
+      url: effectiveLoginUrl,
+      label: 'Log In to Tenant Dashboard →',
+    }),
   });
 };
 

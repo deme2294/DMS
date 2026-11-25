@@ -210,14 +210,36 @@
   flex-wrap: wrap;
 }
 
-.searchInput {
+.searchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: min(260px, 100%);
   max-width: 480px;
-  padding: 10px 16px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.05rem;
+  pointer-events: none;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 11px 16px 11px 46px !important;
   border: 1px solid var(--my-input-border);
   border-radius: 11px;
-  font-size: 0.88rem;
+  font-size: 1rem;
+  min-height: 48px;
+  box-sizing: border-box;
   background: var(--my-input-bg);
   color: var(--my-input-text);
   outline: none;

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   ChevronDoubleLeftIcon,
@@ -123,22 +123,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const config = SIDEBAR_ITEMS[role] || SIDEBAR_ITEMS.admin;
   const sections: SidebarSection[] = config?.sections || [];
 
+  // Find the single best matching item path across all sections to prevent dual-active highlights
+  // (e.g. /admin/knowledge vs /admin/knowledge/approval)
+  const activeItemPath = React.useMemo(() => {
+    const allPaths: string[] = [];
+    sections.forEach((sec) => {
+      sec.items.forEach((item) => {
+        if (!item.permission || can(item.permission)) {
+          allPaths.push(item.path);
+        }
+      });
+    });
+
+    // 1. Exact match has highest priority
+    if (allPaths.includes(location.pathname)) {
+      return location.pathname;
+    }
+
+    // 2. Longest prefix match for nested sub-routes (e.g. /admin/tickets/123 -> /admin/tickets)
+    const matchingPrefixes = allPaths.filter(
+      (p) => p !== '/' && location.pathname.startsWith(p + '/')
+    );
+    if (matchingPrefixes.length > 0) {
+      matchingPrefixes.sort((a, b) => b.length - a.length);
+      return matchingPrefixes[0];
+    }
+
+    return '';
+  }, [sections, location.pathname, can]);
+
   // Helper to determine which section index contains the currently active route
   const getActiveSectionIndex = useCallback(() => {
     for (let i = 0; i < sections.length; i++) {
       const hasActive = sections[i].items.some((item) => {
         if (!item.permission || can(item.permission)) {
-          return (
-            location.pathname === item.path ||
-            (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
-          );
+          return item.path === activeItemPath;
         }
         return false;
       });
       if (hasActive) return i;
     }
     return 0; // default to first section (e.g. 'Main')
-  }, [sections, location.pathname, can]);
+  }, [sections, activeItemPath, can]);
 
   // Section expand state: accordion behavior where only one section is expanded at a time
   // Default to the section containing the currently active route
@@ -265,12 +291,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className={styles.nav}>
         {!isCollapsed && sections.length > 1 && (
           <div className={styles.navQuickToolbar}>
-            <div className={styles.navQuickLabel}>
-              <span>Navigation Menu</span>
-              <span className={styles.navTotalCountBadge}>
-                {sections.reduce((acc, s) => acc + s.items.filter((item) => !item.permission || can(item.permission)).length, 0)} items
-              </span>
-            </div>
+            <span className={styles.navTotalCountBadge}>
+              {sections.reduce((acc, s) => acc + s.items.filter((item) => !item.permission || can(item.permission)).length, 0)} items
+            </span>
             <button
               type="button"
               className={styles.toggleAllBtn}
@@ -286,11 +309,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const visibleItems = section.items.filter((item) => !item.permission || can(item.permission));
           if (!visibleItems.length) return null;
 
-          const hasActiveItem = visibleItems.some(
-            (item) =>
-              location.pathname === item.path ||
-              (item.path !== '/' && location.pathname.startsWith(item.path + '/'))
-          );
+          const hasActiveItem = visibleItems.some((item) => item.path === activeItemPath);
 
           // In collapsed sidebar all icons are shown; in normal sidebar accordion only the expanded section is open
           const isOpen = isCollapsed ? true : Boolean(expandedSections[sIdx]);
@@ -337,9 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className={styles.sectionItemsInner}>
                   {visibleItems.map((item) => {
-                    const isActive =
-                      location.pathname === item.path ||
-                      (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
+                    const isActive = item.path === activeItemPath;
                     return (
                       <Link
                         key={item.path}

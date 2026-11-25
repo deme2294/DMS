@@ -4,34 +4,34 @@
   background: rgba(241, 245, 249, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  padding: 3px;
+  padding: 4px;
   border-radius: 9999px;
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  gap: 3px;
+  border: 1.5px solid rgba(203, 213, 225, 0.95);
+  gap: 4px;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
   position: relative;
 }
 
 :global([data-theme='dark']) .container,
 [data-theme='dark'] .container {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  background: #0f172a;
+  border: 1.5px solid rgba(59, 130, 246, 0.35);
+  box-shadow: none;
 }
 
 .optionBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 7px;
+  padding: 7px 14px;
   border-radius: 9999px;
   border: 1px solid transparent;
   background: transparent;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 500;
+  color: #475569;
+  font-size: 0.92rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
@@ -41,31 +41,31 @@
 
 :global([data-theme='dark']) .optionBtn,
 [data-theme='dark'] .optionBtn {
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 
 .optionBtn:hover {
   color: #0f172a;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 :global([data-theme='dark']) .optionBtn:hover,
 [data-theme='dark'] .optionBtn:hover {
-  color: #f8fafc;
-  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Active: White / Light Mode ────────────────────────────────────────────── */
 .optionBtn.activeLight {
   background: #ffffff;
   color: #0f172a;
-  font-weight: 600;
-  border-color: rgba(226, 232, 240, 0.9);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  font-weight: 700;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
 .optionBtn.activeLight .icon {
-  color: #f59e0b;
+  color: #d97706;
   filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.55));
   transform: rotate(15deg);
 }
@@ -73,16 +73,14 @@
 /* ── Active: Night Mode ────────────────────────────────────────────────────── */
 .optionBtn.activeDark {
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%);
-  color: #f8fafc;
-  font-weight: 600;
-  border-color: rgba(129, 140, 248, 0.5);
-  box-shadow:
-    0 2px 10px rgba(99, 102, 241, 0.4),
-    0 0 0 1px rgba(165, 180, 252, 0.25) inset;
+  color: #ffffff;
+  font-weight: 700;
+  border-color: rgba(129, 140, 248, 0.6);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
 }
 
 .optionBtn.activeDark .icon {
-  color: #c084fc;
+  color: #e9d5ff;
   filter: drop-shadow(0 0 4px rgba(192, 132, 252, 0.7));
   transform: rotate(-10deg);
 }
@@ -90,10 +88,10 @@
 /* ── Active: System Mode ───────────────────────────────────────────────────── */
 .optionBtn.activeSystem {
   background: #ffffff;
-  color: #2563eb;
-  font-weight: 600;
-  border-color: rgba(226, 232, 240, 0.9);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: #1d4ed8;
+  font-weight: 700;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
 .optionBtn.activeSystem .icon {
@@ -105,8 +103,8 @@
 [data-theme='dark'] .optionBtn.activeSystem {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.4);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: none;
 }
 
 :global([data-theme='dark']) .optionBtn.activeSystem .icon,
@@ -116,16 +114,17 @@
 }
 
 .icon {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   flex-shrink: 0;
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease, filter 0.2s ease;
 }
 
 .label {
   display: inline-block;
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   letter-spacing: 0.01em;
+  font-weight: 600;
 }
 
 @media (max-width: 1200px) {

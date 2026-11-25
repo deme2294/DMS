@@ -435,6 +435,16 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Updated notifications.type ENUM');
     }
 
+    // Clean up misplaced SLA and internal notifications mistakenly routed to tenants in the past (local & deployment)
+    try {
+      await pool.query(`
+        DELETE n FROM notifications n
+        JOIN users u ON u.id = n.user_id
+        JOIN roles r ON r.id = u.role_id
+        WHERE r.name = 'tenant' AND n.type IN ('sla', 'internal')
+      `);
+    } catch (_) {}
+
     // 5. Table ticket_categories workflow columns
     if (!(await columnExists('ticket_categories', 'status'))) {
       await pool.query(`

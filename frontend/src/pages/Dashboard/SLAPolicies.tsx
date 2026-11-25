@@ -753,7 +753,7 @@ export default function SLAPolicies() {
             </div>
           )}
 
-          <div className={styles.formRow}>
+          <div className={styles.timeFormRow}>
             <div className={styles.formGroup}>
               <label className={styles.formLabel}>First Response Time (hours) <span className={styles.required}>*</span></label>
               <input

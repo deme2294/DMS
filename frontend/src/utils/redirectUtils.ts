@@ -17,6 +17,14 @@ export function resolveRoleRedirect(rawUrl: string, userRole?: string | null): s
   const pathname = urlObj.pathname;
   const searchAndHash = urlObj.search + urlObj.hash;
 
+  // 0. Duplicate ticket hub (/tickets/duplicates, /admin/tickets/duplicates, etc.)
+  if (/^(?:\/(?:tenant|admin|manager|staff|ceo))?\/tickets\/duplicates\/?$/.test(pathname)) {
+    if (['admin', 'ceo', 'manager'].includes(role)) {
+      return `${rolePrefix}/tickets/duplicates${searchAndHash}`;
+    }
+    return `${rolePrefix}/tickets${searchAndHash}`;
+  }
+
   // 1. Ticket detail (/tickets/:id, /tenant/tickets/:id, /admin/tickets/:id, etc.)
   const ticketDetailMatch = pathname.match(/^(?:\/(?:tenant|admin|manager|staff|ceo))?\/tickets\/([^/]+)$/);
   if (ticketDetailMatch) {

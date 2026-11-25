@@ -28,6 +28,14 @@ router.post('/refresh', authController.refreshToken);
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 
+router.post(
+  '/me/check-profile-image',
+  authenticate,
+  uploadUserProfile.single('profileImage'),
+  handleUploadError,
+  authController.checkMyProfileImage
+);
+
 router.patch(
   '/me/profile',
   authenticate,

@@ -40,7 +40,7 @@
   overflow: hidden;
   background: #ffffff;
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #e2e8f0;
   box-shadow:
     0 4px 6px -2px rgba(15, 23, 42, 0.05),
     0 25px 60px -15px rgba(15, 23, 42, 0.22);
@@ -79,16 +79,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 28px 18px;
+  padding: 26px 30px 20px;
   background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1.5px solid #f1f5f9;
   flex-shrink: 0;
   position: relative;
 }
 
 .header h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
@@ -99,14 +99,14 @@
 }
 
 .header button {
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #e2e8f0;
   background: #f8fafc;
   font-size: 1.1rem;
   color: #64748b;
   cursor: pointer;
   padding: 0;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,7 +126,7 @@
 /* ── BODY ────────────────────────────────────────────────────────────────── */
 
 .body {
-  padding: 24px 28px 28px;
+  padding: 28px 30px 32px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -156,9 +156,9 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 28px;
-  border-top: 1px solid #f1f5f9;
-  background: #fafbfc;
+  padding: 18px 30px;
+  border-top: 1.5px solid #f1f5f9;
+  background: #f8fafc;
   flex-shrink: 0;
 }
 
@@ -204,44 +204,57 @@
    DARK THEME OVERRIDES
    ========================================================================== */
 
-:global([data-theme="dark"]) .modal {
-  background: #151b28 !important;
-  border-color: #252e3e !important;
+:global([data-theme="dark"]) .modal,
+:global(.dark) .modal {
+  background: #0f172a !important;
+  border-color: rgba(56, 189, 248, 0.2) !important;
   box-shadow:
-    0 4px 6px -2px rgba(0, 0, 0, 0.4),
-    0 25px 60px -15px rgba(0, 0, 0, 0.75) !important;
+    0 4px 6px -2px rgba(0, 0, 0, 0.5),
+    0 25px 60px -15px rgba(0, 0, 0, 0.8) !important;
 }
 
-:global([data-theme="dark"]) .modal::before {
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%) !important;
+:global([data-theme="dark"]) .modal::before,
+:global(.dark) .modal::before {
+  background: linear-gradient(90deg, #3b82f6 0%, #38bdf8 100%) !important;
 }
 
-:global([data-theme="dark"]) .header {
-  background: #151b28 !important;
-  border-bottom-color: #1e2738 !important;
+:global([data-theme="dark"]) .header,
+:global(.dark) .header {
+  background: #0f172a !important;
+  border-bottom-color: rgba(56, 189, 248, 0.15) !important;
 }
 
-:global([data-theme="dark"]) .header h2 {
-  color: #f1f5f9 !important;
+:global([data-theme="dark"]) .header h2,
+:global(.dark) .header h2 {
+  color: #f8fafc !important;
 }
 
-:global([data-theme="dark"]) .header button {
-  background: #1c2436 !important;
-  border-color: #2d3748 !important;
+:global([data-theme="dark"]) .header button,
+:global(.dark) .header button {
+  background: #1e293b !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
   color: #94a3b8 !important;
 }
 
-:global([data-theme="dark"]) .header button:hover {
-  background: rgba(239, 68, 68, 0.18) !important;
-  border-color: rgba(239, 68, 68, 0.4) !important;
+:global([data-theme="dark"]) .header button:hover,
+:global(.dark) .header button:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
   color: #f87171 !important;
 }
 
-:global([data-theme="dark"]) .body::-webkit-scrollbar-thumb {
-  background: #2d3748;
+:global([data-theme="dark"]) .body,
+:global(.dark) .body {
+  background: #0f172a !important;
 }
 
-:global([data-theme="dark"]) .footer {
-  background: #111622 !important;
-  border-top-color: #1e2738 !important;
+:global([data-theme="dark"]) .body::-webkit-scrollbar-thumb,
+:global(.dark) .body::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+:global([data-theme="dark"]) .footer,
+:global(.dark) .footer {
+  background: #0c1627 !important;
+  border-top-color: rgba(56, 189, 248, 0.15) !important;
 }

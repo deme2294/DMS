@@ -119,19 +119,35 @@ export const getTicketMembersWithStatus = async (ticketId) => {
             CASE 
               WHEN u.id = ? THEN 'Creator'
               WHEN u.id = ? THEN 'Assigned Agent'
+              WHEN r.name = 'admin' THEN 'Administrator'
+              WHEN r.name = 'manager' THEN 'Department Manager'
+              WHEN EXISTS (SELECT 1 FROM ticket_collaborators tc WHERE tc.ticket_id = ? AND tc.user_id = u.id) THEN 'Collaborator'
               ELSE 'Department Staff'
             END AS ticket_role
      FROM users u
      JOIN roles r ON r.id = u.role_id
      LEFT JOIN user_online_status uos ON uos.user_id = u.id
      LEFT JOIN user_departments ud ON ud.user_id = u.id
-     WHERE (u.id = ? OR (u.id = ? AND ? IS NOT NULL) OR (ud.department_id = ? AND ? IS NOT NULL))
+     WHERE (
+       u.id = ? 
+       OR (u.id = ? AND ? IS NOT NULL) 
+       OR (ud.department_id = ? AND ? IS NOT NULL)
+       OR r.name = 'admin'
+       OR EXISTS (SELECT 1 FROM ticket_collaborators tc WHERE tc.ticket_id = ? AND tc.user_id = u.id)
+       OR EXISTS (
+         SELECT 1 FROM chat_participants cp 
+         JOIN chat_rooms cr ON cr.id = cp.room_id 
+         WHERE cr.room_type = 'ticket' AND cr.ticket_id = ? AND cp.user_id = u.id
+       )
+     )
        AND u.status = 'active'
      ORDER BY is_online DESC, u.first_name, u.last_name`,
     [
-      ticket.created_by, ticket.assigned_to,
+      ticket.created_by, ticket.assigned_to, ticketId,
       ticket.created_by, ticket.assigned_to, ticket.assigned_to,
-      departmentId, departmentId
+      departmentId, departmentId,
+      ticketId,
+      ticketId
     ]
   );
   return rows;

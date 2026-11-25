@@ -125,6 +125,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           <span className={styles.searchIcon}>🔍</span>
           <input
             type="text"
+            className={styles.searchInput}
             placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}

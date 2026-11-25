@@ -119,7 +119,7 @@ const processNearDeadlineWarnings = async () => {
           ticket: { ...ticket, reference_number: ref, title: ticket.title, priority: ticket.priority, status: ticket.status },
           breachType: ticket.breachType,
           remainingHours,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } else if (ticket.department_id) {
       // If ticket is unassigned, notify active department manager so they can act before SLA breach
@@ -137,7 +137,7 @@ const processNearDeadlineWarnings = async () => {
           ticket: { ...ticket, reference_number: ref, title: ticket.title, priority: ticket.priority, status: ticket.status },
           breachType: ticket.breachType,
           remainingHours,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
 
@@ -174,7 +174,7 @@ const processResponseBreaches = async () => {
       resolutionDeadline: ticket.response_due_date,
       breachStatus: 'response_breached',
       notes: 'First response SLA deadline breached',
-    }).catch(() => {});
+    }).catch(() => { });
     await auditService.logAction(
       null, 'sla_breach', 'ticket', ticket.id, null,
       { type: 'response', field: 'response_sla_breached', dueDate: ticket.response_due_date },
@@ -198,7 +198,7 @@ const processEscalationBreaches = async () => {
     const prevStatus = ticket.status;
     await pool.query(
       `UPDATE tickets
-       SET escalation_sla_breached = 1, sla_status = 'escalation_triggered', is_escalated = 1, escalated_at = COALESCE(escalated_at, NOW()), updated_at = NOW()
+       SET status = 'escalated', escalation_sla_breached = 1, sla_status = 'escalation_triggered', is_escalated = 1, escalated_at = COALESCE(escalated_at, NOW()), updated_at = NOW()
        WHERE id = :id`,
       { id: ticket.id }
     );
@@ -212,7 +212,7 @@ const processEscalationBreaches = async () => {
       resolutionDeadline: ticket.due_date,
       breachStatus: 'escalation_triggered',
       notes: 'Automatic SLA escalation threshold reached',
-    }).catch(() => {});
+    }).catch(() => { });
     await ticketRepo.logStatusHistory({
       id: uuidv4(),
       ticketId: ticket.id,
@@ -220,7 +220,7 @@ const processEscalationBreaches = async () => {
       toStatus: 'escalated',
       notes: `Ticket automatically escalated due to Escalation SLA policy breach (due: ${ticket.escalation_due_date})`,
       role: 'system',
-    }).catch(() => {});
+    }).catch(() => { });
 
     await auditService.logAction(
       null, 'sla_escalation', 'ticket', ticket.id, null,
@@ -245,7 +245,7 @@ const processOverdueTickets = async () => {
     const prevStatus = ticket.status;
     await pool.query(
       `UPDATE tickets
-       SET is_overdue = 1, sla_status = 'resolution_breached', updated_at = NOW()
+       SET status = 'escalated', is_overdue = 1, is_escalated = 1, escalated_at = COALESCE(escalated_at, NOW()), sla_status = 'resolution_breached', updated_at = NOW()
        WHERE id = :id`,
       { id: ticket.id }
     );
@@ -259,7 +259,7 @@ const processOverdueTickets = async () => {
       resolutionDeadline: ticket.due_date,
       breachStatus: 'resolution_breached',
       notes: 'Resolution SLA deadline breached without completion',
-    }).catch(() => {});
+    }).catch(() => { });
     await ticketRepo.logStatusHistory({
       id: uuidv4(),
       ticketId: ticket.id,
@@ -267,7 +267,7 @@ const processOverdueTickets = async () => {
       toStatus: 'escalated',
       notes: `Ticket automatically escalated due to Resolution SLA deadline breach (due: ${ticket.due_date})`,
       role: 'system',
-    }).catch(() => {});
+    }).catch(() => { });
 
     await auditService.logAction(
       null, 'ticket_overdue', 'ticket', ticket.id, null,

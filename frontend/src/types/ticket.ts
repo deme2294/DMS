@@ -39,6 +39,7 @@ export type OperationalEscalationStatus =
   | 'guidance_provided'
   | 'reassigned'
   | 'collaborative'
+  | 'in_person_resolution'
   | 'resolved';
 
 export interface OperationalEscalation {
@@ -107,12 +108,35 @@ export interface TicketSLAEscalation {
   created_at: string;
 }
 
+export interface PreviousDepartment {
+  departmentId: string;
+  departmentName: string;
+  assignedAt?: string | null;
+  managerId?: string | null;
+  managerName?: string | null;
+  isCurrent?: boolean;
+}
+
+export interface PreviousStaff {
+  staffId: string;
+  staffName?: string | null;
+  userId?: string;
+  userName?: string | null;
+  assignedAt?: string | null;
+  isCurrent?: boolean;
+}
+
 export interface AssignmentLockInfo {
   isLocked: boolean;
   remainingMinutes: number;
   lockDurationMinutes: number;
+  cooldownMinutes?: number;
+  isCustomTime?: boolean;
+  lockUntil?: string | null;
   assignedAt?: string | null;
   assignedToName?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
 }
 
 export interface TicketAttachment {
@@ -146,6 +170,8 @@ export interface AssignmentItem {
   role: 'department_manager' | 'staff';
   status: 'pending' | 'accepted' | 'completed' | 'rejected';
   notes?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
   assignedTo?: string | null;
   assignedToName?: string | null;
   assignedBy?: string | null;
@@ -276,9 +302,18 @@ export interface Ticket {
   operationalEscalations?: OperationalEscalation[];
   slaEscalations?: TicketSLAEscalation[];
   collaborators?: TicketCollaborator[];
+  previousDepartments?: PreviousDepartment[];
+  previousStaff?: PreviousStaff[];
   deptAssignmentLock?: AssignmentLockInfo | null;
   staffAssignmentLock?: AssignmentLockInfo | null;
-   attachments?: TicketAttachment[];
+  reassignTimeMinutes?: number | null;
+  staffReassignTimeMinutes?: number | null;
+  mergedAt?: string | null;
+  mergedBy?: string | null;
+  mergeReason?: string | null;
+  linkedTickets?: LinkedTicket[];
+  primaryTicketInfo?: PrimaryTicketInfo | null;
+  attachments?: TicketAttachment[];
   statusHistory?: StatusHistoryItem[];
   assignments?: AssignmentItem[];
   replies?: TicketReply[];
@@ -400,3 +435,101 @@ export const DEFAULT_CATEGORIES = [
   'Internet', 'ERP', 'Attendance', 'Leave', 'Access Request',
   'Payroll', 'Maintenance', 'Other',
 ];
+
+export interface LinkedTicket {
+  id: string;
+  referenceNumber: string;
+  trackNumber?: string | null;
+  title: string;
+  description?: string | null;
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  tenantName?: string | null;
+  tenantEmail?: string | null;
+  mergedAt: string;
+  mergedBy: string;
+  mergedByName?: string | null;
+  mergeReason: string;
+  similarityScore?: number | null;
+  originalStatus?: string | null;
+  originalSlaStatus?: string | null;
+  originalDueDate?: string | null;
+  originalResponseDueDate?: string | null;
+}
+
+export interface PrimaryTicketInfo {
+  primaryId: string;
+  primaryReference: string;
+  primaryTrackNumber?: string | null;
+  primaryTitle: string;
+  primaryStatus: TicketStatus;
+  primaryPriority?: TicketPriority;
+  primaryCategory?: string;
+  primaryDepartmentId?: string | null;
+  primaryDepartmentName?: string | null;
+  primaryAssignedTo?: string | null;
+  primaryAssignedToName?: string | null;
+  primaryResolutionNotes?: string | null;
+  primaryResolvedAt?: string | null;
+  primaryClosedAt?: string | null;
+  primaryCreatedAt?: string;
+  mergedAt: string;
+  mergedByName?: string | null;
+  mergeReason: string;
+  similarityScore?: number | null;
+}
+
+export interface MergeCandidateWithSimilarity extends Ticket {
+  similarityScore?: number;
+  similarityConfidence?: 'high' | 'medium' | 'low';
+  similarityReasons?: string[];
+  isSuggestedDuplicate?: boolean;
+}
+
+export interface GlobalDuplicateSuggestion {
+  ticketA: Ticket;
+  ticketB: Ticket;
+  primaryCandidate?: Ticket;
+  duplicateCandidate?: Ticket;
+  score: number;
+  confidence: 'high' | 'medium' | 'low';
+  reasons: string[];
+  pattern?: 'cross_tenant' | 'time_shifted' | 'cross_tenant_time_shifted' | 'same_tenant' | 'same_tenant_repeated' | 'general_similarity';
+  patternLabel?: string;
+  isCrossTenant?: boolean;
+  isTimeShifted?: boolean;
+  isSameTenant?: boolean;
+  isSameTenantRepeated?: boolean;
+  isSameCategory?: boolean;
+  daysDiff?: number | null;
+  hoursDiff?: number | null;
+}
+
+export interface MergedTicketRecord {
+  id: string;
+  referenceNumber: string;
+  trackNumber: string;
+  title: string;
+  status: string;
+  priority: string;
+  category: string;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  assignedTo?: string | null;
+  assignedToName?: string | null;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  createdAt: string;
+  mergedAt: string;
+  mergeReason: string;
+  primaryId: string;
+  primaryReference: string;
+  primaryTitle: string;
+  primaryStatus: string;
+  mergedByName?: string | null;
+}

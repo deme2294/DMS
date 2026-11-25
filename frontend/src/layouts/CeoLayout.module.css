@@ -8,9 +8,9 @@
 
 .main {
   flex: 1;
-  margin-left: var(--sidebar-width, 275px);
-  width: calc(100% - var(--sidebar-width, 275px));
-  max-width: calc(100% - var(--sidebar-width, 275px));
+  margin-left: var(--sidebar-width, 290px);
+  width: calc(100% - var(--sidebar-width, 290px));
+  max-width: calc(100% - var(--sidebar-width, 290px));
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -78,7 +78,7 @@
 
 .systemHeaderTitle {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   color: var(--text-primary, #0f172a);
@@ -93,13 +93,13 @@
 
 .systemHeaderDivider {
   color: #94a3b8;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   user-select: none;
   opacity: 0.7;
 }
 
 .systemHeaderSub {
-  font-size: 0.76rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--text-muted, #64748b);
   letter-spacing: 0.02em;

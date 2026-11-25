@@ -123,7 +123,7 @@ export const findAll = async ({
   }
   if (status) {
     if (status === 'escalated') {
-      where += " AND (t.status = 'escalated' OR t.status LIKE 'escalated.%' OR t.is_escalated = 1)";
+      where += " AND ((t.status = 'escalated' OR t.status LIKE 'escalated.%' OR t.is_escalated = 1) AND (t.operational_escalation_status IS NULL OR t.operational_escalation_status != 'pending_manager'))";
     } else if (status === 'resolved') {
       where += " AND (t.status = 'resolved' OR t.status = 'escalated.resolved' OR (t.status = 'resolved' AND t.is_escalated = 1))";
     } else if (status.startsWith('escalated.')) {
@@ -281,6 +281,7 @@ export const update = async (id, fields) => {
     'routing_type', 'sla_agreement_accepted', 'sla_agreement_accepted_at',
     'is_overdue', 'response_sla_breached', 'escalation_sla_breached', 'sla_achieved',
     'sla_status', 'operational_escalation_status', 'operational_escalation_reason',
+    'reassign_time_minutes', 'staff_reassign_time_minutes',
   ];
   const sets = [];
   const params = { id: actualId };
@@ -660,16 +661,17 @@ export const getReplies = async (ticketId) => {
 
 // ── Assignment lifecycle (assignments table) ──
 export const createAssignment = async ({
-  ticketId, assignedBy, assignedTo, role, notes, priority, category, fromAssignmentId, status = 'pending', acceptedAt = null,
+  ticketId, departmentId = null, assignedBy, assignedTo, role, notes, priority, category, fromAssignmentId, status = 'pending', acceptedAt = null,
 }) => {
   const id = uuidv4();
   await pool.query(
     `INSERT INTO assignments
-       (id, ticket_id, assigned_by, assigned_to, role, notes, priority, category, from_assignment_id, status, accepted_at)
-     VALUES (:id, :ticketId, :assignedBy, :assignedTo, :role, :notes, :priority, :category, :fromAssignmentId, :status, :acceptedAt)`,
+       (id, ticket_id, department_id, assigned_by, assigned_to, role, notes, priority, category, from_assignment_id, status, accepted_at)
+     VALUES (:id, :ticketId, :departmentId, :assignedBy, :assignedTo, :role, :notes, :priority, :category, :fromAssignmentId, :status, :acceptedAt)`,
     {
       id,
       ticketId,
+      departmentId: departmentId || null,
       assignedBy,
       assignedTo,
       role,
@@ -694,6 +696,16 @@ export const findActiveAssignment = async (ticketId, role) => {
   return rows[0] || null;
 };
 
+export const findPendingAssignment = async (ticketId, role) => {
+  const actualId = await resolveTicketId(ticketId);
+  let sql = `SELECT * FROM assignments WHERE ticket_id = :actualId AND status = 'pending'`;
+  const params = { actualId };
+  if (role) { sql += ' AND role = :role'; params.role = role; }
+  sql += ' ORDER BY created_at DESC LIMIT 1';
+  const [rows] = await pool.query(sql, params);
+  return rows[0] || null;
+};
+
 export const acceptAssignment = async (id, acceptedAt = new Date()) => {
   await pool.query(
     `UPDATE assignments SET status = 'accepted', accepted_at = :acceptedAt WHERE id = :id`,
@@ -701,11 +713,18 @@ export const acceptAssignment = async (id, acceptedAt = new Date()) => {
   );
 };
 
-export const rejectAssignment = async (id, rejectedAt = new Date()) => {
-  await pool.query(
-    `UPDATE assignments SET status = 'rejected', rejected_at = :rejectedAt WHERE id = :id`,
-    { id, rejectedAt }
-  );
+export const rejectAssignment = async (id, rejectedAt = new Date(), reason = null) => {
+  if (reason) {
+    await pool.query(
+      `UPDATE assignments SET status = 'rejected', rejected_at = :rejectedAt, notes = CONCAT(COALESCE(notes, ''), ' [Rejection Reason: ', :reason, ']') WHERE id = :id`,
+      { id, rejectedAt, reason }
+    );
+  } else {
+    await pool.query(
+      `UPDATE assignments SET status = 'rejected', rejected_at = :rejectedAt WHERE id = :id`,
+      { id, rejectedAt }
+    );
+  }
 };
 
 export const reassignAssignment = async (id, reassignedAt = new Date()) => {
@@ -733,9 +752,11 @@ export const updateAssignment = async (id, fields) => {
 export const getAssignments = async (ticketId) => {
   const actualId = await resolveTicketId(ticketId);
   const [rows] = await pool.query(
-    `SELECT a.*, CONCAT(b.first_name,' ',b.last_name) AS assigned_by_name,
+    `SELECT a.*, d.name AS department_name,
+            CONCAT(b.first_name,' ',b.last_name) AS assigned_by_name,
             CONCAT(t.first_name,' ',t.last_name) AS assigned_to_name
      FROM assignments a
+     LEFT JOIN departments d ON d.id = a.department_id
      LEFT JOIN users b ON b.id = a.assigned_by
      LEFT JOIN users t ON t.id = a.assigned_to
      WHERE a.ticket_id = :actualId ORDER BY a.created_at ASC`,
@@ -752,6 +773,231 @@ export const mergeInto = async (sourceIds, targetId) => {
     `UPDATE tickets SET merged_into = ?, status = 'cancelled', cancelled_at = NOW() WHERE id IN (${placeholders})`,
     [targetId, ...sourceIds]
   );
+};
+
+// Atomically merge multiple source tickets into a primary ticket with full audit history
+export const mergeTicketsAtomic = async ({ primaryId, sourceTickets, mergedBy, reason, similarityScores = {} }) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const now = new Date();
+
+    for (const src of sourceTickets) {
+      const mergeId = uuidv4();
+      const score = similarityScores[src.id] != null ? similarityScores[src.id] : null;
+
+      // 1. Insert into ticket_merges audit table
+      await conn.query(
+        `INSERT INTO ticket_merges
+          (id, primary_ticket_id, merged_ticket_id, merged_by, reason, similarity_score, original_status, original_sla_status, original_due_date, original_response_due_date, created_at)
+         VALUES
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          mergeId,
+          primaryId,
+          src.id,
+          mergedBy,
+          reason,
+          score,
+          src.status || 'open',
+          src.sla_status || null,
+          src.due_date ? new Date(src.due_date) : null,
+          src.response_due_date ? new Date(src.response_due_date) : null,
+          now
+        ]
+      );
+
+      // 2. Update secondary ticket status to cancelled and set merged_into, merged_by, merged_at, merge_reason
+      await conn.query(
+        `UPDATE tickets
+         SET merged_into = ?,
+             merged_by = ?,
+             merged_at = ?,
+             merge_reason = ?,
+             status = 'cancelled',
+             cancelled_at = ?
+         WHERE id = ?`,
+        [primaryId, mergedBy, now, reason, now, src.id]
+      );
+    }
+
+    await conn.commit();
+    return true;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+// Get all tickets merged into a given primary ticket
+export const getMergedTickets = async (primaryTicketId) => {
+  const actualId = await resolveTicketId(primaryTicketId);
+  const [rows] = await pool.query(
+    `SELECT t.id, t.reference_number, t.track_number, t.title, t.description,
+            t.status, t.priority, t.category, t.department_id, d.name AS department_name,
+            t.created_by, CONCAT(cu.first_name, ' ', cu.last_name) AS created_by_name,
+            t.tenant_id, tn.organization_name AS tenant_name,
+            t.created_at, t.due_date, t.sla_status,
+            tm.id AS merge_record_id, tm.reason AS merge_reason, tm.created_at AS merged_at,
+            tm.original_status, tm.original_sla_status, tm.similarity_score,
+            CONCAT(mu.first_name, ' ', mu.last_name) AS merged_by_name
+     FROM tickets t
+     LEFT JOIN ticket_merges tm ON tm.merged_ticket_id = t.id AND tm.primary_ticket_id = :actualId
+     LEFT JOIN users mu ON mu.id = tm.merged_by
+     LEFT JOIN departments d ON d.id = t.department_id
+     LEFT JOIN tenants tn ON tn.id = t.tenant_id
+     LEFT JOIN users cu ON cu.id = t.created_by
+     WHERE t.merged_into = :actualId
+     ORDER BY t.merged_at DESC, t.created_at DESC`,
+    { actualId }
+  );
+  return rows;
+};
+
+// Get merge details for a ticket if it was merged into a primary ticket
+export const getPrimaryTicketForMerged = async (ticketId) => {
+  const actualId = await resolveTicketId(ticketId);
+  const [rows] = await pool.query(
+    `SELECT pt.id AS primary_id, pt.reference_number AS primary_reference,
+            pt.track_number AS primary_track_number, pt.title AS primary_title,
+            pt.status AS primary_status,
+            pt.resolution_notes AS primary_resolution_notes,
+            pt.resolved_at AS primary_resolved_at,
+            pt.closed_at AS primary_closed_at,
+            pt.department_id AS primary_department_id,
+            pd.name AS primary_department_name,
+            pt.assigned_to AS primary_assigned_to,
+            CONCAT(pau.first_name, ' ', pau.last_name) AS primary_assigned_to_name,
+            tm.reason AS merge_reason, tm.created_at AS merged_at,
+            CONCAT(mu.first_name, ' ', mu.last_name) AS merged_by_name,
+            tm.original_status, tm.original_sla_status
+     FROM tickets t
+     JOIN tickets pt ON pt.id = t.merged_into
+     LEFT JOIN departments pd ON pd.id = pt.department_id
+     LEFT JOIN users pau ON pau.id = pt.assigned_to
+     LEFT JOIN ticket_merges tm ON tm.merged_ticket_id = t.id AND tm.primary_ticket_id = pt.id
+     LEFT JOIN users mu ON mu.id = tm.merged_by
+     WHERE t.id = :actualId
+     LIMIT 1`,
+    { actualId }
+  );
+  return rows[0] || null;
+};
+
+// Fetch ledger of all merged tickets in the system
+export const findMergedTicketsLedger = async (departmentFilter = null) => {
+  let query = `
+    SELECT 
+      t.id, t.reference_number AS referenceNumber, t.track_number AS trackNumber,
+      t.title, t.status, t.priority, t.category,
+      t.department_id AS departmentId, d.name AS departmentName,
+      t.assigned_to AS assignedTo, CONCAT(au.first_name, ' ', au.last_name) AS assignedToName,
+      t.tenant_id AS tenantId, tn.organization_name AS tenantName,
+      t.created_at AS createdAt, t.merged_at AS mergedAt, t.merge_reason AS mergeReason,
+      pt.id AS primaryId, pt.reference_number AS primaryReference, pt.title AS primaryTitle,
+      pt.status AS primaryStatus,
+      CONCAT(mu.first_name, ' ', mu.last_name) AS mergedByName
+    FROM tickets t
+    JOIN tickets pt ON pt.id = t.merged_into
+    LEFT JOIN departments d ON d.id = t.department_id
+    LEFT JOIN users au ON au.id = t.assigned_to
+    LEFT JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN users mu ON mu.id = t.merged_by
+    WHERE t.merged_into IS NOT NULL
+  `;
+  const params = {};
+  if (Array.isArray(departmentFilter) && departmentFilter.length > 0) {
+    query += ` AND (t.department_id IN (:departmentFilter) OR pt.department_id IN (:departmentFilter))`;
+    params.departmentFilter = departmentFilter;
+  } else if (departmentFilter && typeof departmentFilter === 'string') {
+    query += ` AND (t.department_id = :departmentFilter OR pt.department_id = :departmentFilter)`;
+    params.departmentFilter = departmentFilter;
+  }
+  query += ` ORDER BY t.merged_at DESC, t.created_at DESC LIMIT 200`;
+  const [rows] = await pool.query(query, params);
+  return rows;
+};
+
+// Synchronize outcome from resolved or closed primary ticket to its merged tickets
+export const syncPrimaryOutcomeToMerged = async (primaryId, outcomeStatus, notes, actorId) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const now = new Date();
+
+    const [merged] = await conn.query(
+      `SELECT id, reference_number, tenant_id, created_by, tenant_confirmation_status
+       FROM tickets
+       WHERE merged_into = ?`,
+      [primaryId]
+    );
+
+    for (const m of merged) {
+      if (outcomeStatus === 'resolved') {
+        await conn.query(
+          `UPDATE tickets SET resolved_at = COALESCE(resolved_at, ?) WHERE id = ?`,
+          [now, m.id]
+        );
+      } else if (outcomeStatus === 'closed') {
+        await conn.query(
+          `UPDATE tickets SET closed_at = COALESCE(closed_at, ?) WHERE id = ?`,
+          [now, m.id]
+        );
+      }
+
+      // Log status history on the merged ticket documenting synchronization from primary
+      const historyId = uuidv4();
+      await conn.query(
+        `INSERT INTO ticket_status_history (id, ticket_id, from_status, to_status, changed_by, role, notes, created_at)
+         VALUES (?, ?, 'cancelled', 'cancelled', ?, 'system', ?, ?)`,
+        [
+          historyId,
+          m.id,
+          actorId,
+          `Primary ticket outcome '${outcomeStatus}' synchronized.${notes ? ` Note: ${notes}` : ''}`,
+          now
+        ]
+      );
+    }
+
+    await conn.commit();
+    return merged;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+};
+
+// Scan open tickets to suggest potential duplicate pairs/groups across the system
+export const findGlobalDuplicateSuggestions = async (departmentFilter = null) => {
+  let query = `
+    SELECT ${baseSelect}
+    FROM tickets t
+    LEFT JOIN tenants tn ON tn.id = t.tenant_id
+    LEFT JOIN users cu ON cu.id = t.created_by
+    LEFT JOIN departments d ON d.id = t.department_id
+    LEFT JOIN users au ON au.id = t.assigned_to
+    LEFT JOIN users ru ON ru.id = t.reopened_by
+    LEFT JOIN users rr_u ON rr_u.id = t.reopen_requested_by
+    WHERE t.merged_into IS NULL
+      AND t.status NOT IN ('cancelled', 'closed')
+  `;
+  const params = {};
+  if (Array.isArray(departmentFilter) && departmentFilter.length > 0) {
+    query += ` AND t.department_id IN (:departmentFilter)`;
+    params.departmentFilter = departmentFilter;
+  } else if (departmentFilter && typeof departmentFilter === 'string') {
+    query += ` AND t.department_id = :departmentFilter`;
+    params.departmentFilter = departmentFilter;
+  }
+  query += ` ORDER BY t.created_at DESC LIMIT 200`;
+
+  const [rows] = await pool.query(query, params);
+  return rows;
 };
 
 // Find ticket by UUID id, reference_number, or track_number
@@ -775,8 +1021,8 @@ export const findByIdOrRef = async (idOrRef) => {
   return { ...rows[0], attachments };
 };
 
-// Find eligible candidate tickets to merge into a target ticket
-export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
+// Find eligible candidate tickets to merge into a target ticket (strictly same category)
+export const findMergeCandidates = async (targetTicketId, tenantId, search, departmentFilter = null, userId = null, targetCategory = null) => {
   let query = `
     SELECT ${baseSelect}
     FROM tickets t
@@ -792,14 +1038,38 @@ export const findMergeCandidates = async (targetTicketId, tenantId, search) => {
   `;
   const params = { targetTicketId, tenantId: tenantId || null };
 
+  // STRICT RULE: Candidates MUST have the same category as the target ticket. Different categories can never be merged.
+  if (targetCategory && typeof targetCategory === 'string' && targetCategory.trim()) {
+    query += ` AND LOWER(TRIM(t.category)) = LOWER(TRIM(:targetCategory))`;
+    params.targetCategory = targetCategory.trim();
+  }
+
+  if (Array.isArray(departmentFilter) && departmentFilter.length > 0) {
+    if (userId) {
+      query += ` AND (t.department_id IN (:departmentFilter) OR t.assigned_to = :userId)`;
+      params.userId = userId;
+    } else {
+      query += ` AND t.department_id IN (:departmentFilter)`;
+    }
+    params.departmentFilter = departmentFilter;
+  } else if (departmentFilter && typeof departmentFilter === 'string') {
+    if (userId) {
+      query += ` AND (t.department_id = :departmentFilter OR t.assigned_to = :userId)`;
+      params.userId = userId;
+    } else {
+      query += ` AND t.department_id = :departmentFilter`;
+    }
+    params.departmentFilter = departmentFilter;
+  }
+
   if (search && search.trim()) {
-    query += ` AND (t.title LIKE :search OR t.reference_number LIKE :search OR t.track_number LIKE :search OR tn.organization_name LIKE :search)`;
+    query += ` AND (t.title LIKE :search OR t.reference_number LIKE :search OR t.track_number LIKE :search OR tn.organization_name LIKE :search OR t.category LIKE :search OR t.description LIKE :search)`;
     params.search = `%${search.trim()}%`;
   }
 
   query += `
     ORDER BY (t.tenant_id = :tenantId) DESC, t.created_at DESC
-    LIMIT 25
+    LIMIT 100
   `;
 
   const [rows] = await pool.query(query, params);

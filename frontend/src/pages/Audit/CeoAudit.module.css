@@ -1998,18 +1998,48 @@
 /* ── Full Height JSON View ── */
 .payloadContentFull {
   background: #ffffff;
-  padding: 22px 26px;
+  padding: 22px 26px 36px 26px;
   min-height: 340px;
-  max-height: none;
+  max-height: 560px;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
   border-top: none;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+.payloadContentFull::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.payloadContentFull::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.payloadContentFull::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 6px;
 }
 
 :global([data-theme="dark"]) .payloadContentFull {
   background: #080c14;
-  max-height: none;
-  overflow-y: visible;
+  max-height: 560px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #38bdf8 #0f172a;
+}
+
+:global([data-theme="dark"]) .payloadContentFull::-webkit-scrollbar-track {
+  background: #0f172a;
+  border-radius: 6px;
+}
+
+:global([data-theme="dark"]) .payloadContentFull::-webkit-scrollbar-thumb {
+  background: #38bdf8;
+  border-radius: 6px;
+  border: 2px solid #0f172a;
 }
 
 .payloadContentFullExpanded {

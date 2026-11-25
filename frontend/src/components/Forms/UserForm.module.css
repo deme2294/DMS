@@ -35,6 +35,24 @@
   border-radius: 2px;
 }
 
+.credentialsNotice {
+  display: block;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 0.96rem;
+  line-height: 1.6;
+  color: #14532d;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
+}
+
+.credentialsNotice strong {
+  color: #14532d !important;
+  font-weight: 700;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -225,6 +243,19 @@
   color: #60a5fa !important;
 }
 
+:global([data-theme="dark"]) .btnPrimary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="dark"]) .btnPrimary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  border-color: #60a5fa !important;
+  box-shadow: none !important;
+}
+
 :global([data-theme="dark"]) .btnSecondary {
   background: #1e2330 !important;
   color: #cbd5e1 !important;
@@ -234,6 +265,20 @@
 :global([data-theme="dark"]) .btnSecondary:hover:not(:disabled) {
   background: #252b38 !important;
   color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .credentialsNotice,
+:global(.dark) .credentialsNotice {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border: 1px solid rgba(52, 211, 153, 0.45) !important;
+  color: #a7f3d0 !important;
+  box-shadow: none !important;
+}
+
+:global([data-theme="dark"]) .credentialsNotice strong,
+:global(.dark) .credentialsNotice strong {
+  color: #6ee7b7 !important;
+  font-weight: 700;
 }
 
 

@@ -131,6 +131,7 @@ export default function KnowledgeBasePage() {
       <div className={styles.searchSection}>
         <h2>How can we help?</h2>
         <div className={styles.searchBox}>
+          <span className={styles.searchIcon}>🔍</span>
           <input
             type="text"
             placeholder="Search for articles..."

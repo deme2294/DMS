@@ -8,7 +8,9 @@ import {
   sendTenantRegistrationPendingEmail,
   sendTenantRegistrationAdminAlert,
   sendTenantApprovedEmail,
+  sendWelcomeEmail,
 } from './emailService.js';
+import * as auditService from './auditService.js';
 
 const SALT_ROUNDS = 10;
 
@@ -149,6 +151,14 @@ export const createTenant = async (payload, options = { createUser: false, creat
     throw Object.assign(new Error('Registration number already exists'), { statusCode: 409 });
   }
 
+  const [existingUser] = await pool.query(
+    'SELECT id FROM users WHERE username = :username OR email = :email LIMIT 1',
+    { username: trimmed.username, email: trimmed.email }
+  );
+  if (existingUser.length) {
+    throw Object.assign(new Error('Login username or email already exists in system users'), { statusCode: 409 });
+  }
+
   const passwordHash = await bcrypt.hash(trimmed.password, SALT_ROUNDS);
   const tenantId = await tenantRepo.getNextTenantId();
   const status = trimmed.status === 'inactive' ? 'inactive' : 'active';
@@ -168,16 +178,59 @@ export const createTenant = async (payload, options = { createUser: false, creat
     createdBy: options.createdBy || null,
   });
 
+  const roleId = await tenantRepo.getTenantRoleId();
+  const nameParts = (trimmed.contactPerson || '').trim().split(' ');
+  const firstName = nameParts[0] || trimmed.contactPerson || 'Tenant';
+  const lastName = nameParts.slice(1).join(' ') || 'User';
+  const userCode = await generateUserCode('tenant');
+
+  await tenantRepo.createTenantUser({
+    id: userCode,
+    tenantId,
+    roleId,
+    username: trimmed.username,
+    email: trimmed.email,
+    passwordHash,
+    firstName,
+    lastName,
+    phone: trimmed.phone || null,
+    status,
+    userCode,
+  });
+
   const saved = await tenantRepo.findById(tenantId);
   if (!saved) {
     throw Object.assign(new Error('Failed to retrieve created tenant'), { statusCode: 500 });
   }
 
+  // Dispatch welcome credentials email to the new tenant's email address
+  sendWelcomeEmail({
+    email: trimmed.email,
+    firstName,
+    lastName,
+    username: trimmed.username,
+    tempPassword: trimmed.password,
+    role: 'Tenant',
+    organizationName: trimmed.organizationName,
+  }).catch((err) => {
+    console.error(`[createTenant] Failed to dispatch welcome credentials email to ${trimmed.email}:`, err.message);
+  });
+
+  // Audit log
+  auditService.logAction(options.createdBy || null, 'create', 'tenant', tenantId, null, {
+    organizationName: trimmed.organizationName,
+    username: trimmed.username,
+    email: trimmed.email,
+  }).catch(() => {});
+
   return {
     success: true,
-    message: 'Tenant created successfully',
+    message: `Tenant "${trimmed.organizationName}" created successfully! Login credentials and dashboard access link have been sent to ${trimmed.email}.`,
     data: {
       tenant_id: saved.tenant_id,
+      user_id: userCode,
+      username: trimmed.username,
+      email: trimmed.email,
     },
   };
 };
@@ -385,6 +438,7 @@ export const activateTenant = async (id) => {
       email: updatedTenant.email,
       organizationName: updatedTenant.organization_name || updatedTenant.organizationName,
       contactPerson: updatedTenant.contact_person || updatedTenant.contactPerson,
+      username: updatedTenant.username || null,
     }).catch(() => {});
   }
 

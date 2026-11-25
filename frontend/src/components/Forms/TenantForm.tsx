@@ -149,7 +149,10 @@ export default function TenantForm({
 
       {showLoginFields && !initialData && (
         <>
-          <div className={styles.sectionTitle}>Login Information</div>
+          <div className={styles.sectionTitle}>Login Credentials & Access</div>
+          <div className={styles.credentialsNotice}>
+            📧 <strong>Automatic Credentials Dispatch:</strong> Once created, an activation email containing the username, password, direct dashboard link to follow tasks, and profile update instructions will be automatically dispatched to the registered tenant email.
+          </div>
           <div className={styles.grid}>
             <div className={styles.field}>
               <label htmlFor="username" className={styles.label}>Username <span className={styles.required}>*</span></label>

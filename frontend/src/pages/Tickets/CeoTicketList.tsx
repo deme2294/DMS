@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
+import DuplicateDetectionModal from '../../components/DuplicateTickets/DuplicateDetectionModal';
 import {
   fetchTickets, deleteTicket, assignDepartment, assignStaff,
 } from '../../api/ticketApi';
@@ -82,6 +83,7 @@ export default function CeoTicketList() {
   const [assignTicket, setAssignTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { socket } = useSocket();
 
   const loadTickets = useCallback(async () => {
@@ -205,6 +207,24 @@ export default function CeoTicketList() {
           <option value="">All Department</option>
           {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
+        <button
+          type="button"
+          style={{
+            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            color: '#ffffff',
+            border: '1px solid #b45309',
+            padding: '7px 14px',
+            borderRadius: 6,
+            fontWeight: 700,
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+          onClick={() => setShowDuplicateModal(true)}
+          title="Detect and review duplicate tickets across the system"
+        >
+          ⚡ Duplicate Detection
+        </button>
       </div>
 
       <DataTable<Ticket>
@@ -223,7 +243,17 @@ export default function CeoTicketList() {
               );
             },
           },
-          { key: 'title', label: 'Title' },
+          {
+            key: 'title',
+            label: 'Title',
+            minWidth: '260px',
+            render: (row) => (
+              <div className={styles.ticketTitleCell}>
+                <span className={styles.ticketTitleText}>{row.title}</span>
+                {row.trackNumber && <span className={styles.ticketTrackNo}>TRK: {row.trackNumber}</span>}
+              </div>
+            ),
+          },
           {
             key: 'tenant',
             label: 'Tenant Name',
@@ -323,6 +353,8 @@ export default function CeoTicketList() {
                         setMessage('Cannot assign department: Ticket is waiting for tenant response/confirmation.');
                         return;
                       }
+                      const prevDept = (row.previousDepartments && row.previousDepartments.length > 0 && row.previousDepartments[0].departmentId) || row.departmentId || '';
+                      setSelectedDept(prevDept);
                       setAssignTicket(row);
                       setDeptModal(true);
                     }}
@@ -412,9 +444,17 @@ export default function CeoTicketList() {
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
               className={styles.modalSelect}
+              required
             >
-              <option value="">Select Department</option>
-              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {!selectedDept && <option value="">Select Department</option>}
+              {departments.map((d) => {
+                const isCurrent = assignTicket?.departmentId === d.id;
+                const isPrev = assignTicket?.previousDepartments?.some((pd) => pd.departmentId === d.id);
+                let label = d.name;
+                if (isCurrent) label += ' (Currently Assigned)';
+                else if (isPrev) label += ' (Assigned Before)';
+                return <option key={d.id} value={d.id}>{label}</option>;
+              })}
             </select>
           </div>
           <div className={styles.modalField}>
@@ -490,6 +530,12 @@ export default function CeoTicketList() {
           </div>
         </div>
       </Modal>
+
+      <DuplicateDetectionModal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        onMergedSuccess={() => loadTickets()}
+      />
     </div>
   );
 }

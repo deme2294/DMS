@@ -59,9 +59,14 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     const newEffective = calculateEffectiveTheme();
     setEffectiveTheme(newEffective);
 
-    // Apply data-theme attribute on root html element
+    // Apply data-theme attribute and dark class on root html & body elements
     document.documentElement.setAttribute('data-theme', newEffective);
     document.documentElement.style.colorScheme = newEffective;
+    document.documentElement.classList.toggle('dark', newEffective === 'dark');
+    if (document.body) {
+      document.body.setAttribute('data-theme', newEffective);
+      document.body.classList.toggle('dark', newEffective === 'dark');
+    }
 
     // Media query listener for OS mode changes
     if (themePreference === 'system' && typeof window !== 'undefined' && window.matchMedia) {
@@ -71,6 +76,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
         setEffectiveTheme(updated);
         document.documentElement.setAttribute('data-theme', updated);
         document.documentElement.style.colorScheme = updated;
+        document.documentElement.classList.toggle('dark', updated === 'dark');
+        if (document.body) {
+          document.body.setAttribute('data-theme', updated);
+          document.body.classList.toggle('dark', updated === 'dark');
+        }
       };
 
       if (mediaQuery.addEventListener) {
@@ -88,6 +98,11 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setEffectiveTheme(calculated);
     document.documentElement.setAttribute('data-theme', calculated);
     document.documentElement.style.colorScheme = calculated;
+    document.documentElement.classList.toggle('dark', calculated === 'dark');
+    if (document.body) {
+      document.body.setAttribute('data-theme', calculated);
+      document.body.classList.toggle('dark', calculated === 'dark');
+    }
 
     if (user) {
       updateUser({ themePreference: newPref });

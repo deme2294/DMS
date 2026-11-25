@@ -37,6 +37,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Operations',
         items: [
           { label: 'Tickets', path: '/admin/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Duplicate & Merged', path: '/admin/tickets/duplicates', icon: '🔀', permission: 'tickets.read' },
           { label: 'Ticket Categories', path: '/admin/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
           { label: 'SLA Policies', path: '/admin/sla', icon: '⏱️', permission: 'sla.manage' },
           { label: 'Chat', path: '/admin/chat', icon: '💬' },
@@ -79,6 +80,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Operations',
         items: [
           { label: 'Tickets', path: '/manager/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Duplicate & Merged', path: '/manager/tickets/duplicates', icon: '🔀', permission: 'tickets.read' },
           { label: 'Ticket Categories', path: '/manager/ticket-categories', icon: '🗂️', permission: 'ticket_categories.manage' },
           { label: 'Chat', path: '/manager/chat', icon: '💬' },
           { label: 'Notifications', path: '/manager/notifications', icon: '🔔' },
@@ -163,6 +165,7 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
         title: 'Operations',
         items: [
           { label: 'Tickets', path: '/ceo/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Duplicate & Merged', path: '/ceo/tickets/duplicates', icon: '🔀', permission: 'tickets.read' },
           { label: 'Feedback Oversight', path: '/ceo/feedback', icon: '📝', permission: 'feedback.read' },
           { label: 'Reports', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
           { label: 'Knowledge Base', path: '/ceo/knowledge', icon: '📚', permission: 'knowledge.read' },

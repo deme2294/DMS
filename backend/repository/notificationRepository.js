@@ -52,64 +52,112 @@ export const createNotification = async (userId, title, message, type = 'ticket'
 export const getUnreadCount = async (userId) => {
   try {
     const [rows] = await pool.query(
-      'SELECT COUNT(*) AS total FROM notifications WHERE user_id = :userId AND read_at IS NULL',
+      `SELECT COUNT(*) AS total 
+       FROM notifications n
+       JOIN users u ON u.id = n.user_id
+       LEFT JOIN tickets t ON t.id = n.ticket_id
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE n.user_id = :userId 
+         AND n.read_at IS NULL
+         AND n.created_at >= u.created_at
+         AND (
+           n.ticket_id IS NULL
+           OR n.type = 'chat'
+           OR r.name IN ('admin', 'ceo')
+           OR (r.name = 'tenant' AND (t.created_by = u.id OR (t.tenant_id IS NOT NULL AND t.tenant_id = u.tenant_id)))
+           OR (r.name = 'staff' AND (t.assigned_to = u.id OR EXISTS (SELECT 1 FROM ticket_collaborators tc WHERE tc.ticket_id = t.id AND tc.user_id = u.id)))
+           OR (r.name = 'manager' AND (
+                t.department_id IN (SELECT ud.department_id FROM user_departments ud WHERE ud.user_id = u.id)
+                OR t.department_id IN (SELECT d.id FROM departments d WHERE d.head_user_id = u.id)
+           ))
+         )
+         AND NOT (r.name = 'tenant' AND n.type IN ('sla', 'internal'))`,
       { userId }
     );
     return rows[0]?.total || 0;
   } catch (err) {
     if (err.code === 'ER_NO_SUCH_TABLE') return 0;
-    throw err;
+    try {
+      const [fallbackRows] = await pool.query(
+        `SELECT COUNT(*) AS total 
+         FROM notifications n
+         JOIN users u ON u.id = n.user_id
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE n.user_id = :userId 
+           AND n.read_at IS NULL 
+           AND n.created_at >= u.created_at
+           AND NOT (r.name = 'tenant' AND n.type IN ('sla', 'internal'))`,
+        { userId }
+      );
+      return fallbackRows[0]?.total || 0;
+    } catch (_) {
+      return 0;
+    }
   }
 };
 
 export const getNotifications = async (userId, { limit = 20, offset = 0, unreadOnly = false } = {}) => {
+  const safeLimit = Math.max(1, Math.min(500, parseInt(limit, 10) || 20));
+  const safeOffset = Math.max(0, parseInt(offset, 10) || 0);
+  const unreadClause = unreadOnly ? ' AND n.read_at IS NULL' : '';
+
   try {
-    const unreadClause = unreadOnly ? ' AND n.read_at IS NULL' : '';
     const [rows] = await pool.query(
       `SELECT n.id, n.title, n.message, n.type, 
               n.ticket_id AS ticketId, 
               t.reference_number AS ticketReferenceNumber,
-              t.ticket_num AS ticketNum,
               n.notice_id AS noticeId, 
               n.room_id AS roomId, 
-              CASE WHEN kb.id IS NOT NULL AND kb.deleted_at IS NULL THEN n.article_id ELSE NULL END AS articleId,
+              n.article_id AS articleId,
               n.read_at AS readAt, 
               n.created_at AS createdAt
        FROM notifications n
+       JOIN users u ON u.id = n.user_id
        LEFT JOIN tickets t ON t.id = n.ticket_id
-       LEFT JOIN knowledge_base kb ON kb.id = n.article_id
+       LEFT JOIN roles r ON r.id = u.role_id
        WHERE n.user_id = :userId ${unreadClause}
+         AND n.created_at >= u.created_at
+         AND (
+           n.ticket_id IS NULL
+           OR n.type = 'chat'
+           OR r.name IN ('admin', 'ceo')
+           OR (r.name = 'tenant' AND (t.created_by = u.id OR (t.tenant_id IS NOT NULL AND t.tenant_id = u.tenant_id)))
+           OR (r.name = 'staff' AND (t.assigned_to = u.id OR EXISTS (SELECT 1 FROM ticket_collaborators tc WHERE tc.ticket_id = t.id AND tc.user_id = u.id)))
+           OR (r.name = 'manager' AND (
+                t.department_id IN (SELECT ud.department_id FROM user_departments ud WHERE ud.user_id = u.id)
+                OR t.department_id IN (SELECT d.id FROM departments d WHERE d.head_user_id = u.id)
+           ))
+         )
+         AND NOT (r.name = 'tenant' AND n.type IN ('sla', 'internal'))
        ORDER BY n.created_at DESC
-       LIMIT :limit OFFSET :offset`,
-      { userId, limit: Number(limit), offset: Number(offset) }
+       LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+      { userId }
     );
     return rows;
   } catch (err) {
     if (err.code === 'ER_NO_SUCH_TABLE') return [];
-    if (err.code === 'ER_BAD_FIELD_ERROR') {
-      try {
-        const unreadClause = unreadOnly ? ' AND n.read_at IS NULL' : '';
-        const [rows] = await pool.query(
-          `SELECT n.id, n.title, n.message, n.type, 
-                  n.ticket_id AS ticketId, 
-                  n.notice_id AS noticeId, 
-                  n.room_id AS roomId, 
-                  NULL AS articleId,
-                  n.read_at AS readAt, 
-                  n.created_at AS createdAt
-           FROM notifications n
-           WHERE n.user_id = :userId ${unreadClause}
-           ORDER BY n.created_at DESC
-           LIMIT :limit OFFSET :offset`,
-          { userId, limit: Number(limit), offset: Number(offset) }
-        );
-        return rows;
-      } catch (fallbackErr) {
-        if (fallbackErr.code === 'ER_NO_SUCH_TABLE') return [];
-        throw fallbackErr;
-      }
+    try {
+      const [rows] = await pool.query(
+        `SELECT n.id, n.title, n.message, n.type, 
+                n.ticket_id AS ticketId, 
+                t.reference_number AS ticketReferenceNumber,
+                n.read_at AS readAt, 
+                n.created_at AS createdAt
+         FROM notifications n
+         JOIN users u ON u.id = n.user_id
+         LEFT JOIN tickets t ON t.id = n.ticket_id
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE n.user_id = :userId ${unreadClause}
+           AND n.created_at >= u.created_at
+           AND NOT (r.name = 'tenant' AND n.type IN ('sla', 'internal'))
+         ORDER BY n.created_at DESC
+         LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+        { userId }
+      );
+      return rows;
+    } catch (_) {
+      return [];
     }
-    throw err;
   }
 };
 

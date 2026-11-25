@@ -78,6 +78,20 @@ router.delete(
   ticketController.deleteAttachment
 );
 
+// Global duplicate suggestions across open tickets
+router.get(
+  '/duplicate-suggestions',
+  requireRole('admin', 'ceo', 'manager'),
+  ticketController.getGlobalDuplicateSuggestions
+);
+
+// Merged tickets ledger across the system
+router.get(
+  '/merged-ledger',
+  requireRole('admin', 'ceo', 'manager'),
+  ticketController.getMergedTicketsLedger
+);
+
 router.get('/:id', authorize('tickets.read', 'tickets.create'), [idParam(), validate], ticketController.getTicketById);
 router.get('/:id/timeline', authorize('tickets.read', 'tickets.create'), [idParam(), validate], ticketController.getTimeline);
 
@@ -123,6 +137,8 @@ router.post(
     body('managerId').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     body('assignedTo').optional({ nullable: true }).custom((v) => !v || /^[0-9a-zA-Z_-]{1,36}$/i.test(v)),
     body('notes').optional({ nullable: true }).trim(),
+    body('reassignTimeMinutes').optional({ nullable: true }).isInt({ min: 0, max: 10080 }),
+    body('overrideLock').optional().isBoolean(),
     validate,
   ],
   ticketController.assignDepartment
@@ -136,9 +152,24 @@ router.post(
     idParam(),
     body('staffId').custom((v) => /^[0-9a-zA-Z_-]{1,36}$/i.test(v)).withMessage('staffId required'),
     body('notes').optional({ nullable: true }).trim(),
+    body('reassignTimeMinutes').optional({ nullable: true }).isInt({ min: 0, max: 10080 }),
+    body('overrideLock').optional().isBoolean(),
     validate,
   ],
   ticketController.assignStaff
+);
+
+// Dynamically adjust reassign needed time for department or staff
+router.patch(
+  '/:id/reassign-time',
+  authorize('tickets.assign'),
+  [
+    idParam(),
+    body('reassignTimeMinutes').isInt({ min: 0, max: 10080 }).withMessage('reassignTimeMinutes required (0-10080)'),
+    body('target').optional().isIn(['department', 'staff']),
+    validate,
+  ],
+  ticketController.updateReassignTime
 );
 
 // Reassign staff
@@ -225,7 +256,7 @@ router.post(
   [
     idParam(),
     param('escalationId').notEmpty(),
-    body('decision').isIn(['guidance', 'reassign', 'collaborate', 'investigate', 'escalate_to_admin']),
+    body('decision').isIn(['guidance', 'reassign', 'collaborate', 'investigate', 'solve_in_person', 'escalate_to_admin']),
     validate,
   ],
   operationalController.managerReview
@@ -237,7 +268,7 @@ router.post(
   [
     idParam(),
     param('escalationId').notEmpty(),
-    body('decision').isIn(['approved', 'guidance', 'reassign', 'resource_allocated', 'rejected']),
+    body('decision').isIn(['approved', 'guidance', 'reassign', 'resource_allocated', 'reforward_to_manager', 'rejected']),
     validate,
   ],
   operationalController.adminReview
@@ -290,13 +321,13 @@ router.post(
 // Merge duplicates
 router.get(
   '/:id/merge-candidates',
-  requireRole('admin', 'ceo'),
+  requireRole('admin', 'ceo', 'manager'),
   [idParam(), validate],
   ticketController.getMergeCandidates
 );
 router.post(
   '/:id/merge',
-  requireRole('admin', 'ceo'),
+  requireRole('admin', 'ceo', 'manager'),
   [
     idParam(),
     body('sourceIds').isArray({ min: 1 }).withMessage('sourceIds required'),

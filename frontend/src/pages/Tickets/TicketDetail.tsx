@@ -104,16 +104,16 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
   },
   manager: {
     assigned: ['in_progress', 'rejected'],
-    in_progress: ['under_review', 'pending_approval', 'pending', 'escalated'],
-    pending: ['in_progress', 'escalated'],
+    in_progress: ['under_review', 'pending_approval', 'pending'],
+    pending: ['in_progress'],
     under_review: ['pending_approval', 'in_progress', 'rejected'],
     pending_approval: ['in_progress'],
     waiting_tenant: [],
     waiting_vendor: ['in_progress'],
     resolved: ['waiting_tenant', 'closed', 'in_progress'],
     completed: ['reopened', 'closed'],
-    reopened: ['in_progress', 'escalated'],
-    accepted: ['in_progress', 'escalated'],
+    reopened: ['in_progress'],
+    accepted: ['in_progress'],
     escalated: ['in_progress', 'resolved', 'waiting_tenant'],
     assigned_department: ['assigned_staff'],
     assigned_staff: ['in_progress'],
@@ -232,6 +232,12 @@ export default function TicketDetail() {
   const [declineModal, setDeclineModal] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [declineSubmitting, setDeclineSubmitting] = useState(false);
+
+  // Reject Assignment Modal State
+  const [showRejectAssignmentModal, setShowRejectAssignmentModal] = useState(false);
+  const [rejectAssignmentReason, setRejectAssignmentReason] = useState('');
+  const [rejectingAssignment, setRejectingAssignment] = useState(false);
+
   const [departments, setDepartments] = useState<Department[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [assignPrefill, setAssignPrefill] = useState<{ text: string } | null>(null);
@@ -278,7 +284,7 @@ export default function TicketDetail() {
   const [opSubmitting, setOpSubmitting] = useState(false);
 
   const [managerReviewModal, setManagerReviewModal] = useState(false);
-  const [managerDecision, setManagerDecision] = useState<'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'escalate_to_admin'>('guidance');
+  const [managerDecision, setManagerDecision] = useState<'guidance' | 'reassign' | 'collaborate' | 'investigate' | 'solve_in_person' | 'escalate_to_admin'>('collaborate');
   const [managerReviewNotes, setManagerReviewNotes] = useState('');
   const [managerNewAssigneeId, setManagerNewAssigneeId] = useState('');
   const [managerCollaboratorIds, setManagerCollaboratorIds] = useState<string[]>([]);
@@ -814,6 +820,30 @@ export default function TicketDetail() {
       flash(e?.response?.data?.message || 'Failed to send reminder', true);
     } finally {
       setRemindingStaff(false);
+    }
+  };
+
+  const handleConfirmRejectAssignment = async () => {
+    if (!rejectAssignmentReason.trim()) {
+      flash('A reason for rejecting the assignment is required.', true);
+      return;
+    }
+    if (!ticket?.id) return;
+    setRejectingAssignment(true);
+    try {
+      await rejectAssignment(ticket.id, rejectAssignmentReason.trim());
+      flash(
+        role === 'manager'
+          ? 'Ticket assignment rejected and returned to Admin queue.'
+          : 'Ticket assignment rejected and returned to Department Manager.'
+      );
+      setShowRejectAssignmentModal(false);
+      setRejectAssignmentReason('');
+      loadTicket(); loadReplies(); loadTimeline();
+    } catch (e: any) {
+      flash(e?.response?.data?.message || 'Failed to reject assignment', true);
+    } finally {
+      setRejectingAssignment(false);
     }
   };
 
@@ -1438,11 +1468,63 @@ export default function TicketDetail() {
             !isWaitingTenant &&
             ['resolved', 'closed', 'completed'].includes(normalizedStatus);
 
+          // Department Manager Accept/Reject condition:
+          // Manager can accept/reject ONLY if the ticket was assigned from Admin to the department,
+          // no staff has been assigned yet, and the department assignment is still pending acceptance.
+          const isManagerForThisDept = Boolean(
+            role === 'manager' &&
+            ticket.departmentId &&
+            (
+              user?.departments?.some((d: any) => String(d.id) === String(ticket.departmentId)) ||
+              String(user?.id) === String((ticket as any).departmentHeadId)
+            )
+          );
+
+          const hasStaffAssigned = Boolean(
+            ticket.assignedTo ||
+            (ticket as any)?.assigned_to_id ||
+            (ticket as any)?.assignedToId ||
+            (ticket as any)?.assignedToName
+          );
+
+          const canManagerAcceptReject = Boolean(
+            isManagerForThisDept &&
+            !hasStaffAssigned &&
+            (
+              (ticket as any)?.pendingAssignmentInfo?.isDeptPending ||
+              (
+                (normalizedStatus === 'assigned' || normalizedStatus === 'open') &&
+                (ticket as any)?.pendingAssignmentInfo?.deptAssignmentStatus !== 'accepted' &&
+                (ticket as any)?.assignmentStatus !== 'accepted'
+              )
+            )
+          );
+
+          // Staff Accept/Reject condition:
+          // ONLY the specific staff user assigned to the ticket can see the accept or reject status button
+          const isAssignedStaff = Boolean(
+            role === 'staff' &&
+            user?.id &&
+            (
+              String(ticket.assignedTo) === String(user.id) ||
+              String((ticket as any).assigned_to_id) === String(user.id) ||
+              String((ticket as any).assignedToId) === String(user.id)
+            )
+          );
+
+          const canStaffAcceptReject = Boolean(
+            isAssignedStaff &&
+            (normalizedStatus === 'assigned' || (ticket as any)?.pendingAssignmentInfo?.isStaffPending) &&
+            (ticket as any)?.pendingAssignmentInfo?.staffAssignmentStatus !== 'accepted' &&
+            (ticket as any)?.assignmentStatus !== 'accepted'
+          );
+
           const hasWorkflowActions =
             transitions.length > 0 ||
             (isAdminRole && (ticket.routingType ?? 'general') !== 'direct') ||
             (role === 'manager' && !!ticket.departmentId) ||
-            ((role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open')) ||
+            canManagerAcceptReject ||
+            canStaffAcceptReject ||
             (role === 'staff' && normalizedStatus === 'in_progress') ||
             (role === 'manager' && (normalizedStatus === 'under_review' || normalizedStatus === 'in_progress')) ||
             (isAdminRole && (normalizedStatus === 'pending_approval' || normalizedStatus === 'in_progress' || normalizedStatus === 'under_review')) ||
@@ -1518,10 +1600,10 @@ export default function TicketDetail() {
                               isWaitingTenant
                                 ? 'Cannot assign department: Ticket is waiting for tenant response/confirmation'
                                 : ticket.deptAssignmentLock?.isLocked
-                                ? `Department reassignment locked: ${ticket.deptAssignmentLock.remainingMinutes}m remaining`
-                                : ticket.departmentId
-                                ? 'Reassign Department'
-                                : 'Assign Department'
+                                  ? `Department reassignment locked: ${ticket.deptAssignmentLock.remainingMinutes}m remaining`
+                                  : ticket.departmentId
+                                    ? 'Reassign Department'
+                                    : 'Assign Department'
                             }
                           >
                             {ticket.deptAssignmentLock?.isLocked ? (
@@ -1532,8 +1614,8 @@ export default function TicketDetail() {
                             {ticket.deptAssignmentLock?.isLocked
                               ? `Dept Locked (${ticket.deptAssignmentLock.remainingMinutes}m)`
                               : ticket.departmentId
-                              ? 'Reassign Dept'
-                              : 'Assign Dept'}
+                                ? 'Reassign Dept'
+                                : 'Assign Dept'}
                           </button>
                         )}
                         {role === 'manager' && ticket.departmentId && (
@@ -1546,10 +1628,10 @@ export default function TicketDetail() {
                                 isWaitingTenant
                                   ? 'Cannot assign staff: Ticket is waiting for tenant response/confirmation'
                                   : ticket.assignedTo && ticket.staffAssignmentLock?.isLocked
-                                  ? `Staff reassignment locked: ${ticket.staffAssignmentLock.remainingMinutes}m remaining`
-                                  : ticket.assignedTo
-                                  ? 'Reassign Staff to Another Department Member'
-                                  : 'Assign Staff to Department Member'
+                                    ? `Staff reassignment locked: ${ticket.staffAssignmentLock.remainingMinutes}m remaining`
+                                    : ticket.assignedTo
+                                      ? 'Reassign Staff to Another Department Member'
+                                      : 'Assign Staff to Department Member'
                               }
                             >
                               {ticket.assignedTo && ticket.staffAssignmentLock?.isLocked ? (
@@ -1560,8 +1642,8 @@ export default function TicketDetail() {
                               {ticket.assignedTo && ticket.staffAssignmentLock?.isLocked
                                 ? `Staff Locked (${ticket.staffAssignmentLock.remainingMinutes}m)`
                                 : ticket.assignedTo
-                                ? 'Reassign Staff'
-                                : 'Assign Staff'}
+                                  ? 'Reassign Staff'
+                                  : 'Assign Staff'}
                             </button>
                             {ticket.assignedTo && ['open', 'assigned', 'in_progress', 'reopened'].includes(ticket.status) && (
                               <button
@@ -1575,21 +1657,24 @@ export default function TicketDetail() {
                             )}
                           </>
                         )}
-                        {(role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open') && (
+                        {(canManagerAcceptReject || canStaffAcceptReject) && (
                           <button
                             className={styles.btnSuccess}
                             onClick={() => call(() => acceptAssignment(ticket.id), 'Assignment accepted')}
-                            title="Accept ticket assignment"
+                            title={role === 'manager' ? "Accept ticket assignment for department" : "Accept ticket assignment"}
                           >
                             <CheckCircleIcon className={styles.btnIcon} />
                             Accept
                           </button>
                         )}
-                        {(role === 'manager' || role === 'staff') && (normalizedStatus === 'assigned' || normalizedStatus === 'open') && (
+                        {(canManagerAcceptReject || canStaffAcceptReject) && (
                           <button
                             className={styles.btnReject}
-                            onClick={() => call(() => rejectAssignment(ticket.id), 'Assignment rejected')}
-                            title="Reject ticket assignment"
+                            onClick={() => {
+                              setRejectAssignmentReason('');
+                              setShowRejectAssignmentModal(true);
+                            }}
+                            title={role === 'manager' ? "Reject department assignment and return to Admin" : "Reject assignment and return to Department Manager"}
                           >
                             <XCircleIcon className={styles.btnIcon} />
                             Reject
@@ -1723,17 +1808,23 @@ export default function TicketDetail() {
                             Change Category
                           </button>
                         )}
-                        {(isAdminRole || role === 'manager') && (
+                        {role === 'manager' && ticket.operationalEscalationStatus === 'pending_manager' && (
                           <button
                             className={styles.btnOrange}
-                            onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}
-                            title="Escalate ticket to higher authority"
+                            onClick={() => {
+                              setManagerDecision('collaborate');
+                              setManagerReviewNotes('');
+                              setManagerCollaboratorIds([]);
+                              setManagerNewAssigneeId('');
+                              setManagerReviewModal(true);
+                            }}
+                            title="Review Staff Escalation & Approve or Add Collaborator"
                           >
                             <ArrowTrendingUpIcon className={styles.btnIcon} />
-                            Escalate
+                            Review Staff Escalation
                           </button>
                         )}
-                        {isAdminRole && (
+                        {(isAdminRole || role === 'manager') && (
                           <button
                             className={styles.btnIndigo}
                             onClick={() => setMergeModal(true)}
@@ -1754,7 +1845,7 @@ export default function TicketDetail() {
                       <span className={styles.clusterLabel}>Collaboration & Updates</span>
                     </div>
                     <div className={styles.btnClusterRow}>
-                      {(role === 'staff' || role === 'manager' || role === 'admin') && (
+                      {role === 'staff' && ticket.assignedTo === user?.id && (
                         <button
                           className={styles.btnOperationalEscalate}
                           onClick={() => {
@@ -1762,12 +1853,12 @@ export default function TicketDetail() {
                             setOpActionsAttempted('');
                             setOpAssistanceRequired('');
                             setOpCustomReason('');
-                            setOpDestination(role === 'manager' ? 'admin' : 'manager');
+                            setOpDestination('manager');
                             setOpEscalateModal(true);
                           }}
-                          title="Initiate issue-based operational escalation to Management"
+                          title="Request escalation to Department Manager"
                         >
-                          ⚡ Request Operational Escalation
+                          ⚡ Request Escalation to Manager
                         </button>
                       )}
                       <button
@@ -1809,6 +1900,45 @@ export default function TicketDetail() {
             </div>
           );
         })()}
+
+        {/* Rejected Assignment Notice Banner */}
+        {Boolean((ticket as any)?.pendingAssignmentInfo?.latestRejectedAssignment) && (
+          <div
+            className={`${styles.card} ${styles.slaDangerCard}`}
+            style={{
+              borderLeft: '4px solid #ef4444',
+              background: 'rgba(239, 68, 68, 0.08)',
+              padding: '14px 18px',
+              marginBottom: 16
+            }}
+          >
+            <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 700 }}>
+              <span>⚠️</span> Previous Ticket Assignment Rejected
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'inherit' }}>
+              <strong>{(ticket as any).pendingAssignmentInfo.latestRejectedAssignment.role === 'staff' ? 'Staff Member' : 'Department Manager'}</strong>
+              {Boolean((ticket as any).pendingAssignmentInfo.latestRejectedAssignment.rejectedBy) && (
+                <> ({(ticket as any).pendingAssignmentInfo.latestRejectedAssignment.rejectedBy})</>
+              )}{' '}
+              rejected this ticket assignment.
+              {Boolean((ticket as any).pendingAssignmentInfo.latestRejectedAssignment.reason) && (
+                <span
+                  style={{
+                    display: 'block',
+                    marginTop: '6px',
+                    fontStyle: 'italic',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    borderLeft: '3px solid #ef4444'
+                  }}
+                >
+                  "{(ticket as any).pendingAssignmentInfo.latestRejectedAssignment.reason}"
+                </span>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Escalation Banner */}
         {ticket.isEscalated && ticket.status === 'escalated' && (
@@ -1893,9 +2023,9 @@ export default function TicketDetail() {
                   <span>🚨</span> Operational Problem Escalation Active
                   <span className={styles['opBadge_' + ticket.operationalEscalationStatus]}>
                     {ticket.operationalEscalationStatus === 'pending_manager' ? 'Awaiting Department Manager' :
-                     ticket.operationalEscalationStatus === 'pending_admin' ? 'Awaiting Administrative Intervention' :
-                     ticket.operationalEscalationStatus === 'guidance_provided' ? 'Guidance Provided by Manager' :
-                     ticket.operationalEscalationStatus === 'collaborative' ? 'Under Collaborative Resolution' : 'Resolved'}
+                      ticket.operationalEscalationStatus === 'pending_admin' ? 'Awaiting Administrative Intervention' :
+                        ticket.operationalEscalationStatus === 'guidance_provided' ? 'Guidance Provided by Manager' :
+                          ticket.operationalEscalationStatus === 'collaborative' ? 'Under Collaborative Resolution' : 'Resolved'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -1904,12 +2034,14 @@ export default function TicketDetail() {
                       type="button"
                       className={styles.btnOperationalReview}
                       onClick={() => {
-                        setManagerDecision('guidance');
+                        setManagerDecision('collaborate');
                         setManagerReviewNotes('');
+                        setManagerCollaboratorIds([]);
+                        setManagerNewAssigneeId('');
                         setManagerReviewModal(true);
                       }}
                     >
-                      ⚡ Manager Review & Take Action
+                      ⚡ Review Staff Escalation & Approve / Add Collaborator
                     </button>
                   )}
                   {canAdminReview && (
@@ -2058,7 +2190,7 @@ export default function TicketDetail() {
                         type="button"
                         onClick={async () => {
                           if (window.confirm(`Remove ${c.first_name} ${c.last_name} from ticket collaborators?`)) {
-                            await removeTicketCollaborator(ticket.id, c.user_id).catch(() => {});
+                            await removeTicketCollaborator(ticket.id, c.user_id).catch(() => { });
                             loadTicket();
                           }
                         }}
@@ -3346,7 +3478,9 @@ export default function TicketDetail() {
             </div>
           ) : (
             <div className={styles.mergeCandidatesList}>
-              {mergeCandidates.map((cand) => {
+              {mergeCandidates
+                .filter((cand) => (cand.category || '').toLowerCase().trim() === (ticket.category || '').toLowerCase().trim())
+                .map((cand) => {
                 const isSelected = selectedMergeTickets.some((t) => t.id === cand.id);
                 const isSameTenant = ticket.tenantId && cand.tenantId === ticket.tenantId;
 
@@ -4004,6 +4138,498 @@ export default function TicketDetail() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Reject Ticket Assignment Modal */}
+      <Modal
+        open={showRejectAssignmentModal}
+        title={role === 'manager' ? "Reject Department Ticket Assignment" : "Reject Staff Ticket Assignment"}
+        onClose={() => {
+          if (!rejectingAssignment) {
+            setShowRejectAssignmentModal(false);
+            setRejectAssignmentReason('');
+          }
+        }}
+      >
+        <form
+          className={styles.modalForm}
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmRejectAssignment();
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 14px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              borderRadius: 8,
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              marginBottom: 14,
+              fontSize: '0.875rem',
+              color: '#ef4444',
+              lineHeight: 1.45
+            }}
+          >
+            ⚠️ <strong>Rejection Notice:</strong>{' '}
+            {role === 'manager'
+              ? 'Rejecting this department assignment will remove the ticket from your department queue and return it directly to the Admin queue for reassignment.'
+              : 'Rejecting this staff assignment will return the ticket back to your Department Manager to reassign to another staff member.'}
+          </div>
+          <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+            <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+              Reason for Rejection <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <textarea
+              className={styles.modalTextarea}
+              rows={4}
+              value={rejectAssignmentReason}
+              onChange={(e) => setRejectAssignmentReason(e.target.value)}
+              placeholder={
+                role === 'manager'
+                  ? 'State why your department cannot take on this ticket (required for Admin review)...'
+                  : 'State why you cannot take on this ticket assignment (e.g. current workload, out of scope, specialization required)...'
+              }
+              required
+              style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '10px', fontSize: '0.9rem' }}
+            />
+          </div>
+          <div className={styles.modalFooterActions}>
+            <button
+              type="button"
+              className={styles.btnSlate}
+              onClick={() => {
+                setShowRejectAssignmentModal(false);
+                setRejectAssignmentReason('');
+              }}
+              disabled={rejectingAssignment}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={styles.btnReject}
+              disabled={rejectingAssignment || !rejectAssignmentReason.trim()}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <XCircleIcon style={{ width: 18, height: 18 }} />
+              {rejectingAssignment ? 'Rejecting…' : 'Confirm Rejection'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Staff Request Escalation to Manager Modal */}
+      <Modal open={opEscalateModal} title="⚡ Request Escalation to Department Manager" onClose={() => setOpEscalateModal(false)}>
+        <p style={{ fontSize: '0.86rem', color: '#64748b', marginBottom: '14px', lineHeight: 1.45 }}>
+          Assigned staff can request escalation to the Department Manager when facing technical bottlenecks, requiring additional collaborators, or needing a management decision.
+        </p>
+
+        <div className={styles.modalField} style={{ marginBottom: '12px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Escalation Reason *
+          </label>
+          <select
+            value={opReason}
+            onChange={(e) => setOpReason(e.target.value)}
+            className={styles.replyFormSelect}
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          >
+            <option value="Specialized Technical Expertise Required">Specialized Technical Expertise Required</option>
+            <option value="Cross-Department Dependency">Cross-Department Dependency</option>
+            <option value="Hardware / Vendor Replacement Required">Hardware / Vendor Replacement Required</option>
+            <option value="Policy / Management Decision Needed">Policy / Management Decision Needed</option>
+            <option value="Security / Infrastructure Risk">Security / Infrastructure Risk</option>
+            <option value="Other">Other (Specify below)</option>
+          </select>
+        </div>
+
+        {opReason === 'Other' && (
+          <div className={styles.modalField} style={{ marginBottom: '12px' }}>
+            <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+              Custom Escalation Reason *
+            </label>
+            <input
+              type="text"
+              value={opCustomReason}
+              onChange={(e) => setOpCustomReason(e.target.value)}
+              placeholder="e.g. Fiber optical switch port burned out"
+              style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+            />
+          </div>
+        )}
+
+        <div className={styles.modalField} style={{ marginBottom: '12px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Description of Unresolved Problem *
+          </label>
+          <textarea
+            rows={3}
+            value={opProblemDescription}
+            onChange={(e) => setOpProblemDescription(e.target.value)}
+            placeholder="Clearly describe the exact technical obstacle preventing resolution..."
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          />
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '12px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Actions Already Attempted *
+          </label>
+          <textarea
+            rows={3}
+            value={opActionsAttempted}
+            onChange={(e) => setOpActionsAttempted(e.target.value)}
+            placeholder="Detail all diagnostic steps, troubleshooting, and attempted fixes..."
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          />
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Assistance or Decision Required *
+          </label>
+          <textarea
+            rows={3}
+            value={opAssistanceRequired}
+            onChange={(e) => setOpAssistanceRequired(e.target.value)}
+            placeholder="What specific guidance, additional staff collaboration, or manager authorization do you need?"
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          />
+        </div>
+
+        <div className={styles.modalFooterActions}>
+          <button
+            type="button"
+            className={styles.btnSlate}
+            onClick={() => setOpEscalateModal(false)}
+            disabled={opSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.btnOperationalEscalate}
+            disabled={opSubmitting}
+            onClick={handleRequestOperationalEscalation}
+          >
+            {opSubmitting ? 'Submitting Escalation…' : '⚡ Submit Escalation to Manager'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Department Manager Escalation Review & Approval Modal */}
+      <Modal open={managerReviewModal} title="⚡ Manager Escalation Review & Decision" onClose={() => setManagerReviewModal(false)}>
+        {(() => {
+          const activeEsc = (ticket.operationalEscalations || []).find(e => e.status === 'pending_manager') || (ticket.operationalEscalations || [])[0];
+          return (
+            <div>
+              {activeEsc && (
+                <div style={{ padding: '10px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: 8, border: '1px solid rgba(59, 130, 246, 0.25)', marginBottom: 14, fontSize: '0.86rem' }}>
+                  <div style={{ marginBottom: 4 }}><strong>Escalation Reason:</strong> {activeEsc.escalation_reason}</div>
+                  <div style={{ marginBottom: 4 }}><strong>Problem:</strong> {activeEsc.problem_description}</div>
+                  <div style={{ marginBottom: 4 }}><strong>Actions Attempted:</strong> {activeEsc.actions_attempted}</div>
+                  <div><strong>Assistance Needed:</strong> {activeEsc.assistance_required}</div>
+                </div>
+              )}
+
+              <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+                <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  Manager Action / Decision *
+                </label>
+                <select
+                  value={managerDecision}
+                  onChange={(e) => setManagerDecision(e.target.value as any)}
+                  className={styles.replyFormSelect}
+                  style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+                >
+                  <option value="collaborate">👥 Involve Staff Collaborator(s) — Solve at Department Level</option>
+                  <option value="solve_in_person">👤 Solve In Person — Department Manager takes ownership to solve</option>
+                  <option value="guidance">💡 Provide Guidance & Directives to Staff</option>
+                  <option value="reassign">🔄 Reassign to Another Qualified Staff Member</option>
+                  <option value="escalate_to_admin">🛡️ Approve Escalation to Higher Authority (Admin)</option>
+                </select>
+              </div>
+
+              {managerDecision === 'collaborate' && (
+                <div style={{ marginBottom: '14px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                  <div style={{ fontSize: '0.84rem', color: '#059669', marginBottom: 8 }}>
+                    👥 <strong>Department Level Resolution:</strong> Assign additional staff to collaborate on this ticket. The ticket will return to <em>In Progress</em> within your department team.
+                  </div>
+                  <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    Select Staff Collaborator(s) *
+                  </label>
+                  <select
+                    value={managerCollaboratorIds[0] || ''}
+                    onChange={(e) => setManagerCollaboratorIds(e.target.value ? [e.target.value] : [])}
+                    className={styles.replyFormSelect}
+                    style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+                  >
+                    <option value="">Choose department staff member…</option>
+                    {staffUsers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {managerDecision === 'solve_in_person' && (
+                <div style={{ marginBottom: '14px', padding: '10px 12px', background: 'rgba(6, 182, 212, 0.08)', borderRadius: 8, border: '1px solid rgba(6, 182, 212, 0.25)', fontSize: '0.84rem', color: '#0891b2' }}>
+                  👤 <strong>In-Person Resolution:</strong> As Department Manager, you will take direct personal ownership and responsibility of this ticket. The ticket status will update to <em>In Progress</em> under your assignment.
+                </div>
+              )}
+
+              {managerDecision === 'reassign' && (
+                <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+                  <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    Select New Staff Assignee *
+                  </label>
+                  <select
+                    value={managerNewAssigneeId}
+                    onChange={(e) => setManagerNewAssigneeId(e.target.value)}
+                    className={styles.replyFormSelect}
+                    style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+                  >
+                    <option value="">Select staff user…</option>
+                    {staffUsers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {managerDecision === 'escalate_to_admin' && (
+                <div style={{ marginBottom: '14px', padding: '10px 12px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.25)', fontSize: '0.84rem', color: '#ef4444' }}>
+                  🛡️ <strong>Approve Escalation to Higher Authority:</strong> You are approving that this ticket cannot be resolved at the department level and requires executive administrator intervention or resource allocation.
+                </div>
+              )}
+
+              <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+                <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  {managerDecision === 'escalate_to_admin' ? 'Manager Recommendation / Justification for Admin *' : 'Manager Review Notes / Directive *'}
+                </label>
+                <textarea
+                  rows={4}
+                  value={managerReviewNotes}
+                  onChange={(e) => setManagerReviewNotes(e.target.value)}
+                  placeholder={
+                    managerDecision === 'escalate_to_admin'
+                      ? 'State why this ticket exceeds department capability and why Admin intervention is required...'
+                      : managerDecision === 'collaborate'
+                        ? 'Instructions and collaboration scope for the assigned team...'
+                        : 'State your action plan and directives for the staff...'
+                  }
+                  required
+                  style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+                />
+              </div>
+
+              <div className={styles.modalFooterActions}>
+                <button
+                  type="button"
+                  className={styles.btnSlate}
+                  onClick={() => setManagerReviewModal(false)}
+                  disabled={managerReviewSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={managerDecision === 'escalate_to_admin' ? styles.btnOrange : styles.btnEmerald}
+                  disabled={managerReviewSubmitting || !managerReviewNotes.trim() || (managerDecision === 'reassign' && !managerNewAssigneeId) || (managerDecision === 'collaborate' && !managerCollaboratorIds.length)}
+                  onClick={handleManagerReviewSubmit}
+                >
+                  {managerReviewSubmitting
+                    ? 'Processing…'
+                    : managerDecision === 'escalate_to_admin'
+                      ? '🛡️ Approve Escalation to Admin'
+                      : managerDecision === 'collaborate'
+                        ? '👥 Add Collaborator & Solve Internally'
+                        : managerDecision === 'solve_in_person'
+                          ? '👤 Take Ownership to Solve'
+                          : '✓ Record Decision'}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Admin Escalation Review & Decision Modal */}
+      <Modal open={adminReviewModal} title="🛡️ Executive Administration Escalation Decision" onClose={() => setAdminReviewModal(false)}>
+        <p style={{ fontSize: '0.86rem', color: '#64748b', marginBottom: '14px' }}>
+          Review the manager-approved escalation and issue executive directives, resource authorization, or reassignment.
+        </p>
+
+        <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Administrative Decision *
+          </label>
+          <select
+            value={adminDecision}
+            onChange={(e) => setAdminDecision(e.target.value as any)}
+            className={styles.replyFormSelect}
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          >
+            <option value="resource_allocated">📦 Resource Allocated / Budget Approved</option>
+            <option value="guidance">💡 Executive Guidance & Directives</option>
+            <option value="approved">✅ Operational Escalation Approved</option>
+            <option value="reassign">🔄 Cross-Department Reassignment</option>
+            <option value="rejected">❌ Escalation Rejected / Return to Department</option>
+          </select>
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '14px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+            Admin Decision Notes & Directives *
+          </label>
+          <textarea
+            rows={4}
+            value={adminReviewNotes}
+            onChange={(e) => setAdminReviewNotes(e.target.value)}
+            placeholder="Specify authorized resources, procurement numbers, cross-department directives..."
+            required
+            style={{ width: '100%', borderRadius: 8, padding: '10px' }}
+          />
+        </div>
+
+        <div className={styles.modalFooterActions}>
+          <button
+            type="button"
+            className={styles.btnSlate}
+            onClick={() => setAdminReviewModal(false)}
+            disabled={adminReviewSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.btnEmerald}
+            disabled={adminReviewSubmitting || !adminReviewNotes.trim()}
+            onClick={handleAdminReviewSubmit}
+          >
+            {adminReviewSubmitting ? 'Applying Decision…' : '✓ Submit Admin Decision'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Add Staff Collaborator Modal */}
+      <Modal open={collaboratorModal} title="👥 Add Department Staff Collaborators" onClose={() => setCollaboratorModal(false)}>
+        <p style={{ fontSize: '1rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px', lineHeight: 1.6 }}>
+          Add staff members from the department as collaborators to work jointly on fixing this ticket.
+        </p>
+
+        <div className={styles.modalField} style={{ marginBottom: '16px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 700, display: 'block', marginBottom: '8px', fontSize: '0.96rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+            Select Staff Member *
+          </label>
+          <select
+            value={collaboratorUserIds[0] || ''}
+            onChange={(e) => setCollaboratorUserIds(e.target.value ? [e.target.value] : [])}
+            className={styles.modalSelect}
+          >
+            <option value="">Choose staff member…</option>
+            {staffUsers.map((s) => (
+              <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '16px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 700, display: 'block', marginBottom: '8px', fontSize: '0.96rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+            Collaborator Role / Specialty
+          </label>
+          <input
+            type="text"
+            value={collaboratorRole}
+            onChange={(e) => setCollaboratorRole(e.target.value)}
+            placeholder="Specialist, Hardware Advisor, Network Diagnostics..."
+            className={styles.modalInput}
+          />
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '16px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 700, display: 'block', marginBottom: '8px', fontSize: '0.96rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+            Collaboration Notes / Briefing
+          </label>
+          <textarea
+            rows={3}
+            value={collaboratorNotes}
+            onChange={(e) => setCollaboratorNotes(e.target.value)}
+            placeholder="Optional instructions or context for the added collaborators..."
+            className={styles.modalTextarea}
+          />
+        </div>
+
+        <div className={styles.modalFooterActions}>
+          <button
+            type="button"
+            className={styles.btnSlate}
+            onClick={() => setCollaboratorModal(false)}
+            disabled={collaboratorSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.modalBtnEmeraldSubmit}
+            disabled={collaboratorSubmitting || !collaboratorUserIds.length}
+            onClick={handleAddCollaboratorsSubmit}
+          >
+            {collaboratorSubmitting ? 'Assigning…' : '👥 Add Collaborator'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Record Contribution & In-Person Notes Modal */}
+      <Modal open={contributionModal} title="📝 Record Work & In-Person Notes" onClose={() => setContributionModal(false)}>
+        <p style={{ fontSize: '1rem', color: 'var(--text-muted, #64748b)', marginBottom: '16px', lineHeight: 1.6 }}>
+          Document technical steps taken, diagnostic test results, or offline in-person actions performed.
+        </p>
+
+        <div className={styles.modalField} style={{ marginBottom: '16px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 700, display: 'block', marginBottom: '8px', fontSize: '0.96rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+            Technical Progress / Diagnostic Findings
+          </label>
+          <textarea
+            rows={4}
+            value={contributionNotes}
+            onChange={(e) => setContributionNotes(e.target.value)}
+            placeholder="Detail technical work completed, tests executed, component status..."
+            className={styles.modalTextarea}
+          />
+        </div>
+
+        <div className={styles.modalField} style={{ marginBottom: '16px' }}>
+          <label className={styles.modalLabel} style={{ fontWeight: 700, display: 'block', marginBottom: '8px', fontSize: '0.96rem', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
+            In-Person / Offline Coordination Notes
+          </label>
+          <textarea
+            rows={3}
+            value={inPersonNotes}
+            onChange={(e) => setInPersonNotes(e.target.value)}
+            placeholder="e.g. Visited server room with hardware specialist; re-seated network cable..."
+            className={styles.modalTextarea}
+          />
+        </div>
+
+        <div className={styles.modalFooterActions}>
+          <button
+            type="button"
+            className={styles.btnSlate}
+            onClick={() => setContributionModal(false)}
+            disabled={contributionSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.modalBtnEmeraldSubmit}
+            disabled={contributionSubmitting || (!contributionNotes.trim() && !inPersonNotes.trim())}
+            onClick={handleRecordContributionSubmit}
+          >
+            {contributionSubmitting ? 'Recording…' : '📝 Save Progress'}
+          </button>
+        </div>
       </Modal>
 
       <ContactModal

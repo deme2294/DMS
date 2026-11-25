@@ -83,7 +83,9 @@ export const assignDepartment = async (req, res, next) => {
       req.body.departmentId,
       req.body.notes,
       managerId,
-      clientMeta(req)
+      clientMeta(req),
+      req.body.reassignTimeMinutes,
+      req.body.overrideLock
     );
     res.status(HTTP.OK).json({ success: true, message: 'Department assigned', data });
   } catch (err) {
@@ -93,8 +95,31 @@ export const assignDepartment = async (req, res, next) => {
 
 export const assignStaff = async (req, res, next) => {
   try {
-    const data = await ticketService.assignStaff(req.user, req.params.id || null, req.body.staffId, req.body.notes, clientMeta(req));
+    const data = await ticketService.assignStaff(
+      req.user,
+      req.params.id || null,
+      req.body.staffId,
+      req.body.notes,
+      clientMeta(req),
+      req.body.reassignTimeMinutes,
+      req.body.overrideLock
+    );
     res.status(HTTP.OK).json({ success: true, message: 'Staff assigned', data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateReassignTime = async (req, res, next) => {
+  try {
+    const data = await ticketService.updateReassignTime(
+      req.user,
+      req.params.id || null,
+      req.body.reassignTimeMinutes,
+      req.body.target || 'department',
+      clientMeta(req)
+    );
+    res.status(HTTP.OK).json({ success: true, message: 'Reassign needed time updated', data });
   } catch (err) {
     next(err);
   }
@@ -129,7 +154,8 @@ export const reassignStaff = async (req, res, next) => {
 
 export const remindStaff = async (req, res, next) => {
   try {
-    const data = await ticketService.remindStaff(req.user, req.params.id || null, req.body.notes, clientMeta(req));
+    const payload = (req.body && typeof req.body === 'object') ? req.body : { notes: req.body };
+    const data = await ticketService.remindStaff(req.user, req.params.id || null, payload, clientMeta(req));
     res.status(HTTP.OK).json({ success: true, message: data.message, data });
   } catch (err) {
     next(err);
@@ -147,8 +173,26 @@ export const overrideAssignment = async (req, res, next) => {
 
 export const escalateTicket = async (req, res, next) => {
   try {
-    const data = await ticketService.escalateTicket(req.user, req.params.id || null, req.body.notes, clientMeta(req));
+    const data = await ticketService.escalateTicket(req.user, req.params.id || null, req.body.notes || req.body.reason, clientMeta(req), req.body);
     res.status(HTTP.OK).json({ success: true, message: 'Ticket escalated', data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getGlobalDuplicateSuggestions = async (req, res, next) => {
+  try {
+    const data = await ticketService.getGlobalDuplicateSuggestions(req.user, req.query.departmentId || null);
+    res.status(HTTP.OK).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getMergedTicketsLedger = async (req, res, next) => {
+  try {
+    const data = await ticketService.getMergedTicketsLedger(req.user, req.query.departmentId || null);
+    res.status(HTTP.OK).json({ success: true, data });
   } catch (err) {
     next(err);
   }

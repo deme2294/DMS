@@ -3,6 +3,8 @@ import * as departmentService from '../services/departmentService.js';
 import { sendDirectEmail as sendDirectEmailService } from '../services/emailService.js';
 import pool from '../config/db.js';
 import { HTTP } from '../config/constants.js';
+import { assertUniqueProfileImage, recordProfileImage } from '../services/imageComparisonService.js';
+import fs from 'fs';
 
 export const getUsers = async (req, res, next) => {
   try {
@@ -38,6 +40,9 @@ export const getUserById = async (req, res, next) => {
 
 export const createUser = async (req, res, next) => {
   try {
+    if (req.file) {
+      await assertUniqueProfileImage(req.file.path, null);
+    }
     const profileImage = req.file ? `/uploads/users/${req.file.filename}` : null;
     const departmentId = req.body.departmentId || null;
 
@@ -55,14 +60,21 @@ export const createUser = async (req, res, next) => {
       departmentId,
     });
 
+    if (req.file) {
+      await recordProfileImage(user.id, req.file.path, req.file.filename);
+    }
     res.status(HTTP.CREATED).json({ success: true, message: 'User created', data: user });
   } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) { try { await fs.promises.unlink(req.file.path); } catch {} }
     next(err);
   }
 };
 
 export const updateUser = async (req, res, next) => {
   try {
+    if (req.file) {
+      await assertUniqueProfileImage(req.file.path, req.params.id);
+    }
     let profileImage = req.file ? `/uploads/users/${req.file.filename}` : undefined;
     if (req.body.removeProfileImage === 'true' || req.body.removeProfileImage === true || req.body.profileImage === '') {
       profileImage = null;
@@ -87,6 +99,7 @@ export const updateUser = async (req, res, next) => {
 
     res.status(HTTP.OK).json({ success: true, message: 'User updated', data: user });
   } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) { try { await fs.promises.unlink(req.file.path); } catch {} }
     next(err);
   }
 };

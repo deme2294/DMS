@@ -105,8 +105,15 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Role Scope & Workflow Division UI ── */
@@ -409,8 +416,13 @@
 }
 
 /* Legacy fallback classes */
-.statHighlightAlert { composes: statBadgePending; }
-.statHighlightSuccess { composes: statBadgeApproved; }
+.statHighlightAlert {
+  composes: statBadgePending;
+}
+
+.statHighlightSuccess {
+  composes: statBadgeApproved;
+}
 
 .statInfo {
   display: flex;
@@ -448,12 +460,15 @@
   margin-bottom: 22px;
   overflow-x: auto;
   border: 1px solid var(--kb-border-light);
-  scrollbar-width: none; /* Hide default scrollbar on Firefox */
-  -ms-overflow-style: none; /* Hide on IE/Edge */
+  scrollbar-width: none;
+  /* Hide default scrollbar on Firefox */
+  -ms-overflow-style: none;
+  /* Hide on IE/Edge */
 }
 
 .tabBar::-webkit-scrollbar {
-  display: none !important; /* Hide default scrollbar on Chrome, Safari, Edge */
+  display: none !important;
+  /* Hide default scrollbar on Chrome, Safari, Edge */
   width: 0 !important;
   height: 0 !important;
 }
@@ -547,19 +562,23 @@
 .searchIcon {
   position: absolute;
   left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 18px;
   height: 18px;
   color: var(--kb-text-muted);
   pointer-events: none;
+  z-index: 2;
 }
 
 .searchInput {
   width: 100%;
-  padding: 11px 14px 11px 40px !important;
+  padding: 11px 14px 11px 46px !important;
   border: 1px solid var(--kb-input-border);
   border-radius: 12px;
   background: var(--kb-input-bg);
-  font-size: 0.9rem;
+  font-size: 1rem;
+  min-height: 48px;
   color: var(--kb-input-text);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   box-sizing: border-box;
@@ -790,11 +809,26 @@
 .statusWorkflowBadge {
   composes: statusBadge;
 }
-.stageDraft { composes: statusDraft; }
-.stagePending { composes: statusPending; }
-.stageApproved { composes: statusApproved; }
-.stagePublished { composes: statusPublished; }
-.stageRevision { composes: statusRevision; }
+
+.stageDraft {
+  composes: statusDraft;
+}
+
+.stagePending {
+  composes: statusPending;
+}
+
+.stageApproved {
+  composes: statusApproved;
+}
+
+.stagePublished {
+  composes: statusPublished;
+}
+
+.stageRevision {
+  composes: statusRevision;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    EXECUTIVE ACTION BUTTONS (MODERN CSS & DUAL-THEME)
@@ -1286,12 +1320,15 @@
   .page {
     padding: 12px;
   }
+
   .filters {
     grid-template-columns: 1fr;
   }
+
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
+
   .workflowDivisionCard {
     display: none;
   }
@@ -1801,4 +1838,3 @@
   color: #86efac;
   border-color: rgba(34, 197, 94, 0.35);
 }
-

@@ -3,34 +3,28 @@
 // Run with:  node server.js   (no extra flags needed)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// 0. Self-restart with --no-deprecation when run as `node server.js`
-//    This suppresses the harmless DEP0169 url.parse() warning from mysql2.
-//    Works in ESM because the check runs before any module imports fire.
-import { execFileSync } from 'child_process';
+// Suppress harmless mysql2 url.parse() DEP0169 warning
 import { fileURLToPath } from 'url';
 
-if (!process.execArgv.includes('--no-deprecation')) {
-    const __filename = fileURLToPath(import.meta.url);
-    try {
-        execFileSync(
-            process.execPath,
-            ['--no-deprecation', __filename, ...process.argv.slice(2)],
-            { stdio: 'inherit' }
-        );
-    } catch (e) {
-        process.exit(e.status ?? 1);
+process.on('warning', (warning) => {
+    if (warning && (warning.name === 'DeprecationWarning' || warning.code === 'DEP0169' || warning.message?.includes('url.parse'))) {
+        return;
     }
-    process.exit(0);
-}
-
-// Global error safety net
-process.on('uncaughtException', (err) => {
-    console.error('🚨 Uncaught Exception:', err.message);
-    process.exit(1);
 });
-process.on('unhandledRejection', (err) => {
-    console.error('🚨 Unhandled Rejection:', err);
-    process.exit(1);
+
+import fs from 'fs';
+
+// Global error safety net with persistent crash logging
+process.on('uncaughtException', (err) => {
+    const msg = `[${new Date().toISOString()}] 🚨 Uncaught Exception: ${err?.stack || err?.message || err}\n`;
+    try { fs.appendFileSync('crash.log', msg); } catch (_) {}
+    console.error(msg);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    const msg = `[${new Date().toISOString()}] 🚨 Unhandled Rejection: ${reason?.stack || reason?.message || JSON.stringify(reason) || reason}\n`;
+    try { fs.appendFileSync('crash.log', msg); } catch (_) {}
+    console.error(msg);
 });
 process.on('SIGTERM', () => { stopSlaMonitor(); process.exit(0); });
 process.on('SIGINT', () => { stopSlaMonitor(); process.exit(0); });

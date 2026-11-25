@@ -490,10 +490,10 @@
 }
 
 :global([data-theme="dark"]) .sendBtn:disabled {
-  background: rgba(30, 41, 59, 0.9);
-  border: 1.5px solid rgba(148, 163, 184, 0.35);
-  color: #94a3b8;
-  opacity: 0.95;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1.5px solid #475569;
+  color: #cbd5e1;
+  opacity: 1;
   box-shadow: none;
   cursor: not-allowed;
   transform: none;

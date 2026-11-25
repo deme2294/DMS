@@ -75,11 +75,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: rgba(37, 99, 235, 0.1);
   color: #2563eb;
@@ -93,7 +93,7 @@
 }
 
 .heading {
-  font-size: 1.85rem;
+  font-size: clamp(1.85rem, 2.5vw, 2.4rem);
   font-weight: 900;
   color: var(--dash-text-primary);
   letter-spacing: -0.025em;
@@ -102,7 +102,7 @@
 }
 
 .subheading {
-  font-size: 0.9rem;
+  font-size: 1.02rem;
   color: var(--dash-text-muted);
   margin: 0;
   display: flex;
@@ -127,19 +127,19 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.74rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--dash-text-secondary);
   background: var(--dash-card-bg);
   border: 1px solid var(--dash-card-border);
   border-radius: 999px;
-  padding: 4.5px 11px;
+  padding: 5px 13px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .datePillIcon {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   color: #3b82f6;
 }
 
@@ -147,9 +147,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: 8px;
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -327,7 +327,7 @@
 }
 
 .statValue {
-  font-size: 1.55rem;
+  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
   font-weight: 800;
   color: var(--dash-text-primary);
   line-height: 1.1;
@@ -343,15 +343,15 @@
 }
 
 .statLabel {
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--dash-text-secondary);
 }
 
 .statPillBadge {
-  font-size: 0.67rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 5px;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -512,7 +512,7 @@
 }
 
 .sectionHeading {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--dash-text-primary);
   margin: 0;
@@ -520,14 +520,14 @@
 }
 
 .sectionSub {
-  font-size: 0.8rem;
+  font-size: 0.94rem;
   color: var(--dash-text-muted);
   display: block;
   margin-top: 2px;
 }
 
 .sectionCountBadge {
-  font-size: 0.74rem;
+  font-size: 0.86rem;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 999px;

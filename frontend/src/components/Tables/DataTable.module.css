@@ -52,6 +52,7 @@
 
 .table {
   width: 100%;
+  min-width: 980px;
   border-collapse: collapse;
   font-size: 0.9rem;
   letter-spacing: -0.01em;
@@ -199,32 +200,34 @@
 
 /* Dark mode */
 :global([data-theme="dark"]) .wrapper {
-  background: #151b28;
-  border-color: #252e3e;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: #0f172a;
+  border-color: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.12);
 }
 
 :global([data-theme="dark"]) .table thead th {
-  background: #111726;
-  color: #94a3b8;
-  border-bottom-color: #252e3e;
+  background: #0d1527;
+  color: #93c5fd;
+  border-bottom-color: #1e2c45;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 :global([data-theme="dark"]) .table th,
 :global([data-theme="dark"]) .table td {
-  border-bottom-color: #1e2638;
+  border-bottom-color: #182438;
 }
 
 :global([data-theme="dark"]) .table tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.015);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 :global([data-theme="dark"]) .table tbody tr:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(56, 189, 248, 0.08);
 }
 
 :global([data-theme="dark"]) .table tbody td {
-  color: #f1f5f9;
+  color: #f8fafc;
 }
 
 :global([data-theme="dark"]) .loading {

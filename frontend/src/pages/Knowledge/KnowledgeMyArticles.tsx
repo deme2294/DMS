@@ -362,16 +362,19 @@ export default function KnowledgeMyArticles() {
 
       {/* ── Search & Filter Controls ── */}
       <div className={styles.filtersRow}>
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder="Search by article title, reference (KB-...), category, or content..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setArtPage(1);
-          }}
-        />
+        <div className={styles.searchWrapper}>
+          <span className={styles.searchIcon}>🔍</span>
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Search by article title, reference (KB-...), category, or content..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setArtPage(1);
+            }}
+          />
+        </div>
 
         <div className={styles.filterMeta}>
           <span className={styles.totalBadge}>

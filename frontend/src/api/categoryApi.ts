@@ -9,6 +9,7 @@ export interface TicketCategory {
     isActive: boolean;
     status?: 'pending' | 'approved' | 'rejected';
     routingType?: 'general' | 'direct';
+    reassignTimeMinutes?: number | null;
     slaPolicyId?: string | null;
     slaPolicyName?: string | null;
     slaPriority?: string | null;
@@ -53,11 +54,12 @@ export const createCategory = (payload: {
     departmentId?: string;
     slaPolicyId?: string;
     routingType?: 'general' | 'direct';
+    reassignTimeMinutes?: number;
 }) => api.post<{ success: boolean; data: TicketCategory }>('/ticket-categories', payload);
 
 export const updateCategory = (
     id: string,
-    payload: { name?: string; description?: string; departmentId?: string; slaPolicyId?: string | null; isActive?: boolean; routingType?: 'general' | 'direct' }
+    payload: { name?: string; description?: string; departmentId?: string; slaPolicyId?: string | null; isActive?: boolean; routingType?: 'general' | 'direct'; reassignTimeMinutes?: number }
 ) => api.put<{ success: boolean; data: TicketCategory }>(`/ticket-categories/${id}`, payload);
 
 export const approveCategory = (id: string, reviewNotes?: string) =>

@@ -69,8 +69,7 @@ const getModuleBadge = (n: NotificationItem) => {
     n.type === 'chat' ||
     n.type === 'message' ||
     Boolean(n.roomId) ||
-    Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
-    Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
+    Boolean(n.title && /\b(chat|video conference|video call|meeting invitation|screen share)\b/i.test(n.title));
   if (isChat) {
     return <span style={{ background: '#f3e8ff', color: '#6b21a8', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>💬 Chat</span>;
   }
@@ -99,10 +98,10 @@ export default function NotificationCenter() {
   const loadNotifications = async () => {
     setLoading(true);
     try {
-      const res = await fetchNotifications({ limit: 20, unreadOnly: true });
-      const unreadList = (res.data.data || []).filter((item: NotificationItem) => !item.readAt);
-      setNotifications(unreadList);
-
+      const res = await fetchNotifications({ limit: 30, unreadOnly: true });
+      const raw = Array.isArray(res.data?.data) ? res.data.data : [];
+      const unreadList = raw.filter((item: NotificationItem) => !item.readAt);
+      setNotifications(unreadList.length > 0 ? unreadList : raw.slice(0, 15));
     } finally {
       setLoading(false);
     }
@@ -193,12 +192,64 @@ export default function NotificationCenter() {
     }
   };
 
+  const extractTicketTarget = (n: NotificationItem): string | null => {
+    if (n.ticketId) {
+      return (n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId;
+    }
+    if ((n as any).ticketReferenceNumber) return (n as any).ticketReferenceNumber;
+    if ((n as any).referenceNumber) return (n as any).referenceNumber;
+
+    // Check message or title for ticket reference, e.g. "ticket HD-TEST-53899" or "test-esc-18haurj" or "#HD-2026-00014"
+    const text = `${n.title || ''} ${n.message || ''}`;
+    const stdMatch = text.match(/\b(HD-[A-Za-z0-9]+-\d+)\b/i);
+    if (stdMatch && stdMatch[1]) return stdMatch[1];
+
+    const ticketWordMatch = text.match(/ticket\s+#?([A-Za-z0-9_-]{3,36})/i);
+    if (ticketWordMatch && ticketWordMatch[1]) return ticketWordMatch[1];
+
+    const uuidMatch = text.match(/\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b/i);
+    if (uuidMatch && uuidMatch[1]) return uuidMatch[1];
+
+    return null;
+  };
+
   const handleNavigateNotification = (n: NotificationItem) => {
     setOpen(false);
     handleMarkRead(n.id);
     const role = user?.role || 'admin';
+    const ticketBase = basePaths[role] || '/admin/tickets';
 
-    // 1. Knowledge Base
+    // 1. Chat & Video Conference (Highest priority when associated with a chat room or of chat type)
+    const isChat =
+      n.type === 'chat' ||
+      n.type === 'message' ||
+      Boolean(n.roomId) ||
+      Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
+      Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
+
+    if (isChat && (n.roomId || n.type === 'chat')) {
+      const chatBase = chatPaths[role] || '/admin/chat';
+      const isVideoInvite = Boolean(
+        (n.title && /video|conference|meeting|call|screen share/i.test(n.title)) ||
+        (n.message && /video|conference|meeting|call|screen share/i.test(n.message))
+      );
+      if (n.roomId) {
+        const query = `?room=${encodeURIComponent(n.roomId)}${isVideoInvite ? '&video=true' : ''}`;
+        navigate(`${chatBase}${query}`, { state: { selectedRoomId: n.roomId, autoJoinVideo: isVideoInvite } });
+      } else {
+        navigate(chatBase);
+      }
+      return;
+    }
+
+    // 2. Ticket: Check if this notification is associated with a specific ticket
+    const ticketTarget = extractTicketTarget(n);
+    if (ticketTarget) {
+      navigate(`${ticketBase}/${ticketTarget}`);
+      return;
+    }
+
+    // 3. Knowledge Base
     const isKnowledge =
       n.type === 'knowledge' ||
       Boolean(n.articleId) ||
@@ -215,30 +266,14 @@ export default function NotificationCenter() {
       return;
     }
 
-    // 2. Chat
-    const isChat =
-      n.type === 'chat' ||
-      n.type === 'message' ||
-      Boolean(n.roomId) ||
-      Boolean(n.title && /chat|message|video|conference|meeting|screen share/i.test(n.title)) ||
-      Boolean(n.message && /chat|message|video|conference|meeting|screen share/i.test(n.message));
-
+    // Fallback Chat check without direct roomId
     if (isChat) {
       const chatBase = chatPaths[role] || '/admin/chat';
-      const isVideoInvite = Boolean(
-        (n.title && /video|conference|meeting|call|screen share/i.test(n.title)) ||
-        (n.message && /video|conference|meeting|call|screen share/i.test(n.message))
-      );
-      if (n.roomId) {
-        const query = `?room=${encodeURIComponent(n.roomId)}${isVideoInvite ? '&video=true' : ''}`;
-        navigate(`${chatBase}${query}`, { state: { selectedRoomId: n.roomId, autoJoinVideo: isVideoInvite } });
-      } else {
-        navigate(chatBase);
-      }
+      navigate(chatBase);
       return;
     }
 
-    // 3. Notice
+    // 4. Notice
     const isNotice =
       n.type === 'notice' ||
       Boolean(n.noticeId) ||
@@ -249,7 +284,7 @@ export default function NotificationCenter() {
       return;
     }
 
-    // 4. Feedback
+    // 5. Feedback
     const isFeedback =
       n.type === 'feedback' ||
       Boolean(n.title && /feedback/i.test(n.title));
@@ -259,20 +294,15 @@ export default function NotificationCenter() {
       return;
     }
 
-    // 5. SLA
+    // 6. Generic SLA Report (only if no specific ticket was associated)
     const isSla = n.type === 'sla' || Boolean(n.title && /\bsla\b/i.test(n.title));
     if (isSla && (role === 'admin' || role === 'ceo')) {
       navigate('/admin/sla');
       return;
     }
 
-    // 6. Ticket (default)
-    const ticketBase = basePaths[role] || '/admin/tickets';
-    if (n.ticketId) {
-      navigate(`${ticketBase}/${(n as any).ticketReferenceNumber || (n as any).referenceNumber || n.ticketId}`);
-    } else {
-      navigate(ticketBase);
-    }
+    // 7. General Tickets Fallback
+    navigate(ticketBase);
   };
 
   return (
@@ -287,7 +317,11 @@ export default function NotificationCenter() {
           <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22Z" fill="currentColor" />
           <path d="M18 16V11C18 7.9 16.36 5.36 13.5 4.69V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.69C7.64 5.36 6 7.9 6 11V16L4 18V19H20V18L18 16Z" fill="currentColor" />
         </svg>
-        {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
+        {unreadCount > 0 && (
+          <span className={styles.badge} title={`${unreadCount} unread notifications`}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -306,7 +340,7 @@ export default function NotificationCenter() {
           ) : (
             <ul className={styles.list}>
               {notifications.map((n) => (
-                <li key={n.id} className={styles.item}>
+                <li key={n.id} className={`${styles.item} ${!n.readAt ? styles.itemUnread : styles.itemRead}`}>
                   <div
                     className={styles.link}
                     onClick={() => handleNavigateNotification(n)}
@@ -346,3 +380,5 @@ export default function NotificationCenter() {
     </div>
   );
 }
+
+

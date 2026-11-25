@@ -2,6 +2,12 @@ import * as authService from '../services/authService.js';
 import * as userService from '../services/userService.js';
 import { HTTP } from '../config/constants.js';
 import { sanitizeUser } from '../models/User.js';
+import {
+  assertUniqueProfileImage,
+  checkProfileImageUniqueness,
+  recordProfileImage,
+} from '../services/imageComparisonService.js';
+import fs from 'fs';
 
 export const login = async (req, res, next) => {
   try {
@@ -79,8 +85,50 @@ export const me = async (req, res, next) => {
   }
 };
 
+export const checkMyProfileImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(HTTP.BAD_REQUEST).json({ success: false, message: 'No image file provided for validation' });
+    }
+
+    const result = await checkProfileImageUniqueness(req.file.path, req.user?.id || null);
+
+    // Clean up temporary pre-check file
+    if (fs.existsSync(req.file.path)) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch {}
+    }
+
+    if (!result.isUnique) {
+      return res.status(HTTP.CONFLICT).json({
+        success: false,
+        isUnique: false,
+        matchedUser: result.matchedUser,
+        message: result.reason || 'This profile image has already been used by another user or uploaded before.',
+      });
+    }
+
+    return res.status(HTTP.OK).json({
+      success: true,
+      isUnique: true,
+      message: 'Photo is verified and unique across all users.',
+    });
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      try { await fs.promises.unlink(req.file.path); } catch {}
+    }
+    next(err);
+  }
+};
+
 export const updateMyProfile = async (req, res, next) => {
   try {
+    if (req.file) {
+      // Compare and enforce that image is unique and cannot duplicate another user's image
+      await assertUniqueProfileImage(req.file.path, req.user.id);
+    }
+
     const profileImage = req.file ? `/uploads/users/${req.file.filename}` : undefined;
     const { username, email, firstName, lastName, phone, themePreference, currentPassword, newPassword, confirmPassword } = req.body;
 
@@ -104,8 +152,16 @@ export const updateMyProfile = async (req, res, next) => {
     if (currentPassword) payload.currentPassword = currentPassword;
 
     const user = await userService.updateMyProfile(req.user.id, payload);
+
+    if (req.file) {
+      await recordProfileImage(req.user.id, req.file.path, req.file.filename);
+    }
+
     res.status(HTTP.OK).json({ success: true, message: 'Profile updated successfully', data: user });
   } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      try { await fs.promises.unlink(req.file.path); } catch {}
+    }
     next(err);
   }
 };

@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { useAlert } from '../../context/AlertContext';
 import styles from './CeoTickets.module.css';
+import MergeTicketsModal from '../../components/DuplicateTickets/MergeTicketsModal';
 import {
   ArrowPathIcon,
   BuildingOffice2Icon,
@@ -337,6 +338,18 @@ export default function CeoTicketDetail() {
   }, [mergeModal, ticket?.id]);
 
   useEffect(() => {
+    if (deptModal && ticket) {
+      const deptAssignedBefore =
+        (ticket.previousDepartments && ticket.previousDepartments.length > 0 && ticket.previousDepartments[0].departmentId) ||
+        ticket.departmentId ||
+        '';
+      if (deptAssignedBefore) {
+        setSelectedDept((curr) => curr || deptAssignedBefore);
+      }
+    }
+  }, [deptModal, ticket]);
+
+  useEffect(() => {
     if (!mergeModal || !ticket?.id) return;
     const timer = setTimeout(() => {
       setLoadingCandidates(true);
@@ -404,9 +417,10 @@ export default function CeoTicketDetail() {
     if (!selectedMergeTickets.length || !ticket?.id) return;
     setMergingLoading(true);
     try {
-      const sourceIds = selectedMergeTickets.map((t) => t.id);
+      const sourceIds = selectedMergeTickets.map((t) => t.id || t.referenceNumber).filter(Boolean);
+      const reasonToSend = mergeNotes.trim() || 'Duplicate reports combined into primary ticket';
       await call(
-        () => mergeTickets(ticket.id, sourceIds, mergeNotes || undefined),
+        () => mergeTickets(ticket.id, sourceIds, reasonToSend),
         `Merged ${selectedMergeTickets.length} ticket(s) into this ticket`
       );
       setMergeModal(false);
@@ -543,6 +557,147 @@ export default function CeoTicketDetail() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* ── Merged Duplicate Banner & Live Primary Tracking ── */}
+      {(ticket.primaryTicketInfo || ticket.mergedInto) && (
+        <div className={styles.mergedTicketBanner}>
+          <div className={styles.mergedBannerIconWrap}>
+            <ArrowsRightLeftIcon style={{ width: 22, height: 22 }} />
+          </div>
+          <div className={styles.mergedBannerBody}>
+            <div className={styles.mergedBannerHeader}>
+              <div className={styles.mergedBannerTitleGroup}>
+                <span className={styles.mergedBannerTitle}>
+                  Merged Ticket — Linked to Primary Incident
+                </span>
+                <span className={styles.mergedBannerBadge}>
+                  Merged
+                </span>
+              </div>
+              {ticket.primaryTicketInfo?.primaryStatus && (
+                <span className={styles.mergedLiveStatusBadge}>
+                  Live Primary Status: {ticket.primaryTicketInfo.primaryStatus.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+
+            <p className={styles.mergedBannerDescription}>
+              This ticket was merged into Primary Ticket{' '}
+              <strong className={styles.mergedTicketRefBadge}>#{ticket.primaryTicketInfo?.primaryReference || ticket.mergedInto}</strong>
+              {ticket.primaryTicketInfo?.primaryTitle ? ` ("${ticket.primaryTicketInfo.primaryTitle}")` : ''}
+              {ticket.primaryTicketInfo?.mergedByName ? ` by ${ticket.primaryTicketInfo.mergedByName}` : ''}
+              {ticket.primaryTicketInfo?.mergedAt ? ` on ${new Date(ticket.primaryTicketInfo.mergedAt).toLocaleDateString()}` : ''}.
+              You can track what is happening in the primary ticket while continuing to reassign departments or staff for this tenant if required.
+            </p>
+
+            {/* Live Primary Ticket Info Box */}
+            <div className={styles.mergedPrimaryInfoBox}>
+              <div>
+                <span className={styles.mergedInfoLabel}>Primary Assigned Dept</span>
+                <strong className={styles.mergedInfoValue}>{ticket.primaryTicketInfo?.primaryDepartmentName || 'Not Assigned'}</strong>
+              </div>
+              <div>
+                <span className={styles.mergedInfoLabel}>Primary Assignee</span>
+                <strong className={styles.mergedInfoValue}>{ticket.primaryTicketInfo?.primaryAssignedToName || 'Unassigned'}</strong>
+              </div>
+              {ticket.primaryTicketInfo?.primaryResolutionNotes && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span className={styles.mergedInfoLabel}>Primary Resolution Notes</span>
+                  <span className={styles.mergedResolutionNotes}>{ticket.primaryTicketInfo.primaryResolutionNotes}</span>
+                </div>
+              )}
+            </div>
+
+            {ticket.primaryTicketInfo?.mergeReason && (
+              <div className={styles.mergedReasonBox}>
+                <strong>Merge Reason:</strong> {ticket.primaryTicketInfo.mergeReason}
+              </div>
+            )}
+
+            <div className={styles.mergedSlaNotice}>
+              <strong>SLA & History Policy:</strong> Original SLA timers, tenant identity, attachments, and audit trail are permanently preserved as of merge time.
+            </div>
+
+            {ticket.primaryTicketInfo?.primaryId && (
+              <div style={{ marginTop: 4 }}>
+                <Link
+                  to={`/ceo/tickets/${ticket.primaryTicketInfo.primaryId}`}
+                  className={styles.mergedActionBtn}
+                >
+                  <span>Open Primary Ticket #{ticket.primaryTicketInfo.primaryReference}</span>
+                  <span>→</span>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Linked Duplicate Tickets Hub on Primary Ticket ── */}
+      {ticket.linkedTickets && ticket.linkedTickets.length > 0 && (
+        <div className={styles.linkedMasterHub}>
+          <div className={styles.linkedHubHeader}>
+            <div className={styles.linkedHubTitleWrap}>
+              <ArrowsRightLeftIcon style={{ width: 20, height: 20, color: '#16a34a' }} />
+              <h3 className={styles.linkedHubTitle}>
+                Linked Duplicate Tickets ({ticket.linkedTickets.length})
+              </h3>
+            </div>
+            <span className={styles.linkedHubBadge}>
+              Primary Ticket (Master Hub)
+            </span>
+          </div>
+          <p className={styles.linkedHubDescription}>
+            The following duplicate tickets have been consolidated into this primary ticket. Any resolution or closure here automatically synchronizes to all linked tickets while preserving original submitter identities, ticket IDs, and SLA audit history.
+          </p>
+          <div className={styles.linkedCardsGrid}>
+            {ticket.linkedTickets.map((lt) => {
+              const refNum = lt.referenceNumber || (lt as any).reference_number || lt.id;
+              const tenantTitle = lt.tenantName || (lt as any).tenant_name || lt.createdByName || (lt as any).created_by_name || 'N/A';
+              const mergeDate = lt.mergedAt || (lt as any).merged_at;
+              const reasonText = lt.mergeReason || (lt as any).merge_reason;
+              const scoreVal = lt.similarityScore !== null && lt.similarityScore !== undefined ? lt.similarityScore : (lt as any).similarity_score;
+              const slaPreserved = lt.originalSlaStatus || (lt as any).original_sla_status || 'Preserved';
+
+              return (
+                <div key={lt.id} className={styles.linkedCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <Link to={`/ceo/tickets/${lt.id}`} className={styles.linkedCardRefLink}>
+                      #{refNum}
+                    </Link>
+                    {scoreVal !== null && scoreVal !== undefined && (
+                      <span className={styles.linkedCardMatchBadge}>
+                        {scoreVal}% match
+                      </span>
+                    )}
+                    <span className={styles.linkedCardStatus}>
+                      {lt.status?.replace(/[._]/g, ' ') || 'Merged'}
+                    </span>
+                  </div>
+                  <div className={styles.linkedCardTitle}>
+                    {lt.title}
+                  </div>
+                  <div className={styles.linkedCardMeta}>
+                    <span><strong>Tenant:</strong> {tenantTitle}</span>
+                    <span>•</span>
+                    <span><strong>Cat:</strong> {lt.category || 'General'}</span>
+                    <span>•</span>
+                    <span><strong>Merged:</strong> {mergeDate ? new Date(mergeDate).toLocaleDateString() : 'Recent'}</span>
+                  </div>
+                  {reasonText && (
+                    <div className={styles.linkedCardReason}>
+                      <strong>Reason:</strong> {reasonText}
+                    </div>
+                  )}
+                  <div className={styles.linkedCardSla}>
+                    SLA: Frozen upon merge ({slaPreserved})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1023,6 +1178,11 @@ export default function CeoTicketDetail() {
                               );
                               return;
                             }
+                            const deptAssignedBefore =
+                              (ticket.previousDepartments && ticket.previousDepartments.length > 0 && ticket.previousDepartments[0].departmentId) ||
+                              ticket.departmentId ||
+                              '';
+                            setSelectedDept(deptAssignedBefore);
                             setDeptModal(true);
                           }}
                           disabled={ticket.isOverdue || isWaitingTenant || ticket.deptAssignmentLock?.isLocked}
@@ -1983,12 +2143,19 @@ export default function CeoTicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={deptModal} title="Assign Department" onClose={() => { setDeptModal(false); setNotes(''); }}>
+      <Modal open={deptModal} title={ticket?.departmentId ? "Reassign Department" : "Assign Department"} onClose={() => { setDeptModal(false); setNotes(''); }}>
         <div className={styles.modalForm}>
-          <label>Department</label>
-          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-            <option value="">Select Department</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          <label>Department <span style={{ color: '#dc2626', fontWeight: 600 }}>*</span></label>
+          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} required>
+            {!selectedDept && <option value="">Select Department</option>}
+            {departments.map((d) => {
+              const isCurrent = ticket?.departmentId === d.id;
+              const isPrev = ticket?.previousDepartments?.some((pd) => pd.departmentId === d.id);
+              let label = d.name;
+              if (isCurrent) label += ' (Currently Assigned)';
+              else if (isPrev) label += ' (Assigned Before)';
+              return <option key={d.id} value={d.id}>{label}</option>;
+            })}
           </select>
           <label>Notes</label>
           <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional directives, instructions, or notes for the assigned department..." />
@@ -2135,166 +2302,12 @@ export default function CeoTicketDetail() {
         </div>
       </Modal>
 
-      <Modal open={mergeModal} title="Merge Duplicate Tickets" onClose={() => setMergeModal(false)}>
-        <div className={styles.mergeModalContent}>
-          {/* Target Ticket Highlight */}
-          <div className={styles.mergeTargetBanner}>
-            <span className={styles.mergeTargetIcon}>🎯</span>
-            <div className={styles.mergeTargetInfo}>
-              <span className={styles.mergeTargetTitle}>
-                Target Ticket: {ticket.referenceNumber || ticket.id} — {ticket.title}
-              </span>
-              <span className={styles.mergeTargetDesc}>
-                This ticket remains active and will absorb the duplicate tickets. All selected source tickets will be closed and marked as merged.
-              </span>
-            </div>
-          </div>
-
-          {/* Search & Auto-Discovery */}
-          <div className={styles.mergeSearchRow}>
-            <input
-              type="text"
-              className={styles.mergeSearchInput}
-              placeholder="🔍 Search candidate tickets by Ref #, Title, or Tenant..."
-              value={mergeSearch}
-              onChange={(e) => setMergeSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Quick Add by Ref # / ID */}
-          <div className={styles.mergeSearchRow}>
-            <input
-              type="text"
-              className={styles.mergeSearchInput}
-              placeholder="Or enter Ref # (e.g. HD-2026-00002) / UUID ID directly..."
-              value={manualMergeInput}
-              onChange={(e) => setManualMergeInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleManualAddMerge(); } }}
-            />
-            <button
-              type="button"
-              className={styles.mergeQuickAddBtn}
-              onClick={handleManualAddMerge}
-              disabled={!manualMergeInput.trim()}
-            >
-              + Add Ticket
-            </button>
-          </div>
-
-          {/* Selected Tickets Box */}
-          {selectedMergeTickets.length > 0 && (
-            <div className={styles.mergeSelectedBox}>
-              <div className={styles.mergeSelectedHeader}>
-                <span>Selected Tickets to Merge ({selectedMergeTickets.length}):</span>
-                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>Click ✕ to deselect</span>
-              </div>
-              <div className={styles.mergeSelectedPills}>
-                {selectedMergeTickets.map((st) => (
-                  <span key={st.id} className={styles.mergePill}>
-                    <strong>{st.referenceNumber || st.id.slice(0, 8)}</strong>: {st.title}
-                    <button
-                      type="button"
-                      className={styles.mergePillRemove}
-                      onClick={() => toggleMergeCandidate(st)}
-                      title="Remove"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Discovered Candidates Header */}
-          <div className={styles.mergeSectionTitle}>
-            <span>Discovered Duplicate Candidates</span>
-            <span className={styles.mergeCandidateCount}>{mergeCandidates.length} found</span>
-          </div>
-
-          {/* Candidate List */}
-          {loadingCandidates ? (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#64748b', fontSize: '0.84rem' }}>
-              Searching for candidate duplicate tickets…
-            </div>
-          ) : mergeCandidates.length === 0 ? (
-            <div className={styles.mergeEmptyCandidates}>
-              No eligible duplicate tickets discovered. You can search by reference number or add a ticket ID above.
-            </div>
-          ) : (
-            <div className={styles.mergeCandidatesList}>
-              {mergeCandidates.map((cand) => {
-                const isSelected = selectedMergeTickets.some((t) => t.id === cand.id);
-                const isSameTenant = ticket.tenantId && cand.tenantId === ticket.tenantId;
-
-                return (
-                  <div
-                    key={cand.id}
-                    className={`${styles.mergeCandidateCard} ${isSelected ? styles.mergeCandidateCardSelected : ''}`}
-                    onClick={() => toggleMergeCandidate(cand)}
-                  >
-                    <input
-                      type="checkbox"
-                      className={styles.mergeCheckbox}
-                      checked={isSelected}
-                      onChange={() => {}}
-                    />
-                    <div className={styles.mergeCandidateMain}>
-                      <div className={styles.mergeCandidateHeader}>
-                        <span className={styles.mergeCandidateRef}>{cand.referenceNumber || cand.id.slice(0, 8)}</span>
-                        {isSameTenant && (
-                          <span className={styles.mergeSameTenantBadge}>Same Tenant</span>
-                        )}
-                        <span className={styles.mergeCandidateTitle} title={cand.title}>
-                          {cand.title}
-                        </span>
-                      </div>
-                      <div className={styles.mergeCandidateMeta}>
-                        <span>Tenant: {cand.tenantName || 'N/A'}</span>
-                        <span>•</span>
-                        <span>Status: {getStatusLabel(cand.status)}</span>
-                        <span>•</span>
-                        <span>{cand.createdAt ? new Date(cand.createdAt).toLocaleDateString() : 'N/A'}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Optional Merge Reason / Note */}
-          <div className={styles.mergeNotesField}>
-            <label>Merge Reason / Internal Note (Optional)</label>
-            <textarea
-              rows={2}
-              placeholder="e.g. Duplicate issue reported by tenant. Merging into primary ticket."
-              value={mergeNotes}
-              onChange={(e) => setMergeNotes(e.target.value)}
-            />
-          </div>
-
-          {/* Modal Footer Actions */}
-          <div className={styles.mergeFooter}>
-            <button
-              type="button"
-              className={styles.btnSlate}
-              onClick={() => setMergeModal(false)}
-              disabled={mergingLoading}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={handleConfirmMerge}
-              disabled={selectedMergeTickets.length === 0 || mergingLoading}
-            >
-              {mergingLoading ? 'Merging…' : `Confirm Merge (${selectedMergeTickets.length} Selected)`}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      <MergeTicketsModal
+        open={mergeModal}
+        onClose={() => setMergeModal(false)}
+        initialTargetTicket={ticket}
+        onMergedSuccess={(updated) => setTicket(updated)}
+      />
 
       <Modal open={noteModal} title="Add Internal Note" onClose={() => setNoteModal(false)}>
         <div className={styles.modalForm}>

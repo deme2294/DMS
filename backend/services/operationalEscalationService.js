@@ -29,15 +29,13 @@ export const requestOperationalEscalation = async (
     throw Object.assign(new Error('Staff can only request operational escalation on tickets assigned to them'), { statusCode: 403 });
   }
 
-  // 3. Department Manager can only escalate tickets within their department
-  if (user.role === 'manager' && ticket.department_id) {
-    const [userDept] = await pool.query(
-      'SELECT 1 FROM user_departments WHERE user_id = :userId AND department_id = :deptId LIMIT 1',
-      { userId: user.id, deptId: ticket.department_id }
+  // 3. Department managers cannot initiate escalations to higher authority.
+  // Managers review staff escalations and either assign collaborators to resolve internally or approve the escalation to Admin.
+  if (user.role === 'manager') {
+    throw Object.assign(
+      new Error('Department managers cannot initiate direct escalations to higher authority. Managers review escalations submitted by department staff and either assign collaborators to resolve within their level or approve the escalation to Admin.'),
+      { statusCode: 403 }
     );
-    if (!userDept.length) {
-      throw Object.assign(new Error('Department manager can only escalate tickets in their assigned department'), { statusCode: 403 });
-    }
   }
 
   // 4. Validate mandatory information
@@ -54,8 +52,8 @@ export const requestOperationalEscalation = async (
     throw Object.assign(new Error('Assistance or decision required must be specified'), { statusCode: 400 });
   }
 
-  // Determine target destination: staff defaults to manager; manager can request directly to admin
-  const targetDestination = (user.role === 'manager' || destination === 'admin') ? 'admin' : 'manager';
+  // Determine target destination: staff escalations route strictly to department manager; manager can request to admin
+  const targetDestination = (user.role === 'staff') ? 'manager' : ((user.role === 'manager' || destination === 'admin') ? 'admin' : 'manager');
   const newOpStatus = targetDestination === 'admin' ? 'pending_admin' : 'pending_manager';
 
   // 5. Create operational escalation record
@@ -71,10 +69,13 @@ export const requestOperationalEscalation = async (
     status: newOpStatus,
   });
 
-  // 6. Update ticket's operational escalation columns (Preserves SLA status and current ticket status!)
+  // 6. Update ticket's operational escalation columns and set escalated status
   await pool.query(
     `UPDATE tickets
-     SET operational_escalation_status = :opStatus,
+     SET status = 'escalated',
+         is_escalated = 1,
+         escalated_at = COALESCE(escalated_at, NOW()),
+         operational_escalation_status = :opStatus,
          operational_escalation_reason = :reason,
          updated_at = NOW()
      WHERE id = :id`,
@@ -153,7 +154,7 @@ export const reviewByManager = async (
     throw Object.assign(new Error('Operational escalation record not found'), { statusCode: 404 });
   }
 
-  const validDecisions = ['guidance', 'reassign', 'collaborate', 'investigate', 'escalate_to_admin'];
+  const validDecisions = ['guidance', 'reassign', 'collaborate', 'investigate', 'solve_in_person', 'escalate_to_admin'];
   if (!validDecisions.includes(decision)) {
     throw Object.assign(new Error(`Invalid manager decision. Must be one of: ${validDecisions.join(', ')}`), { statusCode: 400 });
   }
@@ -172,7 +173,43 @@ export const reviewByManager = async (
     newOpStatus = 'pending_admin';
 
     await operationalRepo.update(escalationId, updateFields);
+    await pool.query(
+      `UPDATE tickets
+       SET status = 'escalated',
+           is_escalated = 1,
+           escalated_at = COALESCE(escalated_at, NOW()),
+           operational_escalation_status = 'pending_admin',
+           operational_escalation_reason = :reason,
+           updated_at = NOW()
+       WHERE id = :id`,
+      { id: ticket.id, reason: notes || ticket.operational_escalation_reason || 'Department Manager approved escalation to Admin' }
+    );
     await notificationService.notifyOperationalEscalationToAdmin(ticket, user, escalation).catch(() => {});
+  } else if (decision === 'solve_in_person') {
+    updateFields.status = 'in_person_resolution';
+    newOpStatus = 'in_person_resolution';
+    await operationalRepo.update(escalationId, updateFields);
+
+    // Department manager takes personal assignment and ownership to solve in person
+    await pool.query(
+      `UPDATE tickets
+       SET assigned_to = :managerId,
+           current_assigned_user_id = :managerId,
+           status = 'in_progress',
+           updated_at = NOW()
+       WHERE id = :id`,
+      { id: ticket.id, managerId: user.id }
+    );
+
+    await ticketRepo.createAssignment({
+      ticketId: ticket.id,
+      assignedBy: user.id,
+      assignedTo: user.id,
+      role: 'manager',
+      notes: notes || 'Department Manager took personal ownership to solve in person',
+      priority: ticket.priority,
+      category: ticket.category,
+    });
   } else if (decision === 'reassign') {
     if (!newAssigneeId) {
       throw Object.assign(new Error('New assignee ID is required for reassignment'), { statusCode: 400 });
@@ -207,6 +244,17 @@ export const reviewByManager = async (
     newOpStatus = 'collaborative';
     await operationalRepo.update(escalationId, updateFields);
 
+    // If ticket was in escalated state, resume in_progress now that other staff are collaborating
+    if (ticket.status === 'escalated') {
+      await pool.query(
+        `UPDATE tickets
+         SET status = 'in_progress',
+             updated_at = NOW()
+         WHERE id = :id`,
+        { id: ticket.id }
+      );
+    }
+
     // Add collaborators if provided
     for (const cUserId of (collaboratorIds || [])) {
       if (cUserId && cUserId !== ticket.assigned_to) {
@@ -214,17 +262,27 @@ export const reviewByManager = async (
           ticketId: ticket.id,
           userId: cUserId,
           assignedBy: user.id,
-          role,
-          notes,
+          role: 'collaborator',
+          notes: notes || 'Department Manager added collaborator to solve ticket',
         });
-        await notificationService.notifyCollaboratorAdded(ticket, cUserId, user, role, notes).catch(() => {});
+        await notificationService.notifyCollaboratorAdded(ticket, cUserId, user, 'collaborator', notes).catch(() => {});
       }
     }
   } else {
-    // guidance or investigate
+    // guidance or investigate: ticket stays at department level under in_progress
     updateFields.status = 'guidance_provided';
     newOpStatus = 'guidance_provided';
     await operationalRepo.update(escalationId, updateFields);
+
+    if (ticket.status === 'escalated') {
+      await pool.query(
+        `UPDATE tickets
+         SET status = 'in_progress',
+             updated_at = NOW()
+         WHERE id = :id`,
+        { id: ticket.id }
+      );
+    }
   }
 
   // Update tickets operational_escalation_status
@@ -237,11 +295,16 @@ export const reviewByManager = async (
   );
 
   // Status history note
+  const toStatus = decision === 'solve_in_person' ? 'in_progress'
+    : (decision === 'reassign' ? 'assigned'
+    : (decision === 'collaborate' && ticket.status === 'escalated' ? 'in_progress'
+    : (decision === 'escalate_to_admin' ? 'escalated' : ticket.status)));
+
   await ticketRepo.logStatusHistory({
     id: uuidv4(),
     ticketId: ticket.id,
     fromStatus: ticket.status,
-    toStatus: ticket.status,
+    toStatus,
     changedBy: user.id,
     notes: `Department Manager review: ${decision}. Notes: ${notes || 'None provided'}`,
     role: user.role,
@@ -272,12 +335,12 @@ export const reviewByAdmin = async (
   user,
   ticketId,
   escalationId,
-  { decision, notes, newAssigneeId, departmentId },
+  { decision, notes, newAssigneeId, departmentId, finalIdea, tenantDecisionNote },
   meta = {}
 ) => {
-  // 1. RBAC: Admin only
-  if (user.role !== 'admin') {
-    throw Object.assign(new Error('Only Admins can issue administrative decisions on operational escalations'), { statusCode: 403 });
+  // 1. RBAC: Admin / CEO
+  if (user.role !== 'admin' && user.role !== 'ceo') {
+    throw Object.assign(new Error('Only Admins or Executive can issue administrative decisions on operational escalations'), { statusCode: 403 });
   }
 
   const ticket = await ticketRepo.findById(ticketId);
@@ -288,37 +351,88 @@ export const reviewByAdmin = async (
     throw Object.assign(new Error('Operational escalation record not found'), { statusCode: 404 });
   }
 
-  const validDecisions = ['approved', 'guidance', 'reassign', 'resource_allocated', 'rejected'];
+  // 2. Workflow separation: Admin only reviews escalations approved by the Department Manager
+  if (escalation.status !== 'pending_admin' && escalation.destination !== 'admin') {
+    throw Object.assign(new Error('Admin can only review operational escalations that have been approved by the Department Manager'), { statusCode: 400 });
+  }
+
+  const validDecisions = ['approved', 'guidance', 'reassign', 'resource_allocated', 'reforward_to_manager', 'rejected'];
   if (!validDecisions.includes(decision)) {
     throw Object.assign(new Error(`Invalid admin decision. Must be one of: ${validDecisions.join(', ')}`), { statusCode: 400 });
   }
 
+  const adminDirectiveNotes = finalIdea || notes || '';
+  const formattedAdminNotes = [
+    adminDirectiveNotes ? `[Final Idea & Directives for Department Manager]: ${adminDirectiveNotes}` : '',
+    tenantDecisionNote ? `[Final Decision for Tenant]: ${tenantDecisionNote}` : ''
+  ].filter(Boolean).join('\n\n') || notes || null;
+
   const updateFields = {
     admin_id: user.id,
     admin_decision: decision,
-    admin_notes: notes || null,
+    admin_notes: formattedAdminNotes,
     admin_decided_at: new Date(),
     status: 'resolved',
   };
 
   await operationalRepo.update(escalationId, updateFields);
 
+  // Post public update for Tenant if a tenant decision note was provided
+  if (tenantDecisionNote && tenantDecisionNote.trim()) {
+    await pool.query(
+      `INSERT INTO ticket_replies (id, ticket_id, user_id, message, visibility, created_at, updated_at)
+       VALUES (:replyId, :ticketId, :userId, :message, 'public', NOW(), NOW())`,
+      {
+        replyId: uuidv4(),
+        ticketId: ticket.id,
+        userId: user.id,
+        message: `🏛️ **Official Administration Final Decision & Directives**:\n\n${tenantDecisionNote.trim()}${adminDirectiveNotes ? `\n\n*Directives and action plan have been re-forwarded to the Department Manager for immediate execution.*` : ''}`,
+      }
+    ).catch(() => {});
+  }
+
   // If Admin changes department or reassigns staff
   if (departmentId || newAssigneeId) {
-    const updateTicket = {};
     if (departmentId) {
-      updateTicket.department_id = departmentId;
-      updateTicket.current_department_id = departmentId;
+      const activeDept = await ticketRepo.findActiveAssignment(ticket.id, 'department_manager');
+      if (activeDept) await ticketRepo.reassignAssignment(activeDept.id);
+      await ticketRepo.createAssignment({
+        ticketId: ticket.id,
+        departmentId,
+        assignedBy: user.id,
+        assignedTo: null,
+        role: 'department_manager',
+        notes: notes || 'Reassigned by Admin following operational escalation',
+        priority: ticket.priority,
+        category: ticket.category,
+        fromAssignmentId: activeDept?.id || null,
+        status: 'accepted',
+        acceptedAt: new Date(),
+      });
     }
     if (newAssigneeId) {
-      updateTicket.assigned_to = newAssigneeId;
-      updateTicket.current_assigned_user_id = newAssigneeId;
+      const activeStaff = await ticketRepo.findActiveAssignment(ticket.id, 'staff');
+      if (activeStaff) await ticketRepo.reassignAssignment(activeStaff.id);
+      await ticketRepo.createAssignment({
+        ticketId: ticket.id,
+        departmentId: departmentId || ticket.department_id,
+        assignedBy: user.id,
+        assignedTo: newAssigneeId,
+        role: 'staff',
+        notes: notes || 'Staff reassigned by Admin following operational escalation',
+        priority: ticket.priority,
+        category: ticket.category,
+        fromAssignmentId: activeStaff?.id || null,
+        status: 'accepted',
+        acceptedAt: new Date(),
+      });
     }
     await pool.query(
       `UPDATE tickets
        SET ${departmentId ? 'department_id = :departmentId, current_department_id = :departmentId,' : ''}
            ${newAssigneeId ? 'assigned_to = :newAssigneeId, current_assigned_user_id = :newAssigneeId,' : ''}
            operational_escalation_status = 'resolved',
+           status = 'in_progress',
            updated_at = NOW()
        WHERE id = :id`,
       { id: ticket.id, departmentId, newAssigneeId }
@@ -354,7 +468,7 @@ export const reviewByAdmin = async (
     { role: user.role, browser: meta?.browser }
   ).catch(() => {});
 
-  await notificationService.notifyOperationalEscalationAdminDecision(ticket, user, decision, notes).catch(() => {});
+  await notificationService.notifyOperationalEscalationAdminDecision(ticket, user, decision, adminDirectiveNotes, { finalIdea: adminDirectiveNotes, tenantDecisionNote }).catch(() => {});
 
   broadcastTicketEvent(ticket.id, 'ticket:updated', {
     ticketId: ticket.id,

@@ -106,6 +106,10 @@ export const sanitizeTicket = (row) => {
     operational_escalation_status: row.operational_escalation_status || 'none',
     operationalEscalationReason: row.operational_escalation_reason || null,
     operational_escalation_reason: row.operational_escalation_reason || null,
+    reassignTimeMinutes: row.reassign_time_minutes != null ? Number(row.reassign_time_minutes) : null,
+    reassign_time_minutes: row.reassign_time_minutes != null ? Number(row.reassign_time_minutes) : null,
+    staffReassignTimeMinutes: row.staff_reassign_time_minutes != null ? Number(row.staff_reassign_time_minutes) : null,
+    staff_reassign_time_minutes: row.staff_reassign_time_minutes != null ? Number(row.staff_reassign_time_minutes) : null,
   };
 };
 

@@ -11,6 +11,7 @@ import {
     ClockIcon,
     ShieldCheckIcon,
     ShieldExclamationIcon,
+    ExclamationCircleIcon,
     CalendarIcon,
     UserIcon,
     BoltIcon,
@@ -47,6 +48,7 @@ const emptyForm = {
     departmentId: '',
     slaPolicyId: '',
     routingType: 'general' as 'general' | 'direct',
+    reassignTimeMinutes: 30,
 };
 
 const emptySlaForm = {
@@ -156,6 +158,7 @@ export default function TicketCategories() {
             departmentId: cat.departmentId || '',
             slaPolicyId: cat.slaPolicyId || '',
             routingType: resolvedRouting as 'general' | 'direct',
+            reassignTimeMinutes: cat.reassignTimeMinutes != null ? cat.reassignTimeMinutes : 30,
         });
         setError('');
         setModalOpen(true);
@@ -174,12 +177,13 @@ export default function TicketCategories() {
         setSaving(true);
         setError('');
         try {
-            const payload: { name: string; description?: string; departmentId?: string; slaPolicyId?: string; routingType: 'general' | 'direct' } = {
+            const payload: { name: string; description?: string; departmentId?: string; slaPolicyId?: string; routingType: 'general' | 'direct'; reassignTimeMinutes?: number } = {
                 name: form.name.trim(),
                 description: form.description.trim() || undefined,
                 departmentId: form.departmentId || undefined,
                 slaPolicyId: form.slaPolicyId || undefined,
                 routingType: form.routingType,
+                reassignTimeMinutes: Number(form.reassignTimeMinutes) >= 0 ? Number(form.reassignTimeMinutes) : 30,
             };
             if (editing) {
                 await updateCategory(editing.id, payload);
@@ -538,6 +542,7 @@ export default function TicketCategories() {
                     </div>
 
                     <div className={styles.searchWrapper}>
+                        <span className={styles.searchIcon} aria-hidden="true">🔍</span>
                         <input
                             type="text"
                             placeholder="Search categories…"
@@ -623,8 +628,12 @@ export default function TicketCategories() {
                                         </div>
                                     );
                                 })()}
-                                <div className={styles.cardMeta}>
+                                <div className={styles.cardMeta} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                                     <span>Created by {cat.createdByName || '—'}</span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#64748b' }} title="Cooldown time before department or staff can be reassigned">
+                                        <ClockIcon style={{ width: 13, height: 13 }} />
+                                        Reassign Lock: <strong style={{ color: '#0284c7' }}>{cat.reassignTimeMinutes != null ? (cat.reassignTimeMinutes >= 60 ? `${(cat.reassignTimeMinutes / 60).toFixed(1)}h` : `${cat.reassignTimeMinutes}m`) : '30m'}</strong>
+                                    </span>
                                 </div>
                                 {catSl.length > 0 && (
                                     <div className={styles.slaList}>
@@ -691,98 +700,192 @@ export default function TicketCategories() {
                 open={modalOpen}
                 title={editing ? 'Edit Category' : 'Create Category'}
                 onClose={() => setModalOpen(false)}
+                maxWidth="600px"
             >
                 <div className={styles.modalForm}>
-                    {error && <div className={styles.formError}>{error}</div>}
+                    {error && (
+                        <div className={styles.formError} role="alert">
+                            <ExclamationCircleIcon className={styles.formErrorIcon} />
+                            <span>{error}</span>
+                        </div>
+                    )}
 
-                    <label>Category Name *</label>
-                    <input
-                        value={form.name}
-                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        placeholder="e.g. Hardware, Software, Network…"
-                    />
+                    <div className={styles.formGroup}>
+                        <label>Category Name <span className={styles.requiredStar}>*</span></label>
+                        <input
+                            value={form.name}
+                            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                            placeholder="e.g. Hardware, Software, Network…"
+                        />
+                    </div>
 
-                    <label>Description (optional)</label>
-                    <textarea
-                        rows={2}
-                        value={form.description}
-                        onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                        placeholder="Brief description of this category"
-                    />
+                    <div className={styles.formGroup}>
+                        <label>Description (optional)</label>
+                        <textarea
+                            rows={2}
+                            value={form.description}
+                            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                            placeholder="Brief description of this category"
+                        />
+                    </div>
 
-                    <label>Department (optional)</label>
-                    <select
-                        value={form.departmentId}
-                        onChange={(e) => {
-                            const deptId = e.target.value;
-                            setForm((f) => ({
-                                ...f,
-                                departmentId: deptId,
-                                routingType: deptId ? 'direct' : 'general',
-                            }));
-                        }}
-                    >
-                        <option value="">All Departments</option>
-                        {departments.map((d) => (
-                            <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                    </select>
+                    <div className={styles.formGroup}>
+                        <label>Department (optional)</label>
+                        <select
+                            value={form.departmentId}
+                            onChange={(e) => {
+                                const deptId = e.target.value;
+                                setForm((f) => ({
+                                    ...f,
+                                    departmentId: deptId,
+                                    routingType: deptId ? 'direct' : 'general',
+                                }));
+                            }}
+                        >
+                            <option value="">All Departments</option>
+                            {departments.map((d) => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                        </select>
+                    </div>
 
-                    <label>Default SLA Policy (optional)</label>
-                    <select
-                        value={form.slaPolicyId}
-                        onChange={(e) => setForm((f) => ({ ...f, slaPolicyId: e.target.value }))}
-                    >
-                        <option value="">No Default SLA Policy (System Priority Defaults)</option>
-                        {slaPolicies.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve{p.categoryName ? ` [${p.categoryName}]` : ''})
-                            </option>
-                        ))}
-                    </select>
+                    <div className={styles.formGroup}>
+                        <label>Default SLA Policy (optional)</label>
+                        <select
+                            value={form.slaPolicyId}
+                            onChange={(e) => setForm((f) => ({ ...f, slaPolicyId: e.target.value }))}
+                        >
+                            <option value="">No Default SLA Policy (System Priority Defaults)</option>
+                            {slaPolicies.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                    {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve{p.categoryName ? ` [${p.categoryName}]` : ''})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.4rem' }}>
-                        <label style={{ margin: 0 }}>Ticket Routing *</label>
+                    <div className={styles.formGroup}>
+                        <div className={styles.routingHeaderRow}>
+                            <label className={styles.routingHeaderLabel}>Ticket Routing *</label>
+                            {form.departmentId && form.routingType === 'direct' && (
+                                <span className={styles.routingBadgeAuto}>
+                                    ✓ Auto-set to Direct
+                                </span>
+                            )}
+                        </div>
+
+                        <div className={styles.routingCardsGrid}>
+                            <div
+                                className={`${styles.routingCard} ${form.routingType === 'general' ? styles.routingCardActive : ''}`}
+                                onClick={() => setForm((f) => ({ ...f, routingType: 'general' }))}
+                            >
+                                <div className={styles.routingCardHeader}>
+                                    <div className={styles.routingCardRadio}>
+                                        <div className={styles.radioDot} />
+                                    </div>
+                                    <div className={styles.routingCardTitleRow}>
+                                        <ShieldCheckIcon className={styles.routingCardIcon} />
+                                        <span className={styles.routingCardTitle}>General Routing</span>
+                                    </div>
+                                </div>
+                                <p className={styles.routingCardDesc}>
+                                    Tickets go to Admin first, who assigns the department manager.
+                                </p>
+                            </div>
+
+                            <div
+                                className={`${styles.routingCard} ${form.routingType === 'direct' ? styles.routingCardActive : ''}`}
+                                onClick={() => setForm((f) => ({ ...f, routingType: 'direct' }))}
+                            >
+                                <div className={styles.routingCardHeader}>
+                                    <div className={styles.routingCardRadio}>
+                                        <div className={styles.radioDot} />
+                                    </div>
+                                    <div className={styles.routingCardTitleRow}>
+                                        <BoltIcon className={styles.routingCardIcon} />
+                                        <span className={styles.routingCardTitle}>Direct Routing</span>
+                                    </div>
+                                </div>
+                                <p className={styles.routingCardDesc}>
+                                    Tickets route straight to this category&rsquo;s department manager.
+                                </p>
+                            </div>
+                        </div>
+
+                        {form.routingType === 'direct' && !form.departmentId && (
+                            <div className={styles.routingWarningBanner}>
+                                <InformationCircleIcon className={styles.bannerIcon} />
+                                <span>Select a department above to enable direct routing to its manager.</span>
+                            </div>
+                        )}
                         {form.departmentId && form.routingType === 'direct' && (
-                            <span style={{ fontSize: '0.74rem', color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                                ✓ Auto-set to Direct
-                            </span>
+                            <div className={styles.routingSuccessBanner}>
+                                <BoltIcon className={styles.bannerIcon} />
+                                <span>
+                                    Tickets created under this category will route directly to <strong>{departments.find(d => d.id === form.departmentId)?.name || 'this department'}</strong> manager.
+                                </span>
+                            </div>
                         )}
                     </div>
-                    <div className={styles.routingOptions}>
-                        <label className={styles.routingOption}>
-                            <input
-                                type="radio"
-                                name="routingType"
-                                value="general"
-                                checked={form.routingType === 'general'}
-                                onChange={() => setForm((f) => ({ ...f, routingType: 'general' }))}
-                            />
-                            <span>General &mdash; tickets go to Admin, who assigns the department manager.</span>
-                        </label>
-                        <label className={styles.routingOption}>
-                            <input
-                                type="radio"
-                                name="routingType"
-                                value="direct"
-                                checked={form.routingType === 'direct'}
-                                onChange={() => setForm((f) => ({ ...f, routingType: 'direct' }))}
-                            />
-                            <span>Direct &mdash; tickets route straight to this category&rsquo;s department manager.</span>
-                        </label>
+
+                    <div className={styles.cooldownSection}>
+                        <div className={styles.cooldownHeader}>
+                            <div className={styles.cooldownLabelWrap}>
+                                <ClockIcon className={styles.cooldownIcon} />
+                                <span className={styles.cooldownLabel}>
+                                    Reassignment Lock / Cooldown Time *
+                                </span>
+                            </div>
+                            <span className={styles.cooldownCurrentBadge}>
+                                {form.reassignTimeMinutes >= 60
+                                    ? `${(form.reassignTimeMinutes / 60).toFixed(1)} hrs active lock`
+                                    : `${form.reassignTimeMinutes} mins active lock`}
+                            </span>
+                        </div>
+
+                        <div className={styles.cooldownInputRow}>
+                            <div className={styles.cooldownInputWrap}>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    className={styles.cooldownNumberInput}
+                                    value={form.reassignTimeMinutes}
+                                    onChange={(e) => setForm((f) => ({ ...f, reassignTimeMinutes: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                    placeholder="30"
+                                />
+                                <span className={styles.cooldownUnit}>mins</span>
+                            </div>
+
+                            <div className={styles.cooldownPillsGroup}>
+                                {[
+                                    { val: 15, label: '15 min' },
+                                    { val: 30, label: '30 min (Default)' },
+                                    { val: 60, label: '1 Hour' },
+                                    { val: 120, label: '2 Hours' },
+                                ].map((preset) => (
+                                    <button
+                                        key={preset.val}
+                                        type="button"
+                                        className={`${styles.cooldownPill} ${form.reassignTimeMinutes === preset.val ? styles.cooldownPillActive : ''}`}
+                                        onClick={() => setForm((f) => ({ ...f, reassignTimeMinutes: preset.val }))}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles.cooldownCallout}>
+                            <InformationCircleIcon className={styles.cooldownCalloutIcon} />
+                            <p className={styles.cooldownCalloutText}>
+                                Reassigning department by Admin and reassigning staff by Manager will become workable after this duration ({form.reassignTimeMinutes >= 60 ? `${(form.reassignTimeMinutes / 60).toFixed(1)} hrs` : `${form.reassignTimeMinutes} mins`}).
+                            </p>
+                        </div>
                     </div>
-                    {form.routingType === 'direct' && !form.departmentId && (
-                        <p className={styles.routingHint}>Select a department above for direct routing.</p>
-                    )}
-                    {form.departmentId && form.routingType === 'direct' && (
-                        <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#15803d' }}>
-                            ⚡ Tickets created under this category will route directly to <strong>{departments.find(d => d.id === form.departmentId)?.name || 'this department'}</strong> manager.
-                        </p>
-                    )}
 
                     <div className={styles.modalActions}>
-                        <button onClick={() => setModalOpen(false)} className={styles.cancelBtn}>Cancel</button>
-                        <button onClick={handleSave} disabled={saving} className={styles.saveBtn}>
+                        <button type="button" onClick={() => setModalOpen(false)} className={styles.cancelBtn}>Cancel</button>
+                        <button type="button" onClick={handleSave} disabled={saving} className={styles.saveBtn}>
                             {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Category'}
                         </button>
                     </div>
@@ -795,7 +898,12 @@ export default function TicketCategories() {
                 onClose={() => { setSlaModalOpen(false); setEditingSla(null); }}
             >
                 <div className={styles.modalForm}>
-                    {slaError && <div className={styles.formError}>{slaError}</div>}
+                    {slaError && (
+                        <div className={styles.formError} role="alert">
+                            <ExclamationCircleIcon className={styles.formErrorIcon} />
+                            <span>{slaError}</span>
+                        </div>
+                    )}
 
                     <label>Policy Name *</label>
                     <input
@@ -1317,6 +1425,18 @@ export default function TicketCategories() {
                                     <div className={styles.viewMetaValue}>{new Date(viewingCategory.updatedAt).toLocaleString()}</div>
                                 </div>
                             )}
+                            <div className={styles.viewMetaItem}>
+                                <div className={styles.viewMetaLabel}>
+                                    <ClockIcon className={styles.metaIcon} /> Reassign Lock Cooldown
+                                </div>
+                                <div className={styles.viewMetaValue}>
+                                    {viewingCategory.reassignTimeMinutes != null
+                                        ? (viewingCategory.reassignTimeMinutes >= 60
+                                            ? `${(viewingCategory.reassignTimeMinutes / 60).toFixed(1)} hrs (${viewingCategory.reassignTimeMinutes} min)`
+                                            : `${viewingCategory.reassignTimeMinutes} min`)
+                                        : '30 min (Default)'}
+                                </div>
+                            </div>
                             {viewingCategory.reviewNotes && (
                                 <div className={styles.viewMetaItemFull}>
                                     <div className={styles.viewMetaLabel}>

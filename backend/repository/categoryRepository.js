@@ -34,7 +34,7 @@ export const findAll = async ({ status = 'active', includeInactive = false, incl
   if (!includePending) where += " AND tc.status = 'approved'";
   const [rows] = await pool.query(
     `SELECT tc.id, tc.name, tc.description, tc.department_id,
-        tc.is_active, tc.status, tc.routing_type, tc.sla_policy_id,
+        tc.is_active, tc.status, tc.routing_type, tc.reassign_time_minutes, tc.sla_policy_id,
         tc.requested_by, tc.reviewed_by, tc.reviewed_at, tc.review_notes,
         tc.created_at, tc.updated_at,
         d.name AS department_name,
@@ -59,7 +59,7 @@ export const findAll = async ({ status = 'active', includeInactive = false, incl
 export const findById = async (id) => {
   const [rows] = await pool.query(
     `SELECT tc.id, tc.name, tc.description, tc.department_id,
-        tc.is_active, tc.status, tc.routing_type, tc.sla_policy_id,
+        tc.is_active, tc.status, tc.routing_type, tc.reassign_time_minutes, tc.sla_policy_id,
         tc.requested_by, tc.reviewed_by, tc.reviewed_at, tc.review_notes,
         tc.created_at, tc.updated_at,
         d.name AS department_name,
@@ -101,12 +101,13 @@ export const create = async ({
   requestedBy = null,
   slaPolicyId = null,
   routingType = 'general',
+  reassignTimeMinutes = 30,
 }) => {
   const id = uuidv4();
   await pool.query(
     `INSERT INTO ticket_categories
-       (id, name, description, department_id, is_active, status, routing_type, sla_policy_id, created_by, requested_by)
-     VALUES (:id, :name, :description, :departmentId, 1, :status, :routingType, :slaPolicyId, :createdBy, :requestedBy)`,
+       (id, name, description, department_id, is_active, status, routing_type, reassign_time_minutes, sla_policy_id, created_by, requested_by)
+     VALUES (:id, :name, :description, :departmentId, 1, :status, :routingType, :reassignTimeMinutes, :slaPolicyId, :createdBy, :requestedBy)`,
     {
       id,
       name,
@@ -114,6 +115,7 @@ export const create = async ({
       departmentId: departmentId || null,
       status,
       routingType,
+      reassignTimeMinutes: Number(reassignTimeMinutes) || 30,
       slaPolicyId: slaPolicyId || null,
       createdBy,
       requestedBy,
@@ -123,7 +125,7 @@ export const create = async ({
 };
 
 export const update = async (id, {
-  name, description, departmentId, isActive, status, slaPolicyId, routingType,
+  name, description, departmentId, isActive, status, slaPolicyId, routingType, reassignTimeMinutes,
   reviewedBy = null, reviewNotes = null, reviewedAt = null,
 }) => {
   const sets = [];
@@ -136,6 +138,7 @@ export const update = async (id, {
   if (status !== undefined) { sets.push('status = :status'); params.status = status; }
   if (slaPolicyId !== undefined) { sets.push('sla_policy_id = :slaPolicyId'); params.slaPolicyId = slaPolicyId || null; }
   if (routingType !== undefined) { sets.push('routing_type = :routingType'); params.routingType = routingType; }
+  if (reassignTimeMinutes !== undefined) { sets.push('reassign_time_minutes = :reassignTimeMinutes'); params.reassignTimeMinutes = Number(reassignTimeMinutes) || 30; }
   if (reviewedBy !== undefined) { sets.push('reviewed_by = :reviewedBy'); params.reviewedBy = reviewedBy; }
   if (reviewNotes !== undefined) { sets.push('review_notes = :reviewNotes'); params.reviewNotes = reviewNotes || null; }
   if (reviewedAt !== undefined) { sets.push('reviewed_at = :reviewedAt'); params.reviewedAt = reviewedAt; }

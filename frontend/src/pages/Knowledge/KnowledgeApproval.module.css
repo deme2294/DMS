@@ -450,10 +450,12 @@
   flex: 1;
   min-width: 280px;
   max-width: 500px;
-  padding: 11px 18px;
+  padding: 11px 18px 11px 46px !important;
   border: 1px solid var(--appr-card-border);
   border-radius: 12px;
-  font-size: 0.88rem;
+  font-size: 1rem;
+  min-height: 48px;
+  box-sizing: border-box;
   background: var(--appr-card-bg);
   color: var(--appr-text-primary);
   outline: none;

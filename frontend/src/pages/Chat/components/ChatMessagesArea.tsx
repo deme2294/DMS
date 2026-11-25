@@ -538,11 +538,19 @@ export const ChatMessagesArea: React.FC<ChatMessagesAreaProps> = ({
                                   </div>
                                 )}
                                 {meetingInfo.recipientEmail && (
-                                  <div className={styles.meetDetailRow}>
-                                    <span className={styles.meetDetailLabel}>Invited:</span>
-                                    <span className={styles.meetDetailEmail}>
-                                      {meetingInfo.recipientEmail}
-                                    </span>
+                                  <div className={styles.meetDetailRow} style={{ alignItems: 'flex-start' }}>
+                                    <span className={styles.meetDetailLabel} style={{ marginTop: '4px' }}>Invited:</span>
+                                    <div className={styles.meetInviteeList}>
+                                      {meetingInfo.recipientEmail.split(',').map((inv: string, idx: number) => {
+                                        const trimmed = inv.trim();
+                                        if (!trimmed) return null;
+                                        return (
+                                          <span key={idx} className={styles.meetInviteePill}>
+                                            {trimmed}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
                                 )}
                                 {meetingInfo.screenShareEnabled && (

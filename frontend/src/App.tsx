@@ -12,6 +12,7 @@ import Login from './pages/Authentication/Login';
 import TicketList from './pages/Tickets/TicketList';
 import TicketCreate from './pages/Tickets/TicketCreate';
 import TicketDetail from './pages/Tickets/TicketDetail';
+import { TicketDuplicateHub } from './pages/Tickets/TicketDuplicateHub';
 import TrackTicket from './pages/Tickets/TrackTicket';
 import TenantList from './pages/Tenants/TenantList';
 import TenantCreate from './pages/Tenants/TenantCreate';
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/ceo/departments/create" element={<ProtectedRoute roles={['ceo']}><CeoDepartmentCreate /></ProtectedRoute>} />
           <Route path="/ceo/departments/:id/edit" element={<ProtectedRoute roles={['ceo']}><CeoDepartmentEdit /></ProtectedRoute>} />
           <Route path="/ceo/tickets" element={<ProtectedRoute roles={['ceo']}><CeoTicketList /></ProtectedRoute>} />
+          <Route path="/ceo/tickets/duplicates" element={<ProtectedRoute roles={['ceo']}><TicketDuplicateHub /></ProtectedRoute>} />
           <Route path="/ceo/tickets/:id" element={<ProtectedRoute roles={['ceo']}><CeoTicketDetail /></ProtectedRoute>} />
           <Route path="/ceo/feedback" element={<ProtectedRoute roles={['ceo']}><FeedbackList /></ProtectedRoute>} />
           <Route path="/ceo/feedback/:id" element={<ProtectedRoute roles={['ceo']}><FeedbackDetail /></ProtectedRoute>} />
@@ -134,6 +136,7 @@ export default function App() {
           <Route path="/admin/departments/:id/edit" element={<ProtectedRoute roles={['admin', 'manager']}><DepartmentEdit /></ProtectedRoute>} />
           <Route path="/admin/matrix" element={<ProtectedRoute roles={['admin']}><MatrixView /></ProtectedRoute>} />
           <Route path="/admin/tickets" element={<ProtectedRoute roles={['admin']}><TicketList /></ProtectedRoute>} />
+          <Route path="/admin/tickets/duplicates" element={<ProtectedRoute roles={['admin']}><TicketDuplicateHub /></ProtectedRoute>} />
           <Route path="/admin/tickets/:id" element={<ProtectedRoute roles={['admin']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/admin/notices" element={<ProtectedRoute roles={['admin']}><NoticesList /></ProtectedRoute>} />
           <Route path="/admin/notices/create" element={<ProtectedRoute roles={['admin']}><NoticesCreate /></ProtectedRoute>} />
@@ -163,6 +166,7 @@ export default function App() {
           <Route path="/manager/departments/:id/edit" element={<ProtectedRoute roles={['manager']}><ManagerDepartmentEdit /></ProtectedRoute>} />
           <Route path="/manager/matrix" element={<ProtectedRoute roles={['manager']}><ManagerMatrixView /></ProtectedRoute>} />
           <Route path="/manager/tickets" element={<ProtectedRoute roles={['manager']}><TicketList /></ProtectedRoute>} />
+          <Route path="/manager/tickets/duplicates" element={<ProtectedRoute roles={['manager']}><TicketDuplicateHub /></ProtectedRoute>} />
           <Route path="/manager/tickets/:id" element={<ProtectedRoute roles={['manager']}><TicketDetail /></ProtectedRoute>} />
           <Route path="/manager/ticket-categories" element={<ProtectedRoute roles={['admin', 'manager']}><TicketCategories /></ProtectedRoute>} />
           <Route path="/manager/notices" element={<ProtectedRoute roles={['manager']}><ManagerNotices /></ProtectedRoute>} />
@@ -212,6 +216,7 @@ export default function App() {
         </Route>
 
         <Route element={<MainLayout />}>
+          <Route path="/tickets/duplicates" element={<UniversalRedirect />} />
           <Route path="/tickets/:id" element={<UniversalRedirect />} />
           <Route path="/tickets" element={<UniversalRedirect />} />
           <Route path="/chat" element={<UniversalRedirect />} />

@@ -27,10 +27,11 @@ import {
   ArrowsPointingOutIcon,
   ArrowDownTrayIcon,
   XMarkIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, ThemePreference } from '../../context/ThemeContext';
-import { updateMyProfile, getMe } from '../../api/authApi';
+import { updateMyProfile, getMe, checkProfileImage } from '../../api/authApi';
 import CameraCaptureModal from '../../components/CameraCaptureModal/CameraCaptureModal';
 import styles from './Profile.module.css';
 
@@ -53,6 +54,7 @@ export default function MyProfile() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(user?.profileImage || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingPhoto, setIsCheckingPhoto] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -129,16 +131,54 @@ export default function MyProfile() {
     }
   }, [user, reset]);
 
+  const validateAndSetPhoto = async (file: File, source: 'upload' | 'camera') => {
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image file size exceeds 2MB limit.');
+      return;
+    }
+
+    setIsCheckingPhoto(true);
+    setError('');
+    setMessage('Comparing and verifying photo uniqueness across system users…');
+
+    try {
+      const checkFormData = new FormData();
+      checkFormData.append('profileImage', file);
+      const res = await checkProfileImage(checkFormData);
+
+      if (res.data?.success && res.data.isUnique) {
+        setPhotoFile(file);
+        setPhotoPreview(URL.createObjectURL(file));
+        setError('');
+        setMessage(
+          source === 'camera'
+            ? '✓ Photo captured and verified unique! Click "Save Profile Changes" to apply.'
+            : '✓ Photo verified unique across all users! Click "Save Profile Changes" to apply.'
+        );
+      } else {
+        const reason = res.data?.message || 'This profile image has already been used by another user or uploaded before.';
+        setError(`❌ Duplicate Image Rejected: ${reason}`);
+        setMessage('');
+        setPhotoFile(null);
+        setPhotoPreview(user?.profileImage || null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    } catch (err: any) {
+      const reason = err.response?.data?.message || 'This profile image has already been used by another user or uploaded before. Please choose or capture a unique photo.';
+      setError(`❌ Duplicate Image Rejected: ${reason}`);
+      setMessage('');
+      setPhotoFile(null);
+      setPhotoPreview(user?.profileImage || null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } finally {
+      setIsCheckingPhoto(false);
+    }
+  };
+
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setError('Image file size exceeds 2MB limit.');
-        return;
-      }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
-      setError('');
+      validateAndSetPhoto(file, 'upload');
     }
   };
 
@@ -149,10 +189,7 @@ export default function MyProfile() {
   };
 
   const handleCameraCapture = (file: File) => {
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-    setError('');
-    setMessage('Photo captured from camera successfully! Click "Save Profile Changes" to apply.');
+    validateAndSetPhoto(file, 'camera');
   };
 
   const onSubmit = async (values: ProfileForm) => {
@@ -193,8 +230,14 @@ export default function MyProfile() {
       updateUser(meRes.data.data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile.');
+      const errMsg = err.response?.data?.message || 'Failed to update profile.';
+      setError(errMsg);
       setMessage('');
+      if (err.response?.status === 409 || err.response?.data?.isDuplicateImage) {
+        setPhotoFile(null);
+        setPhotoPreview(user?.profileImage || null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
@@ -422,6 +465,20 @@ export default function MyProfile() {
                 <span>Remove</span>
               </button>
             )}
+          </div>
+
+          {isCheckingPhoto && (
+            <div className={styles.photoCheckingBadge}>
+              <ArrowPathIcon className={styles.spinIcon} />
+              <span>Comparing image against existing user photos for uniqueness…</span>
+            </div>
+          )}
+
+          <div className={styles.photoSecurityNotice}>
+            <ShieldCheckIcon className={styles.securityIcon} />
+            <span>
+              <strong>Duplicate Protection Active:</strong> Profile images are compared across all users. Reusing or inserting photos captured or used for another user is impossible.
+            </span>
           </div>
         </div>
       </div>

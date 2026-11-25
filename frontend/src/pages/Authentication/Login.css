@@ -22,7 +22,7 @@
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background: radial-gradient(ellipse 130% 90% at 50% 20%, #0b254a 0%, #071933 55%, #040e1e 100%);
+  background: radial-gradient(ellipse 130% 90% at 50% 20%, #22406a 0%, #214371 55%, #2a497d 100%);
 }
 
 .login-ambient-center {
@@ -32,7 +32,7 @@
   transform: translate(-50%, -50%);
   width: min(950px, 90vw);
   height: min(650px, 65vh);
-  background: radial-gradient(ellipse 65% 50% at 50% 50%, rgba(8, 125, 147, 0.15) 0%, rgba(119, 203, 198, 0.05) 50%, transparent 80%);
+  background: radial-gradient(ellipse 65% 50% at 50% 50%, rgba(39, 212, 243, 0.15) 0%, rgba(42, 226, 214, 0.05) 50%, transparent 80%);
   filter: blur(95px);
   pointer-events: none;
   border-radius: 50%;
@@ -179,11 +179,11 @@
 }
 
 .login-heading {
-  font-size: clamp(1.85rem, 3.6vw, 3.35rem);
+  font-size: clamp(2.2rem, 4.2vw, 3.8rem);
   font-weight: 900;
   color: white;
-  line-height: 1.04;
-  margin: 0 0 0.75rem 0;
+  line-height: 1.05;
+  margin: 0 0 0.85rem 0;
   letter-spacing: -0.025em;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   overflow-wrap: break-word;
@@ -191,7 +191,7 @@
 
 .login-heading-gradient {
   display: block;
-  background: linear-gradient(135deg, #77cbc6 0%, #38bdf8 45%, #087d93 100%);
+  background: linear-gradient(135deg, #77cbc6 0%, #66bade 50%, #103342 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -200,68 +200,70 @@
 
 .login-heading-sub {
   display: block;
-  font-size: clamp(1rem, 1.6vw, 1.35rem);
-  font-weight: 600;
-  color: #cbd5e1;
-  margin-top: 0.35rem;
+  font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-top: 0.45rem;
   letter-spacing: normal;
-  -webkit-text-fill-color: #cbd5e1;
+  -webkit-text-fill-color: #f1f5f9;
 }
 
 .login-heading-bar {
-  width: 110px;
-  height: 4px;
-  background: linear-gradient(to right, #77cbc6, #087d93, #16284f);
+  width: 140px;
+  height: 5px;
+  background: linear-gradient(to right, #38bdf8, #0ea5e9, #0284c7);
   border-radius: 999px;
-  box-shadow: 0 0 14px rgba(8, 125, 147, 0.6);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.7);
+  margin-top: 0.75rem;
 }
 
 /* ── Description ── */
 .login-desc {
   color: #cbd5e1;
-  font-size: clamp(0.82rem, 1.1vw, 0.9rem);
+  font-size: clamp(0.95rem, 1.25vw, 1.05rem);
   line-height: 1.65;
-  max-width: 520px;
-  margin: 0 0 clamp(1rem, 2vw, 1.6rem) 0;
+  max-width: 580px;
+  margin: 0 0 clamp(1.2rem, 2.2vw, 1.8rem) 0;
 }
 
 /* ── Feature cards ── */
 .login-features {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: clamp(1rem, 2vw, 1.6rem);
+  gap: 12px;
+  margin-bottom: clamp(1.2rem, 2.2vw, 1.8rem);
 }
 
 .login-feature-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 14px 20px;
   min-width: 0;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.65) 0%, rgba(30, 41, 59, 0.45) 100%);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.5) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: default;
+  max-width: 580px;
 }
 
 .login-feature-card:hover {
   border-color: rgba(56, 189, 248, 0.4);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.65) 100%);
+  background: linear-gradient(135deg, rgba(25, 49, 106, 0.8) 0%, rgba(24, 65, 131, 0.65) 100%);
   transform: translateX(4px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), 0 0 18px rgba(6, 182, 212, 0.18);
+  box-shadow: 0 8px 28px rgba(40, 4, 4, 0.35), 0 0 18px rgba(6, 182, 212, 0.18);
 }
 
 .login-feature-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   display: flex;
-  align-items: center;
+  align-items: left;
   justify-content: center;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
@@ -273,29 +275,29 @@
 }
 
 .login-feature-title {
-  font-size: 0.885rem;
-  font-weight: 600;
-  color: #f8fafc;
-  margin: 0 0 2px 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 3px 0;
 }
 
 .login-feature-sub {
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   color: #cbd5e1;
   margin: 0;
 }
 
 /* ── System Status ── */
 .login-status-box {
-  padding: 14px 18px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.5) 100%);
+  padding: 16px 22px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(30, 41, 59, 0.55) 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   width: 100%;
-  max-width: 380px;
+  max-width: 440px;
 }
 
 .login-status-top,
@@ -373,7 +375,7 @@
 
 /* ── Glass card ── */
 .login-card {
-  background: linear-gradient(145deg, rgba(15, 23, 42, 0.74) 0%, rgba(8, 17, 40, 0.84) 100%);
+  background: linear-gradient(145deg, rgba(18, 18, 18, 0.74) 0%, rgba(8, 17, 40, 0.84) 100%);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -435,7 +437,7 @@
 .login-card-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: white;
+  color: rgba(255, 255, 255, 0.568);
   letter-spacing: -0.01em;
   margin: 0 0 0.25rem 0;
 }
@@ -481,11 +483,7 @@
 }
 
 .login-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #cbd5e1;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  display: none !important;
 }
 
 .login-input-wrap {
@@ -493,28 +491,26 @@
 }
 
 .login-input-icon {
-  position: absolute;
-  left: 13px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: #64748b;
-  pointer-events: none;
-  transition: color 0.2s;
+  display: none !important;
 }
 
 .login-input {
   width: 100%;
-  padding: 11px 14px 11px 40px;
+  padding: 13px 18px !important;
   background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(100, 116, 139, 0.35);
-  border-radius: 11px;
+  border: 1.5px solid rgba(100, 116, 139, 0.35);
+  border-radius: 12px;
   color: white;
-  font-size: 0.86rem;
+  font-size: 1.02rem !important;
+  min-height: 50px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   box-sizing: border-box;
+}
+
+.login-input[type="password"],
+.login-input#password {
+  padding-right: 3rem !important;
 }
 
 /* Disable native Edge / IE password reveal and clear buttons on login inputs */

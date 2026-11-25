@@ -625,7 +625,7 @@ export default function KnowledgeApproval() {
           <input
             type="text"
             className={styles.searchInput}
-            style={{ paddingLeft: 42, width: '100%' }}
+            style={{ paddingLeft: 46, width: '100%' }}
             placeholder="Filter by title, reference (KB-...), department, or author..."
             value={search}
             onChange={(e) => {

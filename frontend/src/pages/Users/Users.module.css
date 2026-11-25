@@ -429,20 +429,25 @@
 .searchIcon {
   position: absolute;
   left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 18px;
   height: 18px;
   color: var(--usr-text-muted);
   pointer-events: none;
+  z-index: 2;
 }
 
 .searchInput {
   width: 100%;
-  padding: 10px 38px 10px 42px;
+  padding: 10px 38px 10px 46px !important;
   border-radius: 12px;
   border: 1px solid var(--usr-card-border);
   background: var(--usr-subtle-bg);
   color: var(--usr-text-primary);
-  font-size: 0.9rem;
+  font-size: 1rem;
+  min-height: 48px;
+  box-sizing: border-box;
   font-weight: 500;
   transition: all 0.2s ease;
 }

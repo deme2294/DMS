@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import ContactModal, { ContactTarget } from '../../components/ContactModal/ContactModal';
+import DuplicateDetectionModal from '../../components/DuplicateTickets/DuplicateDetectionModal';
 import { canNotifyTenant } from '../../utils/permissionUtils';
 import {
   fetchTickets, deleteTicket, assignDepartment, assignStaff,
@@ -100,6 +101,7 @@ export default function TicketList() {
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { socket } = useSocket();
 
   const handleExportTickets = async () => {
@@ -360,27 +362,49 @@ export default function TicketList() {
             </select>
           )}
 
-          <button
-            type="button"
-            className={styles.resetFiltersBtn}
-            onClick={handleExportTickets}
-            disabled={exporting || !tickets.length}
-            title="Export tickets table to professional Excel spreadsheet (.xlsx)"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            📊 {exporting ? 'Exporting...' : 'Export (Excel)'}
-          </button>
-
-          {hasActiveFilters && (
+          <div className={styles.filterActionsGroup}>
             <button
               type="button"
               className={styles.resetFiltersBtn}
-              onClick={resetAllFilters}
-              title="Reset all search and filters"
+              onClick={handleExportTickets}
+              disabled={exporting || !tickets.length}
+              title="Export tickets table to professional Excel spreadsheet (.xlsx)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              ↺ Reset Filters
+              📊 {exporting ? 'Exporting...' : 'Export (Excel)'}
             </button>
-          )}
+
+            {(user?.role === 'admin' || user?.role === 'ceo' || user?.role === 'manager') && (
+              <button
+                type="button"
+                className={styles.resetFiltersBtn}
+                style={{
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  color: '#ffffff',
+                  border: '1px solid #b45309',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+                onClick={() => setShowDuplicateModal(true)}
+                title="Detect and review duplicate tickets across the system"
+              >
+                <span>⚡ Duplicate Detection</span>
+              </button>
+            )}
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className={styles.resetFiltersBtn}
+                onClick={resetAllFilters}
+                title="Reset all search and filters"
+              >
+                ↺ Reset Filters
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -403,6 +427,7 @@ export default function TicketList() {
           {
             key: 'title',
             label: 'Title',
+            minWidth: '200px',
             render: (row) => (
               <div className={styles.ticketTitleCell}>
                 <span className={styles.ticketTitleText}>{row.title}</span>
@@ -545,6 +570,8 @@ export default function TicketList() {
                         setError('Cannot assign department: Ticket is waiting for tenant response/confirmation.');
                         return;
                       }
+                      const prevDept = (row.previousDepartments && row.previousDepartments.length > 0 && row.previousDepartments[0].departmentId) || row.departmentId || '';
+                      setSelectedDept(prevDept);
                       setAssignTicket(row);
                       setDeptModal(true);
                     }}
@@ -564,6 +591,8 @@ export default function TicketList() {
                         setError('Cannot assign staff: Ticket is waiting for tenant response/confirmation.');
                         return;
                       }
+                      const prevStaff = (row.previousStaff && row.previousStaff.length > 0 && (row.previousStaff[0].staffId || row.previousStaff[0].userId)) || row.assignedTo || '';
+                      setSelectedStaff(prevStaff);
                       setAssignTicket(row);
                       setStaffModal(true);
                     }}
@@ -652,9 +681,17 @@ export default function TicketList() {
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
               className={styles.modalSelect}
+              required
             >
-              <option value="">Select Department</option>
-              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {!selectedDept && <option value="">Select Department</option>}
+              {departments.map((d) => {
+                const isCurrent = assignTicket?.departmentId === d.id;
+                const isPrev = assignTicket?.previousDepartments?.some((pd) => pd.departmentId === d.id);
+                let label = d.name;
+                if (isCurrent) label += ' (Currently Assigned)';
+                else if (isPrev) label += ' (Assigned Before)';
+                return <option key={d.id} value={d.id}>{label}</option>;
+              })}
             </select>
           </div>
           <div className={styles.modalField}>
@@ -761,6 +798,15 @@ export default function TicketList() {
         target={contactTarget}
         defaultSubject={contactSubject}
         onClose={() => setContactTarget(null)}
+      />
+
+      <DuplicateDetectionModal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        departmentId={user?.role === 'manager' ? (user.departments?.[0]?.id || undefined) : undefined}
+        onMergedSuccess={() => {
+          loadTickets();
+        }}
       />
     </div>
   );

@@ -29,6 +29,7 @@ const normalizeCategory = (category) => {
     departmentId: department_id || null,
     departmentName: department_name || null,
     routingType: routing_type || 'general',
+    reassignTimeMinutes: category.reassign_time_minutes !== null && category.reassign_time_minutes !== undefined ? Number(category.reassign_time_minutes) : 30,
     slaPolicyId: sla_policy_id || null,
     slaPolicyName: sla_policy_name || null,
     slaPriority: sla_priority || null,

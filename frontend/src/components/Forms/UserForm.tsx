@@ -87,6 +87,11 @@ export default function UserForm({
 
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Account Credentials</h3>
+        {!initialData && (
+          <div className={styles.credentialsNotice}>
+            📧 <strong>Automatic Credentials Dispatch:</strong> Once created, an activation email containing the username, password, direct dashboard link to follow tasks, and profile update instructions will be automatically dispatched to the registered email address.
+          </div>
+        )}
         <div className={styles.grid}>
           <div className={styles.field}>
             <label>Username <span className={styles.required}>*</span></label>

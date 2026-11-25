@@ -63,7 +63,8 @@ export const getTargetedUser = async (userId) => {
   if (!userId) return null;
   const [rows] = await pool.query(
     `SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role,
-            u.tenant_id, t.organization_name AS tenant_name, t.email AS tenant_email
+            u.tenant_id, t.organization_name AS tenant_name, t.email AS tenant_email,
+            u.created_at
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      LEFT JOIN tenants t ON t.id = u.tenant_id
@@ -82,6 +83,7 @@ export const getTargetedUser = async (userId) => {
     fullName,
     role: r.role,
     tenantId: r.tenant_id,
+    createdAt: r.created_at,
   };
 };
 
@@ -98,7 +100,8 @@ export const getTargetedUsers = async (userIds) => {
 
   const [rows] = await pool.query(
     `SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role,
-            u.tenant_id, t.organization_name AS tenant_name, t.email AS tenant_email
+            u.tenant_id, t.organization_name AS tenant_name, t.email AS tenant_email,
+            u.created_at
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      LEFT JOIN tenants t ON t.id = u.tenant_id
@@ -113,12 +116,100 @@ export const getTargetedUsers = async (userIds) => {
     fullName: [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.first_name || 'User',
     role: r.role,
     tenantId: r.tenant_id,
+    createdAt: r.created_at,
   }));
 };
 
 /**
- * dispatchNotification({ userId, title, message, type, ticketId, noticeId, roomId, articleId, extraPayload, sendEmailFn })
- * Guarantees delivery to targeted audience via:
+ * Verifies whether a user has a direct relationship to a ticket based on their role:
+ * - Admin/CEO: directly related to all tickets
+ * - Tenant: must be ticket creator (created_by) OR match ticket tenant_id
+ * - Staff: must be ticket assignee (assigned_to) OR active collaborator
+ * - Manager: must manage ticket's assigned department (department_id)
+ *
+ * @param {Object} user - User profile object ({ id, role, tenantId })
+ * @param {string} ticketId - ID of the ticket
+ * @param {Object|null} ticketObj - Optional pre-loaded ticket object
+ * @returns {Promise<boolean>}
+ */
+export const isUserDirectlyRelatedToTicket = async (user, ticketId, ticketObj = null) => {
+  if (!user || !user.id) return false;
+  const role = (user.role || '').toLowerCase();
+
+  // Admin and CEO supervise all tickets directly
+  if (role === 'admin' || role === 'ceo') return true;
+
+  let ticket = ticketObj;
+  if (!ticket || !ticket.id || (!ticket.created_by && !ticket.tenant_id && !ticket.assigned_to && !ticket.department_id)) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT id, created_by, tenant_id, assigned_to, department_id, created_at FROM tickets WHERE id = :ticketId LIMIT 1`,
+        { ticketId: ticketId || ticket?.id }
+      );
+      if (!rows.length) return false;
+      ticket = rows[0];
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // 1. Tenant: Direct creator or member of the ticket's tenant organisation
+  if (role === 'tenant') {
+    if (ticket.created_by && String(ticket.created_by) === String(user.id)) return true;
+    if (user.tenantId && ticket.tenant_id && String(ticket.tenant_id) === String(user.tenantId)) return true;
+    return false;
+  }
+
+  // 2. Staff: Direct assignee or registered collaborator on this ticket
+  if (role === 'staff') {
+    if (ticket.assigned_to && String(ticket.assigned_to) === String(user.id)) return true;
+    try {
+      const [collabs] = await pool.query(
+        `SELECT id FROM ticket_collaborators WHERE ticket_id = :ticketId AND user_id = :userId LIMIT 1`,
+        { ticketId: ticket.id, userId: user.id }
+      );
+      if (collabs.length > 0) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  // 3. Manager: Department manager of the ticket's department
+  if (role === 'manager') {
+    const deptId = ticket.department_id;
+    if (!deptId) return false;
+    try {
+      const [mgrDepts] = await pool.query(
+        `SELECT ud.department_id FROM user_departments ud
+         WHERE ud.user_id = :userId AND ud.department_id = :deptId
+         UNION
+         SELECT d.id FROM departments d
+         WHERE d.head_user_id = :userId AND d.id = :deptId`,
+        { userId: user.id, deptId }
+      );
+      if (mgrDepts.length > 0) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  return false;
+};
+
+/**
+ * Verifies that the user account was created on or before the event/ticket time.
+ * Users created after an event must NOT receive or view notifications for it.
+ */
+export const isUserEligibleForEventTime = (user, eventTime) => {
+  if (!user || !user.createdAt) return true;
+  if (!eventTime) return true;
+  const userCreatedAt = new Date(user.createdAt).getTime();
+  const refTime = new Date(eventTime).getTime();
+  // 5-second leeway for concurrent transaction timestamps
+  return userCreatedAt <= refTime + 5000;
+};
+
+/**
+ * dispatchNotification({ userId, title, message, type, ticketId, noticeId, roomId, articleId, extraPayload, sendEmailFn, eventTime })
+ * Guarantees delivery strictly to direct authorized users created on or before the event time via:
  * 1. Web application in-app database record (notificationRepo.createNotification)
  * 2. Web application live real-time notification alert via socket (emitToUser)
  * 3. Registered email account in their account profile (users.email / tenants.email)
@@ -129,15 +220,42 @@ export const dispatchNotification = async ({
   message,
   type = 'ticket',
   ticketId = null,
+  ticket = null,
   noticeId = null,
   roomId = null,
   articleId = null,
   extraPayload = {},
   sendEmailFn = null,
+  eventTime = null,
 }) => {
-  if (!userId) return;
+  if (!userId) return null;
   const user = await getTargetedUser(userId);
-  if (!user) return;
+  if (!user) return null;
+
+  const refTime = eventTime || ticket?.created_at || new Date();
+
+  // 1. User created time rule:
+  // User must have been created BEFORE or AT the event/notification time.
+  // Do not route notifications to users who did not exist yet!
+  if (!isUserEligibleForEventTime(user, refTime)) {
+    return null;
+  }
+
+  // 2. Direct ticket relationship rule:
+  // If this notification is for a ticket, verify that this user is directly related (tenant creator, assigned staff, department manager, or admin)
+  const resolvedTicketId = ticketId || ticket?.id;
+  if (resolvedTicketId && type !== 'notice' && type !== 'chat') {
+    const isRelated = await isUserDirectlyRelatedToTicket(user, resolvedTicketId, ticket);
+    if (!isRelated) {
+      return null;
+    }
+  }
+
+  // 3. Operational routing guard:
+  // Tenants must never receive internal SLA alerts or internal staff notes.
+  if ((type === 'sla' || type === 'internal') && user.role === 'tenant') {
+    return null;
+  }
 
   // 1. In-app database record
   const notifRecord = await notificationRepo.createNotification(
@@ -145,7 +263,7 @@ export const dispatchNotification = async ({
     title,
     message,
     type,
-    ticketId,
+    resolvedTicketId,
     noticeId,
     roomId,
     articleId
@@ -187,6 +305,8 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
 
   const snippet = message.message || (message.attachmentName ? `Attachment: ${message.attachmentName}` : 'New message');
   const roomTitle = room?.name || 'Chat';
+  const isVideoMsg = snippet.includes('[VIDEO_CONFERENCE]') || snippet.includes('[GOOGLE_MEET_CALL]');
+  const notifTitle = isVideoMsg ? '📹 Video Conference Invitation' : 'New Chat Message';
 
   for (const p of participants) {
     const recipientName = p.first_name || 'Colleague';
@@ -195,7 +315,7 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
     // 1. In-app database record
     const notif = await notificationRepo.createNotification(
       p.user_id,
-      'New Chat Message',
+      notifTitle,
       `${senderName}: "${truncate(snippet, 80)}" in "${roomTitle}"`,
       'chat',
       null,
@@ -206,10 +326,11 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
     // 2. Real-time socket event
     emitToUser(p.user_id, 'notification', {
       id: notif?.id,
-      title: 'New Chat Message',
+      title: notifTitle,
       message: `${senderName}: "${truncate(snippet, 80)}" in "${roomTitle}"`,
       type: 'chat',
       roomId: message.room_id,
+      autoJoinVideo: isVideoMsg,
       createdAt: notif?.created_at || new Date().toISOString(),
     });
 
@@ -230,26 +351,51 @@ export const notifyNewChatMessage = async (message, room, senderName) => {
 
 export const notifyTicketCreated = async (ticket, createdByUserId) => {
   const ref = ticket.reference_number || ticket.referenceNumber || 'New Ticket';
+  const eventTime = ticket.created_at ? new Date(ticket.created_at) : new Date();
+
+  // 1. Notify Admins created on or before ticket creation
   const [admins] = await pool.query(
-    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id 
+     WHERE r.name IN ('admin', 'ceo') AND u.status = 'active' AND u.created_at <= :eventTime`,
+    { eventTime }
   );
   for (const admin of admins) {
     if (admin.id === createdByUserId) continue;
-    const notif = await notificationRepo.createNotification(
-      admin.id,
-      'New Ticket Created',
-      `Ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted.`,
-      'ticket',
-      ticket.id
-    );
-    emitToUser(admin.id, 'notification', {
-      id: notif?.id,
+    await dispatchNotification({
+      userId: admin.id,
       title: 'New Ticket Created',
-      message: `Ticket ${ref} has been submitted.`,
+      message: `Ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted.`,
       type: 'ticket',
       ticketId: ticket.id,
-      createdAt: notif?.created_at || new Date().toISOString(),
+      ticket,
+      eventTime,
     });
+  }
+
+  // 2. If ticket was created with a designated department, notify that department's managers created on or before ticket creation
+  const deptId = ticket.department_id || ticket.auto_department_id;
+  if (deptId) {
+    const [managers] = await pool.query(
+      `SELECT DISTINCT u.id FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :deptId
+       WHERE (ud.department_id = :deptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :eventTime`,
+      { deptId, eventTime }
+    );
+    for (const mgr of managers) {
+      if (mgr.id === createdByUserId) continue;
+      await dispatchNotification({
+        userId: mgr.id,
+        title: 'New Ticket in Your Department',
+        message: `Ticket ${ref} "${truncate(ticket.title, 60)}" was submitted to your department.`,
+        type: 'ticket',
+        ticketId: ticket.id,
+        ticket,
+        eventTime,
+      });
+    }
   }
 
   // Ensure external ticket notification reaches the created system email (demshuterefe94@gmail.com)
@@ -267,12 +413,16 @@ export const notifyTenantTicketCreated = async (ticket, tenantUserId) => {
   const ref = ticket.reference_number || ticket.referenceNumber || 'Your ticket';
   const title = 'Ticket Submitted Successfully';
   const message = `Your ticket ${ref} "${truncate(ticket.title, 60)}" has been submitted and is being processed.`;
+  const eventTime = ticket.created_at ? new Date(ticket.created_at) : new Date();
+
   await dispatchNotification({
     userId: tenantUserId,
     title,
     message,
     type: 'ticket',
     ticketId: ticket.id,
+    ticket,
+    eventTime,
     extraPayload: { referenceNumber: ref },
     sendEmailFn: async (u) => {
       sendTicketCreatedEmail({
@@ -295,81 +445,185 @@ export const notifyTicketAssigned = async (ticket, assignedUserId, assignedByUse
   if (assignedUserId === assignedByUserId) return;
   const actualUserId = (await resolveUserId(assignedUserId)) || assignedUserId;
   const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
-  const notif = await notificationRepo.createNotification(
-    actualUserId,
-    'Ticket Assigned to You',
-    `You have been assigned ticket ${ref} "${truncate(ticket.title, 60)}".`,
-    'assignment',
-    ticket.id
-  );
-  emitToUser(actualUserId, 'notification', {
-    id: notif?.id,
+  const eventTime = new Date();
+
+  await dispatchNotification({
+    userId: actualUserId,
     title: 'Ticket Assigned to You',
-    message: `Ticket ${ref} has been assigned to you.`,
+    message: `You have been assigned ticket ${ref} "${truncate(ticket.title, 60)}".`,
     type: 'assignment',
     ticketId: ticket.id,
-    ticketReferenceNumber: ref,
-    ticketNum: ticket.ticket_num || ticket.ticketNum,
-    createdAt: notif?.created_at || new Date().toISOString(),
+    ticket,
+    eventTime,
+    extraPayload: {
+      ticketReferenceNumber: ref,
+      ticketNum: ticket.ticket_num || ticket.ticketNum,
+    },
+    sendEmailFn: async (u) => {
+      sendTicketAssignedEmail({
+        email: u.email,
+        firstName: u.firstName,
+        ticket: {
+          reference_number: ref,
+          title: ticket.title,
+          priority: ticket.priority,
+          category: ticket.category,
+        },
+      }).catch(() => {});
+    },
   });
-
-  const [userRows] = await pool.query(
-    'SELECT email, first_name FROM users WHERE id = :id LIMIT 1',
-    { id: actualUserId }
-  );
-  if (userRows.length) {
-    sendTicketAssignedEmail({
-      email: userRows[0].email,
-      firstName: userRows[0].first_name,
-      ticket: {
-        reference_number: ref,
-        title: ticket.title,
-        priority: ticket.priority,
-        category: ticket.category,
-      },
-    }).catch(() => { });
-  }
 };
 
 export const notifyTicketAssignedToDepartment = async (ticket, departmentId) => {
   const actualDeptId = (await resolveDepartmentId(departmentId)) || departmentId;
+  const eventTime = new Date();
   const [managers] = await pool.query(
     `SELECT DISTINCT u.id, u.email, u.first_name FROM users u
      JOIN roles r ON r.id = u.role_id
      LEFT JOIN user_departments ud ON ud.user_id = u.id
      LEFT JOIN departments d ON d.id = :actualDeptId
      WHERE (ud.department_id = :actualDeptId OR d.head_user_id = u.id)
-       AND r.name = 'manager' AND u.status = 'active'`,
-    { actualDeptId }
+       AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :eventTime`,
+    { actualDeptId, eventTime }
   );
   for (const mgr of managers) {
-    const notif = await notificationRepo.createNotification(
-      mgr.id,
-      'Ticket Assigned to Department',
-      `Ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been assigned to your department.`,
-      'assignment',
-      ticket.id
-    );
-    emitToUser(mgr.id, 'notification', {
-      id: notif?.id,
+    await dispatchNotification({
+      userId: mgr.id,
       title: 'Ticket Assigned to Department',
-      message: `Ticket ${ticket.reference_number || ticket.referenceNumber} has been assigned to your department.`,
+      message: `Ticket ${ticket.reference_number || ticket.referenceNumber} "${truncate(ticket.title, 60)}" has been assigned to your department.`,
       type: 'assignment',
       ticketId: ticket.id,
-      ticketReferenceNumber: ticket.reference_number || ticket.referenceNumber,
-      ticketNum: ticket.ticket_num || ticket.ticketNum,
-      createdAt: notif?.created_at || new Date().toISOString(),
-    });
-    sendTicketAssignedEmail({
-      email: mgr.email,
-      firstName: mgr.first_name,
-      ticket: {
-        reference_number: ticket.reference_number || ticket.referenceNumber,
-        title: ticket.title,
-        priority: ticket.priority,
-        category: ticket.category,
+      ticket,
+      eventTime,
+      extraPayload: {
+        ticketReferenceNumber: ticket.reference_number || ticket.referenceNumber,
+        ticketNum: ticket.ticket_num || ticket.ticketNum,
       },
-    }).catch(() => { });
+      sendEmailFn: async (u) => {
+        sendTicketAssignedEmail({
+          email: u.email,
+          firstName: u.firstName,
+          ticket: {
+            reference_number: ticket.reference_number || ticket.referenceNumber,
+            title: ticket.title,
+            priority: ticket.priority,
+            category: ticket.category,
+          },
+        }).catch(() => {});
+      },
+    });
+  }
+};
+
+export const notifyTicketDepartmentReassigned = async (ticket, fromDepartmentId, toDepartmentId, reassignedByUserId, notes = '') => {
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
+  const title = ticket.title || '';
+  const actualFromDeptId = (await resolveDepartmentId(fromDepartmentId)) || fromDepartmentId;
+  const actualToDeptId = (await resolveDepartmentId(toDepartmentId)) || toDepartmentId;
+  const eventTime = new Date();
+
+  // Resolve department names
+  const [depts] = await pool.query(
+    'SELECT id, name FROM departments WHERE id IN (:actualFromDeptId, :actualToDeptId)',
+    { actualFromDeptId, actualToDeptId }
+  );
+  const fromDeptName = depts.find((d) => d.id === actualFromDeptId)?.name || 'Previous Department';
+  const toDeptName = depts.find((d) => d.id === actualToDeptId)?.name || 'New Department';
+
+  // 1. Notify previous department managers & team
+  if (actualFromDeptId) {
+    const [prevManagers] = await pool.query(
+      `SELECT DISTINCT u.id, u.email, u.first_name FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :actualFromDeptId
+       WHERE (ud.department_id = :actualFromDeptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :eventTime`,
+      { actualFromDeptId, eventTime }
+    );
+    for (const mgr of prevManagers) {
+      await dispatchNotification({
+        userId: mgr.id,
+        title: 'Ticket Reassigned from Department',
+        message: `Ticket ${ref} "${truncate(title, 50)}" was reassigned from ${fromDeptName} to ${toDeptName}.${notes ? ` Directives: ${notes}` : ''}`,
+        type: 'assignment',
+        ticketId: ticket.id,
+        ticket: { ...ticket, department_id: actualFromDeptId },
+        eventTime,
+        extraPayload: { ticketReferenceNumber: ref },
+      });
+    }
+  }
+
+  // 2. Notify new/reassigned department managers & team
+  if (actualToDeptId) {
+    const [newManagers] = await pool.query(
+      `SELECT DISTINCT u.id, u.email, u.first_name FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :actualToDeptId
+       WHERE (ud.department_id = :actualToDeptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :eventTime`,
+      { actualToDeptId, eventTime }
+    );
+    for (const mgr of newManagers) {
+      await dispatchNotification({
+        userId: mgr.id,
+        title: 'Ticket Reassigned to Your Department',
+        message: `Ticket ${ref} "${truncate(title, 50)}" has been reassigned to ${toDeptName} (previously ${fromDeptName}). Department manager is responsible for delegating staff.${notes ? ` Directives: ${notes}` : ''}`,
+        type: 'assignment',
+        ticketId: ticket.id,
+        ticket: { ...ticket, department_id: actualToDeptId },
+        eventTime,
+        extraPayload: { ticketReferenceNumber: ref },
+        sendEmailFn: async (u) => {
+          sendTicketAssignedEmail({
+            email: u.email,
+            firstName: u.firstName,
+            ticket: {
+              reference_number: ref,
+              title,
+              priority: ticket.priority,
+              category: ticket.category,
+            },
+          }).catch(() => {});
+        },
+      });
+    }
+  }
+};
+
+export const notifyStaffReassigned = async (ticket, previousStaffId, newStaffId, managerUserId, notes = '') => {
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
+  const title = ticket.title || '';
+  const eventTime = new Date();
+
+  // Notify previous staff member that task was reassigned away
+  if (previousStaffId && previousStaffId !== newStaffId) {
+    await dispatchNotification({
+      userId: previousStaffId,
+      title: 'Ticket Reassigned to Another Staff Member',
+      message: `Ticket ${ref} "${truncate(title, 50)}" was reassigned to another staff member.${notes ? ` Handover notes: ${notes}` : ''}`,
+      type: 'assignment',
+      ticketId: ticket.id,
+      ticket: { ...ticket, assigned_to: previousStaffId },
+      eventTime,
+      extraPayload: { ticketReferenceNumber: ref },
+    });
+  }
+
+  // Notify newly assigned staff member
+  if (newStaffId) {
+    await dispatchNotification({
+      userId: newStaffId,
+      title: 'Ticket Assigned to You',
+      message: `Ticket ${ref} "${truncate(title, 50)}" has been assigned to you.${notes ? ` Instructions: ${notes}` : ''}`,
+      type: 'assignment',
+      ticketId: ticket.id,
+      ticket: { ...ticket, assigned_to: newStaffId },
+      eventTime,
+      extraPayload: { ticketReferenceNumber: ref },
+    });
   }
 };
 
@@ -833,6 +1087,28 @@ export const notifyTicketRejected = async (ticket, rejectedBy, reason) => {
   }
 };
 
+export const notifyStaffRejected = async (ticket, managerId, staffUserId, reason) => {
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
+  const reasonText = reason ? ` Reason: ${truncate(reason, 120)}` : '';
+  
+  // Get staff name
+  const [staffRows] = await pool.query(
+    `SELECT first_name, last_name FROM users WHERE id = :staffUserId LIMIT 1`,
+    { staffUserId }
+  ).catch(() => [[]]);
+  const staffName = staffRows?.[0] ? `${staffRows[0].first_name} ${staffRows[0].last_name}`.trim() : 'Staff member';
+
+  if (managerId) {
+    await dispatchNotification({
+      userId: managerId,
+      title: 'Staff Rejected Ticket Assignment',
+      message: `${staffName} rejected ticket #${ref}.${reasonText}. Please reassign to another staff member.`,
+      type: 'assignment',
+      ticketId: ticket.id,
+    });
+  }
+};
+
 export const notifyTicketReopened = async (ticket, reopenedBy, notes) => {
   const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
   const creatorId = ticket.created_by || ticket.createdBy;
@@ -941,20 +1217,169 @@ export const notifyTicketReopenRejected = async (ticket, rejectedBy, notes) => {
   broadcastTicketEvent(ticket.id, 'ticket:reopen_declined', { ticketId: ticket.id, referenceNumber: ref, notes });
 };
 
-export const notifyTicketMerged = async (ticket, count, notes) => {
+export const notifyTicketMerged = async (ticket, count, notes, mergedBy = null, sourceTickets = []) => {
   const creatorId = ticket.created_by || ticket.createdBy;
-  if (!creatorId) return;
-  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
-  await dispatchNotification({
-    userId: creatorId,
-    title: 'Tickets Merged',
-    message: `${count} duplicate ticket(s) were merged into ${ref}.`,
-    type: 'merge',
-    ticketId: ticket.id,
-    sendEmailFn: async (u) => {
-      sendTicketMergedEmail(ticket, count);
-    },
-  });
+  const ref = ticket.reference_number || ticket.referenceNumber || ticket.id || 'Ticket';
+  const statusStr = (ticket.status || 'open').replace(/_/g, ' ');
+  const eventTime = new Date();
+
+  // 1. Notify tenant / creator of the primary ticket
+  if (creatorId) {
+    await dispatchNotification({
+      userId: creatorId,
+      title: 'Tickets Merged',
+      message: `${count} duplicate ticket(s) were merged into your primary ticket #${ref}. Current status: ${statusStr}.${notes ? ` Reason: ${notes}` : ''}`,
+      type: 'merge',
+      ticketId: ticket.id,
+      ticket,
+      eventTime,
+      sendEmailFn: async (u) => {
+        sendTicketMergedEmail(ticket, count);
+      },
+    }).catch(() => {});
+  }
+
+  // 2. Notify the Department Manager(s) of the department the ticket is assigned to
+  const deptId = ticket.department_id || ticket.departmentId;
+  const notifiedUserIds = new Set();
+  if (mergedBy?.id) notifiedUserIds.add(String(mergedBy.id));
+
+  if (deptId) {
+    const actualDeptId = (await resolveDepartmentId(deptId)) || deptId;
+    const [managers] = await pool.query(
+      `SELECT DISTINCT u.id, u.email, u.first_name FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :actualDeptId
+       WHERE (ud.department_id = :actualDeptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active'`,
+      { actualDeptId }
+    );
+    for (const mgr of managers) {
+      if (notifiedUserIds.has(String(mgr.id))) continue;
+      notifiedUserIds.add(String(mgr.id));
+      await dispatchNotification({
+        userId: mgr.id,
+        title: `Duplicate Ticket(s) Merged - #${ref}`,
+        message: `${count} duplicate ticket(s) were merged into ticket #${ref} in your department. Status: ${statusStr}.${notes ? ` Reason: ${notes}` : ''}`,
+        type: 'merge',
+        ticketId: ticket.id,
+        ticket,
+        eventTime,
+      }).catch(() => {});
+    }
+  }
+
+  // 3. If ticket is assigned to a specific assignee, also notify them
+  const assigneeId = ticket.assigned_to || ticket.assignedTo;
+  if (assigneeId && !notifiedUserIds.has(String(assigneeId))) {
+    notifiedUserIds.add(String(assigneeId));
+    await dispatchNotification({
+      userId: assigneeId,
+      title: `Duplicate Ticket(s) Merged - #${ref}`,
+      message: `${count} duplicate ticket(s) were merged into ticket #${ref} assigned to you. Status: ${statusStr}.${notes ? ` Reason: ${notes}` : ''}`,
+      type: 'merge',
+      ticketId: ticket.id,
+      ticket,
+      eventTime,
+    }).catch(() => {});
+  }
+};
+
+export const notifyTicketMergedToSecondary = async ({ sourceTicket, primaryTicket, mergedBy, reason }) => {
+  const creatorId = sourceTicket.created_by || sourceTicket.createdBy;
+  const srcRef = sourceTicket.reference_number || sourceTicket.referenceNumber || sourceTicket.id;
+  const primaryRef = primaryTicket.reference_number || primaryTicket.referenceNumber || primaryTicket.id;
+  const trackNo = primaryTicket.track_number || primaryTicket.trackNumber || primaryRef;
+  const primaryStatus = (primaryTicket.status || 'open').replace(/_/g, ' ');
+  const eventTime = new Date();
+
+  // 1. Notify the tenant / creator of the merged secondary ticket
+  const recipients = new Set();
+  if (creatorId) recipients.add(String(creatorId));
+  if (sourceTicket.tenant_id) {
+    const [tenantUsers] = await pool.query(
+      `SELECT id FROM users WHERE tenant_id = :tenantId AND status = 'active' LIMIT 5`,
+      { tenantId: sourceTicket.tenant_id }
+    );
+    for (const u of tenantUsers) recipients.add(String(u.id));
+  }
+
+  for (const uid of recipients) {
+    await dispatchNotification({
+      userId: uid,
+      title: `Ticket #${srcRef} Merged into Primary #${primaryRef}`,
+      message: `Your ticket #${srcRef} ("${sourceTicket.title || 'Incident'}") has been merged into Primary Ticket #${primaryRef} (Tracking No: ${trackNo}). Reason: ${reason || 'Duplicate report'}. Current Live Status: "${primaryStatus}". Please check the merged ticket to track its live resolution progress.`,
+      type: 'merge',
+      ticketId: primaryTicket.id,
+      ticket: primaryTicket,
+      eventTime,
+      sendEmailFn: async (u) => {
+        sendTicketMergedEmail(primaryTicket, 1);
+      },
+    }).catch(() => {});
+  }
+
+  // 2. Also notify the Department Manager of the secondary ticket's department if different from primary
+  const secDeptId = sourceTicket.department_id || sourceTicket.departmentId;
+  const primDeptId = primaryTicket.department_id || primaryTicket.departmentId;
+  if (secDeptId && String(secDeptId) !== String(primDeptId)) {
+    const actualDeptId = (await resolveDepartmentId(secDeptId)) || secDeptId;
+    const [managers] = await pool.query(
+      `SELECT DISTINCT u.id FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :actualDeptId
+       WHERE (ud.department_id = :actualDeptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active'`,
+      { actualDeptId }
+    );
+    for (const mgr of managers) {
+      if (mergedBy && String(mgr.id) === String(mergedBy.id || mergedBy)) continue;
+      await dispatchNotification({
+        userId: mgr.id,
+        title: `Department Ticket #${srcRef} Merged into #${primaryRef}`,
+        message: `Ticket #${srcRef} from your department was merged into Primary Incident #${primaryRef}. Reason: ${reason || 'Duplicate report'}. Status: ${primaryStatus}.`,
+        type: 'merge',
+        ticketId: primaryTicket.id,
+        ticket: primaryTicket,
+        eventTime,
+      }).catch(() => {});
+    }
+  }
+};
+
+export const notifyMergedTicketPrimaryOutcome = async ({ primaryTicket, mergedTickets = [], outcomeStatus, notes }) => {
+  if (!mergedTickets || mergedTickets.length === 0) return;
+  const primRef = primaryTicket.reference_number || primaryTicket.referenceNumber || primaryTicket.id;
+  const statusStr = (outcomeStatus || '').replace(/_/g, ' ');
+  const eventTime = new Date();
+
+  for (const m of mergedTickets) {
+    const creatorId = m.created_by || m.createdBy;
+    const srcRef = m.reference_number || m.referenceNumber || m.id;
+    const recipients = new Set();
+    if (creatorId) recipients.add(String(creatorId));
+    if (m.tenant_id) {
+      const [tenantUsers] = await pool.query(
+        `SELECT id FROM users WHERE tenant_id = :tenantId AND status = 'active' LIMIT 5`,
+        { tenantId: m.tenant_id }
+      );
+      for (const u of tenantUsers) recipients.add(String(u.id));
+    }
+
+    for (const uid of recipients) {
+      await dispatchNotification({
+        userId: uid,
+        title: `Primary Ticket #${primRef} Status: ${statusStr.toUpperCase()}`,
+        message: `Primary Ticket #${primRef} (linked to your merged ticket #${srcRef}) has been updated to "${statusStr}".${notes ? ` Note: ${notes}` : ''} Click here to check the merged ticket and track its live resolution progress.`,
+        type: 'status',
+        ticketId: primaryTicket.id,
+        ticket: primaryTicket,
+        eventTime,
+      }).catch(() => {});
+    }
+  }
 };
 
 export const notifyInternalNote = async (ticket, authorId) => {
@@ -1080,6 +1505,43 @@ export const notifyStaffReminder = async (ticket, staffUser, managerUser, notes 
   });
 };
 
+/**
+ * notifyManagerReminder(ticket, managerUser, adminUser, notes)
+ * Sends an assignment/progress reminder from Administrator to the Department Manager
+ */
+export const notifyManagerReminder = async (ticket, managerUser, adminUser, notes = '') => {
+  const ref = ticket.reference_number || ticket.referenceNumber || 'Ticket';
+  const adminName = [adminUser?.first_name || adminUser?.firstName, adminUser?.last_name || adminUser?.lastName]
+    .filter(Boolean)
+    .join(' ') || 'Administrator';
+  const title = `Admin Task Reminder: Ticket ${ref}`;
+  const notesText = notes ? ` Note: "${truncate(notes, 100)}"` : '';
+  const message = `Administrator ${adminName} sent a reminder regarding ticket ${ref} "${truncate(ticket.title, 50)}" assigned to your department. Please assign appropriate staff or review task progress.${notesText}`;
+
+  await dispatchNotification({
+    userId: managerUser.id,
+    title,
+    message,
+    type: 'assignment',
+    ticketId: ticket.id,
+    extraPayload: { isReminder: true, notes, fromAdmin: true },
+    sendEmailFn: (u) => sendTicketReminderEmail({
+      email: u.email,
+      firstName: u.firstName,
+      ticket,
+      senderName: adminName,
+      notes,
+    }),
+  });
+
+  emitToTicket(ticket.id, 'ticket:reminder', {
+    ticketId: ticket.id,
+    managerId: managerUser.id,
+    adminName,
+    notes,
+  });
+};
+
 export const notifyTicketReassigned = async (ticket, toRole, reason) => {
   const creatorId = ticket.created_by || ticket.createdBy;
   if (!creatorId) return;
@@ -1119,19 +1581,17 @@ export const notifySLABreached = async (ticket, breachType) => {
   const message = messageMap[breachType] || 'SLA deadline breached.';
 
   const userIds = new Set();
-  const creatorId = ticket.created_by || ticket.createdBy;
   const assignedToId = ticket.assigned_to || ticket.assignedTo;
   const departmentId = ticket.department_id || ticket.departmentId;
 
+  // Operational SLA notifications route to assigned staff, department managers, and administrative supervisors
+  if (assignedToId) userIds.add(assignedToId);
+
   if (breachType === 'escalation') {
     const [admins] = await pool.query(
-      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin', 'ceo') AND u.status = 'active'`
     );
     for (const a of admins) userIds.add(a.id);
-    if (creatorId) userIds.add(creatorId);
-  } else {
-    if (assignedToId) userIds.add(assignedToId);
-    if (creatorId) userIds.add(creatorId);
   }
 
   if (departmentId) {
@@ -1182,12 +1642,11 @@ export const notifySLANearDeadline = async (ticket, breachType, remainingHours) 
   const message = messageMap[breachType] || 'SLA deadline approaching.';
 
   const userIds = new Set();
-  const creatorId = ticket.created_by || ticket.createdBy;
   const assignedToId = ticket.assigned_to || ticket.assignedTo;
   const departmentId = ticket.department_id || ticket.departmentId;
 
+  // SLA deadline warning is directed strictly to handling staff and department managers
   if (assignedToId) userIds.add(assignedToId);
-  if (creatorId) userIds.add(creatorId);
 
   if (departmentId) {
     const [managers] = await pool.query(
@@ -1233,35 +1692,66 @@ function truncate(str, len) {
   return str.length > len ? str.slice(0, len) + '...' : str;
 }
 
-const getTicketAccessibleUserIds = async (ticket) => {
+const getTicketAccessibleUserIds = async (ticket, eventTime = null) => {
   const userIds = new Set();
+  const refTime = eventTime || ticket?.created_at || new Date();
 
+  // 1. Admins created on or before event time
   const [admins] = await pool.query(
-    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+    `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id 
+     WHERE r.name IN ('admin', 'ceo') AND u.status = 'active' AND u.created_at <= :refTime`,
+    { refTime }
   );
   admins.forEach((a) => userIds.add(a.id));
 
-  if (ticket.tenant_id) {
+  // 2. Direct tenant: creator of the ticket or tenant org users created on or before event time
+  if (ticket.created_by) {
+    const [creator] = await pool.query(
+      `SELECT u.id FROM users u WHERE u.id = :creatorId AND u.status = 'active' AND u.created_at <= :refTime`,
+      { creatorId: ticket.created_by, refTime }
+    );
+    if (creator.length) userIds.add(creator[0].id);
+  } else if (ticket.tenant_id) {
     const [tenantUsers] = await pool.query(
       `SELECT u.id FROM users u
        JOIN roles r ON r.id = u.role_id
-       WHERE u.tenant_id = :tenantId AND r.name = 'tenant' AND u.status = 'active'`,
-      { tenantId: ticket.tenant_id }
+       WHERE u.tenant_id = :tenantId AND r.name = 'tenant' AND u.status = 'active' AND u.created_at <= :refTime`,
+      { tenantId: ticket.tenant_id, refTime }
     );
     tenantUsers.forEach((u) => userIds.add(u.id));
   }
 
+  // 3. Direct assigned staff and active collaborators created on or before event time
   if (ticket.assigned_to) {
-    userIds.add(ticket.assigned_to);
+    const [staff] = await pool.query(
+      `SELECT u.id FROM users u WHERE u.id = :staffId AND u.status = 'active' AND u.created_at <= :refTime`,
+      { staffId: ticket.assigned_to, refTime }
+    );
+    if (staff.length) userIds.add(staff[0].id);
+  }
+  if (ticket.id) {
+    try {
+      const [collabs] = await pool.query(
+        `SELECT u.id FROM users u
+         JOIN ticket_collaborators tc ON tc.user_id = u.id
+         WHERE tc.ticket_id = :ticketId AND u.status = 'active' AND u.created_at <= :refTime`,
+        { ticketId: ticket.id, refTime }
+      );
+      collabs.forEach((c) => userIds.add(c.id));
+    } catch (_) {}
   }
 
-  if (ticket.department_id) {
+  // 4. Direct department managers of ticket's department created on or before event time
+  const deptId = ticket.department_id || ticket.auto_department_id;
+  if (deptId) {
     const [managers] = await pool.query(
-      `SELECT u.id FROM users u
-       JOIN user_departments ud ON ud.user_id = u.id
+      `SELECT DISTINCT u.id FROM users u
        JOIN roles r ON r.id = u.role_id
-       WHERE ud.department_id = :departmentId AND r.name = 'manager' AND u.status = 'active'`,
-      { departmentId: ticket.department_id }
+       LEFT JOIN user_departments ud ON ud.user_id = u.id
+       LEFT JOIN departments d ON d.id = :deptId
+       WHERE (ud.department_id = :deptId OR d.head_user_id = u.id)
+         AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :refTime`,
+      { deptId, refTime }
     );
     managers.forEach((m) => userIds.add(m.id));
   }
@@ -1978,6 +2468,7 @@ export const notifyFeedbackAssignedToStaff = async (feedback, staffUserIds, depa
 export const notifyOperationalEscalationRequested = async (ticket, requestingUser, escalationRecord) => {
   const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
   const staffName = `${requestingUser.first_name || ''} ${requestingUser.last_name || ''}`.trim() || 'Assigned Staff';
+  const eventTime = new Date();
   
   // Find Department Managers for ticket department
   const deptId = ticket.department_id || ticket.current_department_id;
@@ -1985,7 +2476,8 @@ export const notifyOperationalEscalationRequested = async (ticket, requestingUse
 
   if (escalationRecord.destination === 'admin' || !deptId) {
     const [admins] = await pool.query(
-      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+      `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin', 'ceo') AND u.status = 'active' AND u.created_at <= :eventTime`,
+      { eventTime }
     );
     targetUserIds.push(...admins.map(a => a.id));
   } else {
@@ -1993,13 +2485,14 @@ export const notifyOperationalEscalationRequested = async (ticket, requestingUse
       `SELECT u.id FROM users u
        JOIN user_departments ud ON ud.user_id = u.id
        JOIN roles r ON r.id = u.role_id
-       WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
-      { deptId }
+       WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active' AND u.created_at <= :eventTime`,
+      { deptId, eventTime }
     );
     targetUserIds.push(...managers.map(m => m.id));
     if (!targetUserIds.length) {
       const [admins] = await pool.query(
-        `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name = 'admin' AND u.status = 'active'`
+        `SELECT u.id FROM users u JOIN roles r ON r.id = u.role_id WHERE r.name IN ('admin', 'ceo') AND u.status = 'active' AND u.created_at <= :eventTime`,
+        { eventTime }
       );
       targetUserIds.push(...admins.map(a => a.id));
     }
@@ -2010,8 +2503,15 @@ export const notifyOperationalEscalationRequested = async (ticket, requestingUse
 
   for (const uid of targetUserIds) {
     if (uid === requestingUser.id) continue;
-    await notificationRepo.createNotification(uid, title, message, 'escalation', ticket.id).catch(() => {});
-    emitToUser(uid, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+    await dispatchNotification({
+      userId: uid,
+      title,
+      message,
+      type: 'escalation',
+      ticketId: ticket.id,
+      ticket,
+      eventTime,
+    });
   }
 };
 
@@ -2045,13 +2545,13 @@ export const notifyOperationalEscalationToAdmin = async (ticket, managerUser, es
   }
 };
 
-export const notifyOperationalEscalationAdminDecision = async (ticket, adminUser, decision, notes) => {
+export const notifyOperationalEscalationAdminDecision = async (ticket, adminUser, decision, notes, extra = {}) => {
   const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
   const adminName = `${adminUser.first_name || ''} ${adminUser.last_name || ''}`.trim() || 'Admin';
+  const finalIdea = extra.finalIdea || notes || '';
+  const tenantDecision = extra.tenantDecisionNote || notes || '';
 
-  const recipients = new Set();
-  if (ticket.assigned_to) recipients.add(ticket.assigned_to);
-
+  // 1. Notify Department Manager(s) with re-forwarded final idea & directives
   const deptId = ticket.department_id || ticket.current_department_id;
   if (deptId) {
     const [managers] = await pool.query(
@@ -2061,27 +2561,49 @@ export const notifyOperationalEscalationAdminDecision = async (ticket, adminUser
        WHERE ud.department_id = :deptId AND r.name = 'manager' AND u.status = 'active'`,
       { deptId }
     );
-    for (const m of managers) recipients.add(m.id);
+    const mgrTitle = 'Admin Final Decision — Re-forwarded to Department';
+    const mgrMessage = `Admin ${adminName} issued decision (${decision}) on Ticket ${ref} and re-forwarded directives: "${truncate(finalIdea || notes || 'Approved for department resolution', 90)}".`;
+    for (const m of managers) {
+      if (m.id === adminUser.id) continue;
+      await notificationRepo.createNotification(m.id, mgrTitle, mgrMessage, 'escalation', ticket.id).catch(() => {});
+      emitToUser(m.id, 'notification', { title: mgrTitle, message: mgrMessage, type: 'escalation', ticketId: ticket.id });
+    }
   }
 
-  const title = 'Admin Decision on Operational Escalation';
-  const message = `Admin ${adminName} issued decision (${decision}) on Ticket ${ref}.${notes ? ` Notes: ${truncate(notes, 80)}` : ''}`;
+  // 2. Notify Assigned Staff
+  if (ticket.assigned_to && ticket.assigned_to !== adminUser.id) {
+    const staffTitle = 'Admin Final Decision Issued';
+    const staffMessage = `Admin ${adminName} issued decision (${decision}) on Ticket ${ref}. Action directives: "${truncate(finalIdea || notes || 'Approved', 90)}".`;
+    await notificationRepo.createNotification(ticket.assigned_to, staffTitle, staffMessage, 'escalation', ticket.id).catch(() => {});
+    emitToUser(ticket.assigned_to, 'notification', { title: staffTitle, message: staffMessage, type: 'escalation', ticketId: ticket.id });
+  }
 
-  for (const uid of recipients) {
-    if (uid === adminUser.id) continue;
-    await notificationRepo.createNotification(uid, title, message, 'escalation', ticket.id).catch(() => {});
-    emitToUser(uid, 'notification', { title, message, type: 'escalation', ticketId: ticket.id });
+  // 3. Notify Tenant (Ticket Creator) with final decision
+  const creatorId = ticket.created_by || ticket.createdBy;
+  if (creatorId && creatorId !== adminUser.id) {
+    const tenantTitle = 'Leadership Decision on Your Ticket';
+    const tenantMessage = `Administration has reviewed Ticket ${ref} and issued the final decision: "${truncate(tenantDecision || notes || 'Approved with resolution plan in progress', 90)}".`;
+    await notificationRepo.createNotification(creatorId, tenantTitle, tenantMessage, 'escalation', ticket.id).catch(() => {});
+    emitToUser(creatorId, 'notification', { title: tenantTitle, message: tenantMessage, type: 'escalation', ticketId: ticket.id });
   }
 };
 
 export const notifyCollaboratorAdded = async (ticket, collaboratorUserId, assignedByUser, role, notes) => {
   const ref = ticket.reference_number || ticket.referenceNumber || ticket.id;
   const assignerName = `${assignedByUser.first_name || ''} ${assignedByUser.last_name || ''}`.trim() || 'Team Lead';
+  const eventTime = new Date();
 
   const title = 'Assigned as Collaborator';
   const message = `${assignerName} added you as a ${role || 'collaborator'} to resolve Ticket ${ref}: "${truncate(ticket.title, 50)}".`;
 
-  await notificationRepo.createNotification(collaboratorUserId, title, message, 'assignment', ticket.id).catch(() => {});
-  emitToUser(collaboratorUserId, 'notification', { title, message, type: 'assignment', ticketId: ticket.id });
+  await dispatchNotification({
+    userId: collaboratorUserId,
+    title,
+    message,
+    type: 'assignment',
+    ticketId: ticket.id,
+    ticket,
+    eventTime,
+  });
 };
 

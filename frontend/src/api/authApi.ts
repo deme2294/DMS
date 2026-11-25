@@ -51,6 +51,13 @@ export const updateMyProfile = (formData: FormData) =>
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
+export const checkProfileImage = (formData: FormData) =>
+  api.post<{ success: boolean; isUnique: boolean; matchedUser?: string; message: string }>(
+    '/auth/me/check-profile-image',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+
 export const updateMyTheme = (themePreference: 'system' | 'light' | 'dark') =>
   api.patch<{ success: boolean; message: string; data: MeResponse }>('/auth/me/theme', {
     themePreference,
