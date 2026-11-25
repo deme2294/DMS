@@ -896,6 +896,7 @@ export default function TicketCategories() {
                 open={slaModalOpen}
                 title={`${editingSla ? 'Edit' : 'Create'} SLA Policy${slaForCategory ? ` — ${slaForCategory.name}` : ''}`}
                 onClose={() => { setSlaModalOpen(false); setEditingSla(null); }}
+                maxWidth="700px"
             >
                 <div className={styles.modalForm}>
                     {slaError && (

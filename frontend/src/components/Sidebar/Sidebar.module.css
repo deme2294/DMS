@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 .sidebar {
-  width: var(--sidebar-width, 290px);
+  width: var(--sidebar-width, 295px);
   background: linear-gradient(180deg, #0b254a 0%, #071933 50%, #040e1e 100%);
   color: #e2e8f0;
   display: flex;
@@ -72,7 +72,7 @@
   gap: 8px;
   padding: 8px 14px;
   background: rgba(8, 125, 147, 0.18);
-  border: 1px solid rgba(56, 189, 248, 0.32);
+  border: none;
   border-radius: 10px;
   font-size: 0.82rem;
   font-weight: 700;
@@ -164,7 +164,7 @@
   font-weight: 800;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  border: none;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -174,7 +174,7 @@
 
 .toggleAllBtn {
   background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: none;
   color: #cbd5e1;
   font-size: 0.82rem;
   font-weight: 700;
@@ -191,7 +191,6 @@
 .toggleAllBtn:hover {
   background: rgba(8, 125, 147, 0.45);
   color: #ffffff;
-  border-color: rgba(56, 189, 248, 0.65);
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
 }
 
@@ -211,20 +210,20 @@
   padding: 10px 14px;
   min-height: 48px;
   background: linear-gradient(135deg, rgba(10, 31, 62, 0.78) 0%, rgba(7, 23, 48, 0.88) 100%);
-  border: 1px solid rgba(8, 125, 147, 0.36);
+  border: 1px solid rgba(8, 125, 147, 0.16);
   border-radius: 12px;
   cursor: pointer;
   user-select: none;
   text-align: left;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   position: relative;
 }
 
 .sectionHeaderBtn:hover {
   background: linear-gradient(135deg, rgba(8, 125, 147, 0.4) 0%, rgba(14, 165, 233, 0.26) 100%);
-  border-color: rgba(56, 189, 248, 0.65);
+  border-color: rgba(56, 189, 248, 0.35);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(8, 125, 147, 0.4);
 }
@@ -241,13 +240,13 @@
 /* Open / Expanded state of the Button */
 .sectionHeaderBtnOpen {
   background: linear-gradient(135deg, rgba(8, 125, 147, 0.48) 0%, rgba(2, 132, 199, 0.32) 100%);
-  border-color: rgba(56, 189, 248, 0.75);
+  border-color: rgba(56, 189, 248, 0.45);
   box-shadow: 0 0 18px rgba(8, 125, 147, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 /* Has Active Page inside this group */
 .sectionHeaderHasActive {
-  border-color: rgba(56, 189, 248, 0.65);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 .sectionHeaderHasActive::before {
@@ -276,7 +275,7 @@
   height: 32px;
   border-radius: 9px;
   background: rgba(8, 125, 147, 0.28);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,7 +288,6 @@
 .sectionHeaderBtnOpen .sectionIconBadge {
   background: rgba(8, 125, 147, 0.5);
   color: #ffffff;
-  border-color: rgba(119, 203, 198, 0.75);
   box-shadow: 0 2px 10px rgba(8, 125, 147, 0.45);
 }
 
@@ -300,10 +298,10 @@
 }
 
 .sectionLabelText {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: #ffffff;
   transition: color 0.2s ease;
   white-space: nowrap;
@@ -341,7 +339,7 @@
   font-weight: 700;
   color: #cbd5e1;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: none;
   padding: 2px 8px;
   border-radius: 999px;
   line-height: 1.3;
@@ -352,7 +350,6 @@
 .sectionHeaderBtnOpen .sectionItemCountBadge {
   background: rgba(8, 125, 147, 0.4);
   color: #77cbc6;
-  border-color: rgba(56, 189, 248, 0.4);
 }
 
 .chevronPill {
@@ -446,7 +443,7 @@
   height: 36px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -544,7 +541,7 @@
   font-weight: 700;
   flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(8, 125, 147, 0.4);
-  border: 1.5px solid rgba(119, 203, 198, 0.45);
+  border: none;
 }
 
 .userDetails {

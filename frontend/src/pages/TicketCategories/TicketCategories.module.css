@@ -535,7 +535,8 @@
   font-size: 0.96rem;
   color: #0369a1;
   background: #f0f9ff;
-  border: 1.5px solid #7dd3fc;
+  border: none;
+  border-left: 3.5px solid #0284c7;
   border-radius: 10px;
   padding: 10px 14px;
   display: flex;
@@ -551,7 +552,8 @@
 
 :global([data-theme="dark"]) .defaultSlaBox {
   background: rgba(30, 58, 138, 0.28);
-  border-color: rgba(96, 165, 250, 0.5);
+  border: none;
+  border-left: 3.5px solid #38bdf8;
   color: #93c5fd;
 }
 
@@ -565,7 +567,8 @@
   padding: 12px 16px;
   background: #f0f9ff;
   border-radius: 10px;
-  border: 1.5px solid #bae6fd;
+  border: none;
+  border-left: 3.5px solid #38bdf8;
 }
 
 .slaList strong {
@@ -590,7 +593,8 @@
 
 :global([data-theme="dark"]) .slaList {
   background: #0d1525;
-  border-color: #1e293b;
+  border: none;
+  border-left: 3.5px solid #0284c7;
 }
 
 :global([data-theme="dark"]) .slaList strong {
@@ -1086,14 +1090,14 @@
 :global(.dark) .modalForm input:not([type="radio"]):not([type="checkbox"]),
 :global(.dark) .modalForm textarea,
 :global(.dark) .modalForm select {
-  background: #111a2e;
-  border-color: #2b3952;
-  color: #f8fafc;
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #ffffff;
 }
 
 :global([data-theme="dark"]) .modalForm select option,
 :global(.dark) .modalForm select option {
-  background: #111a2e;
+  background: #1e293b;
   color: #f8fafc;
 }
 
@@ -1103,9 +1107,9 @@
 :global(.dark) .modalForm input:not([type="radio"]):not([type="checkbox"]):focus,
 :global(.dark) .modalForm textarea:focus,
 :global(.dark) .modalForm select:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 3.5px rgba(96, 165, 250, 0.25);
-  background: #141f38;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3.5px rgba(56, 189, 248, 0.3);
+  background: #24354e;
 }
 
 .modalForm textarea {
@@ -2382,49 +2386,45 @@
   font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
+  border: none;
+  background: rgba(3, 105, 161, 0.08);
   color: #0369a1;
   transition: all 0.15s ease;
 }
 
 .slaMiniBtn:hover {
   background: #e0f2fe;
-  border-color: #38bdf8;
   color: #0284c7;
 }
 
 .slaMiniBtnDanger {
   color: #dc2626;
-  border-color: #fecaca;
+  background: rgba(220, 38, 38, 0.08);
 }
 
 .slaMiniBtnDanger:hover {
   background: #fef2f2;
-  border-color: #f87171;
   color: #b91c1c;
 }
 
 :global([data-theme="dark"]) .slaMiniBtn {
-  background: #1e293b;
-  border-color: #334155;
+  background: rgba(56, 189, 248, 0.15);
+  border: none;
   color: #38bdf8;
 }
 
 :global([data-theme="dark"]) .slaMiniBtn:hover {
-  background: #0f172a;
-  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.25);
 }
 
 :global([data-theme="dark"]) .slaMiniBtnDanger {
-  background: #1e293b;
-  border-color: #7f1d1d;
+  background: rgba(239, 68, 68, 0.15);
+  border: none;
   color: #f87171;
 }
 
 :global([data-theme="dark"]) .slaMiniBtnDanger:hover {
-  background: #450a0a;
-  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.25);
 }
 
 .slaDefaultTag {

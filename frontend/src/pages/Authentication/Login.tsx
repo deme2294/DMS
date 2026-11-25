@@ -200,6 +200,8 @@ export default function Login() {
       <div className="login-bg">
         <ParticleBackground className="absolute inset-0" id="login-particles" />
         <div className="login-ambient-center" />
+        <div className="login-ambient-teal-corner" />
+        <div className="login-ambient-slate-bottom" />
       </div>
 
       {/* ── Main Two-Column Body ── */}
@@ -329,10 +331,14 @@ export default function Login() {
               {/* Form */}
               <form onSubmit={handleSubmit} noValidate className="login-form">
                 <div className="login-field">
+                  <label htmlFor="identifier" className="login-label">
+                    Username or email:
+                  </label>
                   <div className="login-input-wrap">
                     <input
                       ref={identifierRef}
                       id="identifier"
+                      name="username"
                       type="text"
                       autoComplete="username"
                       value={identifier}
@@ -348,9 +354,13 @@ export default function Login() {
                 </div>
 
                 <div className="login-field">
+                  <label htmlFor="password" className="login-label">
+                    Password:
+                  </label>
                   <div className="login-input-wrap">
                     <input
                       id="password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
                       value={password}

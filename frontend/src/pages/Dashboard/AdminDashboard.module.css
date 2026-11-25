@@ -131,7 +131,7 @@
   font-weight: 600;
   color: var(--dash-text-secondary);
   background: var(--dash-card-bg);
-  border: 1px solid var(--dash-card-border);
+  border: none;
   border-radius: 999px;
   padding: 5px 13px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -289,19 +289,18 @@
   align-items: center;
   justify-content: center;
   background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(15, 23, 42, 0.07);
+  border: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
 }
 
 :global([data-theme="dark"]) .statArrowBtn {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: none;
 }
 
 .statCard:hover .statArrowBtn {
   background: rgba(37, 99, 235, 0.1);
-  border-color: rgba(37, 99, 235, 0.3);
 }
 
 .statCardArrow {
@@ -357,13 +356,12 @@
   white-space: nowrap;
   background: rgba(37, 99, 235, 0.08);
   color: #2563eb;
-  border: 1px solid rgba(37, 99, 235, 0.15);
+  border: none;
 }
 
 :global([data-theme="dark"]) .statPillBadge {
   background: rgba(37, 99, 235, 0.18);
   color: #93c5fd;
-  border-color: rgba(37, 99, 235, 0.3);
 }
 
 /* ── Distinct 9 Professional Brand Color Themes ── */
@@ -533,7 +531,7 @@
   border-radius: 999px;
   background: var(--dash-subtle-bg);
   color: var(--dash-text-muted);
-  border: 1px solid var(--dash-card-border);
+  border: none;
 }
 
 /* ── Status Breakdown Pills ── */
@@ -584,7 +582,7 @@
 
 .ticketStatBox {
   background: var(--dash-subtle-bg);
-  border: 1px solid var(--dash-card-border);
+  border: none;
   border-radius: 12px;
   padding: 14px 16px;
   display: flex;
@@ -594,7 +592,6 @@
 }
 
 .ticketStatBox:hover {
-  border-color: #3b82f6;
   background: var(--dash-card-bg);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
@@ -630,7 +627,7 @@
 
 .slaBox {
   background: var(--dash-subtle-bg);
-  border: 1px solid var(--dash-card-border);
+  border: none;
   border-radius: 14px;
   padding: 16px 18px;
   display: flex;

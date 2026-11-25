@@ -135,9 +135,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 [data-theme="dark"] .layout,
 [data-theme="dark"] main,
 [data-theme="dark"] [class*="layout"],
-[data-theme="dark"] [class*="content"],
-[data-theme="dark"] [class*="page"],
-[data-theme="dark"] [class*="main"] {
+[data-theme="dark"] [class*="content"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="page"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="main"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-app) !important;
   color: var(--text-main) !important;
 }
@@ -187,22 +187,20 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   border-right: 1px solid rgba(8, 125, 147, 0.28) !important;
 }
 
-/* ── Cards, panels, boxes, containers ───────────────────────────────────── */
-[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
+/* ── Main Cards & Panels (Exclude inner text, headers, icons, and action buttons) ── */
+[data-theme="dark"] .card:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="box"]:not([class*="login"]):not([class*="Login"]):not([class*="attachmentCommentBox"]):not([class*="commentBox"]),
-[data-theme="dark"] [class*="Box"]:not([class*="login"]):not([class*="Login"]):not([class*="attachmentCommentBox"]):not([class*="commentBox"]),
 [data-theme="dark"] [class*="formContainer"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="statCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="statcard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="statCard"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="statsCard"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="infoCard"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="detailCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="summary"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="section"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]) {
+[data-theme="dark"] [class*="sectionCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="chartCard"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="heroCard"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border-light) !important;
   box-shadow: none !important;
@@ -1194,10 +1192,6 @@ code {
 [data-theme="dark"] [class*="formCard"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="section"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Section"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Wrapper"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-card) !important;
@@ -1207,19 +1201,125 @@ code {
   color: var(--text-main) !important;
 }
 
-/* Explicitly ensure form groups, form rows, and form labels NEVER inherit card borders or backgrounds */
-[class*="formGroup" i],
-[class*="formRow" i],
-[class*="formLabel" i],
-[class*="formField" i],
-[data-theme="dark"] [class*="formGroup" i],
-[data-theme="dark"] [class*="formRow" i],
-[data-theme="dark"] [class*="formLabel" i],
-[data-theme="dark"] [class*="formField" i] {
-  background: transparent !important;
-  background-color: transparent !important;
+/* ==========================================================================
+   GLOBAL UI RESET: REMOVE UNNECESSARY RECTANGULAR BORDERS ACROSS THE APP
+   Eliminates visual clutter, boxed text, nested container outlines, and
+   unnecessary borders around typography, numbers, and layout wrappers.
+   ========================================================================== */
+
+/* 1. All text, headings, numbers, and typography elements NEVER have borders or outlines */
+h1, h2, h3, h4, h5, h6,
+p, span, label, strong, b, em, i,
+[class*="title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]),
+[class*="Title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]),
+[class*="heading" i], [class*="Heading" i],
+[class*="subtitle" i], [class*="Subtitle" i],
+[class*="description" i], [class*="Description" i], [class*="desc" i],
+[class*="label" i]:not(input):not(select):not(textarea):not([class*="badge" i]):not([class*="pill" i]):not([class*="tag" i]):not([class*="status" i]),
+[class*="Label" i]:not(input):not(select):not(textarea):not([class*="badge" i]):not([class*="pill" i]):not([class*="tag" i]):not([class*="status" i]),
+[class*="text" i]:not(input):not(textarea), [class*="Text" i]:not(input):not(textarea),
+[class*="statValue" i], [class*="statNumber" i], [class*="statCount" i],
+[class*="statLabel" i], [class*="metricValue" i], [class*="metricLabel" i],
+[class*="count" i]:not([class*="Badge" i]):not([class*="Pill" i]):not([class*="Tag" i]),
+[class*="name" i]:not(input):not(select):not([class*="card" i]):not([class*="Card" i]) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 2. Layout, Header, Title, and Section Wrappers NEVER have rectangular box borders */
+[class*="titleGroup" i],
+[class*="titleWrap" i],
+[class*="titleWrapper" i],
+[class*="headingWrap" i],
+[class*="headingGroup" i],
+[class*="headerLeft" i],
+[class*="headerRight" i],
+[class*="headerActions" i],
+[class*="headerRow" i],
+[class*="pageHeaderRow" i],
+[class*="topBarTitle" i],
+[class*="breadcrumb" i],
+[class*="statCardTop" i],
+[class*="statCardBottom" i],
+[class*="statLabelRow" i],
+[class*="statsRow" i],
+[class*="statsGrid" i],
+[class*="statIconBox" i],
+[class*="iconBox" i],
+[class*="metaWrap" i],
+[class*="metaGroup" i],
+[class*="actionsGroup" i],
+[class*="controlsGroup" i],
+[class*="buttonGroup" i],
+[class*="btnGroup" i],
+[class*="buttonWrap" i],
+[class*="btnWrap" i],
+[class*="dateGroup" i],
+[class*="dateWrap" i],
+[class*="fieldWrapper" i],
+[class*="fieldsGrid" i] {
   border: none !important;
   box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+/* 3. Form groups, rows, and input wrappers NEVER have outer container borders */
+[class*="formGroup" i],
+[class*="formRow" i],
+[class*="formGrid" i],
+[class*="formField" i],
+[class*="fieldGroup" i],
+[class*="inputWrap" i],
+[class*="inputWrapper" i],
+[class*="selectWrapper" i],
+[class*="textareaWrapper" i],
+[class*="dateRangeGroup" i],
+[class*="timeFormRow" i] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 4. Search input wrappers MUST NOT have outer border boxes (the border belongs only to the inner input) */
+[class*="searchBox" i]:not(input),
+[class*="searchContainer" i]:not(input),
+[class*="searchWrapper" i]:not(input),
+[class*="searchBar" i]:not(input),
+[class*="filterSearch" i]:not(input),
+[class*="userSearchInputWrapper" i]:not(input) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* 5. Clean up individual dashboard stat micro-boxes & buttons (eliminate nested boxes around numbers) */
+[class*="statArrowBtn" i],
+[class*="statPillBadge" i],
+[class*="sectionCountBadge" i],
+[class*="heroBadge" i],
+[class*="heroPill" i],
+[class*="datePill" i],
+[class*="ticketStatBox" i],
+[class*="slaBox" i] {
+  border: none !important;
+}
+
+/* 6. Clean up Category card nested SLA micro buttons */
+[class*="slaMiniBtn" i],
+[class*="slaMiniBtnDanger" i] {
+  border: none !important;
+}
+
+/* 7. Sidebar elements: remove redundant border boxes around icons, badges, and expand buttons */
+[class*="sectionIconBadge" i],
+[class*="sectionItemCountBadge" i],
+[class*="navIconBox" i],
+[class*="navTotalCountBadge" i],
+[class*="toggleAllBtn" i],
+[class*="deptSidebarPill" i] {
+  border: none !important;
 }
 
 /* ── Universal Dark Theme: Zero Murky Page Shadows & 100% Crisp Element Visibility ── */
@@ -1229,21 +1329,15 @@ code {
   --tw-ring-shadow: 0 0 #0000 !important;
 }
 
-[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]):not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]),
+[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]):not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]),
 [data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="container"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="container"]:not([class*="login"]):not([class*="Login"]):not([class*="search"]):not([class*="Search"]):not([class*="input"]):not([class*="Input"]),
 [data-theme="dark"] [class*="table"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Table"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="box"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Box"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="content"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="page"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="header"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="topbar"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="topBar"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="filters"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="content"]:not([class*="login"]):not([class*="Login"]):not([class*="Item"]):not([class*="Title"]),
+[data-theme="dark"] [class*="page"]:not([class*="login"]):not([class*="Login"]):not([class*="Title"]):not([class*="Header"]),
 [data-theme="dark"] [class*="modalContent"],
 [data-theme="dark"] [class*="modal-content"],
 [data-theme="dark"] [class*="dialogContent"],
@@ -1290,8 +1384,8 @@ code {
 [data-theme="dark"] [class*="wrapper"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="pageHeader"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="sectionHeader"]:not([class*="login"]):not([class*="Login"]) {
-  background: linear-gradient(135deg, #151b28 0%, #1c2333 100%) !important;
-  border-color: #252e3e !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 /* ── Typography & Label Contrast in Night Mode ─────────────────────────── */

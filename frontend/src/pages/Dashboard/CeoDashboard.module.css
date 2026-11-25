@@ -104,7 +104,7 @@
   letter-spacing: 0.07em;
   color: #3b82f6;
   background: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.22);
+  border: none;
   padding: 3px 9px;
   border-radius: 9999px;
   margin-bottom: 6px;
@@ -113,7 +113,6 @@
 :global([data-theme="dark"]) .sectionBadge {
   color: #60a5fa;
   background: rgba(37, 99, 235, 0.16);
-  border-color: rgba(37, 99, 235, 0.35);
 }
 
 .sectionBadgeIcon {
@@ -197,7 +196,7 @@
   border-radius: 9999px;
   background: var(--ceo-subtle-bg);
   color: var(--ceo-text-secondary);
-  border: 1px solid var(--ceo-card-border);
+  border: none;
 }
 
 .heroBody {
@@ -234,7 +233,7 @@
   font-weight: 600;
   color: var(--ceo-text-secondary);
   background: var(--ceo-subtle-bg);
-  border: 1px solid var(--ceo-card-border);
+  border: none;
   padding: 3px 9px;
   border-radius: 6px;
 }
@@ -249,7 +248,7 @@
   font-weight: 700;
   color: #dc2626;
   background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  border: none;
   padding: 4px 10px;
   border-radius: 6px;
   display: inline-flex;

@@ -635,6 +635,7 @@ export default function SLAPolicies() {
         open={modalOpen}
         title={editing ? 'Edit SLA Policy' : 'Create New SLA Policy'}
         onClose={() => setModalOpen(false)}
+        maxWidth="720px"
         footer={
           <div className={styles.modalFooter}>
             <button type="button" className={styles.cancelBtn} onClick={() => setModalOpen(false)}>
