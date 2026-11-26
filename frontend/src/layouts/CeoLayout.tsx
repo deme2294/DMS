@@ -1,12 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Bars3Icon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ShieldCheckIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import Sidebar from '../components/Sidebar/Sidebar';
 import NotificationCenter from '../components/NotificationCenter';
 import ConnectionStatus from '../components/ConnectionStatus/ConnectionStatus';
 import ThemeToggle from '../components/ThemeToggle/ThemeToggle';
 import UserDropdown from './UserDropdown';
 import styles from './CeoLayout.module.css';
+
+const ROUTE_TITLES: Record<string, string> = {
+  '/ceo/dashboard': 'Command Center',
+  '/ceo/analytics': 'Executive Analytics',
+  '/ceo/approvals': 'Executive Approvals',
+  '/ceo/tickets': 'Incident Oversight',
+  '/ceo/tickets/duplicates': 'Duplicate & Merged Hub',
+  '/ceo/departments': 'Department Operations',
+  '/ceo/tenants': 'Tenants & Accounts',
+  '/ceo/users': 'Executive Directory',
+  '/ceo/reports': 'Reports & Analytics',
+  '/ceo/knowledge': 'Knowledge Base',
+  '/ceo/notices': 'Executive Notices',
+  '/ceo/audit': 'Audit & Compliance',
+  '/ceo/chat': 'Executive Chat',
+  '/ceo/notifications': 'Notifications',
+  '/ceo/profile': 'Executive Profile',
+};
 
 export default function CeoLayout() {
   const navigate = useNavigate();
@@ -15,6 +33,24 @@ export default function CeoLayout() {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('dms_sidebar_collapsed') === 'true';
   });
+
+  const todayDateString = useMemo(() => {
+    return new Date().toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  }, []);
+
+  const currentSectionTitle = useMemo(() => {
+    if (ROUTE_TITLES[location.pathname]) {
+      return ROUTE_TITLES[location.pathname];
+    }
+    const matchedPrefix = Object.keys(ROUTE_TITLES)
+      .filter((k) => location.pathname.startsWith(k + '/'))
+      .sort((a, b) => b.length - a.length)[0];
+    return matchedPrefix ? ROUTE_TITLES[matchedPrefix] : 'Executive Suite';
+  }, [location.pathname]);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -97,14 +133,22 @@ export default function CeoLayout() {
           </div>
           <div className={styles.topBarCenter}>
             <div className={styles.systemHeaderBrand}>
+              <div className={styles.executivePillBadge}>
+                <ShieldCheckIcon className={styles.executivePillIcon} />
+                <span>EXECUTIVE COMMAND</span>
+              </div>
               <h1 className={styles.systemHeaderTitle}>
                 <span className={styles.systemHeaderAccent}>ITPC</span> HELP DESK
               </h1>
               <span className={styles.systemHeaderDivider}>•</span>
-              <span className={styles.systemHeaderSub}>Management System</span>
+              <span className={styles.systemHeaderSub}>{currentSectionTitle}</span>
             </div>
           </div>
           <div className={styles.topBarRight}>
+            <div className={styles.executiveDateBadge}>
+              <CalendarDaysIcon className={styles.dateIcon} />
+              <span>{todayDateString}</span>
+            </div>
             <ConnectionStatus />
             <ThemeToggle />
             <NotificationCenter />

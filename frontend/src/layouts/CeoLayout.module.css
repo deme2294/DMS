@@ -61,14 +61,78 @@
 .systemHeaderBrand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--bg-surface, #f8fafc);
-  padding: 6px 14px;
+  padding: 6px 16px;
   border-radius: 999px;
   border: 1px solid var(--border-color, #e2e8f0);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   transition: all 0.2s ease;
   max-width: 100%;
+}
+
+.executivePillBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.executivePillIcon {
+  width: 13px;
+  height: 13px;
+  color: #2563eb;
+  stroke-width: 2.2;
+}
+
+:global([data-theme="dark"]) .executivePillBadge {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+:global([data-theme="dark"]) .executivePillIcon {
+  color: #60a5fa;
+}
+
+.executiveDateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--bg-surface, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.dateIcon {
+  width: 15px;
+  height: 15px;
+  color: #64748b;
+}
+
+:global([data-theme="dark"]) .executiveDateBadge {
+  background: #141c2c;
+  border-color: #27344b;
+  color: #94a3b8;
+}
+
+:global([data-theme="dark"]) .dateIcon {
+  color: #93c5fd;
 }
 
 .systemHeaderBrand:hover {

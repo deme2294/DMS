@@ -196,20 +196,20 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
   border-right: 1px solid rgba(8, 125, 147, 0.28) !important;
 }
 
-/* ── Main Cards & Panels (Exclude inner text, headers, icons, and action buttons) ── */
+/* ── Main Outer Cards & Panels (Excludes ALL inner text, headers, numbers, icons, rows, and action controls) ── */
 [data-theme="dark"] .card:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="Row"]):not([class*="Section"]):not([class*="Meta"]):not([class*="Action"]):not([class*="Actions"]):not([class*="Badge"]):not([class*="Desc"]):not([class*="Wrap"]):not([class*="Body"]):not([class*="Footer"]):not([class*="Content"]):not([class*="Inner"]):not([class*="Item"]):not([class*="List"]):not([class*="Grid"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="Row"]):not([class*="Section"]):not([class*="Meta"]):not([class*="Action"]):not([class*="Actions"]):not([class*="Badge"]):not([class*="Desc"]):not([class*="Wrap"]):not([class*="Body"]):not([class*="Footer"]):not([class*="Content"]):not([class*="Inner"]):not([class*="Item"]):not([class*="List"]):not([class*="Grid"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Card"]:not([class*="Header"]):not([class*="header"]):not([class*="Title"]):not([class*="title"]):not([class*="Heading"]):not([class*="heading"]):not([class*="Subtitle"]):not([class*="subtitle"]):not([class*="Value"]):not([class*="value"]):not([class*="Number"]):not([class*="number"]):not([class*="Count"]):not([class*="count"]):not([class*="Label"]):not([class*="label"]):not([class*="Sub"]):not([class*="sub"]):not([class*="Text"]):not([class*="text"]):not([class*="Desc"]):not([class*="desc"]):not([class*="Description"]):not([class*="description"]):not([class*="Meta"]):not([class*="meta"]):not([class*="Icon"]):not([class*="icon"]):not([class*="Badge"]):not([class*="badge"]):not([class*="Pill"]):not([class*="pill"]):not([class*="Tag"]):not([class*="tag"]):not([class*="Btn"]):not([class*="btn"]):not([class*="Button"]):not([class*="button"]):not([class*="Arrow"]):not([class*="arrow"]):not([class*="Row"]):not([class*="row"]):not([class*="Col"]):not([class*="col"]):not([class*="Top"]):not([class*="top"]):not([class*="Bottom"]):not([class*="bottom"]):not([class*="Left"]):not([class*="left"]):not([class*="Right"]):not([class*="right"]):not([class*="Body"]):not([class*="body"]):not([class*="Footer"]):not([class*="footer"]):not([class*="Content"]):not([class*="content"]):not([class*="Inner"]):not([class*="inner"]):not([class*="Item"]):not([class*="item"]):not([class*="List"]):not([class*="list"]):not([class*="Grid"]):not([class*="grid"]):not([class*="Divider"]):not([class*="divider"]):not([class*="Bar"]):not([class*="bar"]):not([class*="Progress"]):not([class*="progress"]):not([class*="Section"]):not([class*="section"]):not([class*="Wrap"]):not([class*="wrap"]):not([class*="Wrapper"]):not([class*="wrapper"]):not([class*="Box"]):not([class*="box"]):not([class*="Actions"]):not([class*="actions"]):not([class*="Action"]):not([class*="action"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="card"]:not([class*="Header"]):not([class*="header"]):not([class*="Title"]):not([class*="title"]):not([class*="Heading"]):not([class*="heading"]):not([class*="Subtitle"]):not([class*="subtitle"]):not([class*="Value"]):not([class*="value"]):not([class*="Number"]):not([class*="number"]):not([class*="Count"]):not([class*="count"]):not([class*="Label"]):not([class*="label"]):not([class*="Sub"]):not([class*="sub"]):not([class*="Text"]):not([class*="text"]):not([class*="Desc"]):not([class*="desc"]):not([class*="Description"]):not([class*="description"]):not([class*="Meta"]):not([class*="meta"]):not([class*="Icon"]):not([class*="icon"]):not([class*="Badge"]):not([class*="badge"]):not([class*="Pill"]):not([class*="pill"]):not([class*="Tag"]):not([class*="tag"]):not([class*="Btn"]):not([class*="btn"]):not([class*="Button"]):not([class*="button"]):not([class*="Arrow"]):not([class*="arrow"]):not([class*="Row"]):not([class*="row"]):not([class*="Col"]):not([class*="col"]):not([class*="Top"]):not([class*="top"]):not([class*="Bottom"]):not([class*="bottom"]):not([class*="Left"]):not([class*="left"]):not([class*="Right"]):not([class*="right"]):not([class*="Body"]):not([class*="body"]):not([class*="Footer"]):not([class*="footer"]):not([class*="Content"]):not([class*="content"]):not([class*="Inner"]):not([class*="inner"]):not([class*="Item"]):not([class*="item"]):not([class*="List"]):not([class*="list"]):not([class*="Grid"]):not([class*="grid"]):not([class*="Divider"]):not([class*="divider"]):not([class*="Bar"]):not([class*="bar"]):not([class*="Progress"]):not([class*="progress"]):not([class*="Section"]):not([class*="section"]):not([class*="Wrap"]):not([class*="wrap"]):not([class*="Wrapper"]):not([class*="wrapper"]):not([class*="Box"]):not([class*="box"]):not([class*="Actions"]):not([class*="actions"]):not([class*="Action"]):not([class*="action"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="panel"]:not([class*="Header"]):not([class*="Title"]):not([class*="Body"]):not([class*="Content"]):not([class*="Actions"]):not([class*="Icon"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Panel"]:not([class*="Header"]):not([class*="Title"]):not([class*="Body"]):not([class*="Content"]):not([class*="Actions"]):not([class*="Icon"]):not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="formContainer"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="statCard"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="statsCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="infoCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="detailCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="sectionCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="chartCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="heroCard"]:not([class*="login"]):not([class*="Login"]) {
+[data-theme="dark"] [class*="statCard"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Value"]):not([class*="Label"]):not([class*="Icon"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="statsCard"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Value"]):not([class*="Label"]):not([class*="Icon"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="infoCard"]:not([class*="Icon"]):not([class*="Value"]):not([class*="Label"]):not([class*="Title"]):not([class*="Desc"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="detailCard"]:not([class*="Header"]):not([class*="Title"]):not([class*="Body"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="sectionCard"]:not([class*="Header"]):not([class*="Title"]):not([class*="Body"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="chartCard"]:not([class*="Header"]):not([class*="Title"]):not([class*="Body"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="heroCard"]:not([class*="Header"]):not([class*="Body"]):not([class*="Value"]):not([class*="Label"]):not([class*="Icon"]):not([class*="login"]):not([class*="Login"]) {
   background-color: var(--bg-card) !important;
   border: 1px solid var(--border-light) !important;
   box-shadow: none !important;
@@ -1192,13 +1192,8 @@ code {
    ========================================================================== */
 
 [data-theme="dark"] form:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="formContainer"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="formWrapper"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="formCard"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="card"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Card"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]) {
+[data-theme="dark"] .formCard,
+[data-theme="dark"] .app-form-card {
   background-color: var(--bg-card) !important;
   background-image: none !important;
   border: 1px solid var(--border-light) !important;
@@ -1207,31 +1202,60 @@ code {
 }
 
 /* ==========================================================================
-   GLOBAL UI RESET: REMOVE UNNECESSARY RECTANGULAR BORDERS ACROSS THE APP
-   Eliminates visual clutter, boxed text, nested container outlines, and
-   unnecessary borders around typography, numbers, and layout wrappers.
+   GLOBAL UI RESET: REMOVE UNNECESSARY NESTED RECTANGULAR BOXES & INNER BORDERS
+   Eliminates wireframe-like nested outlines, boxy labels, bordered values,
+   and shaded inner wrappers inside cards across all roles & pages.
    ========================================================================== */
 
-/* 1. All text, headings, numbers, and typography elements NEVER have borders or outlines */
-h1, h2, h3, h4, h5, h6,
-p, span, label, strong, b, em, i,
-[class*="title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]),
-[class*="Title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]),
-[class*="heading" i], [class*="Heading" i],
+/* 1. All text, headings, numbers, metrics, labels, & descriptions NEVER have container boxes */
+h1:not(input):not(button), h2:not(input):not(button), h3:not(input):not(button),
+h4:not(input):not(button), h5:not(input):not(button), h6:not(input):not(button),
+p:not(input), span:not([class*="badge" i]):not([class*="pill" i]):not([class*="tag" i]):not([class*="chip" i]):not([class*="btn" i]):not([class*="button" i]),
+label:not(input):not(select):not(textarea):not([class*="badge" i]):not([class*="pill" i]),
+strong:not([class*="badge" i]):not([class*="pill" i]), b, em, i,
+[class*="title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]):not([class*="badge" i]):not([class*="tab" i]):not([class*="Card" i]):not([class*="card" i]),
+[class*="Title" i]:not([class*="Btn" i]):not([class*="Button" i]):not([class*="pill" i]):not([class*="badge" i]):not([class*="tab" i]):not([class*="Card" i]):not([class*="card" i]),
+[class*="heading" i]:not([class*="badge" i]):not([class*="pill" i]),
+[class*="Heading" i]:not([class*="badge" i]):not([class*="pill" i]),
 [class*="subtitle" i], [class*="Subtitle" i],
-[class*="description" i], [class*="Description" i], [class*="desc" i],
+[class*="description" i], [class*="Description" i], [class*="desc" i], [class*="subtext" i],
 [class*="label" i]:not(input):not(select):not(textarea):not([class*="badge" i]):not([class*="pill" i]):not([class*="tag" i]):not([class*="status" i]),
 [class*="Label" i]:not(input):not(select):not(textarea):not([class*="badge" i]):not([class*="pill" i]):not([class*="tag" i]):not([class*="status" i]),
-[class*="text" i]:not(input):not(textarea), [class*="Text" i]:not(input):not(textarea),
+[class*="text" i]:not(input):not(textarea):not([class*="badge" i]):not([class*="pill" i]),
+[class*="Text" i]:not(input):not(textarea):not([class*="badge" i]):not([class*="pill" i]),
 [class*="statValue" i], [class*="statNumber" i], [class*="statCount" i],
 [class*="statLabel" i], [class*="metricValue" i], [class*="metricLabel" i],
+[class*="heroMainValue" i], [class*="heroSubLabel" i], [class*="summaryValue" i],
+[class*="kpiValue" i], [class*="kpiLabel" i], [class*="kpiSub" i],
+[class*="infoValue" i], [class*="infoLabel" i],
 [class*="count" i]:not([class*="Badge" i]):not([class*="Pill" i]):not([class*="Tag" i]),
-[class*="name" i]:not(input):not(select):not([class*="card" i]):not([class*="Card" i]) {
-  outline: none !important;
+[class*="name" i]:not(input):not(select):not([class*="card" i]):not([class*="Card" i]):not([class*="btn" i]) {
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
+  outline: none !important;
 }
 
-/* 2. Layout, Header, Title, and Section Wrappers NEVER have rectangular box borders */
+/* 2. Card Header Rows, Meta Rows, Body Sections, & Inner Layout Wrappers NEVER have nested container borders */
+[class*="cardHeader" i],
+[class*="CardHeader" i],
+[class*="heroCardHeader" i],
+[class*="statCardHeader" i],
+[class*="statHeader" i],
+[class*="kpiTop" i],
+[class*="statCardTop" i],
+[class*="statCardBottom" i],
+[class*="statLabelRow" i],
+[class*="statsRow" i],
+[class*="summaryCardTop" i],
+[class*="heroBody" i],
+[class*="cardBody" i],
+[class*="CardBody" i],
+[class*="panelHeader" i],
+[class*="panelTitle" i],
+[class*="panelBody" i],
+[class*="panelContent" i],
 [class*="titleGroup" i],
 [class*="titleWrap" i],
 [class*="titleWrapper" i],
@@ -1244,13 +1268,6 @@ p, span, label, strong, b, em, i,
 [class*="pageHeaderRow" i],
 [class*="topBarTitle" i],
 [class*="breadcrumb" i],
-[class*="statCardTop" i],
-[class*="statCardBottom" i],
-[class*="statLabelRow" i],
-[class*="statsRow" i],
-[class*="statsGrid" i],
-[class*="statIconBox" i],
-[class*="iconBox" i],
 [class*="metaWrap" i],
 [class*="metaGroup" i],
 [class*="actionsGroup" i],
@@ -1265,7 +1282,35 @@ p, span, label, strong, b, em, i,
 [class*="fieldsGrid" i] {
   border: none !important;
   box-shadow: none !important;
+  background: transparent !important;
   background-color: transparent !important;
+}
+
+/* 3. Icon Containers Inside Cards — Clean Toned Background, Zero Harsh Outlines */
+[class*="statIconBox" i],
+[class*="summaryIconWrapper" i],
+[class*="kpiIconWrap" i],
+[class*="kpiIconBox" i],
+[class*="heroIconBox" i],
+[class*="statIconWrap" i],
+[class*="statIconCapsule" i],
+[class*="infoIconWrapper" i],
+[class*="iconBox" i]:not(button):not(input) {
+  border: none !important;
+  outline: none !important;
+}
+
+:is([data-theme="dark"], .dark) [class*="statIconBox" i],
+:is([data-theme="dark"], .dark) [class*="summaryIconWrapper" i],
+:is([data-theme="dark"], .dark) [class*="kpiIconWrap" i],
+:is([data-theme="dark"], .dark) [class*="kpiIconBox" i],
+:is([data-theme="dark"], .dark) [class*="heroIconBox" i],
+:is([data-theme="dark"], .dark) [class*="statIconWrap" i],
+:is([data-theme="dark"], .dark) [class*="statIconCapsule" i],
+:is([data-theme="dark"], .dark) [class*="infoIconWrapper" i],
+:is([data-theme="dark"], .dark) [class*="iconBox" i]:not(button):not(input) {
+  border: none !important;
+  outline: none !important;
 }
 
 /* 3. Form groups, rows, and input wrappers NEVER have outer container borders */

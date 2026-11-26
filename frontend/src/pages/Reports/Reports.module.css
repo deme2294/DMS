@@ -694,37 +694,37 @@
 :global([data-theme="dark"]) .iconBoxBlue {
   background: rgba(37, 99, 235, 0.2);
   color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  border: none;
 }
 
 :global([data-theme="dark"]) .iconBoxGreen {
   background: rgba(22, 163, 74, 0.2);
   color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.35);
+  border: none;
 }
 
 :global([data-theme="dark"]) .iconBoxAmber {
   background: rgba(217, 119, 6, 0.2);
   color: #fbbf24;
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  border: none;
 }
 
 :global([data-theme="dark"]) .iconBoxEmerald {
   background: rgba(16, 185, 129, 0.2);
   color: #34d399;
-  border: 1px solid rgba(52, 211, 153, 0.35);
+  border: none;
 }
 
 :global([data-theme="dark"]) .iconBoxPurple {
   background: rgba(124, 58, 237, 0.2);
   color: #a78bfa;
-  border: 1px solid rgba(167, 139, 250, 0.35);
+  border: none;
 }
 
 :global([data-theme="dark"]) .iconBoxPink {
   background: rgba(219, 39, 119, 0.2);
   color: #f472b6;
-  border: 1px solid rgba(244, 114, 182, 0.35);
+  border: none;
 }
 
 .statValueGreen { color: #16a34a !important; }

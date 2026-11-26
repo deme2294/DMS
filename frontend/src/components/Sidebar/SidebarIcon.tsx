@@ -36,7 +36,7 @@ export const SidebarIcon: React.FC<SidebarIconProps> = ({ label, path, className
   const normLabel = label.toLowerCase();
   const normPath = path.toLowerCase();
 
-  if (normPath.includes('dashboard') || normLabel.includes('dashboard')) {
+  if (normPath.includes('dashboard') || normLabel.includes('dashboard') || normLabel.includes('command center')) {
     return <Squares2X2Icon className={className} />;
   }
   if (normPath.includes('analytics') || normLabel.includes('analytics')) {
@@ -45,14 +45,17 @@ export const SidebarIcon: React.FC<SidebarIconProps> = ({ label, path, className
   if (normPath.includes('approvals') || normLabel.includes('approval')) {
     return <CheckBadgeIcon className={className} />;
   }
-  if (normPath.includes('users') || normLabel.includes('users')) {
+  if (normPath.includes('users') || normLabel.includes('users') || normLabel.includes('directory')) {
     return <UserGroupIcon className={className} />;
   }
-  if (normPath.includes('tenants') || normLabel.includes('tenants')) {
+  if (normPath.includes('tenants') || normLabel.includes('tenants') || normLabel.includes('organization') || normLabel.includes('accounts')) {
     return <BuildingOffice2Icon className={className} />;
   }
   if (normPath.includes('departments') || normLabel.includes('departments')) {
     return <BuildingOfficeIcon className={className} />;
+  }
+  if (normPath.includes('duplicates') || normLabel.includes('duplicate') || normLabel.includes('merged')) {
+    return <TableCellsIcon className={className} />;
   }
   if (normPath.includes('matrix') || normLabel.includes('matrix')) {
     return <TableCellsIcon className={className} />;

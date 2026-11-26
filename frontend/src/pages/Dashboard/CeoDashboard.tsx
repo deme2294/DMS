@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import PageHeader from '../../components/PageHeader/PageHeader';
+import { Link } from 'react-router-dom';
 import {
   fetchCeoDashboard,
   fetchCeoDepartmentPerformance,
@@ -371,13 +371,70 @@ export default function CeoDashboard() {
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        title={`Welcome, ${user?.firstName || 'CEO'}`}
-        description={`Executive Overview & Operational Intelligence · ${lastUpdated ? `Updated at ${lastUpdated}` : 'Live System Feed'}`}
-        actionLabel={refreshing ? 'Refreshing…' : 'Refresh Data'}
-        onAction={() => loadData(true)}
-        actionLoading={refreshing}
-      />
+      {/* ── Executive Command Center Header ── */}
+      <div className={styles.execHeaderCard}>
+        <div className={styles.execHeaderLeft}>
+          <div className={styles.execModuleBadge}>
+            <ShieldCheckIcon className={styles.execModuleIcon} />
+            <span>EXECUTIVE COMMAND &amp; GOVERNANCE</span>
+          </div>
+          <h1 className={styles.execTitle}>Executive Command Center</h1>
+          <p className={styles.execSubtitle}>
+            Real-time organizational telemetrics, cross-department throughput, resolution SLA compliance, and governance oversight.
+            {lastUpdated && <span className={styles.execLiveSync}> · Live Feed ({lastUpdated})</span>}
+          </p>
+        </div>
+
+        <div className={styles.execHeaderActions}>
+          <Link to="/ceo/approvals" className={styles.execSecondaryBtn} title="View executive approvals">
+            <CheckCircleIcon className={styles.execBtnIcon} />
+            <span>Approvals Queue</span>
+            {overdueCount > 0 && (
+              <span className={styles.execAlertPill}>{overdueCount}</span>
+            )}
+          </Link>
+
+          <Link to="/ceo/analytics" className={styles.execSecondaryBtn} title="View deep dive analytics">
+            <ChartBarIcon className={styles.execBtnIcon} />
+            <span>Executive Analytics</span>
+          </Link>
+
+          <button
+            type="button"
+            className={styles.execPrimaryBtn}
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            title="Refresh live feeds"
+          >
+            <ArrowPathIcon className={`${styles.execBtnIcon} ${refreshing ? styles.spinIcon : ''}`} />
+            <span>{refreshing ? 'Refreshing…' : 'Refresh Feed'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Urgent Attention Executive Banner ── */}
+      {overdueCount > 0 && (
+        <div className={styles.urgentAlertBanner}>
+          <div className={styles.urgentAlertLeft}>
+            <div className={styles.urgentAlertIconBox}>
+              <ExclamationTriangleIcon className={styles.urgentAlertIcon} />
+            </div>
+            <div>
+              <div className={styles.urgentAlertTitle}>
+                High-Priority SLA Notice: {overdueCount} Incident(s) Require Executive Oversight
+              </div>
+              <div className={styles.urgentAlertSub}>
+                Tickets have breached SLA target windows and are awaiting expedited managerial dispatch or executive guidance.
+              </div>
+            </div>
+          </div>
+          <div className={styles.urgentAlertRight}>
+            <Link to="/ceo/approvals" className={styles.urgentAlertBtn}>
+              Review Escalations &rarr;
+            </Link>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className={styles.loading}>

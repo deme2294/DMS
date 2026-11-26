@@ -154,31 +154,44 @@ export const SIDEBAR_ITEMS: Record<string, SidebarRoleConfig> = {
   ceo: {
     sections: [
       {
-        title: 'Executive',
+        title: 'Executive Command',
         items: [
-          { label: 'Dashboard', path: '/ceo/dashboard', icon: '👑', permission: 'ceo.dashboard' },
+          { label: 'Command Center', path: '/ceo/dashboard', icon: '👑', permission: 'ceo.dashboard' },
           { label: 'Executive Analytics', path: '/ceo/analytics', icon: '📈', permission: 'executive.analytics' },
           { label: 'Executive Approvals', path: '/ceo/approvals', icon: '✅', permission: 'executive.approvals' },
         ],
       },
       {
-        title: 'Operations',
+        title: 'Operations & Delivery',
         items: [
-          { label: 'Tickets', path: '/ceo/tickets', icon: '🎫', permission: 'tickets.read' },
+          { label: 'Incident Oversight', path: '/ceo/tickets', icon: '🎫', permission: 'tickets.read' },
           { label: 'Duplicate & Merged', path: '/ceo/tickets/duplicates', icon: '🔀', permission: 'tickets.read' },
-          { label: 'Feedback Oversight', path: '/ceo/feedback', icon: '📝', permission: 'feedback.read' },
-          { label: 'Reports', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
-          { label: 'Knowledge Base', path: '/ceo/knowledge', icon: '📚', permission: 'knowledge.read' },
-          { label: 'Notices', path: '/ceo/notices', icon: '📢', permission: 'notices.read' },
-          { label: 'Chat', path: '/ceo/chat', icon: '💬' },
-          { label: 'Notifications', path: '/ceo/notifications', icon: '🔔' },
+          { label: 'Departments', path: '/ceo/departments', icon: '🏢', permission: 'departments.read' },
+          { label: 'Service Feedback', path: '/ceo/feedback', icon: '📝', permission: 'feedback.read' },
         ],
       },
       {
-        title: 'System',
+        title: 'Organization & Accounts',
         items: [
-          { label: 'Audit Log', path: '/ceo/audit', icon: '🔍', permission: 'audit.read' },
-          { label: 'My Profile', path: '/ceo/profile', icon: '👤' },
+          { label: 'Tenants & Accounts', path: '/ceo/tenants', icon: '🏛️', permission: 'tenants.read' },
+          { label: 'Executive Directory', path: '/ceo/users', icon: '👥', permission: 'users.read' },
+        ],
+      },
+      {
+        title: 'Intelligence & Governance',
+        items: [
+          { label: 'Reports & Analytics', path: '/ceo/reports', icon: '📑', permission: 'reports.read' },
+          { label: 'Knowledge Base', path: '/ceo/knowledge', icon: '📚', permission: 'knowledge.read' },
+          { label: 'Executive Notices', path: '/ceo/notices', icon: '📢', permission: 'notices.read' },
+          { label: 'Audit & Compliance', path: '/ceo/audit', icon: '🔍', permission: 'audit.read' },
+        ],
+      },
+      {
+        title: 'Collaboration',
+        items: [
+          { label: 'Executive Chat', path: '/ceo/chat', icon: '💬' },
+          { label: 'Notifications', path: '/ceo/notifications', icon: '🔔' },
+          { label: 'Executive Profile', path: '/ceo/profile', icon: '👤' },
         ],
       },
     ],

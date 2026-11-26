@@ -387,20 +387,24 @@
 
 /* ── Collapsible Menu Items Wrapper with Tree Connector ── */
 .sectionItemsWrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, margin 0.24s ease;
+  display: none !important;
+  max-height: 0;
   opacity: 0;
   overflow: hidden;
   margin-top: 0;
   margin-bottom: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, margin 0.2s ease;
 }
 
 .sectionItemsWrapperOpen {
-  grid-template-rows: 1fr;
+  display: block !important;
+  max-height: 3000px;
   opacity: 1;
+  overflow: visible;
   margin-top: 5px;
   margin-bottom: 6px;
+  pointer-events: auto;
 }
 
 .sectionItemsInner {
@@ -420,6 +424,8 @@
 .sectionItemsWrapper:not(.sectionItemsWrapperOpen) .sectionItemsInner {
   padding-top: 0;
   padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
   border-left-color: transparent;
 }
 
@@ -633,8 +639,17 @@
 }
 
 /* Also support quickLogoutBtn class name as alias */
+.collapseToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
 .quickLogoutBtn {
-  composes: collapseToggleBtn;
+  /* Add logout-specific styles here */
+  color: #ef4444;
 }
 
 /* ── Collapsed Sidebar Rules ── */
@@ -702,8 +717,9 @@
 
 .sidebarCollapsed .sectionItemsWrapper {
   display: flex !important;
-  grid-template-rows: none !important;
+  max-height: none !important;
   opacity: 1 !important;
+  pointer-events: auto !important;
   width: 100%;
 }
 

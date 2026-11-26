@@ -296,6 +296,8 @@
   align-items: center !important;
   justify-content: center !important;
   flex-shrink: 0 !important;
+  border: none !important;
+  outline: none !important;
 }
 
 .statIcon {

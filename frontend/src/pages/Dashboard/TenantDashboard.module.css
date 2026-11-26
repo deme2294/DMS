@@ -142,12 +142,12 @@
 
 .feedbackIconBg {
   background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  border: none;
 }
 
 .noticesIconBg {
   background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.25);
+  border: none;
 }
 
 .infoValue {

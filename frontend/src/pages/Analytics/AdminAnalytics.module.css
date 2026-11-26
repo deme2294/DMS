@@ -931,35 +931,136 @@
   justify-content: center;
   text-align: center;
   pointer-events: none;
-  padding: 10px;
+  padding: 8px;
+  z-index: 2;
+}
+
+.donutDefaultDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .donutCenterVal {
-  font-size: 1.65rem;
-  font-weight: 800;
+  font-size: 1.85rem;
+  font-weight: 850;
   color: var(--text-primary, #0f172a);
-  line-height: 1.1;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 
 .donutCenterLabel {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+  font-weight: 750;
   color: var(--text-secondary, #64748b);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  letter-spacing: 0.04em;
+  max-width: 95px;
+  text-align: center;
+  line-height: 1.15;
+  white-space: normal;
+  word-break: normal;
+  overflow: visible;
+  margin-top: 2px;
 }
 
 .donutCenterSub {
   font-size: 0.7rem;
   color: var(--text-muted, #94a3b8);
   font-weight: 600;
+  margin-top: 2px;
 }
 
-/* â”€â”€ Isolated Focus Readout Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Hovered / Focused State inside Donut Center */
+.donutActiveDetails {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  animation: donutFade 0.16s ease-out;
+}
+
+@keyframes donutFade {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.donutActiveBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1.5px solid;
+  max-width: 130px;
+  box-sizing: border-box;
+}
+
+.donutActiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donutActiveName {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.donutActiveVal {
+  font-size: 1.85rem;
+  font-weight: 850;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.donutActivePct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  line-height: 1.2;
+}
+
+:global([data-theme="dark"]) .donutActivePct {
+  color: #94a3b8 !important;
+}
+
+.pieHoverOverlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  animation: donutFade 0.16s ease-out;
+}
+
+:global([data-theme="dark"]) .donutCenterVal {
+  color: #f8fafc !important;
+}
+
+:global([data-theme="dark"]) .donutCenterLabel {
+  color: #94a3b8 !important;
+}
+
+/* ── Isolated Focus Readout Card ────────────────────────────────────────── */
 .focusBanner {
   display: flex;
   align-items: center;
@@ -971,6 +1072,12 @@
   font-size: 0.78rem;
   color: #1e40af;
   margin-bottom: 8px;
+}
+
+:global([data-theme="dark"]) .focusBanner {
+  background: #0f172a !important;
+  border-color: #1e3a8a !important;
+  color: #93c5fd !important;
 }
 
 .focusClearBtn {
@@ -1003,27 +1110,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 12px;
-  border-radius: 10px;
-  background: var(--bg-surface, #f8fafc);
-  border: 1px solid var(--border-color, #f1f5f9);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.7) !important;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
 }
 
+.donutLegendItem:last-child {
+  border-bottom: none !important;
+}
+
 .donutLegendItem:hover {
-  background: var(--bg-card, #ffffff);
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transform: translateX(2px);
+  background: rgba(37, 99, 235, 0.05) !important;
+  transform: translateX(3px);
 }
 
 .donutLegendItem.active {
-  background: #eff6ff;
-  border-color: #93c5fd;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+  background: rgba(37, 99, 235, 0.1) !important;
+  box-shadow: inset 3px 0 0 #2563eb;
   transform: translateX(4px);
+}
+
+:global([data-theme="dark"]) .donutLegendItem {
+  background: transparent !important;
+  border-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+:global([data-theme="dark"]) .donutLegendItem:hover {
+  background: rgba(56, 189, 248, 0.08) !important;
+}
+
+:global([data-theme="dark"]) .donutLegendItem.active {
+  background: rgba(14, 165, 233, 0.16) !important;
+  box-shadow: inset 3px 0 0 #38bdf8;
 }
 
 .donutLegendItem.dimmed {

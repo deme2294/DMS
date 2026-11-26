@@ -139,7 +139,7 @@ function InteractivePieChart({
   const cx = 100;
   const cy = 100;
   const outerR = 82;
-  const innerR = chartMode === 'donut' ? 52 : 0;
+  const innerR = chartMode === 'donut' ? 55 : 0;
 
   // Compute SVG slice paths accurately
   const slices = useMemo(() => {
@@ -279,8 +279,8 @@ function InteractivePieChart({
                 const isDimmed = focusedIndex !== null && !isFocused;
 
                 // Radial offset vector when slice is focused
-                const offsetX = isFocused ? Math.cos(s.midAngle) * 6 : 0;
-                const offsetY = isFocused ? Math.sin(s.midAngle) * 6 : 0;
+                const offsetX = isFocused ? Math.cos(s.midAngle) * 7 : 0;
+                const offsetY = isFocused ? Math.sin(s.midAngle) * 7 : 0;
 
                 return (
                   <path
@@ -288,10 +288,11 @@ function InteractivePieChart({
                     d={s.path}
                     fill={s.color}
                     stroke="#ffffff"
-                    strokeWidth="1.5"
+                    strokeWidth={isFocused ? '2.5' : '1.5'}
                     style={{
                       transform: isFocused ? `translate(${offsetX}px, ${offsetY}px)` : 'none',
-                      opacity: isDimmed ? 0.3 : 1,
+                      opacity: isDimmed ? 0.28 : 1,
+                      filter: isFocused ? 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35))' : 'none',
                     }}
                     className={styles.pieSlicePath}
                     onMouseEnter={() => setFocusedIndex(s.index)}
@@ -309,17 +310,72 @@ function InteractivePieChart({
           {/* Centered Dynamic Details for Donut Mode */}
           {chartMode === 'donut' && (
             <div className={styles.donutCenterInfo}>
-              <div className={styles.donutCenterVal}>
-                {activeItem ? activeItem.value.toLocaleString() : total.toLocaleString()}
-              </div>
-              <div className={styles.donutCenterLabel}>
-                {activeItem ? activeItem.label : totalLabel}
-              </div>
-              {activeItem && total > 0 && (
-                <div className={styles.donutCenterSub}>
-                  {((activeItem.value / total) * 100).toFixed(1)}% of total
+              {activeItem ? (
+                <div className={styles.donutActiveDetails}>
+                  <div
+                    className={styles.donutActiveBadge}
+                    style={{
+                      borderColor: activeItem.color,
+                      backgroundColor: `${activeItem.color}18`,
+                    }}
+                  >
+                    <span
+                      className={styles.donutActiveDot}
+                      style={{ backgroundColor: activeItem.color }}
+                    />
+                    <span
+                      className={styles.donutActiveName}
+                      style={{ color: activeItem.color }}
+                      title={activeItem.label}
+                    >
+                      {activeItem.label}
+                    </span>
+                  </div>
+                  <div className={styles.donutActiveVal} style={{ color: activeItem.color }}>
+                    {activeItem.value.toLocaleString()}
+                  </div>
+                  <div className={styles.donutActivePct}>
+                    {total > 0 ? ((activeItem.value / total) * 100).toFixed(1) : 0}% of total
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.donutDefaultDetails}>
+                  <div className={styles.donutCenterVal}>
+                    {total.toLocaleString()}
+                  </div>
+                  <div className={styles.donutCenterLabel} title={totalLabel}>
+                    {totalLabel}
+                  </div>
+                  <div className={styles.donutCenterSub}>
+                    {items.length} {items.length === 1 ? 'slice' : 'slices'}
+                  </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Dynamic Floating Pill for Solid Pie Mode */}
+          {chartMode === 'pie' && activeItem && (
+            <div className={styles.pieHoverOverlay}>
+              <div
+                className={styles.donutActiveBadge}
+                style={{
+                  borderColor: activeItem.color,
+                  backgroundColor: `${activeItem.color}22`,
+                }}
+              >
+                <span
+                  className={styles.donutActiveDot}
+                  style={{ backgroundColor: activeItem.color }}
+                />
+                <span className={styles.donutActiveName} style={{ color: activeItem.color }}>
+                  {activeItem.label}
+                </span>
+                <strong style={{ marginLeft: 5, color: activeItem.color }}>{activeItem.value.toLocaleString()}</strong>
+                <span style={{ fontSize: '0.72rem', opacity: 0.85, marginLeft: 3 }}>
+                  ({total > 0 ? ((activeItem.value / total) * 100).toFixed(1) : 0}%)
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -2562,7 +2618,7 @@ export default function AdminAnalytics({
               title={isManager && managerDept ? `Ticket Status Breakdown (${managerDept.departmentName})` : "Ticket Status Breakdown"}
               subtitle={isManager && managerDept ? `Lifecycle distribution of tickets routed to ${managerDept.departmentName}` : "Distribution of tickets across all lifecycle stages"}
               items={statusChartItems}
-              totalLabel="Total Statuses"
+              totalLabel="Total"
               defaultMode="donut"
             />
           </div>
@@ -2626,7 +2682,7 @@ export default function AdminAnalytics({
                   title="Priority Distribution"
                   subtitle="Volume and urgency allocation across priorities"
                   items={priorityChartItems}
-                  totalLabel="Priority Total"
+                  totalLabel="Total Tickets"
                   defaultMode="pie"
                 />
               ) : distributionTab === 'department' && !isManager ? (
@@ -2634,7 +2690,7 @@ export default function AdminAnalytics({
                   title="Department Ticket Share"
                   subtitle="Proportion of tickets submitted per department"
                   items={departmentChartItems}
-                  totalLabel="Dept Share"
+                  totalLabel="Total Tickets"
                   defaultMode="donut"
                 />
               ) : (
@@ -2642,7 +2698,7 @@ export default function AdminAnalytics({
                   title="Category Distribution"
                   subtitle="Ticket volume across created ticket categories"
                   items={categoryChartItems}
-                  totalLabel="Category Total"
+                  totalLabel="Total Tickets"
                   defaultMode="pie"
                 />
               )}

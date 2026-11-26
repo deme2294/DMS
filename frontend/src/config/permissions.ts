@@ -12,6 +12,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'users.read',
     'tickets.read',
     'departments.read',
+    'tenants.read',
     'dashboard.read', 'notices.read', 'feedback.read',
     'knowledge.read', 'office.read',
     'reports.read', 'audit.read',
