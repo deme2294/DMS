@@ -992,7 +992,7 @@ export default function KnowledgeMyArticles() {
       />
 
       {/* ── Delete Confirmation Modal ── */}
-      <Modal open={!!deleteTarget} title="Delete Draft Article" onClose={() => setDeleteTarget(null)}>
+      <Modal open={!!deleteTarget} title="Delete Draft Article" onClose={() => setDeleteTarget(null)} maxWidth="480px">
         <p>
           Are you sure you want to delete draft <strong>"{deleteTarget?.title}"</strong>? This action cannot be undone.
         </p>

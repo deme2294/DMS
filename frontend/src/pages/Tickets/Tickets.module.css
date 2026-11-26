@@ -469,7 +469,7 @@
 
 .detailItem {
   display: grid;
-  grid-template-columns: 180px 1fr;
+  grid-template-columns: minmax(130px, 160px) 1fr;
   gap: 16px;
   padding: 10px 14px;
   border-radius: var(--tk-radius-sm, 8px);

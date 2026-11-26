@@ -1,4 +1,7 @@
 .form {
+  max-width: var(--form-max-width, 960px);
+  margin: 0 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -7,6 +10,7 @@
   border-radius: 16px;
   padding: 32px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  box-sizing: border-box;
 }
 
 .sectionTitle {
@@ -205,17 +209,17 @@
 :global([data-theme="dark"]) .input,
 :global([data-theme="dark"]) .textarea,
 :global([data-theme="dark"]) .select {
-  background: #0f1420 !important;
-  border-color: #2e384d !important;
-  color: #f8fafc !important;
+  background: #1e293b !important;
+  border-color: rgba(148, 163, 184, 0.45) !important;
+  color: #ffffff !important;
 }
 
 :global([data-theme="dark"]) .input:focus,
 :global([data-theme="dark"]) .textarea:focus,
 :global([data-theme="dark"]) .select:focus {
-  background: #131926 !important;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25) !important;
+  background: #24354e !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3) !important;
 }
 
 :global([data-theme="dark"]) .actions {

@@ -1195,7 +1195,7 @@ export default function FeedbackDetail() {
       </div>
 
       {/* Modal for manual status override */}
-      <Modal open={statusModal} title="Update Feedback Status" onClose={() => setStatusModal(false)}>
+      <Modal open={statusModal} title="Update Feedback Status" onClose={() => setStatusModal(false)} maxWidth="520px">
         <div className={styles.modalForm}>
           <label>Status</label>
           <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>

@@ -421,7 +421,7 @@ export default function KnowledgeArticleEdit() {
         </div>
       </form>
 
-      <Modal open={showRevisionModal} title="Request Changes" onClose={() => { setShowRevisionModal(false); setRevisionReason(''); }}>
+      <Modal open={showRevisionModal} title="Request Changes" onClose={() => { setShowRevisionModal(false); setRevisionReason(''); }} maxWidth="580px">
         <p>Please provide revision notes:</p>
         <textarea value={revisionReason} onChange={(e) => setRevisionReason(e.target.value)} placeholder="Enter revision notes..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
@@ -436,7 +436,7 @@ export default function KnowledgeArticleEdit() {
         </div>
       </Modal>
 
-      <Modal open={showRejectModal} title="Reject Article" onClose={() => { setShowRejectModal(false); setRejectReason(''); }}>
+      <Modal open={showRejectModal} title="Reject Article" onClose={() => { setShowRejectModal(false); setRejectReason(''); }} maxWidth="560px">
         <p>Please provide a rejection reason:</p>
         <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
@@ -451,7 +451,7 @@ export default function KnowledgeArticleEdit() {
         </div>
       </Modal>
 
-      <Modal open={showUnpublishModal} title="Unpublish Article" onClose={() => { setShowUnpublishModal(false); setUnpublishReason(''); }}>
+      <Modal open={showUnpublishModal} title="Unpublish Article" onClose={() => { setShowUnpublishModal(false); setUnpublishReason(''); }} maxWidth="560px">
         <p>Please provide a reason for unpublishing (optional):</p>
         <textarea value={unpublishReason} onChange={(e) => setUnpublishReason(e.target.value)} placeholder="Enter reason..." rows={4} style={{ width: '100%', marginTop: 8 }} />
         <div className={styles.formActions}>
@@ -466,7 +466,7 @@ export default function KnowledgeArticleEdit() {
         </div>
       </Modal>
 
-      <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)}>
+      <Modal open={deleteTarget} title="Delete Article" onClose={() => setDeleteTarget(false)} maxWidth="480px">
         <p>Are you sure you want to delete "{article.title}"? This action cannot be undone.</p>
         <div className={styles.formActions}>
           <button className={styles.dangerBtn} onClick={handleDelete}>

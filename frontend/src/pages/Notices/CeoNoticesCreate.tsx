@@ -114,7 +114,7 @@ export default function CeoNoticesCreate() {
   const isDepartmentAudienceBlocked = selectedAudience === 'department' && myDepartments.length === 0;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.formPage}>
       <PageHeader
         title="Create Executive Notice"
         description="Create and publish a new executive notice or announcement"

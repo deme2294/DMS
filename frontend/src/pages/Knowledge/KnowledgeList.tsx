@@ -1259,7 +1259,7 @@ export default function KnowledgeList() {
         </div>
       </Modal>
 
-      <Modal open={!!viewTarget} title={viewTarget?.title || ''} onClose={() => setViewTarget(null)}>
+      <Modal open={!!viewTarget} title={viewTarget?.title || ''} onClose={() => setViewTarget(null)} maxWidth="780px">
         {viewTarget && (
           <div>
             <div style={{ marginBottom: 8, fontSize: '0.86rem', color: 'var(--kb-text-muted)' }}>

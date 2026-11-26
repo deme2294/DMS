@@ -406,7 +406,7 @@ export default function CeoReports() {
           </div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.statCardPurple}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Resolution Efficiency</span>
             <div className={`${styles.statIconBox} ${styles.iconBoxPurple}`}>
@@ -417,7 +417,7 @@ export default function CeoReports() {
           <div className={styles.statSubtext}>Turnaround target: ≥ 85%</div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.statCardPink}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Avg Turnaround Time</span>
             <div className={`${styles.statIconBox} ${styles.iconBoxPink}`}>
@@ -430,7 +430,7 @@ export default function CeoReports() {
           <div className={styles.statSubtext}>{totalTickets === 0 ? 'No resolved tickets in period' : 'Average hours to resolution'}</div>
         </div>
 
-        <div className={styles.statCard}>
+        <div className={`${styles.statCard} ${styles.statCardEmerald}`}>
           <div className={styles.statTop}>
             <span className={styles.statLabel}>Active Entities</span>
             <div className={`${styles.statIconBox} ${styles.iconBoxEmerald}`}>

@@ -153,7 +153,7 @@ export default function CeoNoticesEdit() {
   const isDepartmentAudienceBlocked = selectedAudience === 'department' && creatorDepartments.length === 0;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.formPage}>
       <PageHeader
         title="Edit Executive Notice"
         description={

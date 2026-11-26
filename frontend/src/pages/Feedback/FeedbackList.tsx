@@ -380,7 +380,7 @@ export default function FeedbackList() {
         </button>
       </div>
 
-      <Modal open={!!deleteModal} title="Delete Feedback" onClose={() => setDeleteModal(null)}>
+      <Modal open={!!deleteModal} title="Delete Feedback" onClose={() => setDeleteModal(null)} maxWidth="500px">
         <div className={styles.modalBody}>
           <p>
             Are you sure you want to delete feedback from{' '}
@@ -398,7 +398,7 @@ export default function FeedbackList() {
         </div>
       </Modal>
 
-      <Modal open={!!replyModal} title="Quick Reply" onClose={() => { setReplyModal(null); setReplyText(''); }}>
+      <Modal open={!!replyModal} title="Quick Reply" onClose={() => { setReplyModal(null); setReplyText(''); }} maxWidth="640px">
         <div className={styles.replyForm}>
           <label>Message</label>
           <textarea

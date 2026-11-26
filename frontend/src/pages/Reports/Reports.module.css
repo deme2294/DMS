@@ -395,35 +395,53 @@
 }
 
 .dateInputWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .inputFieldIcon {
-  position: absolute;
-  left: 12px;
-  width: 17px;
-  height: 17px;
-  color: #94a3b8;
-  pointer-events: none;
+  position: absolute !important;
+  left: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: #94a3b8 !important;
+  pointer-events: none !important;
+  z-index: 5 !important;
 }
 
 .dateInput {
-  padding: 8px 12px 8px 36px;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  background: #ffffff;
-  color: #1e293b;
-  font-size: 0.86rem;
-  font-weight: 500;
-  outline: none;
-  transition: all 0.15s ease;
+  padding: 9px 12px 9px 42px !important;
+  min-width: 175px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  transition: all 0.15s ease !important;
+  box-sizing: border-box !important;
 }
 
 .dateInput:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+.dateInput::-webkit-datetime-edit {
+  padding-left: 2px !important;
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  cursor: pointer !important;
+  opacity: 0.75 !important;
+  margin-right: 2px !important;
 }
 
 .dateDivider {
@@ -433,44 +451,50 @@
 }
 
 .selectWrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .deptSelect {
-  padding: 8px 34px 8px 36px;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  background: #ffffff;
-  color: #1e293b;
-  font-size: 0.86rem;
-  font-weight: 500;
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  transition: all 0.15s ease;
+  padding: 9px 36px 9px 42px !important;
+  min-width: 210px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  cursor: pointer !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  transition: all 0.15s ease !important;
+  box-sizing: border-box !important;
 }
 
 .deptSelect:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
 :global([data-theme="dark"]) .dateInput,
 :global([data-theme="dark"]) .deptSelect {
-  background: #0f1420 !important;
-  border-color: #27344b;
-  color: #f8fafc;
+  background: #141c2c !important;
+  border: 1px solid #27344b !important;
+  color: #f8fafc !important;
+  color-scheme: dark !important;
 }
 
 :global([data-theme="dark"]) .dateInput:focus,
 :global([data-theme="dark"]) .deptSelect:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
 }
 
 :global([data-theme="dark"]) .dateDivider {
@@ -478,7 +502,7 @@
 }
 
 :global([data-theme="dark"]) .inputFieldIcon {
-  color: #94a3b8;
+  color: #93c5fd !important;
 }
 
 .refreshBtn {
@@ -549,23 +573,45 @@
 
 /* ── KPI Stats Grid ──────────────────────────────────────────────────────── */
 .statsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 30px;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  margin-bottom: 28px !important;
+}
+
+@media (min-width: 1600px) {
+  .statsGrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .statsGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
 }
 
 .statCard {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 18px 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
+  min-height: 130px;
+  gap: 8px;
 }
 
 .statCard:hover {
@@ -574,31 +620,41 @@
 }
 
 .statTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin-bottom: 8px !important;
 }
 
 .statLabel {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  line-height: 1.35 !important;
+  flex: 1 !important;
+  min-width: 0 !important;
 }
 
 .statIconBox {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 .statIcon {
-  width: 20px;
-  height: 20px;
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
 }
 
 .statValue {

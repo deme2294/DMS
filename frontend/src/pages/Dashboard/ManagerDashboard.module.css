@@ -40,7 +40,11 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  padding: 4px;
+  padding: 4px 6px;
+  max-width: 1600px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── Top Header Section ── */

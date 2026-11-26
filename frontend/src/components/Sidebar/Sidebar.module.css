@@ -4,7 +4,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 .sidebar {
-  width: var(--sidebar-width, 295px);
+  width: var(--sidebar-width, 320px);
   background: linear-gradient(180deg, #0b254a 0%, #071933 50%, #040e1e 100%);
   color: #e2e8f0;
   display: flex;
@@ -197,8 +197,8 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-bottom: 8px;
+  gap: 0;
+  margin-bottom: 0;
 }
 
 /* ── Interactive Navigation Group Heading Button ── */
@@ -389,24 +389,38 @@
 .sectionItemsWrapper {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+  transition: grid-template-rows 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, margin 0.24s ease;
   opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .sectionItemsWrapperOpen {
   grid-template-rows: 1fr;
   opacity: 1;
+  margin-top: 5px;
+  margin-bottom: 6px;
 }
 
 .sectionItemsInner {
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 8px 0 8px 10px;
-  margin-left: 10px;
-  margin-right: 2px;
+  padding: 6px 4px 6px 8px;
+  margin-left: 6px;
+  margin-right: 0;
   border-left: 2px solid rgba(8, 125, 147, 0.4);
+  box-sizing: border-box;
+  transition: padding 0.24s ease, border-color 0.24s ease;
+}
+
+.sectionItemsWrapper:not(.sectionItemsWrapperOpen) .sectionItemsInner {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-left-color: transparent;
 }
 
 .divider {
@@ -417,18 +431,19 @@
 .navItem {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
-  min-height: 48px;
+  gap: 12px;
+  padding: 9px 12px;
+  min-height: 46px;
   border-radius: 12px;
   color: #cbd5e1;
   text-decoration: none;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 600;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   border: 1px solid transparent;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .navItem:hover {
@@ -495,9 +510,11 @@
 .navLabel {
   white-space: nowrap;
   letter-spacing: 0.01em;
-  font-size: 1.02rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: inherit;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Bottom User Card ── */

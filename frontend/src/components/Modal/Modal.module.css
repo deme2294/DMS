@@ -126,12 +126,12 @@
 /* ── BODY ────────────────────────────────────────────────────────────────── */
 
 .body {
-  padding: 28px 30px 32px;
+  padding: 24px 28px 28px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
   min-width: 0;
-  word-break: break-word;
+  word-break: normal;
   overflow-wrap: break-word;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;

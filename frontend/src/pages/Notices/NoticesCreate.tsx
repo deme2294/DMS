@@ -122,7 +122,7 @@ export default function NoticesCreate() {
   const isDepartmentAudienceBlocked = selectedAudience === 'department' && myDepartments.length === 0;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.formPage}>
       <PageHeader
         title="Create Notice"
         description="Create and publish a new system notice"

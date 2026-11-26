@@ -238,7 +238,7 @@ export default function KnowledgeCategories() {
         </div>
       )}
 
-      <Modal open={showCreate} title="Create Category" onClose={() => setShowCreate(false)}>
+      <Modal open={showCreate} title="Create Category" onClose={() => setShowCreate(false)} maxWidth="640px">
         <div className={styles.formGroup}>
           <label>Name</label>
           <input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Category name" />
@@ -339,7 +339,7 @@ export default function KnowledgeCategories() {
         </div>
       </Modal>
 
-      <Modal open={!!editTarget} title="Edit Category" onClose={() => { setEditTarget(null); setForm(initialForm); }}>
+      <Modal open={!!editTarget} title="Edit Category" onClose={() => { setEditTarget(null); setForm(initialForm); }} maxWidth="640px">
         <div className={styles.formGroup}>
           <label>Name</label>
           <input value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -440,7 +440,7 @@ export default function KnowledgeCategories() {
         </div>
       </Modal>
 
-      <Modal open={!!deleteTarget} title="Delete Category" onClose={() => setDeleteTarget(null)}>
+      <Modal open={!!deleteTarget} title="Delete Category" onClose={() => setDeleteTarget(null)} maxWidth="480px">
         <p>Are you sure you want to delete "{deleteTarget?.name}"? This cannot be undone.</p>
         <div className={styles.formActions}>
           <button className={styles.danger} onClick={handleDelete}>Delete</button>

@@ -1,6 +1,9 @@
 .page {
   padding: 24px;
   max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header {

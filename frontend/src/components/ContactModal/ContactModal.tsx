@@ -126,7 +126,7 @@ export default function ContactModal({ open, onClose, target, defaultSubject = '
       open={open}
       onClose={onClose}
       title="Send Email Message"
-      maxWidth="620px"
+      maxWidth="680px"
     >
       <form onSubmit={handleSend} className={styles.modalContainer}>
         {/* Recipient & Sender Card */}

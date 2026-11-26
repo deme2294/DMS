@@ -38,7 +38,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 :root {
-  --sidebar-width: 290px;
+  --sidebar-width: 320px;
   --sidebar-collapsed-width: 76px;
   --bg-app: #f8fafc;
   --bg-card: #ffffff;
@@ -57,7 +57,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   --input-border: #cbd5e1;
   --table-header-bg: #f8fafc;
   --table-row-hover: #f1f5f9;
-  /* --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04); */
+
+  /* Standard Enterprise Layout & Proportion Tokens */
+  --app-max-width: 1440px;
+  --form-max-width: 980px;
+  --detail-max-width: 1280px;
+  --card-radius: 16px;
+  --input-radius: 10px;
+  --btn-radius: 10px;
+  --control-height: 44px;
+
   /* Analytics accent colors (light) */
   --analytics-tooltip-bg: #0f172a;
   --analytics-tooltip-color: #ffffff;
@@ -96,8 +105,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   --border-light: rgba(56, 189, 248, 0.28);
   --border-subtle: #223554;
 
-  --input-bg: #0a1222;
-  --input-border: rgba(56, 189, 248, 0.32);
+  --input-bg: #1e293b;
+  --input-border: rgba(148, 163, 184, 0.4);
   --table-header-bg: #0d1527;
   --table-row-hover: #152238;
   --card-shadow: none;
@@ -189,8 +198,8 @@ aside[class*="Sidebar"]:not([class*="chatSidebar"]):not([class*="ChatSidebar"]),
 
 /* ── Main Cards & Panels (Exclude inner text, headers, icons, and action buttons) ── */
 [data-theme="dark"] .card:not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="Card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
-[data-theme="dark"] [class*="card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="Card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="Row"]):not([class*="Section"]):not([class*="Meta"]):not([class*="Action"]):not([class*="Actions"]):not([class*="Badge"]):not([class*="Desc"]):not([class*="Wrap"]):not([class*="Body"]):not([class*="Footer"]):not([class*="Content"]):not([class*="Inner"]):not([class*="Item"]):not([class*="List"]):not([class*="Grid"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
+[data-theme="dark"] [class*="card"]:not([class*="Top"]):not([class*="Bottom"]):not([class*="Header"]):not([class*="Title"]):not([class*="Icon"]):not([class*="Btn"]):not([class*="Button"]):not([class*="Arrow"]):not([class*="Row"]):not([class*="Section"]):not([class*="Meta"]):not([class*="Action"]):not([class*="Actions"]):not([class*="Badge"]):not([class*="Desc"]):not([class*="Wrap"]):not([class*="Body"]):not([class*="Footer"]):not([class*="Content"]):not([class*="Inner"]):not([class*="Item"]):not([class*="List"]):not([class*="Grid"]):not([class*="Sla"]):not([class*="sla"]):not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="panel"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="Panel"]:not([class*="login"]):not([class*="Login"]),
 [data-theme="dark"] [class*="formContainer"]:not([class*="login"]):not([class*="Login"]),
@@ -516,17 +525,13 @@ button:not(:disabled):active,
 [data-theme="dark"] [class*="filters"] select,
 [data-theme="dark"] [class*="filterInputs"] input,
 [data-theme="dark"] [class*="filterInputs"] select,
-[data-theme="dark"] [class*="searchInputWrapper"],
-[data-theme="dark"] [class*="selectWrapper"],
-[data-theme="dark"] [class*="dateInputWrapper"] {
+[data-theme="dark"] [class*="searchInputWrapper"] {
   background-color: var(--input-bg) !important;
   border-color: var(--input-border) !important;
   color: #f8fafc !important;
 }
 
 [data-theme="dark"] [class*="searchInputWrapper"]:focus-within,
-[data-theme="dark"] [class*="selectWrapper"]:focus-within,
-[data-theme="dark"] [class*="dateInputWrapper"]:focus-within,
 [data-theme="dark"] [class*="filters"] input:focus,
 [data-theme="dark"] [class*="filters"] select:focus {
   border-color: #3b82f6 !important;
@@ -1272,6 +1277,7 @@ p, span, label, strong, b, em, i,
 [class*="inputWrap" i],
 [class*="inputWrapper" i],
 [class*="selectWrapper" i],
+[class*="dateInputWrapper" i],
 [class*="textareaWrapper" i],
 [class*="dateRangeGroup" i],
 [class*="timeFormRow" i] {
@@ -3142,24 +3148,32 @@ div:has(> table) {
   --bg-app: #0b0f19;
   --bg-card: #131b2a;
   --border-color: #26334a;
-  --input-bg: #0c101b;
-  --input-border: #28354c;
+  --input-bg: #1e293b;
+  --input-border: rgba(148, 163, 184, 0.4);
 }
 
 /* Form inputs & textareas in Dark Mode — Zero dark-on-dark text */
-:is([data-theme="dark"], .dark) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+:is([data-theme="dark"], .dark) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.login-input),
 :is([data-theme="dark"], .dark) select,
 :is([data-theme="dark"], .dark) textarea {
-  background-color: #0f1420 !important;
-  color: #f8fafc !important;
-  border-color: #2e384d !important;
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+:is([data-theme="dark"], .dark) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not(.login-input):hover,
+:is([data-theme="dark"], .dark) select:hover,
+:is([data-theme="dark"], .dark) textarea:hover {
+  background-color: #24354e !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
 }
 
 :is([data-theme="dark"], .dark) input:focus,
 :is([data-theme="dark"], .dark) select:focus,
 :is([data-theme="dark"], .dark) textarea:focus {
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  background-color: #24354e !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3) !important;
 }
 
 :is([data-theme="dark"], .dark) input::placeholder,
@@ -3252,4 +3266,88 @@ div:has(> table) {
   color: #6ee7b7 !important;
   opacity: 0.95 !important;
   cursor: not-allowed !important;
+}
+
+/* ==========================================================================
+   ENTERPRISE DESIGN SYSTEM: STANDARDIZED PROPORTIONS, GRIDS & INPUTS
+   Eliminates narrow stretched cards, awkward line breaks, and unbalanced layouts.
+   ========================================================================== */
+
+.app-page-wrapper {
+  width: 100%;
+  max-width: var(--app-max-width, 1440px);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.app-form-card {
+  width: 100%;
+  max-width: var(--form-max-width, 980px);
+  margin: 0 auto;
+  background: var(--bg-card, #ffffff);
+  border: 1.5px solid var(--border-light, #e2e8f0);
+  border-radius: var(--card-radius, 16px);
+  padding: 28px 32px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .app-form-card {
+    padding: 20px;
+  }
+}
+
+.app-form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .app-form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.app-form-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .app-form-grid-3 {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.app-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+/* Universal Dark Theme: Brighter, Distinct Inputs & Dropdowns */
+:is([data-theme="dark"], .dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.login-input),
+:is([data-theme="dark"], .dark) select:not(.login-input),
+:is([data-theme="dark"], .dark) textarea:not(.login-input) {
+  background-color: #182336;
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #f8fafc;
+}
+
+:is([data-theme="dark"], .dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.login-input):focus,
+:is([data-theme="dark"], .dark) select:not(.login-input):focus,
+:is([data-theme="dark"], .dark) textarea:not(.login-input):focus {
+  background-color: #1e2d44;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+  outline: none;
+}
+
+:is([data-theme="dark"], .dark) select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
 }

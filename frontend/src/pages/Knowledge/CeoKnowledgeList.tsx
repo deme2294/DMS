@@ -182,7 +182,7 @@ export default function CeoKnowledgeList() {
         <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
       </div>
 
-      <Modal open={!!viewTarget} title={viewTarget?.title || ''} onClose={() => setViewTarget(null)}>
+      <Modal open={!!viewTarget} title={viewTarget?.title || ''} onClose={() => setViewTarget(null)} maxWidth="780px">
         {viewTarget && (
           <div>
             <div className={styles.date} style={{ marginBottom: 8 }}>

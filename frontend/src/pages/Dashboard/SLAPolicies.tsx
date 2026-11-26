@@ -635,7 +635,7 @@ export default function SLAPolicies() {
         open={modalOpen}
         title={editing ? 'Edit SLA Policy' : 'Create New SLA Policy'}
         onClose={() => setModalOpen(false)}
-        maxWidth="720px"
+        maxWidth="760px"
         footer={
           <div className={styles.modalFooter}>
             <button type="button" className={styles.cancelBtn} onClick={() => setModalOpen(false)}>
@@ -754,41 +754,59 @@ export default function SLAPolicies() {
             </div>
           )}
 
-          <div className={styles.timeFormRow}>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>First Response Time (hours) <span className={styles.required}>*</span></label>
+          <div className={`${styles.timeFormRow} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 w-full`}>
+            <div className={`${styles.formGroup} ${styles.timeFormCol} min-w-0 flex flex-col`}>
+              <label htmlFor="sla-first-response" className={`${styles.formLabel} text-sm font-semibold`}>
+                First Response <span className={styles.required}>*</span>
+              </label>
               <input
+                id="sla-first-response"
+                name="responseHours"
                 type="number"
                 className={styles.formInput}
                 min="0"
                 placeholder="e.g. 4"
                 value={form.responseHours}
                 onChange={(e) => setForm({ ...form, responseHours: e.target.value === '' ? '' : Number(e.target.value) })}
+                aria-describedby="sla-first-response-hint"
               />
+              <span id="sla-first-response-hint" className={styles.helperText}>Hours</span>
             </div>
 
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Resolution Time (hours) <span className={styles.required}>*</span></label>
+            <div className={`${styles.formGroup} ${styles.timeFormCol} min-w-0 flex flex-col`}>
+              <label htmlFor="sla-resolution" className={`${styles.formLabel} text-sm font-semibold`}>
+                Resolution <span className={styles.required}>*</span>
+              </label>
               <input
+                id="sla-resolution"
+                name="resolutionHours"
                 type="number"
                 className={styles.formInput}
                 min="1"
                 placeholder="e.g. 24"
                 value={form.resolutionHours}
                 onChange={(e) => setForm({ ...form, resolutionHours: e.target.value === '' ? '' : Number(e.target.value) })}
+                aria-describedby="sla-resolution-hint"
               />
+              <span id="sla-resolution-hint" className={styles.helperText}>Hours</span>
             </div>
 
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Escalation Time (hours)</label>
+            <div className={`${styles.formGroup} ${styles.timeFormCol} ${styles.timeFormColEscalation} min-w-0 flex flex-col sm:col-span-2 lg:col-span-1`}>
+              <label htmlFor="sla-escalation" className={`${styles.formLabel} text-sm font-semibold`}>
+                Escalation
+              </label>
               <input
+                id="sla-escalation"
+                name="escalationHours"
                 type="number"
                 className={styles.formInput}
                 min="0"
                 placeholder="Optional (e.g. 12)"
                 value={form.escalationHours}
                 onChange={(e) => setForm({ ...form, escalationHours: e.target.value === '' ? '' : Number(e.target.value) })}
+                aria-describedby="sla-escalation-hint"
               />
+              <span id="sla-escalation-hint" className={styles.helperText}>Hours (optional)</span>
             </div>
           </div>
 

@@ -595,81 +595,117 @@ export default function TicketCategories() {
                     {pagedCategories.map((cat) => {
                         const catSl = getCategorySlaPolicies(cat.id);
                         const routingType = ((cat as any).routing_type || cat.routingType || 'general') as 'general' | 'direct';
+                        const hasBadges = Boolean(
+                            routingType === 'direct' ||
+                            cat.departmentName ||
+                            cat.status === 'pending' ||
+                            cat.status === 'rejected' ||
+                            (cat.status === 'approved' && !cat.isActive)
+                        );
                         return (
                             <div key={cat.id} className={`${styles.card} ${!cat.isActive ? styles.inactive : ''}`}>
-                                <div className={styles.cardHeader}>
-                                    <span className={styles.catName} onClick={() => openView(cat)} style={{ cursor: 'pointer' }} title="Click to view details">{cat.name}</span>
-                                    {cat.status === 'pending' && <span className={styles.statusPending}>Pending</span>}
-                                    {cat.status === 'rejected' && <span className={styles.statusRejected}>Rejected</span>}
-                                    {cat.status === 'approved' && !cat.isActive && <span className={styles.badge}>Inactive</span>}
-                                    {routingType === 'direct' && <span className={styles.routingBadge}>Direct Routing</span>}
-                                    {cat.departmentName && (
-                                        <span className={styles.deptBadge}>{cat.departmentName}</span>
+                                <div className={styles.catHeader}>
+                                    <div className={styles.catTitle}>
+                                        <h3
+                                            className={styles.catName}
+                                            onClick={() => openView(cat)}
+                                            title="Click to view details"
+                                        >
+                                            {cat.name}
+                                        </h3>
+                                    </div>
+                                    {hasBadges && (
+                                        <div className={styles.catBadges}>
+                                            {routingType === 'direct' && <span className={styles.routingBadge}>Direct Routing</span>}
+                                            {cat.departmentName && (
+                                                <span className={styles.deptBadge}>{cat.departmentName}</span>
+                                            )}
+                                            {cat.status === 'pending' && <span className={styles.statusPending}>Pending</span>}
+                                            {cat.status === 'rejected' && <span className={styles.statusRejected}>Rejected</span>}
+                                            {cat.status === 'approved' && !cat.isActive && <span className={styles.badge}>Inactive</span>}
+                                        </div>
                                     )}
                                 </div>
-                                {cat.description && (
-                                    <p className={styles.catDesc}>{cat.description}</p>
-                                )}
-                                {cat.slaPolicyName && (() => {
-                                    const defaultSlaObj = slaPolicies.find((p) => p.id === cat.slaPolicyId);
-                                    return (
-                                        <div className={styles.defaultSlaBox} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                            <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
-                                            {defaultSlaObj && (
-                                                <button
-                                                    type="button"
-                                                    className={styles.slaMiniBtn}
-                                                    onClick={() => openEditSlaModal(cat, defaultSlaObj)}
-                                                    title={`Edit Default SLA "${defaultSlaObj.name}"`}
-                                                >
-                                                    <PencilSquareIcon style={{ width: 13, height: 13 }} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                                <div className={styles.cardMeta} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                                    <span>Created by {cat.createdByName || '—'}</span>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: '#64748b' }} title="Cooldown time before department or staff can be reassigned">
-                                        <ClockIcon style={{ width: 13, height: 13 }} />
+                                <div className={styles.catDescWrap}>
+                                    <p className={styles.catDesc} title={cat.description || undefined}>
+                                        {cat.description || 'No description provided.'}
+                                    </p>
+                                </div>
+                                <div className={styles.catMeta}>
+                                    <span className={styles.metaCreator}>
+                                        Created by <strong>{cat.createdByName || '—'}</strong>
+                                    </span>
+                                    <span className={styles.reassignLockSpan} title="Cooldown time before department or staff can be reassigned">
+                                        <ClockIcon style={{ width: 14, height: 14 }} />
                                         Reassign Lock: <strong style={{ color: '#0284c7' }}>{cat.reassignTimeMinutes != null ? (cat.reassignTimeMinutes >= 60 ? `${(cat.reassignTimeMinutes / 60).toFixed(1)}h` : `${cat.reassignTimeMinutes}m`) : '30m'}</strong>
                                     </span>
                                 </div>
-                                {catSl.length > 0 && (
-                                    <div className={styles.slaList}>
-                                        <strong>Category SLA Policies:</strong>
-                                        <ul>
-                                            {catSl.map((p) => (
-                                                <li key={p.id} className={styles.slaItemRow}>
-                                                    <span className={styles.slaItemText}>
-                                                        {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve)
-                                                        {cat.slaPolicyId === p.id && <span className={styles.slaDefaultTag}>Default</span>}
-                                                        {!p.isActive && <span className={styles.slaInactiveTag}>Inactive</span>}
-                                                    </span>
-                                                    <span className={styles.slaItemActions}>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.slaMiniBtn}
-                                                            onClick={() => openEditSlaModal(cat, p)}
-                                                            title={`Edit SLA "${p.name}"`}
-                                                        >
-                                                            <PencilSquareIcon style={{ width: 13, height: 13 }} />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.slaMiniBtnDanger}
-                                                            onClick={() => handleDeleteSla(cat, p)}
-                                                            title={`Delete SLA "${p.name}"`}
-                                                        >
-                                                            <TrashIcon style={{ width: 13, height: 13 }} />
-                                                        </button>
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                                <div className={styles.cardActions}>
+
+                                <div className={styles.catSlaSection}>
+                                    {cat.slaPolicyName ? (() => {
+                                        const defaultSlaObj = slaPolicies.find((p) => p.id === cat.slaPolicyId);
+                                        return (
+                                            <div className={styles.defaultSlaBox}>
+                                                <span>⚡ <strong>Default SLA:</strong> {cat.slaPolicyName} ({cat.slaPriority || 'General'}{cat.slaResolutionHours ? ` • ${cat.slaResolutionHours}h resolve` : ''})</span>
+                                                {defaultSlaObj && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.slaMiniBtn}
+                                                        onClick={() => openEditSlaModal(cat, defaultSlaObj)}
+                                                        title={`Edit Default SLA "${defaultSlaObj.name}"`}
+                                                    >
+                                                        <PencilSquareIcon style={{ width: 13, height: 13 }} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })() : (
+                                        <div className={styles.defaultSlaBoxMuted}>
+                                            <span>⚡ <strong>Default SLA:</strong> Standard Global SLA</span>
+                                        </div>
+                                    )}
+
+                                    {catSl.length > 0 ? (
+                                        <div className={styles.slaList}>
+                                            <strong>Category SLA Policies:</strong>
+                                            <ul>
+                                                {catSl.map((p) => (
+                                                    <li key={p.id} className={styles.slaItemRow}>
+                                                        <span className={styles.slaItemText}>
+                                                            {p.name} ({p.priority.toUpperCase()} - {p.resolutionHours}h resolve)
+                                                            {cat.slaPolicyId === p.id && <span className={styles.slaDefaultTag}>Default</span>}
+                                                            {!p.isActive && <span className={styles.slaInactiveTag}>Inactive</span>}
+                                                        </span>
+                                                        <span className={styles.slaItemActions}>
+                                                            <button
+                                                                type="button"
+                                                                className={styles.slaMiniBtn}
+                                                                onClick={() => openEditSlaModal(cat, p)}
+                                                                title={`Edit SLA "${p.name}"`}
+                                                            >
+                                                                <PencilSquareIcon style={{ width: 13, height: 13 }} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className={styles.slaMiniBtnDanger}
+                                                                onClick={() => handleDeleteSla(cat, p)}
+                                                                title={`Delete SLA "${p.name}"`}
+                                                            >
+                                                                <TrashIcon style={{ width: 13, height: 13 }} />
+                                                            </button>
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.slaEmptyBox}>
+                                            <span className={styles.slaEmptyTitle}>Category SLA Policies</span>
+                                            <span className={styles.slaEmptySub}>Uses system-wide global SLA rules</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className={styles.catActions}>
                                     <IconButton variant="view" onClick={() => openView(cat)} title="View Category Details" />
                                     <IconButton variant="edit" onClick={() => openEdit(cat)} title="Edit Category" />
                                     <IconButton variant="add" onClick={() => openSlaModal(cat)} title="Add SLA Policy" />
@@ -961,30 +997,58 @@ export default function TicketCategories() {
                         </div>
                     )}
 
-                    <label>First Response Time (hours)</label>
-                    <input
-                        type="number"
-                        min="0"
-                        value={slaForm.responseHours}
-                        onChange={(e) => setSlaForm((f) => ({ ...f, responseHours: Number(e.target.value) }))}
-                    />
+                    <div className={`${styles.timeFormRow} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 w-full`}>
+                        <div className={`${styles.formGroup} ${styles.timeFormCol} min-w-0 flex flex-col`}>
+                            <label htmlFor="cat-sla-first-response" className="text-sm font-semibold">
+                                First Response <span className={styles.requiredStar}>*</span>
+                            </label>
+                            <input
+                                id="cat-sla-first-response"
+                                name="responseHours"
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 4"
+                                value={slaForm.responseHours}
+                                onChange={(e) => setSlaForm((f) => ({ ...f, responseHours: Number(e.target.value) }))}
+                                aria-describedby="cat-sla-first-response-hint"
+                            />
+                            <span id="cat-sla-first-response-hint" className={styles.helperText}>Hours</span>
+                        </div>
 
-                    <label>Resolution Time (hours)</label>
-                    <input
-                        type="number"
-                        min="1"
-                        value={slaForm.resolutionHours}
-                        onChange={(e) => setSlaForm((f) => ({ ...f, resolutionHours: Number(e.target.value) }))}
-                    />
+                        <div className={`${styles.formGroup} ${styles.timeFormCol} min-w-0 flex flex-col`}>
+                            <label htmlFor="cat-sla-resolution" className="text-sm font-semibold">
+                                Resolution <span className={styles.requiredStar}>*</span>
+                            </label>
+                            <input
+                                id="cat-sla-resolution"
+                                name="resolutionHours"
+                                type="number"
+                                min="1"
+                                placeholder="e.g. 24"
+                                value={slaForm.resolutionHours}
+                                onChange={(e) => setSlaForm((f) => ({ ...f, resolutionHours: Number(e.target.value) }))}
+                                aria-describedby="cat-sla-resolution-hint"
+                            />
+                            <span id="cat-sla-resolution-hint" className={styles.helperText}>Hours</span>
+                        </div>
 
-                    <label>Escalation Time (hours, 0 to disable)</label>
-                    <input
-                        type="number"
-                        min="0"
-                        placeholder="e.g. 12 (must be > Response & <= Resolution)"
-                        value={slaForm.escalationHours}
-                        onChange={(e) => setSlaForm((f) => ({ ...f, escalationHours: Number(e.target.value) }))}
-                    />
+                        <div className={`${styles.formGroup} ${styles.timeFormCol} ${styles.timeFormColEscalation} min-w-0 flex flex-col sm:col-span-2 lg:col-span-1`}>
+                            <label htmlFor="cat-sla-escalation" className="text-sm font-semibold">
+                                Escalation
+                            </label>
+                            <input
+                                id="cat-sla-escalation"
+                                name="escalationHours"
+                                type="number"
+                                min="0"
+                                placeholder="Optional (e.g. 12)"
+                                value={slaForm.escalationHours}
+                                onChange={(e) => setSlaForm((f) => ({ ...f, escalationHours: Number(e.target.value) }))}
+                                aria-describedby="cat-sla-escalation-hint"
+                            />
+                            <span id="cat-sla-escalation-hint" className={styles.helperText}>Hours (0 to disable)</span>
+                        </div>
+                    </div>
 
                     <div className={styles.slaRuleBanner}>
                         <InformationCircleIcon style={{ width: 18, height: 18, flexShrink: 0 }} />

@@ -75,13 +75,13 @@ const getModuleBadge = (n: NotificationItem) => {
   }
   const isNotice = n.type === 'notice' || Boolean(n.noticeId) || Boolean(n.title && /notice|announcement/i.test(n.title));
   if (isNotice) {
-    return <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>📢 Notice</span>;
+    return <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center' }}>📢 Notice</span>;
   }
   const isFeedback = n.type === 'feedback' || Boolean(n.title && /feedback/i.test(n.title));
   if (isFeedback) {
-    return <span style={{ background: '#fce7f3', color: '#9d174d', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>⭐ Feedback</span>;
+    return <span style={{ background: '#fce7f3', color: '#9d174d', fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center' }}>⭐ Feedback</span>;
   }
-  return <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '0.72rem', fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>🎫 Ticket</span>;
+  return <span style={{ background: '#ecfdf5', color: '#065f46', fontSize: '0.76rem', fontWeight: 700, padding: '3px 9px', borderRadius: 999, display: 'inline-flex', alignItems: 'center' }}>🎫 Ticket</span>;
 };
 
 export default function NotificationCenter() {
@@ -313,7 +313,7 @@ export default function NotificationCenter() {
         aria-label="Notifications"
         aria-expanded={open}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg className={styles.bellSvg} width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22Z" fill="currentColor" />
           <path d="M18 16V11C18 7.9 16.36 5.36 13.5 4.69V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.69C7.64 5.36 6 7.9 6 11V16L4 18V19H20V18L18 16Z" fill="currentColor" />
         </svg>
@@ -327,7 +327,12 @@ export default function NotificationCenter() {
       {open && (
         <div className={styles.dropdown}>
           <div className={styles.header}>
-            <strong>Notifications</strong>
+            <div className={styles.headerTitleWrap}>
+              <strong>Notifications</strong>
+              {unreadCount > 0 && (
+                <span className={styles.headerUnreadBadge}>{unreadCount} new</span>
+              )}
+            </div>
             {notifications.length > 0 && (
               <button className={styles.markAll} onClick={handleMarkAllRead}>Mark all read</button>
             )}

@@ -958,16 +958,44 @@
 .timeFormRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
   background: transparent !important;
   border: none !important;
 }
 
-@media (max-width: 680px) {
+.timeFormCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.timeFormColEscalation {
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .timeFormRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .timeFormColEscalation {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 560px) {
   .formRow,
   .timeFormRow {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+  .timeFormColEscalation {
+    grid-column: span 1;
   }
 }
 
@@ -982,17 +1010,19 @@
 }
 
 .formLabel {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: .04em;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+  text-transform: none;
+  letter-spacing: .01em;
   display: flex;
   align-items: center;
   gap: 4px;
-  word-break: normal;
-  overflow-wrap: normal;
-  hyphens: none;
+  min-height: 22px;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -1000,7 +1030,19 @@
 }
 
 :global([data-theme="dark"]) .formLabel {
-  color: #cbd5e1 !important;
+  color: #e2e8f0 !important;
+}
+
+.helperText {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+:global([data-theme="dark"]) .helperText {
+  color: #94a3b8 !important;
 }
 
 .required {

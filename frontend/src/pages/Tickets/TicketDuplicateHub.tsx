@@ -226,90 +226,124 @@ export const TicketDuplicateHub: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* ── Page Header ── */}
-      <div className={styles.header}>
+      {/* ── Enterprise Dashboard Header ── */}
+      <div className={styles.headerCard}>
         <div className={styles.titleArea}>
           <div className={styles.badgeHeader}>
-            <ArrowsRightLeftIcon style={{ width: 14, height: 14 }} />
-            <span>Incident Intelligence</span>
+            <ArrowsRightLeftIcon style={{ width: 13, height: 13 }} />
+            <span>INCIDENT INTELLIGENCE</span>
           </div>
-          <h1 className={styles.title}>Duplicate & Merged Tickets Hub</h1>
+          <h1 className={styles.title}>Duplicate &amp; Merged Tickets</h1>
           <p className={styles.subtitle}>
-            Detect repeated issues submitted by the same tenant in the same category (e.g. Internet, Ethernet, Server, Troubleshooting) or collisions across tenants, compare details, and merge them into one primary ticket while preserving tenant audit trails and SLA history.
+            Identify recurring incidents, detect duplicate tickets, and consolidate related issues while preserving tenant audit trails and SLA history.
           </p>
         </div>
 
         <div className={styles.headerActions}>
           <button
+            type="button"
             className={styles.btnSecondary}
             onClick={() => loadData(true)}
             disabled={loading || refreshing}
             title="Refresh duplicate analysis"
           >
             <ArrowPathIcon style={{ width: 16, height: 16 }} className={refreshing ? 'spin' : ''} />
-            <span>{refreshing ? 'Scanning...' : 'Refresh'}</span>
+            <span>{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
           </button>
 
           <button
+            type="button"
             className={styles.btnPrimary}
             onClick={() => setScanModalOpen(true)}
-            title="Scan an individual ticket for merge candidates"
+            title="Scan for duplicate tickets across the system"
           >
             <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
-            <span>Scan Ticket for Duplicates</span>
+            <span>Scan for Duplicates</span>
           </button>
         </div>
       </div>
 
-      {/* ── Metric Summary Cards ── */}
-      <div className={styles.statGrid}>
-        <div className={styles.statCard} onClick={() => setFilterPill('all')} style={{ cursor: 'pointer' }}>
-          <div className={styles.statIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
-            <ArrowsRightLeftIcon style={{ width: 22, height: 22 }} />
+      {/* ── Unified KPI Summary Cards ── */}
+      <div className={styles.kpiGrid}>
+        <div
+          className={`${styles.kpiCard} ${styles.kpiCardInteractive} ${styles.kpiAccentBlue} ${filterPill === 'all' && activeTab === 'suggestions' ? styles.kpiCardActive : ''}`}
+          onClick={() => {
+            setActiveTab('suggestions');
+            setFilterPill('all');
+          }}
+          title="Filter by all suggested duplicate pairs"
+        >
+          <div className={styles.kpiIconWrap}>
+            <ArrowsRightLeftIcon className={styles.kpiIconSvg} />
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.totalSuggested}</span>
-            <span className={styles.statLabel}>Suggested Duplicate Pairs</span>
-          </div>
-        </div>
-
-        <div className={styles.statCard} onClick={() => setFilterPill('same_tenant')} style={{ cursor: 'pointer', borderColor: filterPill === 'same_tenant' ? '#8b5cf6' : undefined }}>
-          <div className={styles.statIconWrap} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
-            <DocumentDuplicateIcon style={{ width: 22, height: 22 }} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.sameTenantCount}</span>
-            <span className={styles.statLabel}>Same Tenant Repeated</span>
+          <div className={styles.kpiInfo}>
+            <span className={styles.kpiValue}>{stats.totalSuggested}</span>
+            <span className={styles.kpiLabel}>Suggested Duplicate Pairs</span>
           </div>
         </div>
 
-        <div className={styles.statCard} onClick={() => setFilterPill('cross_tenant')} style={{ cursor: 'pointer', borderColor: filterPill === 'cross_tenant' ? '#db2777' : undefined }}>
-          <div className={styles.statIconWrap} style={{ background: '#fdf2f8', color: '#db2777' }}>
-            <BuildingOffice2Icon style={{ width: 22, height: 22 }} />
+        <div
+          className={`${styles.kpiCard} ${styles.kpiCardInteractive} ${styles.kpiAccentPurple} ${filterPill === 'same_tenant' && activeTab === 'suggestions' ? styles.kpiCardActive : ''}`}
+          onClick={() => {
+            setActiveTab('suggestions');
+            setFilterPill('same_tenant');
+          }}
+          title="Filter by same tenant repeated incidents"
+        >
+          <div className={styles.kpiIconWrap}>
+            <DocumentDuplicateIcon className={styles.kpiIconSvg} />
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.crossTenantCount}</span>
-            <span className={styles.statLabel}>Cross-Tenant Incidents</span>
-          </div>
-        </div>
-
-        <div className={styles.statCard} onClick={() => setFilterPill('time_shifted')} style={{ cursor: 'pointer', borderColor: filterPill === 'time_shifted' ? '#16a34a' : undefined }}>
-          <div className={styles.statIconWrap} style={{ background: '#f0fdf4', color: '#16a34a' }}>
-            <ClockIcon style={{ width: 22, height: 22 }} />
-          </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.timeShiftedCount}</span>
-            <span className={styles.statLabel}>Time-Shifted / Recurring</span>
+          <div className={styles.kpiInfo}>
+            <span className={styles.kpiValue}>{stats.sameTenantCount}</span>
+            <span className={styles.kpiLabel}>Same Tenant Repeated</span>
           </div>
         </div>
 
-        <div className={styles.statCard}>
-          <div className={styles.statIconWrap} style={{ background: '#f8fafc', color: '#475569' }}>
-            <ShieldCheckIcon style={{ width: 22, height: 22 }} />
+        <div
+          className={`${styles.kpiCard} ${styles.kpiCardInteractive} ${styles.kpiAccentPink} ${filterPill === 'cross_tenant' && activeTab === 'suggestions' ? styles.kpiCardActive : ''}`}
+          onClick={() => {
+            setActiveTab('suggestions');
+            setFilterPill('cross_tenant');
+          }}
+          title="Filter by cross-tenant incidents"
+        >
+          <div className={styles.kpiIconWrap}>
+            <BuildingOffice2Icon className={styles.kpiIconSvg} />
           </div>
-          <div className={styles.statInfo}>
-            <span className={styles.statValue}>{stats.totalMerged}</span>
-            <span className={styles.statLabel}>Active Merged Tickets</span>
+          <div className={styles.kpiInfo}>
+            <span className={styles.kpiValue}>{stats.crossTenantCount}</span>
+            <span className={styles.kpiLabel}>Cross-Tenant Incidents</span>
+          </div>
+        </div>
+
+        <div
+          className={`${styles.kpiCard} ${styles.kpiCardInteractive} ${styles.kpiAccentGreen} ${filterPill === 'time_shifted' && activeTab === 'suggestions' ? styles.kpiCardActive : ''}`}
+          onClick={() => {
+            setActiveTab('suggestions');
+            setFilterPill('time_shifted');
+          }}
+          title="Filter by time-shifted / recurring tickets"
+        >
+          <div className={styles.kpiIconWrap}>
+            <ClockIcon className={styles.kpiIconSvg} />
+          </div>
+          <div className={styles.kpiInfo}>
+            <span className={styles.kpiValue}>{stats.timeShiftedCount}</span>
+            <span className={styles.kpiLabel}>Time-Shifted / Recurring</span>
+          </div>
+        </div>
+
+        <div
+          className={`${styles.kpiCard} ${styles.kpiCardInteractive} ${styles.kpiAccentSlate} ${activeTab === 'ledger' ? styles.kpiCardActive : ''}`}
+          onClick={() => setActiveTab('ledger')}
+          title="Switch to Active Merged Tickets ledger"
+        >
+          <div className={styles.kpiIconWrap}>
+            <ShieldCheckIcon className={styles.kpiIconSvg} />
+          </div>
+          <div className={styles.kpiInfo}>
+            <span className={styles.kpiValue}>{stats.totalMerged}</span>
+            <span className={styles.kpiLabel}>Active Merged Tickets</span>
           </div>
         </div>
       </div>
