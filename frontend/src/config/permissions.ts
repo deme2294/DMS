@@ -13,7 +13,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'tickets.read',
     'departments.read',
     'tenants.read',
-    'dashboard.read', 'notices.read', 'feedback.read',
+    'dashboard.read',
+    'notices.read', 'notices.create', 'notices.manage', 'notices.update', 'notices.delete',
+    'feedback.read',
     'knowledge.read', 'office.read',
     'reports.read', 'audit.read',
     'ceo.dashboard', 'executive.analytics', 'executive.reports', 'executive.approvals', 'executive.remarks',
@@ -44,3 +46,4 @@ export const ADMIN_MENU = [
   { label: 'Tenants', path: '/admin/tenants', permission: 'tenants.manage' },
   { label: 'Departments', path: '/admin/departments', permission: 'departments.manage' },
 ];
+

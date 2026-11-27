@@ -1006,6 +1006,7 @@ export default function ManagerNotices() {
                   <option value="staff">Staff Team (My Department)</option>
                   <option value="department">All Department Members</option>
                   <option value="admin">System Administrator (Route / Notice to Admin)</option>
+                  <option value="ceo">Executive Directorate (CEO - Escalate Critical Directive)</option>
                 </select>
               </div>
 
@@ -1328,6 +1329,7 @@ export default function ManagerNotices() {
                   <option value="staff">Staff Team (Department)</option>
                   <option value="department">All Department Members</option>
                   <option value="admin">System Administrator</option>
+                  <option value="ceo">Executive Directorate (CEO - Escalate)</option>
                 </select>
               </div>
 

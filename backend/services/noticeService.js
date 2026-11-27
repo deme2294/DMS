@@ -135,28 +135,33 @@ export const createNotice = async (data, userId, userRole = 'admin') => {
   let departmentId = data.departmentId || null;
 
   if (data.targetAudience === 'department') {
-    const creatorDeptIds = await departmentService.getMyDepartmentIds(userId);
-    if (!creatorDeptIds || creatorDeptIds.length === 0) {
-      throw Object.assign(
-        new Error('You must be assigned to a department to create department-targeted notices'),
-        { statusCode: 400 }
-      );
-    }
-    if (departmentId) {
-      if (!creatorDeptIds.includes(departmentId)) {
-        throw Object.assign(
-          new Error("Department notices can only target the creator's own department"),
-          { statusCode: 403 }
-        );
-      }
+    if (userRole === 'ceo' || userRole === 'admin') {
+      // CEO and Admin oversee the entire organization and can target any department
+      departmentId = data.departmentId || null;
     } else {
-      if (creatorDeptIds.length === 1) {
-        departmentId = creatorDeptIds[0];
-      } else {
+      const creatorDeptIds = await departmentService.getMyDepartmentIds(userId);
+      if (!creatorDeptIds || creatorDeptIds.length === 0) {
         throw Object.assign(
-          new Error("Please select one of your assigned departments"),
+          new Error('You must be assigned to a department to create department-targeted notices'),
           { statusCode: 400 }
         );
+      }
+      if (departmentId) {
+        if (!creatorDeptIds.includes(departmentId)) {
+          throw Object.assign(
+            new Error("Department notices can only target the creator's own department"),
+            { statusCode: 403 }
+          );
+        }
+      } else {
+        if (creatorDeptIds.length === 1) {
+          departmentId = creatorDeptIds[0];
+        } else {
+          throw Object.assign(
+            new Error("Please select one of your assigned departments"),
+            { statusCode: 400 }
+          );
+        }
       }
     }
   }
@@ -428,9 +433,9 @@ export const getNoticesForUser = async (userId, userRole, userDepartmentId, filt
  */
 export const createTargetedNotice = async (data, creatorId, creatorRole) => {
   if (creatorRole === 'manager') {
-    if (data.targetAudience !== 'staff' && data.targetAudience !== 'department' && data.targetAudience !== 'admin') {
+    if (data.targetAudience !== 'staff' && data.targetAudience !== 'department' && data.targetAudience !== 'admin' && data.targetAudience !== 'ceo') {
       throw Object.assign(
-        new Error('Managers can only create notices for staff, their department, or System Admin'),
+        new Error('Managers can only create notices for staff, their department, System Admin, or CEO'),
         { statusCode: 403 }
       );
     }
@@ -442,7 +447,7 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
       );
     }
     data.targetAudience = 'manager';
-  } else if (creatorRole !== 'admin') {
+  } else if (creatorRole !== 'admin' && creatorRole !== 'ceo') {
     throw Object.assign(
       new Error('Unauthorized to create notices'),
       { statusCode: 403 }
@@ -461,11 +466,13 @@ export const createTargetedNotice = async (data, creatorId, creatorRole) => {
       );
     }
     departmentId = staffDeptIds[0];
-  } else if (creatorRole === 'manager' && data.targetAudience === 'admin') {
+  } else if (creatorRole === 'manager' && (data.targetAudience === 'admin' || data.targetAudience === 'ceo')) {
     const managerDepartmentIds = await departmentService.getMyDepartmentIds(creatorId);
     if (managerDepartmentIds.length > 0) {
       departmentId = data.departmentId || managerDepartmentIds[0];
     }
+  } else if (creatorRole === 'ceo') {
+    departmentId = data.departmentId || null;
   } else if (data.targetAudience === 'department') {
     const creatorDeptIds = await departmentService.getMyDepartmentIds(creatorId);
     if (!creatorDeptIds || creatorDeptIds.length === 0) {
@@ -601,6 +608,8 @@ const publishTargetedNotice = async (notice) => {
     }
   } else if (notice.targetAudience === 'admin') {
     recipients = await userRepo.getAudienceUsers('admin');
+  } else if (notice.targetAudience === 'ceo') {
+    recipients = await userRepo.getAudienceUsers('ceo');
   } else if (notice.targetAudience === 'all') {
     // All users
     recipients = await userRepo.getAudienceUsers('all');

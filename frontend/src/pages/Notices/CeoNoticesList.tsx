@@ -1,6 +1,6 @@
 import PageHeader from '../../components/PageHeader/PageHeader';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DataTable from '../../components/Tables/DataTable';
 import Modal from '../../components/Modal/Modal';
 import {
@@ -38,10 +38,12 @@ import {
   ArchiveBoxIcon,
   ArrowDownTrayIcon,
   CheckBadgeIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 export default function CeoNoticesList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { can } = usePermission();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -55,10 +57,35 @@ export default function CeoNoticesList() {
   const [categories, setCategories] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
+  const [createdAlert, setCreatedAlert] = useState<{
+    title: string;
+    status: string;
+    targetAudience?: string;
+  } | null>(null);
 
   // Modal states
   const [viewingNotice, setViewingNotice] = useState<Notice | null>(null);
   const [deleteNoticeTarget, setDeleteNoticeTarget] = useState<Notice | null>(null);
+
+  // Listen for created notice passed from CeoNoticesCreate navigation state
+  useEffect(() => {
+    const st = location.state as {
+      noticeCreated?: boolean;
+      title?: string;
+      status?: string;
+      targetAudience?: string;
+    } | null;
+
+    if (st?.noticeCreated) {
+      setCreatedAlert({
+        title: st.title || 'Executive Directive',
+        status: st.status || 'published',
+        targetAudience: st.targetAudience,
+      });
+      // Clear history state to avoid showing it again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadNotices = useCallback(async () => {
     setLoading(true);
@@ -487,11 +514,37 @@ export default function CeoNoticesList() {
     <div className={styles.page}>
       <PageHeader
         title="Executive Notice Management"
-        description="Create, publish, and manage company-wide notices and announcements."
+        description="Create, publish, and route executive notices based on ticket categories and operational directives."
         backTo="/ceo/dashboard"
-        actionLabel={can('notices.manage') ? '+ Add Notice' : undefined}
-        onAction={can('notices.manage') ? () => navigate('/ceo/notices/create') : undefined}
+        actionLabel={can('notices.manage') || can('notices.create') || user?.role === 'ceo' ? '+ Write Executive Notice' : undefined}
+        onAction={can('notices.manage') || can('notices.create') || user?.role === 'ceo' ? () => navigate('/ceo/notices/create') : undefined}
       />
+
+      {createdAlert && (
+        <div className={styles.createdAlertBanner}>
+          <div className={styles.createdAlertLeft}>
+            <div className={styles.createdAlertIconWrap}>
+              <CheckCircleIcon className={styles.createdAlertIcon} />
+            </div>
+            <div>
+              <h4 className={styles.createdAlertTitle}>
+                Executive Directive Successfully {createdAlert.status === 'published' ? 'Published & Dispatched' : 'Created as Draft'}!
+              </h4>
+              <p className={styles.createdAlertDesc}>
+                Notice &ldquo;<strong>{createdAlert.title}</strong>&rdquo; has been created and registered in the executive notice governance ledger.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={styles.createdAlertClose}
+            onClick={() => setCreatedAlert(null)}
+            aria-label="Dismiss alert"
+          >
+            <XMarkIcon style={{ width: 20, height: 20 }} />
+          </button>
+        </div>
+      )}
 
       {message && <div className={styles.toast}>{message}</div>}
 

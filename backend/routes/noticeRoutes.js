@@ -83,7 +83,7 @@ router.post(
     body('title').trim().notEmpty().withMessage('Title is required'),
     body('description').optional(),
     body('priority').optional().isIn(['low', 'medium', 'high']),
-    body('targetAudience').optional().isIn(['all', 'admin', 'manager', 'staff', 'tenant', 'department']),
+    body('targetAudience').optional().isIn(['all', 'admin', 'manager', 'staff', 'tenant', 'department', 'ceo']),
     departmentIdBody('departmentId'),
     uuidBody('assignedTo'),
     validate,

@@ -317,7 +317,7 @@ export const countByRole = async (roleName) => {
  * Returns [{ id, email, first_name }]
  */
 export const getAudienceUsers = async (audience) => {
-  const roleNames = ['admin', 'manager', 'staff', 'tenant'];
+  const roleNames = ['admin', 'manager', 'staff', 'tenant', 'ceo'];
   let sql;
 
   if (audience === 'all') {

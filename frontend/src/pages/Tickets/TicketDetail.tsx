@@ -4830,7 +4830,7 @@ function ReplyForm({
       ) : canTarget && (
         <div className={styles.replyFormControls}>
           <label className={styles.replyFormLabel}>
-            Visibility:
+            <span style={{ minWidth: '85px', flexShrink: 0 }}>Visibility:</span>
             <select
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as 'tenant' | 'department' | 'both' | 'admin' | 'staff')}
@@ -4855,7 +4855,7 @@ function ReplyForm({
           {/* Manager / Admin assigning to a specific staff user */}
           {isTargetStaff && (
             <label className={styles.replyFormLabel}>
-              Assign to Staff:
+              <span style={{ minWidth: '85px', flexShrink: 0 }}>Assign Staff:</span>
               <select
                 value={targetStaffId}
                 onChange={(e) => setTargetStaffId(e.target.value)}

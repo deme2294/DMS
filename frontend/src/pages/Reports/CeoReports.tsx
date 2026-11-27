@@ -33,6 +33,7 @@ import type {
   TenantReport,
   ReportFilter,
 } from '../../api/reportApi';
+import { getPercentageColor, PERCENTAGE_SPECTRUM_TIERS } from './reportPercentageUtils';
 import styles from './Reports.module.css';
 
 export default function CeoReports() {
@@ -453,6 +454,19 @@ export default function CeoReports() {
         </div>
       </div>
 
+      {/* Percentage Spectrum Color Legend */}
+      <div className={styles.pctLegendContainer}>
+        <span className={styles.pctLegendLabel}>Percentage Share Color Spectrum:</span>
+        <div className={styles.pctLegendItems}>
+          {PERCENTAGE_SPECTRUM_TIERS.filter((t) => t.key !== 'zero').map((tier) => (
+            <span key={tier.key} className={styles.pctLegendChip}>
+              <span className={styles.pctLegendBar} style={{ background: tier.fill }} />
+              <span>{tier.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Two Column Grid: Status & Priority Distributions */}
       <div className={styles.twoColGrid}>
         <div className={styles.sectionCard}>
@@ -461,7 +475,7 @@ export default function CeoReports() {
               <ChartBarIcon className={styles.sectionTitleIcon} style={{ color: '#2563eb' }} />
               <div>
                 <h2 className={styles.sectionHeading}>Ticket Status Distribution</h2>
-                <span className={styles.sectionSub}>Breakdown of ticket workflow lifecycle</span>
+                <span className={styles.sectionSub}>Breakdown of ticket workflow lifecycle colored by share %</span>
               </div>
             </div>
           </div>
@@ -469,28 +483,35 @@ export default function CeoReports() {
           <div className={styles.breakdownList}>
             {Object.entries(ticketReport?.statusCounts ?? {}).map(([st, count]) => {
               const pct = totalTickets > 0 ? Math.round((count / totalTickets) * 100) : 0;
+              const colorInfo = getPercentageColor(pct);
               return (
                 <div key={st} className={styles.breakdownItem}>
                   <div className={styles.breakdownLabelRow}>
                     <span className={styles.breakdownKey} style={{ textTransform: 'capitalize' }}>
-                      {st.replace('_', ' ')}
+                      {st.replace(/_/g, ' ')}
                     </span>
-                    <span className={styles.breakdownCount}>
-                      {count} <span className={styles.breakdownPct}>({pct}%)</span>
-                    </span>
+                    <div className={styles.breakdownCountGroup}>
+                      <span className={styles.breakdownCount}>{count}</span>
+                      <span
+                        className={styles.breakdownPct}
+                        style={{
+                          color: colorInfo.color,
+                          backgroundColor: colorInfo.bg,
+                          border: `1px solid ${colorInfo.border}`,
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
                   </div>
                   <div className={styles.progressBar}>
                     <div
-                      className={`${styles.progressFill} ${
-                        st === 'resolved' || st === 'closed'
-                          ? styles.fillGreen
-                          : st === 'in_progress'
-                          ? styles.fillYellow
-                          : st === 'rejected'
-                          ? styles.fillRed
-                          : styles.fillBlue
-                      }`}
-                      style={{ width: `${pct}%` }}
+                      className={styles.progressFill}
+                      style={{
+                        width: `${pct}%`,
+                        background: colorInfo.fill,
+                        boxShadow: colorInfo.shadow,
+                      }}
                     />
                   </div>
                 </div>
@@ -505,7 +526,7 @@ export default function CeoReports() {
               <FireIcon className={styles.sectionTitleIcon} style={{ color: '#ef4444' }} />
               <div>
                 <h2 className={styles.sectionHeading}>Ticket Priority Breakdown</h2>
-                <span className={styles.sectionSub}>Severity tier capacity allocation</span>
+                <span className={styles.sectionSub}>Severity tier capacity allocation colored by share %</span>
               </div>
             </div>
           </div>
@@ -513,28 +534,35 @@ export default function CeoReports() {
           <div className={styles.breakdownList}>
             {Object.entries(ticketReport?.priorityCounts ?? {}).map(([pr, count]) => {
               const pct = totalTickets > 0 ? Math.round((count / totalTickets) * 100) : 0;
+              const colorInfo = getPercentageColor(pct);
               return (
                 <div key={pr} className={styles.breakdownItem}>
                   <div className={styles.breakdownLabelRow}>
                     <span className={styles.breakdownKey} style={{ textTransform: 'capitalize' }}>
                       {pr} Priority
                     </span>
-                    <span className={styles.breakdownCount}>
-                      {count} <span className={styles.breakdownPct}>({pct}%)</span>
-                    </span>
+                    <div className={styles.breakdownCountGroup}>
+                      <span className={styles.breakdownCount}>{count}</span>
+                      <span
+                        className={styles.breakdownPct}
+                        style={{
+                          color: colorInfo.color,
+                          backgroundColor: colorInfo.bg,
+                          border: `1px solid ${colorInfo.border}`,
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
                   </div>
                   <div className={styles.progressBar}>
                     <div
-                      className={`${styles.progressFill} ${
-                        pr === 'urgent'
-                          ? styles.fillRed
-                          : pr === 'high'
-                          ? styles.fillYellow
-                          : pr === 'medium'
-                          ? styles.fillBlue
-                          : styles.fillMuted
-                      }`}
-                      style={{ width: `${pct}%` }}
+                      className={styles.progressFill}
+                      style={{
+                        width: `${pct}%`,
+                        background: colorInfo.fill,
+                        boxShadow: colorInfo.shadow,
+                      }}
                     />
                   </div>
                 </div>
@@ -628,11 +656,37 @@ export default function CeoReports() {
             {
               key: 'resolutionRate',
               label: 'Efficiency Rate',
-              render: (row) => (
-                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyLow}`}>
-                  {row.resolutionRate}%
-                </span>
-              ),
+              render: (row) => {
+                const colorInfo = getPercentageColor(row.resolutionRate);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '105px' }}>
+                    <div className={styles.progressBar} style={{ height: '6px', flex: 1, minWidth: '42px' }}>
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${row.resolutionRate}%`,
+                          background: colorInfo.fill,
+                          boxShadow: colorInfo.shadow,
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: colorInfo.color,
+                        background: colorInfo.bg,
+                        border: `1px solid ${colorInfo.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {row.resolutionRate}%
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: 'avgResolutionTime',
@@ -694,11 +748,37 @@ export default function CeoReports() {
             {
               key: 'resolutionRate',
               label: 'Completion',
-              render: (row) => (
-                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyNeutral}`}>
-                  {row.resolutionRate}%
-                </span>
-              ),
+              render: (row) => {
+                const colorInfo = getPercentageColor(row.resolutionRate);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '105px' }}>
+                    <div className={styles.progressBar} style={{ height: '6px', flex: 1, minWidth: '42px' }}>
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${row.resolutionRate}%`,
+                          background: colorInfo.fill,
+                          boxShadow: colorInfo.shadow,
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: colorInfo.color,
+                        background: colorInfo.bg,
+                        border: `1px solid ${colorInfo.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {row.resolutionRate}%
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: 'avgRating',

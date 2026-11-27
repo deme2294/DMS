@@ -102,57 +102,70 @@ export default function CeoLayout() {
 
       <div className={`${styles.main} ${isCollapsed ? styles.mainCollapsed : ''}`}>
         <header className={styles.topBar}>
-          <div className={styles.topBarLeft}>
-            <button
-              type="button"
-              onClick={() => {
-                if (window.innerWidth <= 768) {
-                  setMobileSidebarOpen((prev) => !prev);
-                } else {
-                  toggleCollapse();
-                }
-              }}
-              className={styles.hamburgerBtn}
-              aria-label={mobileSidebarOpen ? "Close navigation drawer" : "Toggle navigation drawer"}
-              aria-expanded={mobileSidebarOpen}
-              title={isCollapsed ? 'Expand navigation' : 'Toggle navigation'}
-            >
-              <Bars3Icon className={styles.hamburgerIcon} />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className={styles.backBtn}
-              aria-label="Go back"
-              title="Go back"
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </div>
-          <div className={styles.topBarCenter}>
-            <div className={styles.systemHeaderBrand}>
-              <div className={styles.executivePillBadge}>
-                <ShieldCheckIcon className={styles.executivePillIcon} />
-                <span>EXECUTIVE COMMAND</span>
+          <div className={styles.topBarMainRow}>
+            <div className={styles.topBarLeft}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.innerWidth <= 768) {
+                    setMobileSidebarOpen((prev) => !prev);
+                  } else {
+                    toggleCollapse();
+                  }
+                }}
+                className={styles.hamburgerBtn}
+                aria-label={mobileSidebarOpen ? "Close navigation drawer" : "Toggle navigation drawer"}
+                aria-expanded={mobileSidebarOpen}
+                title={isCollapsed ? 'Expand navigation' : 'Toggle navigation'}
+              >
+                <Bars3Icon className={styles.hamburgerIcon} />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className={styles.backBtn}
+                aria-label="Go back"
+                title="Go back"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className={styles.mobileBrandTitle} title={`ITPC • ${currentSectionTitle}`}>
+                <span className={styles.mobileBrandAccent}>ITPC</span> {currentSectionTitle}
               </div>
-              <h1 className={styles.systemHeaderTitle}>
-                <span className={styles.systemHeaderAccent}>ITPC</span> HELP DESK
-              </h1>
-              <span className={styles.systemHeaderDivider}>•</span>
-              <span className={styles.systemHeaderSub}>{currentSectionTitle}</span>
+            </div>
+
+            <div className={styles.topBarCenter}>
+              <div className={styles.systemHeaderBrand}>
+                <div className={styles.executivePillBadge}>
+                  <ShieldCheckIcon className={styles.executivePillIcon} />
+                  <span className={styles.executivePillText}>EXECUTIVE COMMAND</span>
+                </div>
+                <h1 className={styles.systemHeaderTitle}>
+                  <span className={styles.systemHeaderAccent}>ITPC</span>
+                  <span className={styles.systemHeaderHelpDesk}> HELP DESK</span>
+                </h1>
+                <span className={styles.systemHeaderDivider}>•</span>
+                <span className={styles.systemHeaderSub}>{currentSectionTitle}</span>
+              </div>
+            </div>
+
+            <div className={styles.topBarActionsRight}>
+              <ConnectionStatus />
+              <NotificationCenter />
+              <UserDropdown />
             </div>
           </div>
-          <div className={styles.topBarRight}>
+
+          <div className={styles.topBarSubRow}>
             <div className={styles.executiveDateBadge}>
               <CalendarDaysIcon className={styles.dateIcon} />
               <span>{todayDateString}</span>
             </div>
-            <ConnectionStatus />
-            <ThemeToggle />
-            <NotificationCenter />
-            <UserDropdown />
+            <div className={styles.themeToggleWrapper}>
+              <ThemeToggle />
+            </div>
           </div>
         </header>
         <main className={`${styles.content} ${isChatPage ? styles.contentChat : ''}`}>

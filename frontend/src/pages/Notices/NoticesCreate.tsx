@@ -172,6 +172,7 @@ export default function NoticesCreate() {
               <option value="staff">Staff</option>
               <option value="tenant">Tenant</option>
               <option value="department">Department</option>
+              <option value="ceo">Executive Directorate (CEO - Critical Escalation)</option>
             </select>
           </div>
 

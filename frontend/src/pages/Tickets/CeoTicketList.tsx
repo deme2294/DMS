@@ -83,19 +83,29 @@ export default function CeoTicketList() {
   const [assignTicket, setAssignTicket] = useState<Ticket | null>(null);
   const [stats, setStats] = useState<TicketStatistics | null>(null);
   const [activeFilter, setActiveFilter] = useState('');
+  const [viewScope, setViewScope] = useState<'escalated' | 'all'>('escalated');
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { socket } = useSocket();
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetchTickets({ search, status, priority, category, departmentId, assignedTo, page, limit });
-      setTickets(res.data.data);
-      setTotalPages(res.data.pagination.totalPages);
+      const queryStatus = status || (viewScope === 'escalated' ? 'escalated' : undefined);
+      const res = await fetchTickets({ search, status: queryStatus, priority, category, departmentId, assignedTo, page, limit });
+      const rawTickets = res.data?.data || [];
+      if (viewScope === 'escalated') {
+        const filtered = rawTickets.filter(
+          (t) => (t.isEscalated || (t as any).is_escalated || t.status === 'escalated' || t.status?.startsWith('escalated.')) && !['resolved', 'closed', 'completed'].includes(t.status)
+        );
+        setTickets(filtered);
+      } else {
+        setTickets(rawTickets);
+      }
+      setTotalPages(res.data?.pagination?.totalPages || 1);
     } finally {
       setLoading(false);
     }
-  }, [search, status, priority, category, departmentId, assignedTo, page, limit]);
+  }, [search, status, viewScope, priority, category, departmentId, assignedTo, page, limit]);
 
   useEffect(() => { loadTickets(); }, [loadTickets]);
 
@@ -159,6 +169,16 @@ export default function CeoTicketList() {
     const next = status === map[key as string] ? '' : (map[key as string] || '');
     setStatus(next);
     setActiveFilter(status === map[key as string] ? '' : (key as string));
+    if (next !== 'escalated' && viewScope === 'escalated') {
+      setViewScope('all');
+    }
+    resetPage();
+  };
+
+  const handleViewScopeChange = (scope: 'escalated' | 'all') => {
+    setViewScope(scope);
+    setStatus(scope === 'escalated' ? 'escalated' : '');
+    setActiveFilter(scope === 'escalated' ? 'escalated' : '');
     resetPage();
   };
 
@@ -173,6 +193,47 @@ export default function CeoTicketList() {
       />
 
       {message && <div className={styles.toast}>{message}</div>}
+
+      {/* CEO Executive Scope Navigation Tabs */}
+      <div className={styles.viewScopeTabs}>
+        <button
+          type="button"
+          className={`${styles.viewScopeTab} ${viewScope === 'escalated' ? styles.viewScopeTabActive : ''}`}
+          onClick={() => handleViewScopeChange('escalated')}
+        >
+          <span>🚨</span>
+          <span>Escalated to Higher Authority (Unresolved)</span>
+          {stats?.escalated !== undefined && (
+            <span className={styles.viewScopeTabBadge}>{stats.escalated}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`${styles.viewScopeTab} ${viewScope === 'all' ? styles.viewScopeTabActive : ''}`}
+          onClick={() => handleViewScopeChange('all')}
+        >
+          <span>📋</span>
+          <span>All Enterprise Incidents</span>
+          {stats?.total !== undefined && (
+            <span className={styles.viewScopeTabBadge}>{stats.total}</span>
+          )}
+        </button>
+      </div>
+
+      {viewScope === 'escalated' && (
+        <div className={styles.executiveListBanner}>
+          <div>
+            <strong>🏛️ Executive Review Mode:</strong> Showing incidents escalated to Higher Authority that have not been resolved by Admin or Manager roles. Review the escalation context and issue binding executive directives via the Notice console.
+          </div>
+          <Link
+            to="/ceo/notices/create"
+            className={styles.actionBtnDirective}
+            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+          >
+            <span>📢 Write Directive / Notice</span>
+          </Link>
+        </div>
+      )}
 
       {(user?.role === 'admin' || user?.role === 'ceo') && stats && (
         <div className={styles.statGrid}>
@@ -344,6 +405,16 @@ export default function CeoTicketList() {
                   <EyeIcon className={styles.actionIcon} />
                   <span>View</span>
                 </Link>
+                {user?.role === 'ceo' && (
+                  <Link
+                    to={`/ceo/notices/create?ticketId=${toShortTicketId(row)}&category=${encodeURIComponent(row.category || '')}`}
+                    className={styles.actionBtnDirective}
+                    title="Issue Executive Directive / Decision (Notice)"
+                  >
+                    <DocumentTextIcon className={styles.actionIcon} />
+                    <span>📢 Directive</span>
+                  </Link>
+                )}
                 {user?.role === 'admin' && (
                   <button
                     type="button"

@@ -38,6 +38,7 @@ import type {
   ReportFilter,
 } from '../../api/reportApi';
 import { useAuth } from '../../context/AuthContext';
+import { getPercentageColor, PERCENTAGE_SPECTRUM_TIERS } from './reportPercentageUtils';
 import styles from './Reports.module.css';
 
 export default function Reports() {
@@ -496,6 +497,19 @@ export default function Reports() {
         )}
       </div>
 
+      {/* Percentage Spectrum Color Legend */}
+      <div className={styles.pctLegendContainer}>
+        <span className={styles.pctLegendLabel}>Percentage Share Color Spectrum:</span>
+        <div className={styles.pctLegendItems}>
+          {PERCENTAGE_SPECTRUM_TIERS.filter((t) => t.key !== 'zero').map((tier) => (
+            <span key={tier.key} className={styles.pctLegendChip}>
+              <span className={styles.pctLegendBar} style={{ background: tier.fill }} />
+              <span>{tier.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Two-Column Analytics: Status Breakdown & Priority Breakdown */}
       <div className={styles.twoColGrid}>
         {/* Ticket Status Distribution */}
@@ -505,7 +519,7 @@ export default function Reports() {
               <TicketIcon className={styles.sectionTitleIcon} style={{ color: '#2563eb' }} />
               <div>
                 <h2 className={styles.sectionHeading}>Ticket Status Distribution</h2>
-                <span className={styles.sectionSub}>Breakdown of ticket volume by current stage</span>
+                <span className={styles.sectionSub}>Breakdown of ticket volume by stage colored by share %</span>
               </div>
             </div>
             <button
@@ -522,6 +536,7 @@ export default function Reports() {
           <div className={styles.distributionList}>
             {Object.entries(ticketReport?.statusCounts ?? {}).map(([status, count]) => {
               const pct = totalTickets > 0 ? Math.round((count / totalTickets) * 100) : 0;
+              const colorInfo = getPercentageColor(pct);
               return (
                 <div key={status} className={styles.distRow}>
                   <div className={styles.distRowHeader}>
@@ -530,11 +545,30 @@ export default function Reports() {
                     </span>
                     <div className={styles.distCountGroup}>
                       <span className={styles.distCount}>{count}</span>
-                      <span className={styles.distPct}>{pct}%</span>
+                      <span
+                        className={styles.distPct}
+                        style={{
+                          color: colorInfo.color,
+                          backgroundColor: colorInfo.bg,
+                          border: `1px solid ${colorInfo.border}`,
+                          borderRadius: '999px',
+                          padding: '2px 8px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {pct}%
+                      </span>
                     </div>
                   </div>
                   <div className={styles.progressBar}>
-                    <div className={`${styles.progressFill} ${styles[`fill_${status}`] || styles.fillDefault}`} style={{ width: `${pct}%` }} />
+                    <div
+                      className={styles.progressFill}
+                      style={{
+                        width: `${pct}%`,
+                        background: colorInfo.fill,
+                        boxShadow: colorInfo.shadow,
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -552,7 +586,7 @@ export default function Reports() {
               <FireIcon className={styles.sectionTitleIcon} style={{ color: '#ea580c' }} />
               <div>
                 <h2 className={styles.sectionHeading}>Priority Distribution</h2>
-                <span className={styles.sectionSub}>Severity classification of reported tickets</span>
+                <span className={styles.sectionSub}>Severity classification colored by share %</span>
               </div>
             </div>
           </div>
@@ -560,6 +594,7 @@ export default function Reports() {
           <div className={styles.distributionList}>
             {Object.entries(ticketReport?.priorityCounts ?? {}).map(([priority, count]) => {
               const pct = totalTickets > 0 ? Math.round((count / totalTickets) * 100) : 0;
+              const colorInfo = getPercentageColor(pct);
               return (
                 <div key={priority} className={styles.distRow}>
                   <div className={styles.distRowHeader}>
@@ -568,11 +603,30 @@ export default function Reports() {
                     </span>
                     <div className={styles.distCountGroup}>
                       <span className={styles.distCount}>{count}</span>
-                      <span className={styles.distPct}>{pct}%</span>
+                      <span
+                        className={styles.distPct}
+                        style={{
+                          color: colorInfo.color,
+                          backgroundColor: colorInfo.bg,
+                          border: `1px solid ${colorInfo.border}`,
+                          borderRadius: '999px',
+                          padding: '2px 8px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {pct}%
+                      </span>
                     </div>
                   </div>
                   <div className={styles.progressBar}>
-                    <div className={`${styles.progressFill} ${styles[`fill_priority_${priority}`] || styles.fillDefault}`} style={{ width: `${pct}%` }} />
+                    <div
+                      className={styles.progressFill}
+                      style={{
+                        width: `${pct}%`,
+                        background: colorInfo.fill,
+                        boxShadow: colorInfo.shadow,
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -598,14 +652,18 @@ export default function Reports() {
             </div>
           </div>
 
-          <DataTable<{ id: string; category: string; count: number; share: string }>
+          <DataTable<{ id: string; category: string; count: number; share: string; pct: number }>
             loading={loading}
-            data={Object.entries(ticketReport?.categoryCounts ?? {}).map(([category, count]) => ({
-              id: category,
-              category: category || 'Uncategorized',
-              count,
-              share: totalTickets > 0 ? `${Math.round((count / totalTickets) * 100)}%` : '0%',
-            }))}
+            data={Object.entries(ticketReport?.categoryCounts ?? {}).map(([category, count]) => {
+              const pct = totalTickets > 0 ? Math.round((count / totalTickets) * 100) : 0;
+              return {
+                id: category,
+                category: category || 'Uncategorized',
+                count,
+                share: `${pct}%`,
+                pct,
+              };
+            })}
             emptyMessage="No category data found"
             columns={[
               {
@@ -626,7 +684,34 @@ export default function Reports() {
               {
                 key: 'share',
                 label: 'Share %',
-                render: (row) => <span className={styles.tableShareTag}>{row.share}</span>,
+                render: (row) => {
+                  const colorInfo = getPercentageColor(row.pct);
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '110px' }}>
+                      <div className={styles.progressBar} style={{ height: '6px', flex: 1, minWidth: '45px' }}>
+                        <div
+                          className={styles.progressFill}
+                          style={{
+                            width: `${row.pct}%`,
+                            background: colorInfo.fill,
+                            boxShadow: colorInfo.shadow,
+                          }}
+                        />
+                      </div>
+                      <span
+                        className={styles.tableShareTag}
+                        style={{
+                          color: colorInfo.color,
+                          backgroundColor: colorInfo.bg,
+                          border: `1px solid ${colorInfo.border}`,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {row.share}
+                      </span>
+                    </div>
+                  );
+                },
               },
             ]}
           />
@@ -765,11 +850,37 @@ export default function Reports() {
             {
               key: 'resolutionRate',
               label: 'Efficiency Rate',
-              render: (row) => (
-                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyLow}`}>
-                  {row.resolutionRate}%
-                </span>
-              ),
+              render: (row) => {
+                const colorInfo = getPercentageColor(row.resolutionRate);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '105px' }}>
+                    <div className={styles.progressBar} style={{ height: '6px', flex: 1, minWidth: '42px' }}>
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${row.resolutionRate}%`,
+                          background: colorInfo.fill,
+                          boxShadow: colorInfo.shadow,
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: colorInfo.color,
+                        background: colorInfo.bg,
+                        border: `1px solid ${colorInfo.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {row.resolutionRate}%
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: 'avgResolutionTime',
@@ -831,11 +942,37 @@ export default function Reports() {
             {
               key: 'resolutionRate',
               label: 'Completion',
-              render: (row) => (
-                <span className={`${styles.efficiencyTag} ${row.resolutionRate >= 70 ? styles.efficiencyHigh : styles.efficiencyNeutral}`}>
-                  {row.resolutionRate}%
-                </span>
-              ),
+              render: (row) => {
+                const colorInfo = getPercentageColor(row.resolutionRate);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '105px' }}>
+                    <div className={styles.progressBar} style={{ height: '6px', flex: 1, minWidth: '42px' }}>
+                      <div
+                        className={styles.progressFill}
+                        style={{
+                          width: `${row.resolutionRate}%`,
+                          background: colorInfo.fill,
+                          boxShadow: colorInfo.shadow,
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: '999px',
+                        fontSize: '0.76rem',
+                        fontWeight: 700,
+                        color: colorInfo.color,
+                        background: colorInfo.bg,
+                        border: `1px solid ${colorInfo.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {row.resolutionRate}%
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: 'avgRating',

@@ -647,7 +647,19 @@ export default function CeoAudit() {
                 className={styles.searchInput}
                 value={filter.userId ?? ''}
                 onChange={(e) => handleFilterChange({ userId: e.target.value || undefined })}
+                aria-label="Search by user ID or username"
               />
+              {filter.userId && (
+                <button
+                  type="button"
+                  className={styles.searchClearBtn}
+                  onClick={() => handleFilterChange({ userId: undefined })}
+                  title="Clear search"
+                  aria-label="Clear user search"
+                >
+                  <XMarkIcon className={styles.clearIcon} />
+                </button>
+              )}
             </div>
 
             <div className={styles.selectWrapper}>

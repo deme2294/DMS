@@ -804,6 +804,29 @@
     min-height: 44px;
   }
 
+  .mobileDrawerCloseBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    z-index: 20;
+  }
+
+  .mobileDrawerCloseBtn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+  }
+
   .sidebarOpen {
     transform: translateX(0);
   }

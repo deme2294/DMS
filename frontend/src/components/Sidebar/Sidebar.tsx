@@ -14,6 +14,7 @@ import {
   SparklesIcon,
   InformationCircleIcon,
   FolderIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import { usePermission } from '../../hooks/usePermission';
@@ -249,6 +250,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className={`${styles.sidebar} ${isCollapsed ? styles.sidebarCollapsed : ''} ${isOpenMobile ? styles.sidebarOpen : ''}`}>
       {/* ── Brand Header with Ethiopian IT Park Logo ── */}
       <div className={styles.brandContainer}>
+        {isOpenMobile && (
+          <button
+            type="button"
+            className={styles.mobileDrawerCloseBtn}
+            onClick={onCloseMobile}
+            aria-label="Close navigation sidebar"
+            title="Close navigation"
+          >
+            <XMarkIcon style={{ width: 22, height: 22 }} />
+          </button>
+        )}
         <div className={styles.logoLink} title="Ethiopian IT Park — Help Desk Management System">
           <img
             src="/logo-white.png"

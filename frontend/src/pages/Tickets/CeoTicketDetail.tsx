@@ -36,6 +36,7 @@ import {
   ChatBubbleLeftRightIcon,
   PaperClipIcon,
   DocumentIcon,
+  DocumentTextIcon,
   PhotoIcon,
   EyeIcon,
   ArrowDownTrayIcon,
@@ -90,28 +91,7 @@ const TRANSITIONS: Record<string, Partial<Record<TicketStatus, TicketStatus[]>>>
     assigned_department: ['assigned_staff', 'rejected'],
     assigned_staff: ['in_progress', 'rejected'],
   },
-  ceo: {
-    open: ['assigned', 'in_progress', 'escalated', 'rejected', 'cancelled'],
-    assigned: ['in_progress', 'escalated', 'rejected', 'cancelled', 'open'],
-    in_progress: ['under_review', 'pending_approval', 'waiting_tenant', 'resolved', 'pending', 'escalated', 'rejected', 'cancelled'],
-    pending: ['in_progress', 'escalated', 'rejected'],
-    under_review: ['pending_approval', 'waiting_tenant', 'resolved', 'in_progress', 'rejected', 'assigned'],
-    pending_approval: ['waiting_tenant', 'resolved', 'in_progress', 'rejected'],
-    waiting_tenant: [],
-    waiting_vendor: ['in_progress', 'escalated'],
-    resolved: ['waiting_tenant', 'closed', 'in_progress', 'rejected', 'escalated', 'cancelled'],
-    completed: ['reopened', 'closed', 'resolved'],
-    reopened: ['in_progress', 'escalated', 'rejected', 'cancelled'],
-    closed: ['reopened'],
-    accepted: ['in_progress', 'escalated', 'rejected', 'cancelled'],
-    approved: ['closed', 'reopened'],
-    rejected: ['reopened', 'open'],
-    cancelled: ['open', 'reopened'],
-    escalated: ['in_progress', 'assigned', 'waiting_tenant', 'resolved', 'open'],
-    submitted: ['under_review', 'assigned', 'rejected'],
-    assigned_department: ['assigned_staff', 'rejected'],
-    assigned_staff: ['in_progress', 'rejected'],
-  },
+  ceo: {},
   manager: {
     assigned: ['in_progress', 'rejected'],
     in_progress: ['under_review', 'pending_approval', 'pending', 'escalated'],
@@ -1084,6 +1064,46 @@ export default function CeoTicketDetail() {
         </div>
 
       {(role === 'admin' || role === 'ceo' || role === 'manager' || role === 'staff') && (() => {
+        if (role === 'ceo') {
+          return (
+            <div className={styles.executiveDecisionCard}>
+              <div className={styles.executiveDecisionHeader}>
+                <div className={styles.executiveDecisionBadge}>
+                  <span>🏛️</span>
+                  <span>
+                    {ticket.status === 'escalated' || (ticket as any).is_escalated
+                      ? 'Escalated to Executive Directorate / Higher Authority'
+                      : 'Executive Incident Review'}
+                  </span>
+                </div>
+                <Link
+                  to={`/ceo/notices/create?ticketId=${ticket.ticketNum ?? ticket.referenceNumber ?? ticket.id}&category=${encodeURIComponent(ticket.category || (ticket as any).categoryName || '')}`}
+                  className={styles.executiveNoticeBtn}
+                  title="Dispatch executive directive or decision via Notice"
+                >
+                  <DocumentTextIcon style={{ width: 18, height: 18 }} />
+                  <span>📢 Issue Executive Directive (Notice)</span>
+                </Link>
+              </div>
+
+              <div>
+                <div className={styles.executiveReasonTitle}>
+                  Escalation Context & Operational Review Reason:
+                </div>
+                <div className={styles.executiveReasonText}>
+                  {ticket.operational_escalation_reason ||
+                    (ticket as any).escalationReason ||
+                    'Escalated to Higher Authority: Requires executive review and binding operational directive to Admin or Department Manager.'}
+                </div>
+              </div>
+
+              <div className={styles.executiveHint}>
+                💡 <strong>Executive Mandate:</strong> Operational status updates, technician dispatch, and lifecycle transitions belong to Administration and Department Managers. As CEO, inspect the escalation context above and issue an executive directive notice to communicate your decision to the responsible authority.
+              </div>
+            </div>
+          );
+        }
+
         const isClosed = ticket.status === 'closed' || (ticket as any).status === 'escalated.closed';
         if (isClosed) {
           return (
@@ -1101,22 +1121,22 @@ export default function CeoTicketDetail() {
 
         const isWaitingTenant = ticket.status === 'waiting_tenant' || (ticket as any).status === 'escalated.waiting_tenant';
         const canReopen =
-          (role === 'admin' || role === 'ceo' || role === 'manager') &&
+          (role === 'admin' || role === 'manager') &&
           !isWaitingTenant &&
           ['resolved', 'closed', 'completed'].includes(ticket.status);
 
         const hasWorkflowActions =
           transitions.length > 0 ||
-          ((role === 'admin' || role === 'ceo') && (ticket.routingType ?? 'general') !== 'direct') ||
+          (role === 'admin' && (ticket.routingType ?? 'general') !== 'direct') ||
           (role === 'manager' && !!ticket.departmentId) ||
           ((role === 'manager' || role === 'staff') && (ticket.status === 'assigned' || ticket.status === 'open')) ||
           (role === 'staff' && ticket.status === 'in_progress') ||
           (role === 'manager' && (ticket.status === 'under_review' || ticket.status === 'in_progress')) ||
-          ((role === 'admin' || role === 'ceo') && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
+          (role === 'admin' && (ticket.status === 'pending_approval' || ticket.status === 'in_progress' || ticket.status === 'under_review')) ||
           transitions.includes('closed') ||
           (transitions.includes('reopened') && canReopen);
 
-        const hasManagementActions = role === 'admin' || role === 'ceo' || role === 'manager';
+        const hasManagementActions = role === 'admin' || role === 'manager';
 
         return (
           <div className={styles.card}>
@@ -1317,8 +1337,8 @@ export default function CeoTicketDetail() {
                         </button>
                       )}
 
-                      {/* Admin / CEO: verify & resolve or return for revision */}
-                      {(role === 'admin' || role === 'ceo') && ticket.status === 'pending_approval' && (
+                      {/* Admin: verify & resolve or return for revision */}
+                      {role === 'admin' && ticket.status === 'pending_approval' && (
                         <>
                           <button
                             className={styles.btnEmerald}
@@ -1338,7 +1358,7 @@ export default function CeoTicketDetail() {
                           </button>
                         </>
                       )}
-                      {(role === 'admin' || role === 'ceo') && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
+                      {role === 'admin' && (ticket.status === 'in_progress' || ticket.status === 'under_review') && (
                         <button
                           className={styles.btnEmerald}
                           onClick={() => call(() => markResolved(ticket.id, notes || undefined), 'Ticket resolved and routed to tenant for confirmation')}
@@ -1381,7 +1401,7 @@ export default function CeoTicketDetail() {
                       <span className={styles.clusterLabel}>Properties & Routing</span>
                     </div>
                     <div className={styles.btnClusterRow}>
-                      {(role === 'admin' || role === 'ceo') && (
+                      {role === 'admin' && (
                         <button
                           className={styles.btnAmber}
                           onClick={() => setPriorityModal(true)}
@@ -1401,7 +1421,7 @@ export default function CeoTicketDetail() {
                           Change Category
                         </button>
                       )}
-                      {(role === 'admin' || role === 'ceo' || role === 'manager') && (
+                      {(role === 'admin' || role === 'manager') && (
                         <button
                           className={styles.btnOrange}
                           onClick={() => call(() => escalateTicket(ticket.id, notes || undefined), 'Escalated')}
@@ -1411,7 +1431,7 @@ export default function CeoTicketDetail() {
                           Escalate
                         </button>
                       )}
-                      {(role === 'admin' || role === 'ceo') && (
+                      {role === 'admin' && (
                         <button
                           className={styles.btnIndigo}
                           onClick={() => setMergeModal(true)}
@@ -2646,7 +2666,7 @@ function ReplyForm({
     <div className={styles.replyForm} id="ticket-reply-form">
       <div className={styles.replyFormControls}>
         <label className={styles.replyFormLabel}>
-          Visibility:
+          <span style={{ minWidth: '85px', flexShrink: 0 }}>Visibility:</span>
           <select
             value={visibility}
             onChange={(e) => setVisibility(e.target.value as any)}
@@ -2662,7 +2682,7 @@ function ReplyForm({
 
         {isTargetStaff && (
           <label className={styles.replyFormLabel}>
-            Assign to Staff:
+            <span style={{ minWidth: '85px', flexShrink: 0 }}>Assign Staff:</span>
             <select
               value={targetStaffId}
               onChange={(e) => setTargetStaffId(e.target.value)}
@@ -2680,7 +2700,7 @@ function ReplyForm({
 
         {needsDept && (
           <label className={styles.replyFormLabel}>
-            Department:
+            <span style={{ minWidth: '85px', flexShrink: 0 }}>Department:</span>
             <select
               value={departmentId}
               onChange={(e) => setDepartmentId(e.target.value)}

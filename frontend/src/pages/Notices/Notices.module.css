@@ -2128,10 +2128,13 @@
   padding: 0;
   text-align: left;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
   font-family: inherit;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .titleText {
@@ -2140,6 +2143,7 @@
   font-size: 0.92rem;
   line-height: 1.35;
   transition: color 0.15s ease;
+  white-space: nowrap;
 }
 
 .titleBtn:hover .titleText {
@@ -2149,6 +2153,7 @@
 
 .categoryPill {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
   font-size: 0.72rem;
@@ -2159,6 +2164,8 @@
   width: fit-content;
   font-weight: 500;
   border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .categoryIcon {
@@ -2169,28 +2176,37 @@
 }
 
 .targetCell {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   font-size: 0.83rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .targetAudience {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
   font-weight: 600;
   color: #1e293b;
   text-transform: capitalize;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .targetDepartment {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
   font-size: 0.74rem;
   color: #64748b;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .targetIcon {
@@ -2201,25 +2217,31 @@
 }
 
 .authorCell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
   font-size: 0.83rem;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .authorName {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 5px;
   font-weight: 600;
   color: #1e293b;
+  white-space: nowrap;
 }
 
 .authorRole {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: #64748b;
   text-transform: capitalize;
-  padding-left: 19px;
+  padding-left: 0;
+  white-space: nowrap;
 }
 
 .authorIcon {

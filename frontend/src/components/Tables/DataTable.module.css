@@ -72,6 +72,460 @@
   white-space: nowrap;
 }
 
+/* ── Professional Action Buttons in Tables ────────────────────────────────── */
+.table td button,
+.table td a[class*="action"],
+.table td a[class*="btn"],
+.table td [class*="actionBtn"],
+.table td [class*="actions"] button,
+.table td [class*="actions"] a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  height: 32px !important;
+  font-size: 0.8rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  border-radius: 8px !important;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  transition: all 0.16s ease !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  user-select: none !important;
+  box-sizing: border-box !important;
+}
+
+.table td button:hover:not(:disabled),
+.table td a[class*="action"]:hover,
+.table td a[class*="btn"]:hover,
+.table td [class*="actionBtn"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08) !important;
+}
+
+.table td button:active:not(:disabled),
+.table td a[class*="action"]:active,
+.table td [class*="actionBtn"]:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+
+.table td button:disabled,
+.table td [class*="actionBtn"]:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Icons inside table action buttons */
+.table td button svg,
+.table td a[class*="action"] svg,
+.table td [class*="actionBtn"] svg,
+.table td [class*="actions"] svg {
+  width: 15px !important;
+  height: 15px !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.15s ease, color 0.15s ease !important;
+}
+
+/* ── 1. View / Details Action Button (Professional Sapphire Blue) ── */
+.table td [class*="actionBtnView"],
+.table td [class*="View"] {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1.5px solid #93c5fd !important;
+  box-shadow: 0 1px 3px rgba(29, 78, 216, 0.12) !important;
+}
+
+.table td [class*="actionBtnView"] svg,
+.table td [class*="View"] svg {
+  color: #2563eb !important;
+  stroke: #2563eb !important;
+}
+
+.table td [class*="actionBtnView"]:hover,
+.table td [class*="View"]:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+}
+
+.table td [class*="actionBtnView"]:hover svg,
+.table td [class*="View"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  transform: scale(1.1);
+}
+
+/* ── 2. Department Assign Action Button (Professional Emerald Green) ── */
+.table td [class*="actionBtnDept"],
+.table td [class*="Dept"] {
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1.5px solid #86efac !important;
+  box-shadow: 0 1px 3px rgba(4, 120, 87, 0.12) !important;
+}
+
+.table td [class*="actionBtnDept"] svg,
+.table td [class*="Dept"] svg {
+  color: #059669 !important;
+  stroke: #059669 !important;
+}
+
+.table td [class*="actionBtnDept"]:hover:not(:disabled),
+.table td [class*="Dept"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  border-color: #047857 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35) !important;
+}
+
+.table td [class*="actionBtnDept"]:hover:not(:disabled) svg,
+.table td [class*="Dept"]:hover:not(:disabled) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  transform: scale(1.1);
+}
+
+/* ── 3. Staff Assign Action Button (Professional Violet Purple) ── */
+.table td [class*="actionBtnStaff"],
+.table td [class*="Staff"] {
+  background: #f5f3ff !important;
+  color: #6d28d9 !important;
+  border: 1.5px solid #c4b5fd !important;
+  box-shadow: 0 1px 3px rgba(109, 40, 217, 0.12) !important;
+}
+
+.table td [class*="actionBtnStaff"] svg,
+.table td [class*="Staff"] svg {
+  color: #7c3aed !important;
+  stroke: #7c3aed !important;
+}
+
+.table td [class*="actionBtnStaff"]:hover:not(:disabled),
+.table td [class*="Staff"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  border-color: #6d28d9 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35) !important;
+}
+
+.table td [class*="actionBtnStaff"]:hover:not(:disabled) svg,
+.table td [class*="Staff"]:hover:not(:disabled) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  transform: scale(1.1);
+}
+
+/* ── 4. Executive Directive Action Button (Professional Cyan Teal) ── */
+.table td [class*="actionBtnDirective"],
+.table td [class*="Directive"] {
+  background: #f0fdfa !important;
+  color: #0f766e !important;
+  border: 1.5px solid #5eead4 !important;
+  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.12) !important;
+}
+
+.table td [class*="actionBtnDirective"] svg,
+.table td [class*="Directive"] svg {
+  color: #0d9488 !important;
+  stroke: #0d9488 !important;
+}
+
+.table td [class*="actionBtnDirective"]:hover,
+.table td [class*="Directive"]:hover {
+  background: linear-gradient(135deg, #0d9488, #0f766e) !important;
+  border-color: #0f766e !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35) !important;
+}
+
+.table td [class*="actionBtnDirective"]:hover svg,
+.table td [class*="Directive"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  transform: scale(1.1);
+}
+
+/* ── 5. Delete Action Button (Professional Crimson Rose) ── */
+.table td [class*="actionBtnDelete"],
+.table td [class*="Delete"],
+.table td button[class*="danger"],
+.table td a[class*="danger"] {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+  border: 1.5px solid #fca5a5 !important;
+  box-shadow: 0 1px 3px rgba(190, 18, 60, 0.12) !important;
+}
+
+.table td [class*="actionBtnDelete"] svg,
+.table td [class*="Delete"] svg,
+.table td button[class*="danger"] svg,
+.table td a[class*="danger"] svg {
+  color: #e11d48 !important;
+  stroke: #e11d48 !important;
+}
+
+.table td [class*="actionBtnDelete"]:hover:not(:disabled),
+.table td [class*="Delete"]:hover:not(:disabled),
+.table td button[class*="danger"]:hover:not(:disabled),
+.table td a[class*="danger"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  border-color: #be123c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.35) !important;
+}
+
+.table td [class*="actionBtnDelete"]:hover:not(:disabled) svg,
+.table td [class*="Delete"]:hover:not(:disabled) svg,
+.table td button[class*="danger"]:hover:not(:disabled) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  transform: scale(1.1);
+}
+
+/* ── 6. Publish Action Button (Professional Indigo) ── */
+.table td [class*="actionBtnPublish"],
+.table td [class*="Publish"] {
+  background: #eef2ff !important;
+  color: #4338ca !important;
+  border: 1.5px solid #a5b4fc !important;
+  box-shadow: 0 1px 3px rgba(67, 56, 202, 0.12) !important;
+}
+
+.table td [class*="actionBtnPublish"] svg,
+.table td [class*="Publish"] svg {
+  color: #4f46e5 !important;
+  stroke: #4f46e5 !important;
+}
+
+.table td [class*="actionBtnPublish"]:hover,
+.table td [class*="Publish"]:hover {
+  background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+  border-color: #4338ca !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35) !important;
+}
+
+.table td [class*="actionBtnPublish"]:hover svg,
+.table td [class*="Publish"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* ── 7. Draft / Archive Action Button (Warm Amber) ── */
+.table td [class*="actionBtnDraft"],
+.table td [class*="actionBtnArchive"],
+.table td [class*="Draft"] {
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  border: 1.5px solid #fde68a !important;
+  box-shadow: 0 1px 3px rgba(180, 83, 9, 0.12) !important;
+}
+
+.table td [class*="actionBtnDraft"]:hover,
+.table td [class*="actionBtnArchive"]:hover,
+.table td [class*="Draft"]:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.table td [class*="actionBtnDraft"]:hover svg,
+.table td [class*="actionBtnArchive"]:hover svg,
+.table td [class*="Draft"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Action Groups inside table cells */
+.table td [class*="actions"],
+.table td [class*="actionGroup"],
+.table td [class*="actionButtons"],
+.table td [class*="btnGroup"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DARK THEME: LUMINOUS, VIBRANT, CRYSTAL-CLEAR ACTION BUTTONS IN TABLES
+   ══════════════════════════════════════════════════════════════════════════════ */
+:global([data-theme="dark"]) .table td button,
+:global([data-theme="dark"]) .table td a[class*="action"],
+:global([data-theme="dark"]) .table td a[class*="btn"],
+:global([data-theme="dark"]) .table td [class*="actionBtn"],
+:global([data-theme="dark"]) .table td [class*="actions"] button,
+:global([data-theme="dark"]) .table td [class*="actions"] a {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+:global([data-theme="dark"]) .table td button:hover:not(:disabled),
+:global([data-theme="dark"]) .table td a[class*="action"]:hover,
+:global([data-theme="dark"]) .table td a[class*="btn"]:hover,
+:global([data-theme="dark"]) .table td [class*="actionBtn"]:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnView"],
+:global([data-theme="dark"]) .table td [class*="View"] {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #93c5fd !important;
+  border: 1.5px solid rgba(96, 165, 250, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnView"] svg,
+:global([data-theme="dark"]) .table td [class*="View"] svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnView"]:hover,
+:global([data-theme="dark"]) .table td [class*="View"]:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border-color: #bfdbfe !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnView"]:hover svg,
+:global([data-theme="dark"]) .table td [class*="View"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDept"],
+:global([data-theme="dark"]) .table td [class*="Dept"] {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border: 1.5px solid rgba(52, 211, 153, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDept"] svg,
+:global([data-theme="dark"]) .table td [class*="Dept"] svg {
+  color: #34d399 !important;
+  stroke: #34d399 !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDept"]:hover:not(:disabled),
+:global([data-theme="dark"]) .table td [class*="Dept"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  border-color: #a7f3d0 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDept"]:hover:not(:disabled) svg,
+:global([data-theme="dark"]) .table td [class*="Dept"]:hover:not(:disabled) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnStaff"],
+:global([data-theme="dark"]) .table td [class*="Staff"] {
+  background: rgba(124, 58, 237, 0.2) !important;
+  color: #c4b5fd !important;
+  border: 1.5px solid rgba(167, 139, 250, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnStaff"] svg,
+:global([data-theme="dark"]) .table td [class*="Staff"] svg {
+  color: #a78bfa !important;
+  stroke: #a78bfa !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnStaff"]:hover:not(:disabled),
+:global([data-theme="dark"]) .table td [class*="Staff"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  border-color: #ddd6fe !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDirective"],
+:global([data-theme="dark"]) .table td [class*="Directive"] {
+  background: rgba(13, 148, 136, 0.2) !important;
+  color: #5eead4 !important;
+  border: 1.5px solid rgba(45, 212, 191, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDirective"]:hover,
+:global([data-theme="dark"]) .table td [class*="Directive"]:hover {
+  background: linear-gradient(135deg, #0d9488, #0f766e) !important;
+  border-color: #99f6e4 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDelete"],
+:global([data-theme="dark"]) .table td [class*="Delete"],
+:global([data-theme="dark"]) .table td button[class*="danger"],
+:global([data-theme="dark"]) .table td a[class*="danger"] {
+  background: rgba(225, 29, 72, 0.2) !important;
+  color: #fda4af !important;
+  border: 1.5px solid rgba(251, 113, 133, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDelete"] svg,
+:global([data-theme="dark"]) .table td [class*="Delete"] svg,
+:global([data-theme="dark"]) .table td button[class*="danger"] svg {
+  color: #fb7185 !important;
+  stroke: #fb7185 !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDelete"]:hover:not(:disabled),
+:global([data-theme="dark"]) .table td [class*="Delete"]:hover:not(:disabled),
+:global([data-theme="dark"]) .table td button[class*="danger"]:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  border-color: #fecdd3 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.5) !important;
+}
+
+:global([data-theme="dark"]) .table td [class*="actionBtnDelete"]:hover:not(:disabled) svg,
+:global([data-theme="dark"]) .table td [class*="Delete"]:hover:not(:disabled) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Tablet & Mobile Responsiveness for Table Buttons */
+@media (max-width: 768px) {
+  .table td button,
+  .table td a[class*="action"],
+  .table td a[class*="btn"],
+  .table td [class*="actionBtn"],
+  .table td [class*="actions"] button,
+  .table td [class*="actions"] a {
+    height: 28px !important;
+    padding: 4px 9px !important;
+    font-size: 0.74rem !important;
+    gap: 4px !important;
+    border-radius: 6px !important;
+  }
+  .table td button svg,
+  .table td a[class*="action"] svg,
+  .table td [class*="actionBtn"] svg,
+  .table td [class*="actions"] svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+}
+
 .table thead th {
   background: #f8fafc;
   font-size: 0.76rem;

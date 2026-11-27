@@ -223,6 +223,13 @@ export async function runAutoMigrations() {
       console.log('[MIGRATION] Added column notices.assigned_by');
     }
 
+    // 2c.1 Table notices -> Expand target_audience to include 'ceo' for escalations and executive routing
+    try {
+      await pool.query("ALTER TABLE notices MODIFY COLUMN target_audience ENUM('all','admin','manager','staff','tenant','department','ceo') DEFAULT 'all'");
+    } catch {
+      // ignore if already updated
+    }
+
     // 2d. Table notices -> Add creator_role for tracking who created the notice
     if (!(await columnExists('notices', 'creator_role'))) {
       await pool.query("ALTER TABLE notices ADD COLUMN creator_role ENUM('admin','manager','ceo','staff') NULL AFTER created_by");

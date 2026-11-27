@@ -1040,11 +1040,25 @@ input[class*="search" i],
   box-sizing: border-box !important;
 }
 
-/* Ensure flex-wrapper search inputs in Audit (where icon is an inline flex-child sibling) stay balanced */
+/* Flex-wrapper search inputs in Audit and other pages stay clean without nested borders or background boxes */
 [class*="searchInputWrapper"] input {
   padding-left: 8px !important;
   padding-right: 8px !important;
   min-height: 38px !important;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] [class*="searchInputWrapper"] input {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: #f8fafc !important;
 }
 
 /* Standardize search icon positioning and size across all pages */

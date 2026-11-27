@@ -1077,7 +1077,6 @@
 }
 
 
-
 /* ── High-Contrast Vibrant Dual-Theme Overrides for CeoReports ── */
 :global([data-theme="dark"]) .statCardPrimary {
   border-left: 5px solid #3b82f6 !important;
